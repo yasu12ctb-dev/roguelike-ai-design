@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0d0f12"/>
+  <rect x="40" y="40" width="432" height="432" rx="72" fill="none" stroke="#2c3440" stroke-width="8"/>
+  <!-- 地層（堆積） -->
+  <path d="M88 332 h336" stroke="#3d4756" stroke-width="10" stroke-linecap="round"/>
+  <path d="M104 376 h304" stroke="#333c49" stroke-width="10" stroke-linecap="round"/>
+  <path d="M120 420 h272" stroke="#2a313c" stroke-width="10" stroke-linecap="round"/>
+  <!-- 迷宮の口 -->
+  <path d="M152 332 v-96 a104 104 0 0 1 208 0 v96" fill="none" stroke="#cfd6dd" stroke-width="14" stroke-linecap="round"/>
+  <!-- 降りる者 -->
+  <circle cx="256" cy="236" r="22" fill="#e8e2d4"/>
+  <path d="M256 268 v44" stroke="#e8e2d4" stroke-width="12" stroke-linecap="round"/>
+</svg>

@@ -1,7 +1,5 @@
 // 世界の生成・化石化・干渉・年代記・永続化（prototype-spec.md §2 / §5）
 
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
 import type {
   Character, ChronicleEntry, DeathManner, FinalAct, Fossil, Lineage, World,
 } from "./types.ts";
@@ -130,15 +128,6 @@ export function recordRediscovery(world: World, fossilId: string): void {
 
 export function chronicle(world: World, kind: ChronicleEntry["kind"], text: string, refs: string[]): void {
   world.chronicle.push({ generation: world.generation, kind, text, refs });
-}
-
-// ---- 永続化 ----
-export function saveWorld(world: World, path: string): void {
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, JSON.stringify(world, null, 2), "utf-8");
-}
-export function loadWorld(path: string): World {
-  return JSON.parse(readFileSync(path, "utf-8")) as World;
 }
 
 // ---- 表示用ヘルパ ----

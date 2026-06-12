@@ -1,0 +1,15 @@
+{
+  "name": "sekitsui-proto",
+  "version": "0.1.0",
+  "description": "堆積する世界 v0 — 最小ループ プロトタイプ（実行時LLMゼロ・完全オフライン）",
+  "scripts": {
+    "demo": "node --experimental-strip-types src/demo.ts",
+    "cli": "node --experimental-strip-types src/cli.ts",
+    "build:web": "esbuild src/web/main.ts --bundle --format=esm --charset=utf8 --minify --outfile=web/app.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  },
+  "private": true,
+  "type": "module"
+}

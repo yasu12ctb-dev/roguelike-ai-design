@@ -6,6 +6,10 @@
 
 ```sh
 cd proto
+# Web版（PWA）をローカルで試す
+npm ci && npm run build:web
+npx serve web   # 等の静的サーバで web/ を開く
+
 # 対話型CLI（自分で遊ぶ。情緒検証の本番）
 node --experimental-strip-types src/cli.ts            # 前回のセーブから再開
 node --experimental-strip-types src/cli.ts --new      # 新しい世界で始める
@@ -29,6 +33,9 @@ content/   鋳造所コンテンツ（手書きの最小セット。将来はLLM
   fragments.json   断片（再発見フレーム/亡霊呼称/挙動/死の一手/奇癖/噂）
   setpieces.json   山場の予約セットピース（legend_return / grudge_hunt）
 src/
+  game.ts        ゲーム進行フロー（CLI/Web共通。IOを抽象化）
+  web/main.ts    Web（PWA）シェル：DOM IO＋localStorage永続化
+  content-node.ts / persist-node.ts   Node専用のロード/セーブ
   types.ts       永続層スキーマ（spec §2）
   rng.ts         決定論的乱数（mulberry32）
   content.ts     コンテンツのロードとタグ整合抽選
@@ -47,3 +54,9 @@ save/            セーブデータ（git管理外）
 - **干渉の意味**：鎮魂した化石は朽ちるだけ、放置した化石は異形化が進む（4-1C の時計リセット）
 - **死の一手→極**：「迷宮を呪う」と怨念極の化石になる（4-10B）
 - 永続化：セーブ→ロードの完全往復
+
+## デプロイ
+
+`main` にマージするたび、GitHub Actions（`.github/workflows/deploy.yml`）が PWA をビルドして GitHub Pages に自動デプロイする。
+初回のみリポジトリの **Settings → Pages → Source を「GitHub Actions」** に設定すること。
+iPhone では Safari で開いて「ホーム画面に追加」するとアプリとして遊べる（オフライン動作・セーブは端末内 localStorage）。
