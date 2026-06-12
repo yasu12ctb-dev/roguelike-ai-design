@@ -1,23 +1,19 @@
-// 鋳造所コンテンツのロードとタグ整合の抽選
+// 鋳造所コンテンツ：タグ整合の抽選（環境非依存・純ロジック）
+// ロードは環境ごとに行う：Node = content-node.ts / ブラウザ = JSON を bundler が同梱
 
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { Fragment, FragmentTags, SetPiece } from "./types.ts";
 import type { Rng } from "./rng.ts";
-
-const here = dirname(fileURLToPath(import.meta.url));
-const contentDir = join(here, "..", "content");
 
 export interface ContentDb {
   fragments: Fragment[];
   setpieces: SetPiece[];
 }
 
-export function loadContent(): ContentDb {
-  const frags = JSON.parse(readFileSync(join(contentDir, "fragments.json"), "utf-8"));
-  const sps = JSON.parse(readFileSync(join(contentDir, "setpieces.json"), "utf-8"));
-  return { fragments: frags.fragments, setpieces: sps.setpieces };
+export function makeContentDb(
+  fragmentsJson: { fragments: Fragment[] },
+  setpiecesJson: { setpieces: SetPiece[] },
+): ContentDb {
+  return { fragments: fragmentsJson.fragments, setpieces: setpiecesJson.setpieces };
 }
 
 /** タグが要求に矛盾しない断片だけを返す（断片側にタグが無ければワイルドカード扱い） */

@@ -1,12 +1,13 @@
 // 最小ループのデモ（prototype-spec.md §5 を seed 固定で一周×2世代）
 // 実行: node --experimental-strip-types src/demo.ts
 
-import { loadContent } from "./content.ts";
+import { loadContent } from "./content-node.ts";
 import { makeRng } from "./rng.ts";
 import {
-  createCharacter, fossilizeCurrent, intervene, loadWorld, newWorld,
-  poleLabel, recordRediscovery, saveWorld, chronicle,
+  createCharacter, fossilizeCurrent, intervene, newWorld,
+  poleLabel, recordRediscovery, chronicle,
 } from "./world.ts";
+import { saveWorld, loadWorld } from "./persist-node.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "./variation.ts";
 import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny } from "./render.ts";
 import { rollEncounter } from "./weights.ts";
