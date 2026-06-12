@@ -1,0 +1,16 @@
+{
+  "setpieces": [
+    {
+      "id": "sp_legend_return",
+      "type": "legend_return",
+      "prerequisites": { "tone": "myth", "minBond": 3 },
+      "frame": "光が、向こうから歩いてくる。\nそれは#origin_name#だ。お前が知っている顔のままで、しかしもう人ではないものとして。\n#origin_gear#は星のように静かに燃え、その足元では迷宮の闇さえ膝をつく。\nそれはお前の前で立ち止まり、かつて自分が果たせなかった道の先を、ただ一度だけ指し示した。\n――行け、と。"
+    },
+    {
+      "id": "sp_grudge_hunt",
+      "type": "grudge_hunt",
+      "prerequisites": { "tone": "grudge", "minBond": 3 },
+      "frame": "灯りが、ひとりでに消えた。\n暗闇の底から、聞き覚えのある声がお前の名を呼ぶ。一音ずつ、確かめるように。\n#origin_name#――いや、#origin_name#だったものが、#origin_gear#を引きずって近づいてくる。\n『#origin_catchphrase#』\n生前の口癖が、いまは刃のように響く。それは、お前を覚えている。お前が何をしなかったかを、覚えている。"
+    }
+  ]
+}
