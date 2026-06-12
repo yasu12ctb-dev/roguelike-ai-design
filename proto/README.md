@@ -6,8 +6,21 @@
 
 ```sh
 cd proto
-node --experimental-strip-types src/demo.ts   # Node 22+
+# 対話型CLI（自分で遊ぶ。情緒検証の本番）
+node --experimental-strip-types src/cli.ts            # 前回のセーブから再開
+node --experimental-strip-types src/cli.ts --new      # 新しい世界で始める
+node --experimental-strip-types src/cli.ts --new --seed 42   # seed指定
+
+# 台本デモ（決定論の検証用。seed固定で毎回同じ世界）
+node --experimental-strip-types src/demo.ts
 ```
+
+### CLI の遊び方
+- **街**：迷宮へ潜る／酒場で噂を聞く／年代記を読む／セーブして終える
+- **迷宮**：さらに潜る（被曝が蓄積・深いほど危険）／探索する（化石との遭遇判定）／地上へ戻る
+- **化石と遭遇したら**：鎮魂する（変質の時計を巻き戻す）／遺品を継ぐ／立ち去る
+- **死んだら**：最後の一手を選ぶ（→ 化石の極が決まる）→ 次の世代へ（先代の血縁/弟子/無関係を選択）
+- セーブは `save/world.json` に自動。終了してもあなたの世界は堆積し続ける
 
 ## 構成
 
