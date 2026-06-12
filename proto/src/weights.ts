@@ -22,9 +22,11 @@ export function encounterWeight(world: World, ch: Character, fossil: Fossil): nu
   return w;
 }
 
-/** 現在深度の周辺で、重みに比例して化石を1体抽選（いなければ null） */
-export function rollEncounter(world: World, ch: Character, rng: Rng): Fossil | null {
-  const candidates = world.fossils.filter((f) => depthProximity(ch.depth, f.laidDepth) > 0);
+/** 現在深度の周辺で、重みに比例して化石を1体抽選（いなければ null）。excludeIds は同一潜行内の再出現防止。 */
+export function rollEncounter(world: World, ch: Character, rng: Rng, excludeIds: Set<string> = new Set()): Fossil | null {
+  const candidates = world.fossils.filter(
+    (f) => !excludeIds.has(f.id) && depthProximity(ch.depth, f.laidDepth) > 0,
+  );
   if (candidates.length === 0) return null;
   const weights = candidates.map((f) => encounterWeight(world, ch, f));
   const total = weights.reduce((a, b) => a + b, 0);
