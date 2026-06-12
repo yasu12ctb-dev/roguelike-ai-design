@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0d10" />
+<title>画面モック — 堆積する世界（NetHack現代版・3方向）</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: #0b0d10; color: #cfd6dd; min-height: 100dvh;
+    font-family: "Hiragino Sans", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  }
+  header { padding: 14px 16px 6px; text-align: center; }
+  header h1 { font-size: 15px; letter-spacing: .18em; color: #9aa4b0; font-weight: 600; }
+  header p { font-size: 11px; color: #5b6470; margin-top: 4px; }
+
+  /* ---- タブ ---- */
+  nav { display: flex; gap: 6px; padding: 10px 12px; width: 100%; max-width: 560px; }
+  nav button {
+    flex: 1; font-family: inherit; font-size: 12.5px; line-height: 1.3;
+    color: #8b94a0; background: #14181e; border: 1px solid #232a33; border-radius: 10px;
+    padding: 9px 4px;
+  }
+  nav button.active { color: #e8e2d4; background: #1d242e; border-color: #3a4554; }
+
+  .caption { max-width: 560px; padding: 0 16px 10px; font-size: 12px; line-height: 1.7; color: #8b94a0; }
+  .caption b { color: #cfd6dd; }
+
+  /* ---- ゲーム画面フレーム ---- */
+  #frame {
+    width: min(96vw, 560px); border: 1px solid #232a33; border-radius: 14px;
+    overflow: hidden; background: #0d1014; box-shadow: 0 8px 40px rgba(0,0,0,.5);
+  }
+  /* ステータスバー */
+  #status {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px; font-size: 12.5px; color: #aab4c0;
+    border-bottom: 1px solid #1c222b; background: #10141a;
+  }
+  #status .hp { color: #e06c5a; letter-spacing: 2px; }
+  #status .exp { color: #9d8fd8; }
+
+  /* マップ */
+  #mapWrap { position: relative; }
+  #grid { display: grid; width: 100%; }
+  .cell { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .cell .g { display: none; }
+  .cell .sprite { display: none; width: 78%; height: 78%; }
+  #light { position: absolute; inset: 0; pointer-events: none; }
+
+  /* メッセージログ */
+  #log {
+    padding: 10px 14px; font-size: 13px; line-height: 1.75; min-height: 84px;
+    border-top: 1px solid #1c222b; background: #10141a;
+    font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; color: #d6cfc0;
+  }
+  #log .dim { color: #6b7480; font-size: 12px; }
+
+  /* D-pad モック */
+  #dpad {
+    position: absolute; right: 10px; bottom: 10px; width: 108px; height: 108px;
+    display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); gap: 2px; opacity: .82;
+  }
+  #dpad div {
+    background: rgba(40,48,60,.55); border: 1px solid rgba(120,135,155,.35);
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; color: #aab4c0; backdrop-filter: blur(2px);
+  }
+  #dpad div:nth-child(1), #dpad div:nth-child(3),
+  #dpad div:nth-child(7), #dpad div:nth-child(9) { visibility: hidden; }
+
+  /* 再発見オーバーレイ */
+  #overlay {
+    position: absolute; inset: 0; display: none; align-items: flex-end;
+    background: rgba(5,6,8,.62); backdrop-filter: blur(1.5px);
+  }
+  #overlay.show { display: flex; }
+  #sheet {
+    width: 100%; background: #14181f; border-top: 1px solid #2c3440;
+    padding: 16px 16px 14px; font-family: "Hiragino Mincho ProN", serif;
+  }
+  #sheet .scene { font-size: 14px; line-height: 1.9; color: #e8e2d4; }
+  #sheet .meta { font-size: 11px; color: #7d8794; margin: 8px 0 12px; font-family: system-ui, sans-serif; }
+  #sheet button {
+    display: block; width: 100%; text-align: left; font-family: inherit; font-size: 14px;
+    color: #d8dee6; background: #1c232d; border: 1px solid #2e3946; border-radius: 10px;
+    padding: 12px 14px; margin-top: 8px;
+  }
+  .toolbar { display: flex; gap: 8px; padding: 12px; max-width: 560px; width: 100%; }
+  .toolbar button {
+    flex: 1; font-family: inherit; font-size: 12px; color: #8b94a0;
+    background: #14181e; border: 1px solid #232a33; border-radius: 10px; padding: 10px;
+  }
+
+  /* ============================================================
+     方向A：発光グリフ（Brogue系統 — ASCIIの魂 × 現代の光）
+     ============================================================ */
+  .themeA .cell { background: #07090c; }
+  .themeA .cell .g {
+    display: block; font-family: "Menlo", "Consolas", monospace; font-weight: 700;
+    font-size: calc(var(--cs) * .62);
+  }
+  .themeA .cell[data-t="wall"]  { background: #11151c; }
+  .themeA .cell[data-t="wall"] .g { color: #39434f; }
+  .themeA .cell[data-t="floor"] .g { color: #2c333d; }
+  .themeA .cell[data-t="door"] .g { color: #b8863b; text-shadow: 0 0 8px rgba(184,134,59,.55); }
+  .themeA .cell[data-t="stairs"] .g { color: #6fb3c8; text-shadow: 0 0 9px rgba(111,179,200,.6); }
+  .themeA .cell[data-t="player"] .g { color: #ffd87a; text-shadow: 0 0 12px rgba(255,216,122,.9), 0 0 26px rgba(255,160,60,.45); }
+  .themeA .cell[data-t="rat"] .g { color: #d96459; text-shadow: 0 0 8px rgba(217,100,89,.6); }
+  .themeA .cell[data-t="fossil"] .g { color: #9fd8cf; text-shadow: 0 0 10px rgba(159,216,207,.75); animation: pulseA 2.6s ease-in-out infinite; }
+  @keyframes pulseA { 50% { text-shadow: 0 0 16px rgba(159,216,207,1), 0 0 30px rgba(159,216,207,.4); } }
+  .themeA #light { background: radial-gradient(circle at var(--px) var(--py), rgba(255,190,110,.16), rgba(255,190,110,.05) 30%, rgba(0,0,0,.55) 78%); }
+
+  /* ============================================================
+     方向B：フラットタイル（ミニマル&クリスプ — 盤面ゲームの明瞭さ）
+     ============================================================ */
+  .themeB .cell { background: #0e1116; }
+  .themeB .cell[data-t="wall"] { background: #2a323e; border-radius: 3px; box-shadow: inset 0 -2px 0 rgba(0,0,0,.35); }
+  .themeB .cell[data-t="floor"], .themeB .cell[data-t^="p"], .themeB .cell[data-t="rat"],
+  .themeB .cell[data-t="fossil"], .themeB .cell[data-t="stairs"], .themeB .cell[data-t="door"] { background: #14181f; }
+  .themeB .cell[data-t="floor"]::after { content:""; width: 9%; height: 9%; border-radius: 50%; background: #232a35; }
+  .themeB .cell .chip {
+    width: 74%; height: 74%; border-radius: 26%; display: flex; align-items: center; justify-content: center;
+    font-family: system-ui, sans-serif; font-weight: 800; font-size: calc(var(--cs) * .46);
+  }
+  .themeB .cell[data-t="player"] .chip { background: #f4e9c8; color: #1a1d23; box-shadow: 0 0 0 2px rgba(244,233,200,.25), 0 3px 10px rgba(0,0,0,.5); }
+  .themeB .cell[data-t="rat"] .chip { background: #b14a40; color: #ffe7e2; }
+  .themeB .cell[data-t="fossil"] .chip { background: #2a4843; color: #b9ece2; box-shadow: 0 0 0 2px rgba(150,220,205,.22); }
+  .themeB .cell[data-t="stairs"] .chip { background: #243447; color: #9fc8e8; }
+  .themeB .cell[data-t="door"] .chip { background: #5d4423; color: #ecd9a8; border-radius: 12%; }
+  .themeB #light { background: radial-gradient(circle at var(--px) var(--py), rgba(255,255,255,.05), rgba(0,0,0,.38) 80%); }
+
+  /* ============================================================
+     方向C：絵タイル（質感とトーチの灯 — ダークファンタジーの空気）
+     ============================================================ */
+  .themeC .cell { background: #0a0c10; }
+  .themeC .cell[data-t="wall"] {
+    background:
+      linear-gradient(rgba(255,255,255,.045), rgba(0,0,0,.28)),
+      repeating-linear-gradient(0deg, #2e3340 0 26%, #262b36 26% 30%),
+      repeating-linear-gradient(90deg, #2e3340 0 46%, #262b36 46% 52%);
+    box-shadow: inset 0 2px 2px rgba(255,255,255,.05), inset 0 -3px 4px rgba(0,0,0,.45);
+  }
+  .themeC .cell[data-t]:not([data-t="wall"]):not([data-t="void"]) {
+    background:
+      radial-gradient(circle at 30% 30%, rgba(255,255,255,.028), transparent 60%),
+      radial-gradient(circle at 72% 64%, rgba(0,0,0,.22), transparent 55%),
+      #1a1e26;
+    box-shadow: inset 0 0 1px rgba(255,255,255,.05);
+  }
+  .themeC .cell .sprite { display: block; filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
+  .themeC .cell[data-t="fossil"] .sprite { animation: pulseC 2.8s ease-in-out infinite; }
+  @keyframes pulseC { 50% { filter: drop-shadow(0 0 7px rgba(159,216,207,.8)); } }
+  .themeC #light {
+    background: radial-gradient(circle at var(--px) var(--py),
+      rgba(255,176,96,.22), rgba(255,150,70,.08) 26%, rgba(8,8,14,.6) 72%, rgba(4,5,9,.82) 100%);
+    mix-blend-mode: hard-light;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>画面モック — NetHack 現代版</h1>
+  <p>同じ場面（深度12・先代の化石を発見）を3つの視覚方向で。タブで切替</p>
+</header>
+
+<nav>
+  <button id="tabA" class="active">A 発光グリフ</button>
+  <button id="tabB">B フラットタイル</button>
+  <button id="tabC">C 絵タイル＋灯</button>
+</nav>
+
+<div class="caption" id="caption"></div>
+
+<div id="frame" class="themeA">
+  <div id="status">
+    <span>アリア（第2世代）</span>
+    <span class="hp">♥♥♥♥<span style="opacity:.25">♥</span></span>
+    <span>深度 12</span>
+    <span class="exp">被曝 ▮▮▯▯▯</span>
+  </div>
+  <div id="mapWrap">
+    <div id="grid"></div>
+    <div id="light"></div>
+    <div id="dpad"><div></div><div>▲</div><div></div><div>◀</div><div>●</div><div>▶</div><div></div><div>▼</div><div></div></div>
+    <div id="overlay">
+      <div id="sheet">
+        <div class="scene">亡骸は壁に向かって倒れていた。片刃の剣は最後まで手放されていない。爪痕が床に深く残る。<br>カイは、安らかには逝かなかった。</div>
+        <div class="meta">カイの化石 ── 極=怨念 / 変質=風化 / あなたの先代</div>
+        <button>鎮魂する（末路を閉じ、変質の時計を巻き戻す）</button>
+        <button>そっと立ち去る</button>
+      </div>
+    </div>
+  </div>
+  <div id="log">
+    <div>カイの亡骸に行き当たった。</div>
+    <div class="dim">大鼠が こちらの匂いを嗅いでいる。　[タップ/スワイプで移動]</div>
+  </div>
+</div>
+
+<div class="toolbar">
+  <button id="toggleOverlay">再発見シーンの重なりを見る</button>
+</div>
+
+<script>
+const ROWS = [
+  "                      ",
+  " ########  ########## ",
+  " #......#  #.......## ",
+  " #.r....####.......†# ",
+  " #......+..+....>..## ",
+  " #..@...####.......#  ",
+  " #......#  #.......#  ",
+  " ########  ########## ",
+  "                      ",
+];
+const W = ROWS[0].length, H = ROWS.length;
+let P = { x: 4, y: 5 };
+
+const TYPE = { "#":"wall", ".":"floor", "+":"door", ">":"stairs", "†":"fossil", "r":"rat", "@":"player", " ":"void" };
+const GLYPH = { wall:"▒", floor:"·", door:"+", stairs:"›", fossil:"†", rat:"r", player:"@", void:"" };
+const CHIP  = { player:"＠", rat:"r", fossil:"†", stairs:"›", door:"" };
+
+// 方向C用の素朴なSVGスプライト
+const SVGS = {
+  player: `<svg viewBox="0 0 24 24"><path d="M12 3c-3 0-5 2.2-5 5v2c-1.6 1-2.6 4.6-2.6 8.6h15.2C19.6 14.6 18.6 11 17 10V8c0-2.8-2-5-5-5z" fill="#e8dfc2"/><circle cx="12" cy="8" r="3.1" fill="#2b2f38"/><path d="M9 8.2a3 3 0 0 0 6 0" fill="none" stroke="#e8dfc2" stroke-width="1.1"/></svg>`,
+  rat: `<svg viewBox="0 0 24 24"><ellipse cx="11" cy="15" rx="7" ry="4.6" fill="#a8554a"/><circle cx="17" cy="12.4" r="3" fill="#a8554a"/><circle cx="16" cy="9.8" r="1.4" fill="#c97c6f"/><circle cx="18.2" cy="11.9" r=".55" fill="#1c1014"/><path d="M4.2 15c-2 .4-2.6 2.4-1.4 3.6" fill="none" stroke="#a8554a" stroke-width="1.2" stroke-linecap="round"/></svg>`,
+  fossil: `<svg viewBox="0 0 24 24"><path d="M11 4h2l-.3 9h-1.4z" fill="#9fd8cf"/><path d="M7.5 7.5h9v2h-9z" fill="#9fd8cf"/><path d="M8 20c0-2 1.6-3 4-3s4 1 4 3z" fill="#5f7a76"/><path d="M10.6 13h2.8l.4 4h-3.6z" fill="#74928d"/></svg>`,
+  stairs: `<svg viewBox="0 0 24 24"><path d="M4 19h5v-4h5v-4h5V7h-5v4h-5v4H4z" fill="#9fc8e8" opacity=".9"/></svg>`,
+  door: `<svg viewBox="0 0 24 24"><path d="M6 20V8a6 6 0 0 1 12 0v12z" fill="#7a5a2c"/><path d="M6 20V8a6 6 0 0 1 12 0v12z" fill="none" stroke="#3c2d14" stroke-width="1.4"/><circle cx="15" cy="13" r="1" fill="#e8d9a8"/></svg>`,
+};
+
+const grid = document.getElementById("grid");
+const frame = document.getElementById("frame");
+const light = document.getElementById("light");
+const cs = Math.min(window.innerWidth * 0.96, 560) / W;
+grid.style.gridTemplateColumns = `repeat(${W}, 1fr)`;
+grid.style.setProperty("--cs", cs + "px");
+document.documentElement.style.setProperty("--cs", cs + "px");
+
+function dist(x, y) { return Math.hypot(x - P.x, y - P.y); }
+
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  const t = TYPE[ROWS[y][x]] ?? "void";
+  const c = document.createElement("div");
+  c.className = "cell"; c.dataset.t = t;
+  c.style.height = cs + "px";
+  const b = t === "void" ? 0 : Math.max(0.22, 1 - dist(x, y) / 13.5);
+  c.style.filter = `brightness(${b.toFixed(2)})`;
+  c.innerHTML =
+    `<span class="g">${GLYPH[t] ?? ""}</span>` +
+    (CHIP[t] !== undefined && CHIP[t] !== "" ? `<span class="chip">${CHIP[t]}</span>` : "") +
+    (SVGS[t] ? `<span class="sprite">${SVGS[t]}</span>` : "");
+  grid.appendChild(c);
+}
+// chip は方向B専用表示
+const styleFix = document.createElement("style");
+styleFix.textContent = `.cell .chip{display:none} .themeB .cell .chip{display:flex} .themeB .cell .g{display:none}`;
+document.head.appendChild(styleFix);
+
+light.style.setProperty("--px", ((P.x + 0.5) / W * 100) + "%");
+light.style.setProperty("--py", ((P.y + 0.5) / H * 100) + "%");
+
+const captions = {
+  A: "<b>A 発光グリフ（Brogue系統）</b>──文字がそのまま世界。ASCIIの魂を最も濃く残しつつ、発光・色・松明の減光で現代化。実装が最も軽く、化石の淡い明滅など演出も文字のまま美しい。",
+  B: "<b>B フラットタイル</b>──記号を「駒」に置き換えたミニマル盤面。視認性が最高で小画面に強い。ローグライク感はやや薄まり、ボードゲーム的な手触りに寄る。",
+  C: "<b>C 絵タイル＋灯</b>──石壁の質感、簡素なスプライト、トーチの暖色光。3案で最も「現代のゲーム」に見える。素材は全て手元生成（外部アート不要）だが、敵・地形が増えるほど絵の制作コストが乗る。",
+};
+const cap = document.getElementById("caption");
+function setTheme(k) {
+  frame.className = "theme" + k;
+  cap.innerHTML = captions[k];
+  for (const t of ["A","B","C"]) document.getElementById("tab"+t).classList.toggle("active", t === k);
+}
+setTheme("A");
+tabA.onclick = () => setTheme("A");
+tabB.onclick = () => setTheme("B");
+tabC.onclick = () => setTheme("C");
+
+const ov = document.getElementById("overlay");
+document.getElementById("toggleOverlay").onclick = () => ov.classList.toggle("show");
+ov.onclick = (e) => { if (e.target === ov) ov.classList.remove("show"); };
+</script>
+</body>
+</html>
