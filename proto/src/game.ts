@@ -131,7 +131,7 @@ export async function runGame(
           const dmg = 1 + rng.int(2) + (ch.depth >= 25 ? 1 : 0);
           hp -= dmg;
           say(`  暗がりから牙が走った──${dmg}の傷。`);
-        } else if (!(rng.next() < 0.35 && await dungeonEvent(ch))) {
+        } else if (!(rng.next() < 0.5 && await dungeonEvent(ch))) {
           say("  道は深く、静かに続いている。");
         }
       }
@@ -141,7 +141,7 @@ export async function runGame(
         if (enc) {
           seenThisDive.add(enc.id);
           await encounterScene(ch, enc);
-        } else if (!(rng.next() < 0.55 && await dungeonEvent(ch))) {
+        } else if (!(rng.next() < 0.7 && await dungeonEvent(ch))) {
           say("  ……何も見つからない。風の音だけがする。");
         }
         if (rng.next() < 0.12) { hp -= 1; say("  足元が崩れ、したたかに打った──1の傷。"); }
