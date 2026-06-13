@@ -73,6 +73,12 @@
       animation: tele 0.55s ease-in-out infinite;
     }
     @keyframes tele { 50% { border-color: rgba(255,79,60,.4); box-shadow: 0 0 5px rgba(255,79,60,.3) inset; } }
+    /* 術のエフェクト：マップ全域をひと呼吸だけ色で点滅させる（4-11F③・エリア点滅） */
+    #fx { position: absolute; inset: 0; pointer-events: none; opacity: 0; z-index: 6; }
+    #fx.warp { animation: fxflash .42s ease-out; background: radial-gradient(circle at var(--fxx,50%) var(--fxy,50%), rgba(200,90,255,.55), rgba(150,40,220,.18) 45%, transparent 72%); }
+    #fx.still { animation: fxflash .55s ease-out; background: radial-gradient(circle at 50% 45%, rgba(120,210,255,.5), rgba(80,150,230,.16) 50%, transparent 75%); }
+    #fx.blink { animation: fxflash .4s ease-out; background: radial-gradient(circle at var(--fxx,50%) var(--fxy,50%), rgba(150,120,255,.5), rgba(90,70,200,.15) 45%, transparent 70%); }
+    @keyframes fxflash { 0% { opacity: 0; } 18% { opacity: 1; } 100% { opacity: 0; } }
     #light {
       position: absolute; inset: 0; pointer-events: none;
       background: radial-gradient(circle at var(--px, 50%) var(--py, 50%),
@@ -133,6 +139,7 @@
   <div id="mapWrap">
     <div id="grid"></div>
     <div id="light"></div>
+    <div id="fx"></div>
   </div>
 
   <div id="log"></div>
