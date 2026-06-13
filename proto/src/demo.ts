@@ -124,13 +124,23 @@ recordRediscovery(world, ren.id);
 
 // 遭-①：遭遇＝イベントノード（4-12）。〈調べる〉で状況を掘り下げ、結果が世界へ還流する
 say("\n[遭-①：〈調べる〉→ effects 還流（怨念極のストーリーレットが発火）]");
-const sl = selectStorylet(db, haru, ren, vRen, rng);
-if (sl) {
+const sl = selectStorylet(db, world, haru, ren, vRen, rng);
+if (sl?.investigate) {
   say(`  〈調べる〉 ${fillStoryletText(ren, sl.investigate.text)}`);
   for (const line of applyEffects(world, haru, ren, sl.investigate.effects)) say(`    ${line}`);
   const bond = haru.bonds.find((b) => b.entityRef === ren.id);
   say(`  → 絆=${bond?.value ?? 0} / 形質=[${haru.traits.join(", ")}] ／ 年代記に追記（選択が世界に残る）`);
 }
+
+// 遭-②：〈捜索〉が伏線を立て、後続のストーリーレットの前提になる（伏線→後続：4-12）
+say("\n[遭-②：〈捜索〉→ 伏線を残す → 後続イベントが解錠される]");
+if (sl?.search) {
+  say(`  〈捜索〉 ${fillStoryletText(ren, sl.search.text)}`);
+  for (const line of applyEffects(world, haru, ren, sl.search.effects)) say(`    ${line}`);
+}
+const before = selectStorylet(db, world, haru, ren, vRen, rng); // いま選ばれるのは後続か？
+say(`  → 伏線フラグ：${(world.flags ?? []).join(", ") || "なし"}`);
+say(`  → 再遭遇で立ち上がる状況＝[${before?.id ?? "なし"}]（手記を拾ったことで後続イベントへ移行）`);
 
 say("\n[鎮魂された化石：カイ（第2世代でアリアが時計を巻き戻した）]");
 const vKai = computeVariation(kaiF, world.generation);
