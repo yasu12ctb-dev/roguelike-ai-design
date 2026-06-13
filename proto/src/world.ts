@@ -9,19 +9,19 @@ import { BASE_STATS } from "./progression.ts";
 let idCounter = 0;
 const newId = (prefix: string) => `${prefix}_${(++idCounter).toString(36)}`;
 
-/** セーブ版数（4-11F②でステ導入。横断D）。 */
-export const SAVE_VERSION = 2;
+/** セーブ版数（v2=4-11F②ステ導入／v3=4-11F③ spells 追加。横断D）。 */
+export const SAVE_VERSION = 3;
 
-/** 旧セーブを現行スキーマへ補完（破壊しない）。版数ごとに段階適用。 */
+/** 旧セーブを現行スキーマへ補完（破壊しない）。
+ *  欠落フィールドは版数に関わらず常に補う（版数判定だけに頼ると、追加フィールドの
+ *  取りこぼしが起きる＝v2セーブに spells が無くフリーズした不具合の再発防止）。 */
 export function migrateWorld(w: World): World {
-  if (!w.version || w.version < 2) {
-    if (w.current) {
-      const ch = w.current as Partial<Character> & Character;
-      if (!ch.stats) ch.stats = { ...BASE_STATS };
-      if (typeof ch.level !== "number") ch.level = 1;
-      if (typeof ch.xp !== "number") ch.xp = 0;
-      if (!Array.isArray(ch.spells)) ch.spells = [];
-    }
+  if (w.current) {
+    const ch = w.current as Partial<Character> & Character;
+    if (!ch.stats) ch.stats = { ...BASE_STATS };
+    if (typeof ch.level !== "number") ch.level = 1;
+    if (typeof ch.xp !== "number") ch.xp = 0;
+    if (!Array.isArray(ch.spells)) ch.spells = [];
   }
   w.version = SAVE_VERSION;
   return w;
