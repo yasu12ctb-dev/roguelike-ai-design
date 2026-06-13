@@ -32,7 +32,7 @@
     #stHp { color: #e06c5a; }
     #stExp { color: #9d8fd8; }
     #status .spacer { flex: 1; }
-    #menuBtn {
+    #mapBtn, #menuBtn {
       font-size: 16px; color: #8b94a0; background: none;
       border: 1px solid #2a313b; border-radius: 8px; padding: 3px 12px;
     }
@@ -62,19 +62,6 @@
         rgba(255,190,110,.15), rgba(255,190,110,.05) 30%, rgba(0,0,0,.5) 78%);
     }
 
-    /* ---- D-pad（左配置） ---- */
-    #dpad {
-      position: absolute; left: 10px; bottom: 12px; width: 132px; height: 132px;
-      display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); gap: 3px; opacity: .85; z-index: 5;
-    }
-    #dpad button {
-      background: rgba(40,48,60,.55); border: 1px solid rgba(120,135,155,.35);
-      border-radius: 9px; display: flex; align-items: center; justify-content: center;
-      font-size: 16px; color: #aab4c0; backdrop-filter: blur(2px);
-    }
-    #dpad button:active { background: rgba(70,84,104,.7); }
-    #dpad .blank { visibility: hidden; }
-    #dpad #wait { font-size: 12px; }
 
     /* ---- ログ ---- */
     #log {
@@ -121,17 +108,13 @@
     <span id="stHp">HP --</span>
     <span id="stExp">被曝 ░░░░░</span>
     <span class="spacer"></span>
+    <button id="mapBtn" type="button">図</button>
     <button id="menuBtn" type="button">≡</button>
   </div>
 
   <div id="mapWrap">
     <div id="grid"></div>
     <div id="light"></div>
-    <div id="dpad">
-      <button class="blank"></button><button data-d="0,-1">▲</button><button class="blank"></button>
-      <button data-d="-1,0">◀</button><button id="wait" data-d="0,0">待</button><button data-d="1,0">▶</button>
-      <button class="blank"></button><button data-d="0,1">▼</button><button class="blank"></button>
-    </div>
   </div>
 
   <div id="log"></div>

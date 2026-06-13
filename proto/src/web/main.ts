@@ -85,6 +85,8 @@ let mode: "town" | "dive" = "town";
 let floor: Floor | null = null;
 let player: Pos = { x: 0, y: 0 };
 let busy = false; // シート表示中の入力ロック
+let mapMode = false; // 地図表示（踏破範囲の俯瞰）
+let cellSize = 0;
 
 // ---------- ステータスバー ----------
 function updateStatus() {
@@ -105,6 +107,7 @@ function buildGridDom() {
   const csW = Math.min(window.innerWidth, 560) / FLOOR_W;
   const csH = ($("mapWrap").clientHeight - 4) / FLOOR_H;
   const cs = Math.min(csW, csH);
+  cellSize = cs;
   (gridEl as HTMLElement).style.gridTemplateColumns = `repeat(${FLOOR_W}, ${cs}px)`;
   (gridEl as HTMLElement).style.justifyContent = "center";
   for (let i = 0; i < FLOOR_W * FLOOR_H; i++) {
@@ -120,6 +123,8 @@ function buildGridDom() {
 
 function draw() {
   if (!floor) return;
+  if (mapMode) { drawMapMode(); return; }
+  lightEl.style.display = "";
   const vis = computeFov(floor, player);
   for (let y = 0; y < FLOOR_H; y++) for (let x = 0; x < FLOOR_W; x++) {
     const i = cellIndex(x, y);
@@ -149,6 +154,37 @@ function draw() {
   lightEl.style.setProperty("--px", ((player.x + 0.5) / FLOOR_W * 100) + "%");
   lightEl.style.setProperty("--py", ((player.y + 0.5) / FLOOR_H * 100) + "%");
   updateStatus();
+}
+
+/** 地図モード：踏破済み範囲を明るく俯瞰（敵は出さない。階段・化石・自分のみ） */
+function drawMapMode() {
+  if (!floor) return;
+  lightEl.style.display = "none"; // 松明の減光を外す
+  for (let y = 0; y < FLOOR_H; y++) for (let x = 0; x < FLOOR_W; x++) {
+    const i = cellIndex(x, y);
+    const c = cells[i], span = c.firstChild as HTMLElement;
+    const t = tileAt(floor, x, y);
+    const explored = floor.explored[i];
+    c.classList.toggle("wall", t === 0 && explored);
+    if (!explored) { span.textContent = ""; c.style.filter = "brightness(0)"; continue; }
+    let glyph = t === 0 ? "▒" : "·";
+    let cls = t === 0 ? "g-wall" : "g-floor";
+    if (x === floor.stairsDown.x && y === floor.stairsDown.y) { glyph = "›"; cls = "g-down"; }
+    if (x === floor.stairsUp.x && y === floor.stairsUp.y) { glyph = "‹"; cls = "g-up"; }
+    const fe = floor.fossils.find((e) => e.x === x && e.y === y);
+    if (fe) { glyph = "†"; cls = fe.resolved ? "g-fossil-quiet" : "g-fossil"; }
+    if (x === player.x && y === player.y) { glyph = "@"; cls = "g-player"; }
+    span.textContent = glyph;
+    span.className = cls;
+    c.style.filter = "brightness(0.85)";
+  }
+  updateStatus();
+}
+
+function setMapMode(v: boolean) {
+  mapMode = v;
+  ($("mapBtn") as HTMLButtonElement).style.color = v ? "#e8e2d4" : "";
+  draw();
 }
 
 // ---------- キャラ作成（系譜 4-10D） ----------
@@ -390,18 +426,17 @@ $("menuBtn").onclick = async () => {
   busy = false;
 };
 
-// ---------- 入力（D-pad左・スワイプ・矢印キー） ----------
-for (const b of document.querySelectorAll<HTMLButtonElement>("#dpad button[data-d]")) {
-  b.onclick = () => {
-    const [dx, dy] = b.dataset.d!.split(",").map(Number);
-    void playerAct(dx, dy);
-  };
-}
+// ---------- 入力（スワイプ＝移動／タップ＝その方向へ一歩・自分タップ＝待機） ----------
+$("mapBtn").onclick = () => { if (mode === "dive" && !busy) setMapMode(!mapMode); };
 addEventListener("keydown", (e) => {
   const map: Record<string, [number, number]> = {
     ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], ".": [0, 0],
   };
-  if (map[e.key]) { e.preventDefault(); void playerAct(...map[e.key]); }
+  if (map[e.key]) {
+    e.preventDefault();
+    if (mapMode) { setMapMode(false); return; }
+    void playerAct(...map[e.key]);
+  }
 });
 let touchStart: { x: number; y: number } | null = null;
 $("mapWrap").addEventListener("touchstart", (e) => {
@@ -409,12 +444,25 @@ $("mapWrap").addEventListener("touchstart", (e) => {
 }, { passive: true });
 $("mapWrap").addEventListener("touchend", (e) => {
   if (!touchStart) return;
-  const dx = e.changedTouches[0].clientX - touchStart.x;
-  const dy = e.changedTouches[0].clientY - touchStart.y;
+  const tx = e.changedTouches[0].clientX, ty = e.changedTouches[0].clientY;
+  const dx = tx - touchStart.x, dy = ty - touchStart.y;
   touchStart = null;
-  if (Math.hypot(dx, dy) < 24) return; // タップは無視（誤爆防止）
-  if (Math.abs(dx) > Math.abs(dy)) void playerAct(Math.sign(dx), 0);
-  else void playerAct(0, Math.sign(dy));
+  if (mapMode) { setMapMode(false); return; } // 地図中はどの操作でも閉じる
+  if (Math.hypot(dx, dy) >= 24) { // スワイプ＝移動
+    if (Math.abs(dx) > Math.abs(dy)) void playerAct(Math.sign(dx), 0);
+    else void playerAct(0, Math.sign(dy));
+    return;
+  }
+  // タップ＝その方向へ一歩（自分のマスをタップ＝待機）
+  if (!floor || cellSize <= 0) return;
+  const r = gridEl.getBoundingClientRect();
+  const cx = Math.floor((tx - r.left) / cellSize);
+  const cy = Math.floor((ty - r.top) / cellSize);
+  if (cx < 0 || cy < 0 || cx >= FLOOR_W || cy >= FLOOR_H) return;
+  const ddx = cx - player.x, ddy = cy - player.y;
+  if (ddx === 0 && ddy === 0) { void playerAct(0, 0); return; } // 待機
+  if (Math.abs(ddx) >= Math.abs(ddy)) void playerAct(Math.sign(ddx), 0);
+  else void playerAct(0, Math.sign(ddy));
 }, { passive: true });
 
 addEventListener("resize", () => { if (mode === "dive") { buildGridDom(); draw(); } });

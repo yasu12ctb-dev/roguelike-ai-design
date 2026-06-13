@@ -1,5 +1,5 @@
 // Service Worker：アプリシェルをキャッシュして完全オフラインで遊べるようにする
-const CACHE = "sekitsui-v0-2";
+const CACHE = "sekitsui-v0-3";
 const ASSETS = ["./", "./index.html", "./app.js", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", (e) => {
