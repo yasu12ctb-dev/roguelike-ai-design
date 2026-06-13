@@ -56,8 +56,8 @@
     .g-player { color: #ffd87a; text-shadow: 0 0 12px rgba(255,216,122,.9), 0 0 26px rgba(255,160,60,.45); }
     .g-player-danger { color: #ff4f3c; text-shadow: 0 0 14px rgba(255,79,60,1), 0 0 30px rgba(255,50,30,.7); animation: danger .55s ease-in-out infinite; }
     @keyframes danger { 50% { color: #fff1e0; text-shadow: 0 0 18px rgba(255,120,90,1), 0 0 36px rgba(255,60,40,.85); } }
-    /* 移動予告：踏み込む敵の残像グリフ（薄い橙） */
-    .tele-ghost { color: rgba(236,150,96,.5); text-shadow: 0 0 5px rgba(236,150,96,.35); }
+    /* 移動予告：敵が踏み込む先のマスを背景でハイライト（琥珀。攻撃予告の赤へ自然に段階づく） */
+    .cell.tele-move { background: rgba(224,140,72,.34); box-shadow: 0 0 7px rgba(224,140,72,.3) inset; }
     .g-mon    { color: #d96459; text-shadow: 0 0 8px rgba(217,100,89,.6); }
     .g-mon-atk { color: #ff7a5c; text-shadow: 0 0 12px rgba(255,122,92,.95), 0 0 22px rgba(255,90,60,.5); animation: pulse 1s ease-in-out infinite; }
     .g-fossil { color: #9fd8cf; text-shadow: 0 0 10px rgba(159,216,207,.75); animation: pulse 2.6s ease-in-out infinite; }

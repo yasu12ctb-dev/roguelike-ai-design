@@ -140,14 +140,14 @@ function draw() {
   cam = { x: camX, y: camY };
   // テレグラフ（別表現）：移動予告＝行き先に敵の「残像グリフ」を薄く出す／攻撃予告＝自分のマスが
   // 討たれる→ @ が赤く明滅。抽象的な枠・点はやめ「敵がどこへ来るか」「自分が危ない」を直接見せる。
-  const ghostAt = new Map<number, string>(); // 行き先マス → 踏み込む敵のグリフ
+  const teleMove = new Set<number>();        // 敵が踏み込む先の床マス（背景ハイライト）
   let playerThreatened = false;              // 自分のマスが攻撃予告されている
   for (const m of floor.monsters) {
     if (m.hp <= 0 || !m.intent || !vis.has(mapIdx(floor, m.x, m.y))) continue;
     if (m.intent.type === "attack") {
       if (m.intent.x === player.x && m.intent.y === player.y) playerThreatened = true;
     } else if (m.intent.type === "move") {
-      ghostAt.set(mapIdx(floor, m.intent.x, m.intent.y), m.kind.glyph);
+      teleMove.add(mapIdx(floor, m.intent.x, m.intent.y));
     }
   }
   for (let vy = 0; vy < VIEW_H; vy++) for (let vx = 0; vx < VIEW_W; vx++) {
@@ -158,7 +158,7 @@ function draw() {
     const t = tileAt(floor, x, y);
     const visible = inside && vis.has(mi), explored = inside && floor.explored[mi];
     c.classList.toggle("wall", t === 0 && explored);
-    if (!explored) { span.textContent = ""; c.style.filter = "brightness(0)"; c.classList.remove("tele-atk"); continue; }
+    if (!explored) { span.textContent = ""; c.style.filter = "brightness(0)"; c.classList.remove("tele-atk", "tele-move"); continue; }
 
     let glyph = t === 0 ? "▒" : "·";
     let cls = t === 0 ? "g-wall" : "g-floor";
@@ -169,11 +169,11 @@ function draw() {
       if (fe) { glyph = "†"; cls = fe.resolved ? "g-fossil-quiet" : "g-fossil"; }
       const ce = floor.chests.find((c) => c.x === x && c.y === y);
       if (ce) { glyph = "▭"; cls = ce.opened ? "g-chest-open" : "g-chest"; }
-      // 移動予告：何も無い床マスにだけ、踏み込む敵の残像を薄く出す
-      if (cls === "g-floor" && ghostAt.has(mi)) { glyph = ghostAt.get(mi)!; cls = "tele-ghost"; }
       const m = floor.monsters.find((m) => m.hp > 0 && m.x === x && m.y === y);
       if (m) { glyph = m.kind.glyph; cls = m.intent?.type === "attack" ? "g-mon-atk" : "g-mon"; }
     }
+    // 移動予告：敵が踏み込む先の「何も無い床マス」を背景色でハイライト（グリフは出さない）
+    c.classList.toggle("tele-move", visible && cls === "g-floor" && teleMove.has(mi));
     const isPlayer = x === player.x && y === player.y;
     if (isPlayer) { glyph = "@"; cls = playerThreatened ? "g-player-danger" : "g-player"; }
     c.classList.toggle("tele-atk", isPlayer && playerThreatened); // 攻撃予告の赤枠は自分のマスだけ
