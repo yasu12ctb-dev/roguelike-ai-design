@@ -22,7 +22,7 @@ const world = newWorld(SEED);
 const hr = (title: string) => console.log(`\n========== ${title} ==========`);
 const say = (s: string) => console.log(s);
 
-/** 潜行：深度を進めつつ被曝を蓄積（§4.3）。閾値超えで奇癖（4-10C）。 */
+/** 潜行：深度を進めつつ深蝕を蓄積（§4.3）。閾値超えで奇癖（4-10C）。 */
 function dive(world: World, ch: Character, toDepth: number, turnsPerLevel = 3) {
   while (ch.depth < toDepth) {
     ch.depth += 1;
@@ -35,10 +35,10 @@ function dive(world: World, ch: Character, toDepth: number, turnsPerLevel = 3) {
       if (candidates.length === 0) break;
       const q = rng.pick(candidates);
       ch.traits.push(`奇癖:${q.text}`);
-      say(`  …被曝 ${ch.exposure.toFixed(2)}。奇癖を得た──「${q.text}」`);
+      say(`  …深蝕 ${ch.exposure.toFixed(2)}。奇癖を得た──「${q.text}」`);
     }
   }
-  say(`  ${ch.name} は深度${ch.depth}に達した（被曝 ${ch.exposure.toFixed(2)}）`);
+  say(`  ${ch.name} は深度${ch.depth}に達した（深蝕 ${ch.exposure.toFixed(2)}）`);
 }
 
 // ---------- 第1世代 ----------
@@ -65,7 +65,7 @@ say(`${kai.name} は深度${kai.depth}で力尽きた。最後に、何を為す
 say("  選択 → 2) 迷宮を呪う");
 const kaiFossil = fossilizeCurrent(world, "grievous", { choice: "curse_dungeon", note: "……必ず、戻る" });
 say(renderDeathLine(db, rng, kaiFossil.death.finalAct));
-say(`化石化: ${kaiFossil.origin.name} → ${poleLabel(kaiFossil.tonePole)}の極（被曝持ち越し ${kaiFossil.exposureAtDeath.toFixed(2)}）`);
+say(`化石化: ${kaiFossil.origin.name} → ${poleLabel(kaiFossil.tonePole)}の極（深蝕持ち越し ${kaiFossil.exposureAtDeath.toFixed(2)}）`);
 
 // ---------- 第2世代 ----------
 hr("第2世代：アリア（カイの弟子）");
@@ -144,4 +144,4 @@ const loaded = loadWorld(savePath);
 say(`saved fossils=${world.fossils.length} → loaded fossils=${loaded.fossils.length} / 年代記 ${loaded.chronicle.length}件 / 一致=${JSON.stringify(loaded) === JSON.stringify(world)}`);
 
 hr("一周完了");
-say("潜行→被曝→遭遇→死(最後の一手)→化石化→世代交代(系譜)→噂→再発見→干渉→年代記 ── すべて実行時LLMなしで成立。");
+say("潜行→深蝕→遭遇→死(最後の一手)→化石化→世代交代(系譜)→噂→再発見→干渉→年代記 ── すべて実行時LLMなしで成立。");

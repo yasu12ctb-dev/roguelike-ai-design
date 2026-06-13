@@ -1,4 +1,4 @@
-// 変質計算（prototype-spec.md §4.1）と被曝（§4.3）、トーン極の確定（§4.2）
+// 変質計算（prototype-spec.md §4.1）と深蝕（§4.3）、トーン極の確定（§4.2）
 // 係数はすべて調整前提の初期値。
 
 import type {
@@ -34,18 +34,18 @@ export function resolveTonePole(finalAct: FinalActChoice, manner: DeathManner, b
   return "loss";
 }
 
-/** 深度帯（被曝レート用） */
+/** 深度帯（深蝕レート用） */
 export function depthBand(depth: number): "shallow" | "mid" | "deep" {
   if (depth <= 8) return "shallow";
   if (depth <= 24) return "mid";
   return "deep";
 }
 
-/** 1ターンぶんの被曝増分（4-10C） */
+/** 1ターンぶんの深蝕増分（4-10C） */
 export function exposureGain(depth: number): number {
   const band = depthBand(depth);
   return band === "shallow" ? 0 : band === "mid" ? 0.02 : 0.06;
 }
 
-/** 奇癖が付く被曝閾値（超えるたびに1つ） */
+/** 奇癖が付く深蝕閾値（超えるたびに1つ） */
 export const QUIRK_THRESHOLDS = [0.5, 1.2, 2.5];
