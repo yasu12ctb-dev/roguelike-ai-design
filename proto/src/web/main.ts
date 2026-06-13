@@ -138,12 +138,17 @@ function draw() {
   const camX = clampCam(player.x - (VIEW_W >> 1), floor.w, VIEW_W);
   const camY = clampCam(player.y - (VIEW_H >> 1), floor.h, VIEW_H);
   cam = { x: camX, y: camY };
-  // テレグラフ：見えている敵の予告マスをマップ添字で集める（攻撃＝討たれるマス／移動＝踏み込むマス）
-  const teleAtk = new Set<number>(), teleMove = new Set<number>();
+  // テレグラフ（別表現）：移動予告＝行き先に敵の「残像グリフ」を薄く出す／攻撃予告＝自分のマスが
+  // 討たれる→ @ が赤く明滅。抽象的な枠・点はやめ「敵がどこへ来るか」「自分が危ない」を直接見せる。
+  const ghostAt = new Map<number, string>(); // 行き先マス → 踏み込む敵のグリフ
+  let playerThreatened = false;              // 自分のマスが攻撃予告されている
   for (const m of floor.monsters) {
     if (m.hp <= 0 || !m.intent || !vis.has(mapIdx(floor, m.x, m.y))) continue;
-    if (m.intent.type === "attack") teleAtk.add(mapIdx(floor, m.intent.x, m.intent.y));
-    else if (m.intent.type === "move") teleMove.add(mapIdx(floor, m.intent.x, m.intent.y));
+    if (m.intent.type === "attack") {
+      if (m.intent.x === player.x && m.intent.y === player.y) playerThreatened = true;
+    } else if (m.intent.type === "move") {
+      ghostAt.set(mapIdx(floor, m.intent.x, m.intent.y), m.kind.glyph);
+    }
   }
   for (let vy = 0; vy < VIEW_H; vy++) for (let vx = 0; vx < VIEW_W; vx++) {
     const c = cells[vy * VIEW_W + vx], span = c.firstChild as HTMLElement;
@@ -153,9 +158,7 @@ function draw() {
     const t = tileAt(floor, x, y);
     const visible = inside && vis.has(mi), explored = inside && floor.explored[mi];
     c.classList.toggle("wall", t === 0 && explored);
-    c.classList.toggle("tele-atk", visible && teleAtk.has(mi));
-    c.classList.toggle("tele-move", visible && !teleAtk.has(mi) && teleMove.has(mi));
-    if (!explored) { span.textContent = ""; c.style.filter = "brightness(0)"; continue; }
+    if (!explored) { span.textContent = ""; c.style.filter = "brightness(0)"; c.classList.remove("tele-atk"); continue; }
 
     let glyph = t === 0 ? "▒" : "·";
     let cls = t === 0 ? "g-wall" : "g-floor";
@@ -166,10 +169,14 @@ function draw() {
       if (fe) { glyph = "†"; cls = fe.resolved ? "g-fossil-quiet" : "g-fossil"; }
       const ce = floor.chests.find((c) => c.x === x && c.y === y);
       if (ce) { glyph = "▭"; cls = ce.opened ? "g-chest-open" : "g-chest"; }
+      // 移動予告：何も無い床マスにだけ、踏み込む敵の残像を薄く出す
+      if (cls === "g-floor" && ghostAt.has(mi)) { glyph = ghostAt.get(mi)!; cls = "tele-ghost"; }
       const m = floor.monsters.find((m) => m.hp > 0 && m.x === x && m.y === y);
       if (m) { glyph = m.kind.glyph; cls = m.intent?.type === "attack" ? "g-mon-atk" : "g-mon"; }
     }
-    if (x === player.x && y === player.y) { glyph = "@"; cls = "g-player"; }
+    const isPlayer = x === player.x && y === player.y;
+    if (isPlayer) { glyph = "@"; cls = playerThreatened ? "g-player-danger" : "g-player"; }
+    c.classList.toggle("tele-atk", isPlayer && playerThreatened); // 攻撃予告の赤枠は自分のマスだけ
     span.textContent = glyph;
     span.className = cls;
     const d = Math.hypot(x - player.x, y - player.y);
