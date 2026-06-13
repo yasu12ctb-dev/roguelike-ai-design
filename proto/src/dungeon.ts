@@ -38,6 +38,7 @@ export interface Monster extends Pos {
   id: string; kind: MonsterKind; hp: number; awake: boolean;
   intent: MonsterIntent | null;  // 次ターンに実行する予告（プレイヤーに見える）
   stunned?: number;              // >0 の間は行動不能（静止の眼：4-11F③）
+  boss?: "elite" | "area";       // 中ボス（奥の強敵）／エリアボス（節目の山場）：4-11F
 }
 export interface FossilEntity extends Pos {
   id: string; fossilId: string; resolved: boolean; // resolved=このフロアで対面済み
@@ -163,6 +164,21 @@ export function genFloor(world: World, depth: number): Floor {
     if (p) floor.monsters.push({ id: `m${depth}_${i}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: false, intent: null });
   }
 
+  // ---------- ボス配置（4-11F：エリアボス＝深度節目で下り階段を守る／中ボス＝奥の部屋の強敵） ----------
+  if (depth >= 8 && depth % 8 === 0) {
+    const kind = makeBossKind(world, depth, rng);
+    const bp = freeFloorNear(floor, stairsDown);
+    if (bp) floor.monsters.push({ id: `boss${depth}`, kind, hp: kind.hp, x: bp.x, y: bp.y, awake: true, intent: null, boss: "area" });
+  } else if (depth >= 5 && rng.next() < 0.3) {
+    const base = pool.reduce((a, b) => (b.tier > a.tier ? b : a));
+    const kind: MonsterKind = {
+      ...base, key: `elite${depth}`, name: `手負いの${base.name}`,
+      hp: Math.round(base.hp * 2.4) + depth, dmg: base.dmg + 1, tier: Math.min(5, base.tier + 1),
+    };
+    const p = randomFloorAway(floor, rng, stairsUp, 8);
+    if (p) floor.monsters.push({ id: `elite${depth}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: false, intent: null, boss: "elite" });
+  }
+
   // ---------- 宝箱配置（深いほど少し増える。入口から離して＝奥/行き止まりに置く） ----------
   const chestCount = 1 + Math.min(depth >> 3, 3) + (rng.next() < 0.5 ? 1 : 0);
   for (let i = 0; i < chestCount; i++) {
@@ -170,6 +186,28 @@ export function genFloor(world: World, depth: number): Floor {
     if (p) floor.chests.push({ id: `c${depth}_${i}`, x: p.x, y: p.y, opened: false });
   }
   return floor;
+}
+
+/** エリアボスの種別。可能なら過去の探索者化石の名を冠する（敵性化＝⑤鎮め筋への布石）。 */
+function makeBossKind(world: World, depth: number, rng: Rng): MonsterKind {
+  const pool = world.fossils.filter((f) => f.kind === "character" || f.kind === "explorer");
+  const name = pool.length ? `${rng.pick(pool).origin.name}の成れの果て` : "深淵の主";
+  return { key: `boss${depth}`, glyph: "Ω", name, hp: 20 + depth * 2, dmg: 4 + (depth >> 3), minDepth: depth, erratic: 0.05, tier: 5 };
+}
+
+/** p の近傍（外周をスパイラル）で空いた床タイルを探す。なければ null。 */
+function freeFloorNear(f: Floor, p: Pos): Pos | null {
+  for (let r = 1; r <= 5; r++) {
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+      const x = p.x + dx, y = p.y + dy;
+      if (tileAt(f, x, y) !== 1) continue;
+      if (f.monsters.some((m) => m.x === x && m.y === y)) continue;
+      if ((x === f.stairsUp.x && y === f.stairsUp.y) || (x === f.stairsDown.x && y === f.stairsDown.y)) continue;
+      return { x, y };
+    }
+  }
+  return null;
 }
 
 /** from から minDist 以上離れた床タイルを返す */

@@ -65,6 +65,9 @@
     .g-mon-t3 { color: #e58a45; text-shadow: 0 0 9px rgba(229,138,69,.65); }   /* 橙 */
     .g-mon-t4 { color: #e0564a; text-shadow: 0 0 10px rgba(224,86,74,.75); }   /* 赤 */
     .g-mon-t5 { color: #c071ff; text-shadow: 0 0 13px rgba(192,113,255,.9); animation: pulse 2s ease-in-out infinite; } /* 紫発光：最危険 */
+    /* ボス：中ボス＝金の輝き／エリアボス＝紫紅の脈動（別格） */
+    .g-elite { color: #ffcf4a; text-shadow: 0 0 10px #ffcf4a, 0 0 20px rgba(255,170,40,.6); animation: pulse 1.4s ease-in-out infinite; }
+    .g-boss  { color: #ff5cf0; text-shadow: 0 0 14px #ff5cf0, 0 0 30px rgba(255,60,200,.6); animation: pulse 1.05s ease-in-out infinite; }
     /* 攻撃を予告中：色はtierのまま、強く明滅して「来る」と知らせる */
     .g-mon-atk { animation: monatk .5s ease-in-out infinite; }
     @keyframes monatk { 0%,100% { text-shadow: 0 0 6px currentColor; } 50% { text-shadow: 0 0 16px currentColor, 0 0 26px currentColor; filter: brightness(1.5); } }
