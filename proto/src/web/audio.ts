@@ -1,12 +1,15 @@
-// プロシージャル・サウンド（Web Audio・素材ファイル不要）。SFX＋低い環境ドローン＋ミュート。
-// ブラウザ専用・オフライン買い切りと整合（実行時LLMゼロ）。AudioContext はユーザー操作で resume（iOS対応）。
+// プロシージャル・サウンド（Web Audio・素材ファイル不要）。SFX＋間欠的な環境音＋ミュート。
+// 持続ドローン（ブーンという不快音）は廃止。代わりに「たまに鳴る」水滴・遠い風・軋みで気配を出す。
+// ブラウザ専用・実行時LLMゼロと整合。AudioContext はユーザー操作で resume（iOS対応）。
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;     // ミュート反映
-let ambGain: GainNode | null = null;    // 環境音の音量
-const ambOsc: OscillatorNode[] = [];
 let muted = false;
 let started = false;
+
+let ambOn = false;
+let ambDepth = 1;
+let ambTimer: ReturnType<typeof setTimeout> | null = null;
 
 const MUTE_KEY = "sekitsui.muted";
 
@@ -16,9 +19,9 @@ export function loadMutePref(): void {
   try { muted = localStorage.getItem(MUTE_KEY) === "1"; } catch { /* ignore */ }
 }
 
-/** 最初のユーザー操作で呼ぶ：AudioContext を作って resume し、環境ドローンを用意する。 */
+/** 最初のユーザー操作で呼ぶ：AudioContext を作って resume する。 */
 export function ensureAudio(): void {
-  if (started) { if (ctx && ctx.state === "suspended") void ctx.resume(); return; }
+  if (started) { if (ctx && ctx.state === "suspended") void ctx.resume(); if (ambOn) scheduleAmbient(); return; }
   try {
     const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AC) return;
@@ -26,23 +29,9 @@ export function ensureAudio(): void {
     master = ctx.createGain();
     master.gain.value = muted ? 0 : 1;
     master.connect(ctx.destination);
-    // 環境ドローン：低い2基＋ローパス＋ゆっくりした息づかい（LFO）
-    ambGain = ctx.createGain();
-    ambGain.gain.value = 0; // dive で上げる
-    const lp = ctx.createBiquadFilter();
-    lp.type = "lowpass"; lp.frequency.value = 320;
-    ambGain.connect(lp); lp.connect(master);
-    for (const f of [55, 55.4]) {
-      const o = ctx.createOscillator();
-      o.type = "sine"; o.frequency.value = f;
-      o.connect(ambGain); o.start();
-      ambOsc.push(o);
-    }
-    const lfo = ctx.createOscillator(); lfo.frequency.value = 0.07;
-    const lfoG = ctx.createGain(); lfoG.gain.value = 0.012;
-    lfo.connect(lfoG); lfoG.connect(ambGain.gain); lfo.start();
     started = true;
     void ctx.resume();
+    if (ambOn) scheduleAmbient();
   } catch { /* 音が出せない環境は無音で続行 */ }
 }
 
@@ -52,12 +41,60 @@ export function setMuted(b: boolean): void {
   if (master && ctx) master.gain.setTargetAtTime(b ? 0 : 1, ctx.currentTime, 0.02);
 }
 
-/** 環境ドローンの ON/OFF と深度反映（深いほど低く）。 */
+/** 環境音の ON/OFF と深度（深いほど頻繁・低い）。潜行中ON・街/死でOFF。 */
 export function setAmbient(on: boolean, depth = 1): void {
-  if (!ctx || !ambGain) return;
-  const base = Math.max(34, 55 - depth * 0.6);
-  for (let i = 0; i < ambOsc.length; i++) ambOsc[i].frequency.setTargetAtTime(base + i * 0.45, ctx.currentTime, 0.5);
-  ambGain.gain.setTargetAtTime(on ? 0.05 : 0, ctx.currentTime, 0.6);
+  ambOn = on;
+  ambDepth = depth;
+  if (on) scheduleAmbient();
+  else if (ambTimer !== null) { clearTimeout(ambTimer); ambTimer = null; }
+}
+
+function scheduleAmbient(): void {
+  if (ambTimer !== null) { clearTimeout(ambTimer); ambTimer = null; }
+  if (!ambOn || !started) return;
+  // 深いほど間隔が縮む（浅:5〜11秒 → 深:2.5〜6秒）
+  const base = Math.max(2.5, 8 - ambDepth * 0.16);
+  const delay = base * (0.7 + Math.random() * 0.9) * 1000;
+  ambTimer = setTimeout(() => {
+    if (ambOn && !muted && ctx) playAmbientOne();
+    scheduleAmbient();
+  }, delay);
+}
+
+function playAmbientOne(): void {
+  const r = Math.random();
+  if (r < 0.5) ambDrip();
+  else if (r < 0.82) ambWind();
+  else ambCreak();
+}
+
+function ambDrip(): void { // 水滴（深いほど低く）
+  const f = Math.max(300, 780 - ambDepth * 11) + Math.random() * 120;
+  tone(f, 0.22, "sine", 0.06, f * 0.6);
+  setTimeout(() => tone(f * 0.98, 0.18, "sine", 0.03, f * 0.55), 130); // 微かな反響
+}
+
+function ambWind(): void { // 遠い風（ノイズの吹き上がり）
+  if (!ctx || !master) return;
+  const dur = 1.3 + Math.random() * 1.4;
+  const n = Math.floor(ctx.sampleRate * dur);
+  const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 280 + Math.random() * 220;
+  const g = ctx.createGain();
+  const t = ctx.currentTime;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.05, t + dur * 0.4);
+  g.gain.linearRampToValueAtTime(0.0001, t + dur);
+  src.connect(lp); lp.connect(g); g.connect(master);
+  src.start(); src.stop(t + dur + 0.05);
+}
+
+function ambCreak(): void { // 軋み（低い唸り）
+  const f = Math.max(48, 92 - ambDepth);
+  tone(f, 0.7, "sawtooth", 0.04, f * 1.5);
 }
 
 function env(g: GainNode, peak: number, dur: number): void {
@@ -92,17 +129,17 @@ function noise(dur: number, peak: number, filterFreq: number): void {
 
 export type Sfx = "move" | "hit" | "hurt" | "open" | "chest" | "stairs" | "death" | "intervene";
 
-/** 短い合成効果音。ミュート中・未初期化なら無音。 */
+/** 短い合成効果音。ミュート中・未初期化なら無音。音量は控えめドローン廃止に合わせて上げてある。 */
 export function sfx(kind: Sfx): void {
   if (!ctx || muted) return;
   switch (kind) {
-    case "move": tone(150, 0.045, "triangle", 0.03); break;
-    case "hit": noise(0.08, 0.10, 1300); tone(200, 0.09, "square", 0.05, 110); break;
-    case "hurt": tone(180, 0.18, "sawtooth", 0.10, 80); break;
-    case "open": tone(420, 0.12, "sine", 0.05); break;
-    case "chest": tone(523, 0.12, "sine", 0.06); setTimeout(() => tone(784, 0.16, "sine", 0.05), 90); break;
-    case "stairs": tone(300, 0.22, "sine", 0.06, 150); break;
-    case "death": tone(120, 0.8, "sine", 0.10, 55); break;
-    case "intervene": tone(660, 0.4, "sine", 0.06); break;
+    case "move": tone(150, 0.05, "triangle", 0.06); break;
+    case "hit": noise(0.08, 0.22, 1300); tone(200, 0.09, "square", 0.13, 110); break;
+    case "hurt": tone(180, 0.2, "sawtooth", 0.24, 80); break;
+    case "open": tone(420, 0.13, "sine", 0.14); break;
+    case "chest": tone(523, 0.13, "sine", 0.15); setTimeout(() => tone(784, 0.18, "sine", 0.12), 95); break;
+    case "stairs": tone(300, 0.24, "sine", 0.15, 150); break;
+    case "death": tone(120, 0.9, "sine", 0.24, 55); break;
+    case "intervene": tone(660, 0.45, "sine", 0.15); break;
   }
 }

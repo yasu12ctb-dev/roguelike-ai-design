@@ -108,16 +108,17 @@ function updateStatus() {
 
 // ---------- マップ描画（方向A） ----------
 let cells: HTMLElement[] = [];
-function buildGridDom() {
+// 既定はプレイ用ビュー(VIEW)。地図モードでは実マップ寸法(floor.w×floor.h)で組み直し、1セル=1タイルで忠実描画する。
+function buildGridDom(cols = VIEW_W, rows = VIEW_H) {
   gridEl.innerHTML = "";
   cells = [];
-  const csW = Math.min(window.innerWidth, 560) / VIEW_W;
-  const csH = ($("mapWrap").clientHeight - 4) / VIEW_H;
+  const csW = Math.min(window.innerWidth, 560) / cols;
+  const csH = ($("mapWrap").clientHeight - 4) / rows;
   const cs = Math.min(csW, csH);
   cellSize = cs;
-  (gridEl as HTMLElement).style.gridTemplateColumns = `repeat(${VIEW_W}, ${cs}px)`;
+  (gridEl as HTMLElement).style.gridTemplateColumns = `repeat(${cols}, ${cs}px)`;
   (gridEl as HTMLElement).style.justifyContent = "center";
-  for (let i = 0; i < VIEW_W * VIEW_H; i++) {
+  for (let i = 0; i < cols * rows; i++) {
     const c = document.createElement("div");
     c.className = "cell";
     c.style.height = cs + "px";
@@ -166,7 +167,7 @@ function draw() {
       const ce = floor.chests.find((c) => c.x === x && c.y === y);
       if (ce) { glyph = "▭"; cls = ce.opened ? "g-chest-open" : "g-chest"; }
       const m = floor.monsters.find((m) => m.hp > 0 && m.x === x && m.y === y);
-      if (m) { glyph = m.kind.glyph; cls = "g-mon"; }
+      if (m) { glyph = m.kind.glyph; cls = m.intent?.type === "attack" ? "g-mon-atk" : "g-mon"; }
     }
     if (x === player.x && y === player.y) { glyph = "@"; cls = "g-player"; }
     span.textContent = glyph;
@@ -181,42 +182,30 @@ function draw() {
   updateStatus();
 }
 
-/** 地図モード：マップ全体をビューに縮小して俯瞰（踏破範囲・階段・化石・自分） */
+/** 地図モード：実マップを 1セル=1タイルでそのまま忠実描画（プレイ画面と完全一致）。
+ *  グリッドは buildGridDom(floor.w, floor.h) で組み直し済み。小さいので主に背景色で読ませる。 */
 function drawMapMode() {
   if (!floor) return;
   lightEl.style.display = "none"; // 松明の減光を外す
-  const sx = floor.w / VIEW_W, sy = floor.h / VIEW_H; // マップ→ビューの縮小率（>1）
-  const pvx = Math.min(VIEW_W - 1, Math.floor(player.x / sx));
-  const pvy = Math.min(VIEW_H - 1, Math.floor(player.y / sy));
-  for (let vy = 0; vy < VIEW_H; vy++) for (let vx = 0; vx < VIEW_W; vx++) {
-    const c = cells[vy * VIEW_W + vx], span = c.firstChild as HTMLElement;
-    c.classList.remove("tele-atk", "tele-move");
-    // このビューセルが覆うマップ矩形を走査して、踏破済みの床/階段/化石を集約
-    const mx0 = Math.floor(vx * sx), mx1 = Math.max(mx0 + 1, Math.floor((vx + 1) * sx));
-    const my0 = Math.floor(vy * sy), my1 = Math.max(my0 + 1, Math.floor((vy + 1) * sy));
-    let anyExplored = false, floorSeen = false, stair: "up" | "down" | null = null, fossilCls: string | null = null, chestSeen = false;
-    for (let my = my0; my < my1 && my < floor.h; my++) for (let mx = mx0; mx < mx1 && mx < floor.w; mx++) {
-      if (!floor.explored[mapIdx(floor, mx, my)]) continue;
-      anyExplored = true;
-      if (tileAt(floor, mx, my) === 1) floorSeen = true;
-      if (mx === floor.stairsDown.x && my === floor.stairsDown.y) stair = "down";
-      else if (mx === floor.stairsUp.x && my === floor.stairsUp.y) stair = "up";
-      const fe = floor.fossils.find((e) => e.x === mx && e.y === my);
-      if (fe) fossilCls = fe.resolved ? "g-fossil-quiet" : "g-fossil";
-      if (floor.chests.some((cc) => cc.x === mx && cc.y === my && !cc.opened)) chestSeen = true;
-    }
-    c.classList.toggle("wall", anyExplored && !floorSeen);
-    if (!anyExplored) { span.textContent = ""; c.style.filter = "brightness(0)"; continue; }
-    let glyph = floorSeen ? "·" : "▒";
-    let cls = floorSeen ? "g-floor" : "g-wall";
-    if (chestSeen) { glyph = "▭"; cls = "g-chest"; }
-    if (fossilCls) { glyph = "†"; cls = fossilCls; }
-    if (stair === "down") { glyph = "›"; cls = "g-down"; }
-    else if (stair === "up") { glyph = "‹"; cls = "g-up"; }
-    if (vx === pvx && vy === pvy) { glyph = "@"; cls = "g-player"; }
+  const W = floor.w, H = floor.h;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x; // = mapIdx(floor, x, y)
+    const c = cells[i], span = c.firstChild as HTMLElement;
+    c.classList.remove("tele-atk", "tele-move", "wall");
+    c.style.filter = "brightness(1)";
+    if (!floor.explored[i]) { span.textContent = ""; c.style.background = "#05070a"; continue; }
+    const isFloor = floor.tiles[i] === 1;
+    let bg = isFloor ? "#2b3442" : "#141a23"; // 床=明るい / 壁=暗い
+    let glyph = "", cls = "";
+    if (x === floor.stairsDown.x && y === floor.stairsDown.y) { bg = "#173b44"; glyph = "›"; cls = "g-down"; }
+    else if (x === floor.stairsUp.x && y === floor.stairsUp.y) { bg = "#173b44"; glyph = "‹"; cls = "g-up"; }
+    const fe = floor.fossils.find((e) => e.x === x && e.y === y);
+    if (fe) { bg = "#1f433d"; glyph = "†"; cls = fe.resolved ? "g-fossil-quiet" : "g-fossil"; }
+    if (floor.chests.some((cc) => cc.x === x && cc.y === y && !cc.opened)) { bg = "#473916"; glyph = "▭"; cls = "g-chest"; }
+    if (x === player.x && y === player.y) { bg = "#5a4a1a"; glyph = "@"; cls = "g-player"; }
+    c.style.background = bg;
     span.textContent = glyph;
     span.className = cls;
-    c.style.filter = "brightness(0.85)";
   }
   updateStatus();
 }
@@ -224,7 +213,9 @@ function drawMapMode() {
 function setMapMode(v: boolean) {
   mapMode = v;
   ($("mapBtn") as HTMLButtonElement).style.color = v ? "#e8e2d4" : "";
-  draw();
+  // 地図↔プレイでグリッド寸法が変わるので組み直す（実マップ忠実 vs カメラ窓）
+  if (v && floor) { buildGridDom(floor.w, floor.h); drawMapMode(); }
+  else { buildGridDom(VIEW_W, VIEW_H); draw(); }
 }
 
 // ---------- キャラ作成（系譜 4-10D） ----------
@@ -595,7 +586,11 @@ $("mapWrap").addEventListener("touchend", (e) => {
   else void playerAct(0, Math.sign(ddy));
 }, { passive: true });
 
-addEventListener("resize", () => { if (mode === "dive") { buildGridDom(); draw(); } });
+addEventListener("resize", () => {
+  if (mode !== "dive") return;
+  if (mapMode && floor) { buildGridDom(floor.w, floor.h); drawMapMode(); }
+  else { buildGridDom(); draw(); }
+});
 
 // ---------- 起動 ----------
 async function boot() {
