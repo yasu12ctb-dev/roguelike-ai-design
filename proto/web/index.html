@@ -2,8 +2,8 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0d0f12" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0b0d10" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>堆積する世界 v0</title>
@@ -12,71 +12,139 @@
   <link rel="apple-touch-icon" href="icon.svg" />
   <style>
     :root { color-scheme: dark; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; overscroll-behavior: none; }
     body {
-      background: #0d0f12; color: #cfd6dd;
-      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+      background: #0b0d10; color: #cfd6dd;
+      font-family: "Hiragino Sans", system-ui, sans-serif;
       display: flex; flex-direction: column;
       padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      touch-action: manipulation;
     }
-    header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 14px; border-bottom: 1px solid #232830;
-      font-size: 14px; letter-spacing: 0.2em; color: #8b94a0;
-      flex: none;
+
+    /* ---- ステータスバー ---- */
+    #status {
+      flex: none; display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; font-size: 12.5px; color: #aab4c0;
+      border-bottom: 1px solid #1c222b; background: #10141a;
     }
-    header button {
-      font-size: 12px; color: #6b7480; background: none;
-      border: 1px solid #2a313b; border-radius: 6px; padding: 4px 10px;
+    #stName { color: #e8e2d4; }
+    #stHp { color: #e06c5a; }
+    #stExp { color: #9d8fd8; }
+    #status .spacer { flex: 1; }
+    #menuBtn {
+      font-size: 16px; color: #8b94a0; background: none;
+      border: 1px solid #2a313b; border-radius: 8px; padding: 3px 12px;
     }
+
+    /* ---- マップ（方向A：発光グリフ） ---- */
+    #mapWrap { position: relative; flex: 1; overflow: hidden; background: #07090c; }
+    #grid { display: grid; width: 100%; }
+    .cell {
+      position: relative; display: flex; align-items: center; justify-content: center;
+      background: #07090c; overflow: hidden;
+      font-family: "Menlo", "Consolas", monospace; font-weight: 700;
+    }
+    .cell.wall { background: #11151c; }
+    .cell span { display: block; }
+    /* グリフ色（発光） */
+    .g-wall   { color: #39434f; }
+    .g-floor  { color: #2c333d; }
+    .g-down, .g-up { color: #6fb3c8; text-shadow: 0 0 9px rgba(111,179,200,.6); }
+    .g-player { color: #ffd87a; text-shadow: 0 0 12px rgba(255,216,122,.9), 0 0 26px rgba(255,160,60,.45); }
+    .g-mon    { color: #d96459; text-shadow: 0 0 8px rgba(217,100,89,.6); }
+    .g-fossil { color: #9fd8cf; text-shadow: 0 0 10px rgba(159,216,207,.75); animation: pulse 2.6s ease-in-out infinite; }
+    .g-fossil-quiet { color: #6f9a93; }
+    @keyframes pulse { 50% { text-shadow: 0 0 16px rgba(159,216,207,1), 0 0 30px rgba(159,216,207,.4); } }
+    #light {
+      position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(circle at var(--px, 50%) var(--py, 50%),
+        rgba(255,190,110,.15), rgba(255,190,110,.05) 30%, rgba(0,0,0,.5) 78%);
+    }
+
+    /* ---- D-pad（左配置） ---- */
+    #dpad {
+      position: absolute; left: 10px; bottom: 12px; width: 132px; height: 132px;
+      display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); gap: 3px; opacity: .85; z-index: 5;
+    }
+    #dpad button {
+      background: rgba(40,48,60,.55); border: 1px solid rgba(120,135,155,.35);
+      border-radius: 9px; display: flex; align-items: center; justify-content: center;
+      font-size: 16px; color: #aab4c0; backdrop-filter: blur(2px);
+    }
+    #dpad button:active { background: rgba(70,84,104,.7); }
+    #dpad .blank { visibility: hidden; }
+    #dpad #wait { font-size: 12px; }
+
+    /* ---- ログ ---- */
     #log {
-      flex: 1; overflow-y: auto; padding: 14px 16px 8px;
-      font-size: 15px; line-height: 1.85; -webkit-overflow-scrolling: touch;
-      white-space: pre-wrap; word-break: break-word;
+      flex: none; padding: 8px 14px; font-size: 13px; line-height: 1.7; height: 92px; overflow-y: auto;
+      border-top: 1px solid #1c222b; background: #10141a;
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; color: #d6cfc0;
     }
-    #log .sys { color: #8b94a0; font-size: 13px; }
-    #log .scene { color: #e8e2d4; }
-    #log .echo { color: #6f87a8; }
-    #controls {
-      flex: none; padding: 10px 12px 14px; border-top: 1px solid #232830;
-      display: flex; flex-direction: column; gap: 8px; background: #11141a;
+    #log .dim { color: #6b7480; font-size: 12px; }
+    #log .warn { color: #d98c7a; }
+
+    /* ---- シート（場面・選択） ---- */
+    #overlay {
+      position: fixed; inset: 0; display: none; align-items: flex-end; z-index: 20;
+      background: rgba(5,6,8,.62); backdrop-filter: blur(1.5px);
     }
-    #prompt { font-size: 13px; color: #9aa4b0; padding: 0 4px; }
-    .choice {
-      display: block; width: 100%; text-align: left;
-      font-family: inherit; font-size: 15px; color: #d8dee6;
-      background: #1a1f27; border: 1px solid #2c3440; border-radius: 10px;
-      padding: 12px 14px; line-height: 1.5;
+    #overlay.show { display: flex; }
+    #sheet {
+      width: 100%; max-height: 86dvh; overflow-y: auto;
+      background: #14181f; border-top: 1px solid #2c3440;
+      padding: 16px 16px calc(14px + env(safe-area-inset-bottom));
+      font-family: "Hiragino Mincho ProN", serif;
     }
-    .choice:active { background: #242b36; }
-    #inputRow { display: flex; gap: 8px; }
-    #inputRow input {
+    #sheetText { font-size: 14.5px; line-height: 1.95; color: #e8e2d4; white-space: pre-wrap; }
+    #sheetMeta { font-size: 11px; color: #7d8794; margin-top: 8px; font-family: system-ui, sans-serif; }
+    #sheetInputRow { display: none; margin-top: 12px; gap: 8px; }
+    #sheetInputRow.show { display: flex; }
+    #sheetInput {
       flex: 1; font-family: inherit; font-size: 16px; color: #e6ebf0;
-      background: #1a1f27; border: 1px solid #2c3440; border-radius: 10px;
-      padding: 12px 14px;
+      background: #1a1f27; border: 1px solid #2c3440; border-radius: 10px; padding: 11px 13px;
     }
-    #inputRow button {
-      font-family: inherit; font-size: 15px; color: #d8dee6;
-      background: #243042; border: 1px solid #34425a; border-radius: 10px; padding: 0 20px;
+    #sheetButtons { margin-top: 12px; }
+    #sheetButtons button {
+      display: block; width: 100%; text-align: left; font-family: inherit; font-size: 14.5px;
+      color: #d8dee6; background: #1c232d; border: 1px solid #2e3946; border-radius: 10px;
+      padding: 12px 14px; margin-top: 8px; line-height: 1.5;
     }
-    .hidden { display: none !important; }
+    #sheetButtons button:active { background: #28303d; }
   </style>
 </head>
 <body>
-  <header>
-    <span>堆積する世界 v0</span>
-    <button id="newWorldBtn" type="button">新しい世界</button>
-  </header>
-  <div id="log"></div>
-  <div id="controls">
-    <div id="prompt"></div>
-    <div id="choices"></div>
-    <div id="inputRow" class="hidden">
-      <input id="textInput" type="text" autocomplete="off" />
-      <button id="textOk" type="button">決定</button>
+  <div id="status">
+    <span id="stName">—</span>
+    <span>深度 <b id="stDepth">0</b></span>
+    <span id="stHp">HP --</span>
+    <span id="stExp">被曝 ░░░░░</span>
+    <span class="spacer"></span>
+    <button id="menuBtn" type="button">≡</button>
+  </div>
+
+  <div id="mapWrap">
+    <div id="grid"></div>
+    <div id="light"></div>
+    <div id="dpad">
+      <button class="blank"></button><button data-d="0,-1">▲</button><button class="blank"></button>
+      <button data-d="-1,0">◀</button><button id="wait" data-d="0,0">待</button><button data-d="1,0">▶</button>
+      <button class="blank"></button><button data-d="0,1">▼</button><button class="blank"></button>
     </div>
   </div>
+
+  <div id="log"></div>
+
+  <div id="overlay">
+    <div id="sheet">
+      <div id="sheetText"></div>
+      <div id="sheetMeta"></div>
+      <div id="sheetInputRow"><input id="sheetInput" type="text" autocomplete="off" /></div>
+      <div id="sheetButtons"></div>
+    </div>
+  </div>
+
   <script type="module" src="app.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
