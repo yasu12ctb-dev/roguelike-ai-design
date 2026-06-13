@@ -36,6 +36,9 @@ export interface Monster extends Pos {
 export interface FossilEntity extends Pos {
   id: string; fossilId: string; resolved: boolean; // resolved=このフロアで対面済み
 }
+export interface Chest extends Pos {
+  id: string; opened: boolean;   // 宝箱（開けると中身を抽選：4-12 chest）
+}
 
 export interface Floor {
   depth: number;
@@ -44,6 +47,7 @@ export interface Floor {
   stairsUp: Pos; stairsDown: Pos;
   monsters: Monster[];
   fossils: FossilEntity[];
+  chests: Chest[];
   explored: boolean[];           // 既踏破（記憶表示用）
 }
 
@@ -100,7 +104,7 @@ export function genFloor(world: World, depth: number): Floor {
 
   const floor: Floor = {
     depth, w: W, h: H, tiles, stairsUp, stairsDown,
-    monsters: [], fossils: [],
+    monsters: [], fossils: [], chests: [],
     explored: new Array(W * H).fill(false),
   };
 
@@ -111,6 +115,13 @@ export function genFloor(world: World, depth: number): Floor {
     const kind = pool[rng.int(pool.length)];
     const p = randomFloorAway(floor, rng, stairsUp, 5);
     if (p) floor.monsters.push({ id: `m${depth}_${i}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: false, intent: null });
+  }
+
+  // ---------- 宝箱配置（深いほど少し増える。中身は開封時に抽選） ----------
+  const chestCount = 1 + Math.min(depth >> 3, 3) + (rng.next() < 0.5 ? 1 : 0);
+  for (let i = 0; i < chestCount; i++) {
+    const p = randomFloorAway(floor, rng, stairsUp, 3);
+    if (p) floor.chests.push({ id: `c${depth}_${i}`, x: p.x, y: p.y, opened: false });
   }
   return floor;
 }
@@ -123,6 +134,7 @@ export function randomFloorAway(f: Floor, rng: Rng, from: Pos, minDist: number):
     if (Math.hypot(x - from.x, y - from.y) < minDist) continue;
     if (f.monsters.some((m) => m.x === x && m.y === y)) continue;
     if (f.fossils.some((e) => e.x === x && e.y === y)) continue;
+    if (f.chests.some((c) => c.x === x && c.y === y)) continue;
     if ((x === f.stairsUp.x && y === f.stairsUp.y) || (x === f.stairsDown.x && y === f.stairsDown.y)) continue;
     return { x, y };
   }

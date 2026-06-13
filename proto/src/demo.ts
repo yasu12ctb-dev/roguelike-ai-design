@@ -10,7 +10,7 @@ import {
 import { saveWorld, loadWorld } from "./persist-node.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "./variation.ts";
 import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText } from "./render.ts";
-import { selectStorylet, applyEffects, candidateStorylets, selectDungeonStorylet, applyDungeonEffects } from "./storylets.ts";
+import { selectStorylet, applyEffects, candidateStorylets, selectDungeonStorylet, applyDungeonEffects, rollChestOutcome } from "./storylets.ts";
 import { rollEncounter } from "./weights.ts";
 import { filterByTags } from "./content.ts";
 import type { Character, World } from "./types.ts";
@@ -153,6 +153,14 @@ if (dg && dg.choices) {
   const dgc = dg.choices[0];
   say(`  → 選択「${dgc.label}」：${fillDungeonText(18, dgc.text ?? "")}`);
   for (const line of applyDungeonEffects(world, haru, 18, dgc.effects)) say(`    ${line}`);
+}
+
+// 宝箱（NetHack風：開封で 空/拾得/異物/罠 を抽選）
+say("\n[宝箱（マップ上の ▭ ・開封で中身を抽選）]");
+const chestOut = rollChestOutcome(db, 18, rng);
+if (chestOut?.result) {
+  say(`  開封 → [${chestOut.id}] ${fillDungeonText(18, chestOut.result.text)}`);
+  for (const line of applyDungeonEffects(world, haru, 18, chestOut.result.effects)) say(`    ${line}`);
 }
 
 say("\n[鎮魂された化石：カイ（第2世代でアリアが時計を巻き戻した）]");

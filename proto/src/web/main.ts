@@ -13,7 +13,7 @@ import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.t
 import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText } from "../render.ts";
 import { rollEncounter } from "../weights.ts";
 import { filterByTags } from "../content.ts";
-import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects } from "../storylets.ts";
+import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, rollChestOutcome } from "../storylets.ts";
 import storyletsJson from "../../content/storylets.json";
 import {
   genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx,
@@ -162,6 +162,8 @@ function draw() {
     if (visible) {
       const fe = floor.fossils.find((e) => e.x === x && e.y === y);
       if (fe) { glyph = "†"; cls = fe.resolved ? "g-fossil-quiet" : "g-fossil"; }
+      const ce = floor.chests.find((c) => c.x === x && c.y === y);
+      if (ce) { glyph = "▭"; cls = ce.opened ? "g-chest-open" : "g-chest"; }
       const m = floor.monsters.find((m) => m.hp > 0 && m.x === x && m.y === y);
       if (m) { glyph = m.kind.glyph; cls = "g-mon"; }
     }
@@ -191,7 +193,7 @@ function drawMapMode() {
     // このビューセルが覆うマップ矩形を走査して、踏破済みの床/階段/化石を集約
     const mx0 = Math.floor(vx * sx), mx1 = Math.max(mx0 + 1, Math.floor((vx + 1) * sx));
     const my0 = Math.floor(vy * sy), my1 = Math.max(my0 + 1, Math.floor((vy + 1) * sy));
-    let anyExplored = false, floorSeen = false, stair: "up" | "down" | null = null, fossilCls: string | null = null;
+    let anyExplored = false, floorSeen = false, stair: "up" | "down" | null = null, fossilCls: string | null = null, chestSeen = false;
     for (let my = my0; my < my1 && my < floor.h; my++) for (let mx = mx0; mx < mx1 && mx < floor.w; mx++) {
       if (!floor.explored[mapIdx(floor, mx, my)]) continue;
       anyExplored = true;
@@ -200,11 +202,13 @@ function drawMapMode() {
       else if (mx === floor.stairsUp.x && my === floor.stairsUp.y) stair = "up";
       const fe = floor.fossils.find((e) => e.x === mx && e.y === my);
       if (fe) fossilCls = fe.resolved ? "g-fossil-quiet" : "g-fossil";
+      if (floor.chests.some((cc) => cc.x === mx && cc.y === my && !cc.opened)) chestSeen = true;
     }
     c.classList.toggle("wall", anyExplored && !floorSeen);
     if (!anyExplored) { span.textContent = ""; c.style.filter = "brightness(0)"; continue; }
     let glyph = floorSeen ? "·" : "▒";
     let cls = floorSeen ? "g-floor" : "g-wall";
+    if (chestSeen) { glyph = "▭"; cls = "g-chest"; }
     if (fossilCls) { glyph = "†"; cls = fossilCls; }
     if (stair === "down") { glyph = "›"; cls = "g-down"; }
     else if (stair === "up") { glyph = "‹"; cls = "g-up"; }
@@ -356,6 +360,9 @@ function moveOrInteract(nx: number, ny: number): boolean {
   const fe = f.fossils.find((e) => e.x === nx && e.y === ny);
   if (fe && !fe.resolved) { void fossilScene(fe); return true; }
 
+  const ce = f.chests.find((c) => c.x === nx && c.y === ny);
+  if (ce && !ce.opened) { void chestScene(ce); return true; }
+
   player = { x: nx, y: ny };
 
   // 階段
@@ -465,6 +472,27 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
     break;
   }
   fe.resolved = true;
+  save();
+  busy = false;
+  draw();
+}
+
+// ---------- 宝箱（NetHack風：空/拾得/異物/罠） ----------
+async function chestScene(ce: { opened: boolean }) {
+  if (busy) return;
+  busy = true;
+  const depth = floor!.depth;
+  const r = await sheet({ text: "古びた宝箱がある。開けてみるか？", meta: `深度${depth} ── 宝箱`, options: ["開ける", "見送る"] });
+  if (r.pick === 1) {
+    const outcome = rollChestOutcome(db, depth, rng);
+    if (outcome?.result) {
+      log(fillDungeonText(depth, outcome.result.text));
+      for (const line of applyDungeonEffects(world, world.current!, depth, outcome.result.effects)) log(line, "dim");
+    } else {
+      log("箱は、ただ朽ちているだけだった。");
+    }
+    ce.opened = true;
+  }
   save();
   busy = false;
   draw();

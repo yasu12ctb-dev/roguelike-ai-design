@@ -378,6 +378,70 @@
         { "label": "一輪手折る", "text": "茎を折ると、甲高い悲鳴のような音が一瞬だけ響いた。", "effects": [ { "exposure": 0.14 }, { "trait": "拾得:石の花" }, { "chronicle": "深度#depth#で、悲鳴をあげる石の花を手折った。" } ] },
         { "label": "踏まぬよう抜ける", "text": "花を踏まないよう、爪先立ちで畑を渡った。", "effects": [ { "exposure": 0.05 }, { "chronicle": "深度#depth#の石の花畑を、そっと渡った。" } ] }
       ]
+    },
+
+    {
+      "id": "ch_empty",
+      "context": "chest",
+      "prerequisites": {},
+      "weight": 2,
+      "result": { "text": "蓋を開けると——空っぽだった。誰かが先に、根こそぎ持ち去ったらしい。", "effects": [ { "chronicle": "深度#depth#の宝箱は、空だった。" } ] }
+    },
+    {
+      "id": "ch_supplies",
+      "context": "chest",
+      "prerequisites": {},
+      "weight": 3,
+      "result": { "text": "古い携行品が詰まっている。乾物と、まだ使えそうな火口。", "effects": [ { "trait": "拾得:宝箱の携行品" }, { "chronicle": "深度#depth#の宝箱から携行品を得た。" } ] }
+    },
+    {
+      "id": "ch_coin",
+      "context": "chest",
+      "prerequisites": {},
+      "weight": 2,
+      "result": { "text": "色あせた古貨がひと握り。街でいくらかにはなるだろう。", "effects": [ { "trait": "拾得:古い貨幣" }, { "chronicle": "深度#depth#の宝箱に古貨を見つけた。" } ] }
+    },
+    {
+      "id": "ch_relic",
+      "context": "chest",
+      "prerequisites": {},
+      "weight": 2,
+      "result": { "text": "見慣れぬ装具が一つ。用途は分からないが、明らかに深部の品だ。触れた手が、少し痺れる。", "effects": [ { "trait": "拾得:未鑑定の異物" }, { "exposure": 0.08 }, { "chronicle": "深度#depth#の宝箱から、用途不明の異物を得た。" } ] }
+    },
+    {
+      "id": "ch_trap_gas",
+      "context": "chest",
+      "prerequisites": {},
+      "weight": 1,
+      "result": { "text": "蓋を開けた瞬間、淀んだ気が噴き上がった——罠だ。", "effects": [ { "exposure": 0.15 }, { "chronicle": "深度#depth#の宝箱は罠だった。深みを、まともに浴びた。" } ] }
+    },
+    {
+      "id": "ch_charm",
+      "context": "chest",
+      "prerequisites": {},
+      "weight": 1,
+      "result": { "text": "小さなお守りが一つ。心なしか、胸の澱が和らいでいく。", "effects": [ { "exposure": -0.08 }, { "trait": "拾得:深層のお守り" }, { "chronicle": "深度#depth#の宝箱で、心を和らげるお守りを得た。" } ] }
+    },
+    {
+      "id": "ch_shallow_kit",
+      "context": "chest",
+      "prerequisites": { "depthBand": "shallow" },
+      "weight": 3,
+      "result": { "text": "真新しい巻子と、丁寧に巻かれた包帯。誰かの忘れ物だろうか。", "effects": [ { "trait": "拾得:手当ての道具" }, { "chronicle": "深度#depth#の宝箱に、手当ての道具を見つけた。" } ] }
+    },
+    {
+      "id": "ch_deep_relic",
+      "context": "chest",
+      "prerequisites": { "depthBand": "deep" },
+      "weight": 3,
+      "result": { "text": "底冷えのする箱の中に、淡く脈打つ何かが収まっている。", "effects": [ { "trait": "拾得:脈打つ異物" }, { "exposure": 0.12 }, { "chronicle": "深度#depth#の宝箱から、脈打つ異物を得た。" } ] }
+    },
+    {
+      "id": "ch_deep_trap",
+      "context": "chest",
+      "prerequisites": { "depthBand": "deep" },
+      "weight": 2,
+      "result": { "text": "箱の内側に、見たことのない紋様。指が触れた途端、視界がぐらりと歪んだ。", "effects": [ { "exposure": 0.2 }, { "chronicle": "深度#depth#の宝箱の紋様が、深く食い込んだ。" } ] }
     }
   ]
 }
