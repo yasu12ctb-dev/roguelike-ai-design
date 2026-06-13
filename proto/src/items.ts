@@ -31,6 +31,22 @@ const TEMPLATES: Template[] = [
 let n = 0;
 const iid = () => `it_${(++n).toString(36)}`;
 
+function fromTemplate(t: Template): Item {
+  const item: Item = { id: iid(), slot: t.slot, name: t.name };
+  if (t.dmg) item.dmg = t.dmg;
+  if (t.reduce) item.reduce = t.reduce;
+  if (t.relic) item.relic = t.relic;
+  if (t.exposurePerTurn) item.exposurePerTurn = t.exposurePerTurn;
+  return item;
+}
+
+/** 名前から装備を復元（鑑定済み）。継承で先代の武器を奪還する際に使う（4-11E）。
+ *  既定装備名（テンプレに無い）なら null。 */
+export function itemByName(name: string): Item | null {
+  const t = TEMPLATES.find((t) => t.name === name);
+  return t ? fromTemplate(t) : null;
+}
+
 /** 深度に応じた装備を1つ抽選。ボスは上位寄り。一部は異物（未鑑定）。 */
 export function rollItem(depth: number, rng: Rng, opts: { boss?: boolean } = {}): Item {
   const avail = TEMPLATES.filter((t) => t.minDepth <= depth + (opts.boss ? 5 : 0));
@@ -42,11 +58,7 @@ export function rollItem(depth: number, rng: Rng, opts: { boss?: boolean } = {})
   } else {
     t = src[rng.int(src.length)];
   }
-  const item: Item = { id: iid(), slot: t.slot, name: t.name };
-  if (t.dmg) item.dmg = t.dmg;
-  if (t.reduce) item.reduce = t.reduce;
-  if (t.relic) item.relic = t.relic;
-  if (t.exposurePerTurn) item.exposurePerTurn = t.exposurePerTurn;
+  const item = fromTemplate(t);
   if (t.oddity || rng.next() < 0.18) item.unidentified = true; // 異物 or 一定確率で未鑑定
   return item;
 }
