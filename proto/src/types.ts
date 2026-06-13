@@ -133,6 +133,7 @@ export interface Prereq {
   minBond?: number;        // この化石との絆 value がこれ以上
   unfinished?: boolean;    // この化石との未完の因縁の有無
   minExposure?: number;    // プレイヤーの深蝕がこれ以上
+  hasCatchphrase?: boolean;// 化石が口癖を持つ/持たない（#origin_catchphrase# を使う本文の安全ガード）
   flag?: string;           // この化石に立った伏線フラグが有る（遭-②：伏線→後続）
   notFlag?: string;        // この化石に立った伏線フラグが無い（重複発火を防ぐ）
 }
@@ -153,9 +154,13 @@ export interface StoryletBranch {
   effects: Effect[];
 }
 
+/** イベントの発生場所＝コンテキスト（4-12(F)。混合せず、コンテキスト内で大量×重み）。 */
+export type StoryletContext = "encounter" | "dungeon" | "town" | "quest";
+
 /** 遭遇ノードで立ち上がる状況。動詞分岐（調べる/捜索）を提供する（4-12）。 */
 export interface Storylet {
   id: string;
+  context?: StoryletContext;     // 省略時 = "encounter"（化石/アクターとの出会い）
   prerequisites: Prereq;
   weight: number;
   investigate?: StoryletBranch;  // 〈調べる〉：状況・lore の掘り下げ

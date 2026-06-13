@@ -10,7 +10,7 @@ import {
 import { saveWorld, loadWorld } from "./persist-node.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "./variation.ts";
 import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText } from "./render.ts";
-import { selectStorylet, applyEffects } from "./storylets.ts";
+import { selectStorylet, applyEffects, candidateStorylets } from "./storylets.ts";
 import { rollEncounter } from "./weights.ts";
 import { filterByTags } from "./content.ts";
 import type { Character, World } from "./types.ts";
@@ -122,10 +122,12 @@ say(renderRediscovery(db, rng, ren, vRen));
 say("─".repeat(40));
 recordRediscovery(world, ren.id);
 
-// 遭-①：遭遇＝イベントノード（4-12）。〈調べる〉で状況を掘り下げ、結果が世界へ還流する
-say("\n[遭-①：〈調べる〉→ effects 還流（怨念極のストーリーレットが発火）]");
+// 遭-①：遭遇＝イベントノード（4-12）。コンテキスト内の多数候補から重みで状況が立ち上がる
+say("\n[遭-①：候補プールから状況が抽選され、〈調べる〉が effects を還流する]");
+say(`  怨念極の候補＝[${candidateStorylets(db, world, haru, ren, vRen).map((s) => s.id).join(", ")}]`);
 const sl = selectStorylet(db, world, haru, ren, vRen, rng);
 if (sl?.investigate) {
+  say(`  立ち上がった状況＝[${sl.id}]`);
   say(`  〈調べる〉 ${fillStoryletText(ren, sl.investigate.text)}`);
   for (const line of applyEffects(world, haru, ren, sl.investigate.effects)) say(`    ${line}`);
   const bond = haru.bonds.find((b) => b.entityRef === ren.id);
@@ -134,13 +136,14 @@ if (sl?.investigate) {
 
 // 遭-②：〈捜索〉が伏線を立て、後続のストーリーレットの前提になる（伏線→後続：4-12）
 say("\n[遭-②：〈捜索〉→ 伏線を残す → 後続イベントが解錠される]");
-if (sl?.search) {
-  say(`  〈捜索〉 ${fillStoryletText(ren, sl.search.text)}`);
-  for (const line of applyEffects(world, haru, ren, sl.search.effects)) say(`    ${line}`);
+const chain = db.storylets.find((s) => s.id === "sl_grudge_marks");
+if (chain?.search) {
+  say(`  〈捜索〉 ${fillStoryletText(ren, chain.search.text)}`);
+  for (const line of applyEffects(world, haru, ren, chain.search.effects)) say(`    ${line}`);
 }
-const before = selectStorylet(db, world, haru, ren, vRen, rng); // いま選ばれるのは後続か？
 say(`  → 伏線フラグ：${(world.flags ?? []).join(", ") || "なし"}`);
-say(`  → 再遭遇で立ち上がる状況＝[${before?.id ?? "なし"}]（手記を拾ったことで後続イベントへ移行）`);
+say(`  → 解錠後の候補＝[${candidateStorylets(db, world, haru, ren, vRen).map((s) => s.id).join(", ")}]`);
+say("    （sl_grudge_thread が加わり、sl_grudge_marks は外れる＝手記を拾ったことで後続へ移行）");
 
 say("\n[鎮魂された化石：カイ（第2世代でアリアが時計を巻き戻した）]");
 const vKai = computeVariation(kaiF, world.generation);

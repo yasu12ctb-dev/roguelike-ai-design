@@ -25,12 +25,63 @@
     {
       "id": "sl_grudge_thread",
       "prerequisites": { "tone": "grudge", "flag": "traced" },
-      "weight": 1,
+      "weight": 2,
       "investigate": {
         "text": "先に拾った#origin_name#の手記。『鍵は、さらに下』——その一行が、いま#origin_gear#の指す方角と重なって読める。レンの未練は、まだ底の方で待っている。",
         "effects": [
           { "bond": 1 },
           { "chronicle": "#origin_name# の手記が指す先を悟った。いずれ、決着をつけねばならない。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_grudge_whisper",
+      "prerequisites": { "tone": "grudge", "hasCatchphrase": true },
+      "weight": 1,
+      "investigate": {
+        "text": "淀んだ空気の底に、#origin_name# の口癖が途切れず響いている——『#origin_catchphrase#』。#origin_gear# の切先が、ゆっくりとこちらを向いた。",
+        "effects": [
+          { "bond": 1 },
+          { "exposure": 0.08 },
+          { "chronicle": "#origin_name# の繰り言を聞いた。名指しされている気がした。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_grudge_rust",
+      "prerequisites": { "tone": "grudge" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# の#origin_gear#は赤黒く錆び、その錆は乾いた血のように甘く匂う。触れた指先が、しばらく痺れて動かなかった。",
+        "effects": [
+          { "exposure": 0.1 },
+          { "trait": "触れたもの:#origin_name#の錆" },
+          { "chronicle": "#origin_name# の錆に触れ、その毒を少し浴びた。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_grudge_namecut",
+      "prerequisites": { "tone": "grudge", "stage": "alien" },
+      "weight": 1,
+      "investigate": {
+        "text": "もはや#origin_name#と呼べる形ではない。だが#origin_gear#だけは残り、宙に浮いて細かく震えている。お前の名を、もう知っているかのように。",
+        "effects": [
+          { "bond": 1 },
+          { "exposure": 0.12 },
+          { "chronicle": "#origin_name# の成れの果ては、こちらの名を覚えていた。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_grudge_relic_search",
+      "prerequisites": { "tone": "grudge" },
+      "weight": 1,
+      "search": {
+        "text": "#origin_gear#の柄の内に、固く丸めた布切れ。広げると、見知らぬ誰かの名が、呪いのように何度も書き殴られていた。",
+        "effects": [
+          { "trait": "遺品:#origin_name#の呪詛書き" },
+          { "chronicle": "#origin_name# が誰を恨んでいたのか、その断片を拾った。" }
         ]
       }
     },
@@ -44,6 +95,68 @@
           { "bond": 1 },
           { "trait": "聞いた偉業:#origin_name#" },
           { "chronicle": "#origin_name# の偉業の一端に、そっと触れた。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_myth_beacon",
+      "prerequisites": { "tone": "myth" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# の#origin_gear#は、暗がりでも淡く道を照らす。掲げると、進むべき方角がふっと胸に落ちてきた。",
+        "effects": [
+          { "bond": 1 },
+          { "trait": "道標:#origin_name#の光" },
+          { "chronicle": "#origin_name# の遺光が、進む先を示してくれた。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_myth_blessing",
+      "prerequisites": { "tone": "myth", "minBond": 2 },
+      "weight": 2,
+      "investigate": {
+        "text": "#origin_name# の気配が、まるでお前を選ぶように身を寄せてくる。#origin_gear# に手を触れると、深みに削られた何かが、静かに満たされていく。",
+        "effects": [
+          { "bond": 1 },
+          { "exposure": -0.15 },
+          { "chronicle": "#origin_name# の加護に触れ、人としての芯を少し取り戻した。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_myth_guardian",
+      "prerequisites": { "tone": "myth", "stage": "alien" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# はもう人ではない。光の意匠をまとった守護者として#origin_gear# を携え、お前に静かに頷いてみせた。",
+        "effects": [
+          { "bond": 1 },
+          { "chronicle": "守護者と化した#origin_name# が、お前を認めた。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_myth_offering_search",
+      "prerequisites": { "tone": "myth" },
+      "weight": 1,
+      "search": {
+        "text": "祭壇のような窪みに、#origin_name# が遺した小さな供物が一つ。手に取ると、ほのかに温かい。",
+        "effects": [
+          { "trait": "遺品:#origin_name#の供物" },
+          { "chronicle": "#origin_name# の遺した供物を、そっと受け取った。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_myth_words",
+      "prerequisites": { "tone": "myth", "hasCatchphrase": true },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# の声が、誇らしげに繰り返している——『#origin_catchphrase#』。#origin_gear# が、その言葉に応えるように光を強めた。",
+        "effects": [
+          { "bond": 1 },
+          { "chronicle": "#origin_name# の信条を聞いた。胸に残る言葉だった。" }
         ]
       }
     },
@@ -62,6 +175,63 @@
         "text": "亡骸のまわりを探ると、#origin_gear#のそばに小さな干からびた花束が供えられていた。誰かが、ここへ来ていた。",
         "effects": [
           { "chronicle": "#origin_name# の傍らに、先客の供花を見つけた。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_loss_bones",
+      "prerequisites": { "tone": "loss" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# の骨は白く乾き、#origin_gear# を抱くようにして崩れていた。安らかな、ただ静かなだけの終わり。",
+        "effects": [
+          { "chronicle": "#origin_name# の亡骸は、争った跡もなく静かだった。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_loss_fade",
+      "prerequisites": { "tone": "loss", "stage": "weathered" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# の#origin_gear# は色を失い、文字も模様もほとんど読めない。時間だけが、ここを通り過ぎていった。",
+        "effects": [
+          { "chronicle": "#origin_name# の痕跡は、ただ風化しつつあった。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_loss_echo",
+      "prerequisites": { "tone": "loss", "stage": "alien" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# だったものは、もう形を保っていない。#origin_gear# の輪郭だけが、薄い残響のように空に滲んでいる。",
+        "effects": [
+          { "exposure": 0.08 },
+          { "chronicle": "#origin_name# は、もはや喪失そのものになっていた。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_loss_journal_search",
+      "prerequisites": { "tone": "loss" },
+      "weight": 1,
+      "search": {
+        "text": "亡骸の下に、#origin_name# の小さな手帳。日付だけが几帳面に並び、最後の頁は白いまま残されていた。",
+        "effects": [
+          { "trait": "遺品:#origin_name#の手帳" },
+          { "chronicle": "#origin_name# の手帳を拾った。果たされなかった明日が、白く残っていた。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_loss_words",
+      "prerequisites": { "tone": "loss", "hasCatchphrase": true },
+      "weight": 1,
+      "investigate": {
+        "text": "風の音にまぎれて、#origin_name# の口癖が一度だけ聞こえた——『#origin_catchphrase#』。それきり、あたりは静かになった。",
+        "effects": [
+          { "chronicle": "#origin_name# の最後の言葉が、風に紛れて届いた。" }
         ]
       }
     }
