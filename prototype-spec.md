@@ -71,7 +71,7 @@ interface Character {
   archetype: string;            // 鋳造所のタグ語彙と一致
   lineage: Lineage;             // 系譜（4-10D）
   traits: string[];
-  exposure: number;             // 被曝量（4-10C） 0..∞、深層滞在で増加
+  exposure: number;             // 深蝕量（4-10C。旧称:被曝。コード識別子は exposure のまま） 0..∞、深層滞在で増加
   depth: number;                // 現在深度
   bonds: Bond[];                // 関与した相手への絆/因縁
   alive: boolean;
@@ -105,7 +105,7 @@ interface Fossil {
     depth: number;
     generationCreated: number;
   };
-  exposureAtDeath: number;      // 生前の被曝（初期変質強度に加算：4-10C）
+  exposureAtDeath: number;      // 生前の深蝕（初期変質強度に加算：4-10C）
   bondAtDeath: number;          // プレイヤーの関与度（濃さブースト）
   tonePole: TonePole;           // loss | myth | grudge（finalAct+manner から確定）
   interventions: Intervention[];// 鎮魂/継承/供養の履歴
@@ -150,7 +150,7 @@ interface TownState {
 }
 ```
 
-> **設計注：** スキーマは snapshot の各確定事項を直接反映している——被曝（4-10C）／死の一手（4-10B）／系譜（4-10D）／干渉でクロックリセット（4-1C）／痕跡保持の origin（4-2）／場所性 laidDepth（4-7D）。
+> **設計注：** スキーマは snapshot の各確定事項を直接反映している——深蝕（4-10C）／死の一手（4-10B）／系譜（4-10D）／干渉でクロックリセット（4-1C）／痕跡保持の origin（4-2）／場所性 laidDepth（4-7D）。
 
 ---
 
@@ -203,7 +203,7 @@ interface SetPiece {
 - `rediscovery_frame` … トーン3極 × ステージ3 = 9 種
 - `ghost_noun` / `behavior` / `recognition` … 各極あたり 3〜5
 - `death_line`（finalAct 4種に対応）… 4〜8
-- `exposure_quirk`（被曝の奇癖）… 5〜8
+- `exposure_quirk`（深蝕の奇癖）… 5〜8
 - `SetPiece` … `legend_return` と `grudge_hunt` の2型を各1（手作り）
 - 街の `rumor` … 6〜10
 
@@ -221,7 +221,7 @@ gens   = world.generation - fossil.lastTouchedGeneration   // 干渉でリセッ
 depthC = min(fossil.death.depth / 50, 1.0)                 // 深度係数 0..1
 // 朽ち（時間のみ・浅くても進む）
 decay     = clamp(gens * 0.15, 0, 1)
-// 歪み（深度×時間 ＋ 生前被曝の加算：4-10C）
+// 歪み（深度×時間 ＋ 生前深蝕の加算：4-10C）
 distort   = clamp(depthC * gens * 0.20 + fossil.exposureAtDeath * 0.05, 0, 1)
 // ステージ
 stage = distort < 0.34 ? "weathered" : distort < 0.67 ? "twisting" : "alien"
@@ -243,7 +243,7 @@ accept       → loss   （静かな喪失）
 manner=betrayed/grievous は grudge へ引っ張る補正、noble は myth へ補正
 ```
 
-### 4.3 被曝の蓄積（4-10C）
+### 4.3 深蝕の蓄積（4-10C）
 
 ```
 毎ターン or 階層移動時: character.exposure += depthBand係数
@@ -288,7 +288,7 @@ weight(entity) = base
 
 ## 5. 最小ループ仕様（v0 の一周）
 
-snapshot §5：**潜行 → 被曝 → 死（最後の一手）→ 化石化 → 世代交代（系譜選択）→ 再発見 → 干渉 → 年代記**。
+snapshot §5：**潜行 → 深蝕 → 死（最後の一手）→ 化石化 → 世代交代（系譜選択）→ 再発見 → 干渉 → 年代記**。
 
 各ステップの I/O と状態遷移：
 
@@ -306,7 +306,7 @@ snapshot §5：**潜行 → 被曝 → 死（最後の一手）→ 化石化 →
 **画面スケッチ（ASCII・イメージ）：**
 
 ```
-[潜行]                          深度 12  世代 3  被曝 ▓▓░░░
+[潜行]                          深度 12  世代 3  深蝕 ▓▓░░░
 ##########################
 #........@.......#........#     探索者 アリア(2代目)
 #...####.........k.......#     HP 18/22  気力 安定
@@ -340,7 +340,7 @@ snapshot §5：**潜行 → 被曝 → 死（最後の一手）→ 化石化 →
 
 **含む（最小ループに必須）：**
 - 永続層スキーマ／セーブ・ロード（JSON）
-- 変質計算（4.1）・トーン極（4.2）・被曝（4.3）・スロット充填と痕跡保証（4.4）
+- 変質計算（4.1）・トーン極（4.2）・深蝕（4.3）・スロット充填と痕跡保証（4.4）
 - 再会重み（4.5）の基本形
 - 死の一手（4-10B）／系譜選択（4-10D）／年代記（4-10A）／長命の証人NPC（4-10F・最小：年代記の語り部）
 - 鋳造所コンテンツ最小セット（§3）と SetPiece 2型
@@ -359,3 +359,11 @@ snapshot §5：**潜行 → 被曝 → 死（最後の一手）→ 化石化 →
 2. **エンジンのコア**：型定義 → 変質計算 → スロット充填(痕跡ASSERT) → 永続化
 3. **最小ループの結線**（§5 の 1〜8）を CLI で一周（PWA 化はその後）
 4. **情緒検証**：一周遊んで「刺さるか」。刺されば設計の核は正しい
+
+---
+
+## 8. 戦闘設計の参照（snapshot 4-11）
+
+戦闘は snapshot **4-11「読める盤面 × 深蝕との取引」** に従い段階実装する：
+①テレグラフ＋決定論戦闘 → ②ステ4種（体/力/理/心）＋レベル選択成長（職業廃止） → ③深蝕魔法・スキル → ④装備（武器/防具/遺物・異物＝未鑑定）→ ⑤鎮め筋。
+死亡時の装備は化石 origin.gearTags に刻む（装備＝痕跡素材）。各段階の詳細仕様は実装PRで確定する。
