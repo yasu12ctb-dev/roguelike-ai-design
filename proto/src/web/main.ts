@@ -7,9 +7,13 @@ import { makeContentDb } from "../content.ts";
 import { makeRng, type Rng } from "../rng.ts";
 import {
   newWorld, createCharacter, fossilizeCurrent, intervene, recordRediscovery,
-  chronicle, poleLabel, finalActLabel,
+  chronicle, poleLabel, finalActLabel, migrateWorld,
 } from "../world.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
+import {
+  maxHp, meleeDmg, heartFactor, xpToNext, xpForKill, statsLine,
+  STAT_KEYS, STAT_LABEL, HP_PER,
+} from "../progression.ts";
 import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText } from "../render.ts";
 import { rollEncounter } from "../weights.ts";
 import { filterByTags } from "../content.ts";
@@ -23,8 +27,7 @@ import {
 import type { Character, FinalActChoice, Fossil, Fragment, SetPiece, Storylet, World } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
-const MAX_HP = 12;
-const PLAYER_DMG = 3; // 通常攻撃は確定ダメージ（miss無し・乱数なし：4-11A）
+// HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
 const db = makeContentDb(
   fragmentsJson as { fragments: Fragment[] },
@@ -72,7 +75,7 @@ function loadOrCreateWorld(): World {
   const raw = localStorage.getItem(SAVE_KEY);
   if (raw) {
     try {
-      const w = JSON.parse(raw) as World;
+      const w = migrateWorld(JSON.parse(raw) as World);
       log(`（前回の世界を読み込んだ：第${w.generation}世代 / 化石${w.fossils.length}件）`, "dim");
       return w;
     } catch { /* 壊れたセーブは作り直す */ }
@@ -85,7 +88,7 @@ const save = () => localStorage.setItem(SAVE_KEY, JSON.stringify(world));
 // ---------- 状態 ----------
 let world = loadOrCreateWorld();
 let rng: Rng = makeRng((world.seed ^ (world.chronicle.length * 2654435761) ^ (Date.now() & 0xffff)) >>> 0);
-let hp = MAX_HP;
+let hp = world.current ? maxHp(world.current) : 12;
 let mode: "town" | "dive" = "town";
 let floor: Floor | null = null;
 let player: Pos = { x: 0, y: 0 };
@@ -100,7 +103,7 @@ function updateStatus() {
   const ch = world.current;
   $("stName").textContent = ch ? `${ch.name}（第${world.generation}世代）` : "—";
   $("stDepth").textContent = String(mode === "dive" && floor ? floor.depth : 0);
-  $("stHp").textContent = `HP ${hp}/${MAX_HP}`;
+  $("stHp").textContent = ch ? `Lv${ch.level}  HP ${hp}/${maxHp(ch)}` : `HP ${hp}`;
   const e = ch?.exposure ?? 0;
   const n = Math.min(5, Math.floor(e / 0.6));
   $("stExp").textContent = `深蝕 ${"▮".repeat(n)}${"░".repeat(5 - n)}`;
@@ -244,9 +247,9 @@ async function characterCreation() {
     if (r.pick <= ancestors.length) lineage = { relation: "blood", ancestorFossilId: ancestors[r.pick - 1].id };
     else if (r.pick <= ancestors.length * 2) lineage = { relation: "pupil", ancestorFossilId: ancestors[r.pick - ancestors.length - 1].id };
   }
-  const arch = await sheet({ text: "流儀は？", options: ["剣士", "斥候", "学徒"] });
-  const ch = createCharacter(world, name, ["swordman", "scout", "sage"][arch.pick - 1], lineage);
-  hp = MAX_HP;
+  const ch = createCharacter(world, name, "wanderer", lineage);
+  hp = maxHp(ch);
+  log(`${ch.name}は、まっさらな素質で迷宮へ向かう（${statsLine(ch)}）。`, "dim");
   if (ch.bonds.some((b) => b.unfinished)) log("……先代の未完の因縁が、お前に引き継がれた。", "warn");
   save();
 }
@@ -302,6 +305,7 @@ let seenThisDive: string[] = [];
 async function startDive() {
   mode = "dive";
   seenThisDive = [];
+  if (world.current) hp = maxHp(world.current); // 街で癒えた状態から潜る
   enterFloor(1, true);
   log("迷宮に降りた。冷えた空気が頬を撫でる。");
 }
@@ -318,8 +322,8 @@ async function playerAct(dx: number, dy: number) {
   // 化石・階段の場面が開いた場合は、このターンの進行（深蝕・敵の手番）を保留する
   if (busy) { draw(); return; }
 
-  // 深蝕（4-10C）
-  ch.exposure += exposureGain(floor.depth);
+  // 深蝕（4-10C）。心が高いほど染み込みが遅い（progression.heartFactor）。
+  ch.exposure += exposureGain(floor.depth) * heartFactor(ch);
   const quirkCount = QUIRK_THRESHOLDS.filter((th) => ch.exposure >= th).length;
   while (ch.traits.filter((t) => t.startsWith("奇癖:")).length < quirkCount) {
     const pool = filterByTags(db, "exposure_quirk", {});
@@ -343,7 +347,36 @@ async function playerAct(dx: number, dy: number) {
   planMonsters(floor, player, rng);
 
   draw();
+  await handleLevelUps();
   if (hp <= 0) await deathFlow();
+}
+
+/** 撃破で貯まったXPがレベル閾値を超えていれば、超えたぶんだけ昇級＝ステ選択（4-11F②）。 */
+async function handleLevelUps() {
+  const ch = world.current;
+  if (!ch) return;
+  while (ch.xp >= xpToNext(ch.level)) {
+    ch.xp -= xpToNext(ch.level);
+    ch.level += 1;
+    busy = true;
+    const r = await sheet({
+      text: `レベル${ch.level}に達した。何を伸ばす？`,
+      meta: `${statsLine(ch)} ── 最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)}`,
+      options: [
+        `体 ＋1（最大HPが上がる）`,
+        `力 ＋1（攻撃が上がる）`,
+        `理 ＋1（深蝕魔法の素養：のちの力）`,
+        `心 ＋1（深蝕に染まりにくくなる）`,
+      ],
+    });
+    const key = STAT_KEYS[r.pick - 1];
+    ch.stats[key] += 1;
+    if (key === "body") hp = Math.min(hp + HP_PER, maxHp(ch)); // 体UPぶんを回復
+    log(`レベル${ch.level} ── ${STAT_LABEL[key]}が伸びた（${statsLine(ch)}）。`, "warn");
+    busy = false;
+  }
+  save();
+  updateStatus();
 }
 
 /** 移動 or 体当たり。falseなら手番を消費しない（壁） */
@@ -352,10 +385,17 @@ function moveOrInteract(nx: number, ny: number): boolean {
   if (tileAt(f, nx, ny) !== 1) return false;
 
   const mon = f.monsters.find((m) => m.hp > 0 && m.x === nx && m.y === ny);
-  if (mon) { // 攻撃（確定命中・確定ダメージ）
-    mon.hp -= PLAYER_DMG;
+  if (mon) { // 攻撃（確定命中・確定ダメージ＝力依存）
+    const ch = world.current!;
+    const dmg = meleeDmg(ch);
+    mon.hp -= dmg;
     sfx("hit");
-    log(mon.hp <= 0 ? `${mon.kind.name}を倒した。` : `${mon.kind.name}に${PLAYER_DMG}の一撃。`);
+    if (mon.hp <= 0) {
+      ch.xp += xpForKill(mon.kind.hp); // 撃破でXP（レベルアップ判定は手番末で）
+      log(`${mon.kind.name}を倒した。`);
+    } else {
+      log(`${mon.kind.name}に${dmg}の一撃。`);
+    }
     return true;
   }
 
@@ -384,7 +424,7 @@ async function stairsPrompt(dir: "down" | "up") {
   } else if (f.depth === 1) {
     const r = await sheet({ text: "地上への階段だ。街へ戻るか？\n（傷は癒えるが、浴びた深みは消えない）", options: ["街へ戻る", "とどまる"] });
     if (r.pick === 1) {
-      hp = MAX_HP; world.current!.depth = 0; save();
+      hp = maxHp(world.current!); world.current!.depth = 0; save();
       log("地上の光がまぶしい。生きて、帰った。");
       busy = false;
       await townLoop(); await startDive(); return;
@@ -532,8 +572,7 @@ async function deathFlow() {
   });
 
   busy = false;
-  hp = MAX_HP;
-  await characterCreation();
+  await characterCreation(); // 新キャラ作成時に hp は最大HPへ
   await townLoop();
   await startDive();
 }
@@ -542,11 +581,15 @@ async function deathFlow() {
 $("menuBtn").onclick = async () => {
   if (busy) return;
   busy = true;
+  const ch = world.current;
+  const sheetHead = ch
+    ? `《${ch.name}》Lv${ch.level} ── ${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のレベルまで残り${Math.max(0, xpToNext(ch.level) - ch.xp)}\n深蝕 ${ch.exposure.toFixed(2)}${ch.traits.length ? `\n形質: ${ch.traits.join("、")}` : ""}\n\n`
+    : "";
   const mark = { birth: "生", death: "死", rediscovery: "再", intervention: "干", legend: "伝", rumor: "噂" } as const;
-  const tail = world.chronicle.slice(-14).map((e) => `世代${e.generation} [${mark[e.kind]}] ${e.text}`).join("\n");
+  const tail = world.chronicle.slice(-10).map((e) => `世代${e.generation} [${mark[e.kind]}] ${e.text}`).join("\n");
   const r = await sheet({
-    text: tail || "まだ何も記されていない。",
-    meta: `年代記 ── 全${world.chronicle.length}件`,
+    text: sheetHead + (tail || "まだ何も記されていない。"),
+    meta: `人物と年代記 ── 全${world.chronicle.length}件`,
     options: [isMuted() ? "♪ 音を出す" : "🔇 音を消す", "閉じる"],
   });
   busy = false;

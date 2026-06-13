@@ -8,7 +8,7 @@ import { stdin, stdout } from "node:process";
 import { loadContent } from "./content-node.ts";
 import { saveWorld, loadWorld } from "./persist-node.ts";
 import { makeRng, type Rng } from "./rng.ts";
-import { newWorld } from "./world.ts";
+import { newWorld, migrateWorld } from "./world.ts";
 import { runGame, type GameIO } from "./game.ts";
 import type { World } from "./types.ts";
 
@@ -22,7 +22,7 @@ const say = (s = "") => console.log(s);
 
 let world: World;
 if (!forceNew && existsSync(SAVE_PATH)) {
-  world = loadWorld(SAVE_PATH);
+  world = migrateWorld(loadWorld(SAVE_PATH));
   say(`（前回の世界を読み込んだ：第${world.generation}世代 / 化石${world.fossils.length}件）`);
 } else {
   world = newWorld(seedArg ?? Date.now() % 2147483647);

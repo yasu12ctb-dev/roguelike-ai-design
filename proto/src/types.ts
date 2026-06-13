@@ -7,6 +7,7 @@ export type VariationStage = "weathered" | "twisting" | "alien";
 
 export interface World {
   seed: number;
+  version?: number;             // セーブ版数（マイグレーション用。未設定=v1）
   generation: number;
   current: Character | null;
   fossils: Fossil[];
@@ -15,6 +16,9 @@ export interface World {
   town: TownState;
   flags?: string[];             // 伏線フラグ（遭遇の選択が立てる。化石ごとにスコープ：4-12 遭-②）
 }
+
+/** ステ4種（4-11F②）。体=最大HP / 力=近接ダメージ / 理=深蝕魔法の素養(③) / 心=深蝕耐性 */
+export interface Stats { body: number; power: number; reason: number; heart: number; }
 
 export interface Character {
   id: string;
@@ -26,6 +30,9 @@ export interface Character {
   depth: number;
   bonds: Bond[];
   alive: boolean;
+  stats: Stats;
+  level: number;
+  xp: number;                   // 次のレベルまでの蓄積（敵撃破で増える）
 }
 
 export interface Lineage {
