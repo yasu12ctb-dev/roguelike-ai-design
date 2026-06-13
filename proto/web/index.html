@@ -34,10 +34,11 @@
     #stHp { color: #e06c5a; }
     #stExp { color: #9d8fd8; }
     #status .spacer { flex: 1; }
-    #mapBtn, #menuBtn {
+    #spellBtn, #mapBtn, #menuBtn {
       font-size: 16px; color: #8b94a0; background: none;
       border: 1px solid #2a313b; border-radius: 8px; padding: 3px 12px;
     }
+    #spellBtn { color: #b79be0; border-color: #3a2f50; }
 
     /* ---- マップ（方向A：発光グリフ） ---- */
     #mapWrap { position: relative; flex: 1; overflow: hidden; background: #07090c; touch-action: none; }
@@ -124,6 +125,7 @@
     <span id="stHp">HP --</span>
     <span id="stExp">深蝕 ░░░░░</span>
     <span class="spacer"></span>
+    <button id="spellBtn" type="button">術</button>
     <button id="mapBtn" type="button">図</button>
     <button id="menuBtn" type="button">≡</button>
   </div>

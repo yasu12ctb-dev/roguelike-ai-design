@@ -20,6 +20,7 @@ export function migrateWorld(w: World): World {
       if (!ch.stats) ch.stats = { ...BASE_STATS };
       if (typeof ch.level !== "number") ch.level = 1;
       if (typeof ch.xp !== "number") ch.xp = 0;
+      if (!Array.isArray(ch.spells)) ch.spells = [];
     }
   }
   w.version = SAVE_VERSION;
@@ -70,7 +71,7 @@ export function createCharacter(world: World, name: string, archetype: string, l
   const ch: Character = {
     id: newId("ch"), name, archetype, lineage,
     traits: [], exposure: 0, depth: 0, bonds: [], alive: true,
-    stats: { ...BASE_STATS }, level: 1, xp: 0,
+    stats: { ...BASE_STATS }, level: 1, xp: 0, spells: [],
   };
   // 系譜（4-10D）：先代から因縁と薄い形質を継ぐ
   if (lineage.relation !== "none" && lineage.ancestorFossilId) {
