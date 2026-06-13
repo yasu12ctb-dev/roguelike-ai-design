@@ -14,13 +14,18 @@ export interface Pos { x: number; y: number; }
 export interface MonsterKind {
   key: string; glyph: string; name: string;
   hp: number; dmg: number; minDepth: number; erratic: number; // erratic=ランダム移動率
+  tier: number; // 強さの段（1=雑魚 … 5=最危険）。記号=種類／色=tier で可視化（4-11F）。
 }
+// 記号＝種類（小文字=並／大文字=強）、色＝tier。深いほど上位種が混じり緊張感が増す。
 export const MONSTER_KINDS: MonsterKind[] = [
-  { key: "rat",   glyph: "r", name: "大鼠",     hp: 3, dmg: 1, minDepth: 1,  erratic: 0.3 },
-  { key: "bat",   glyph: "b", name: "洞蝙蝠",   hp: 2, dmg: 1, minDepth: 2,  erratic: 0.6 },
-  { key: "snake", glyph: "s", name: "石蛇",     hp: 4, dmg: 2, minDepth: 5,  erratic: 0.2 },
-  { key: "ghoul", glyph: "g", name: "屍喰らい", hp: 6, dmg: 2, minDepth: 10, erratic: 0.1 },
-  { key: "wisp",  glyph: "w", name: "迷い火",   hp: 3, dmg: 3, minDepth: 16, erratic: 0.4 },
+  { key: "rat",    glyph: "r", name: "大鼠",     hp: 3,  dmg: 1, minDepth: 1,  erratic: 0.3,  tier: 1 },
+  { key: "beetle", glyph: "k", name: "鎧蟲",     hp: 8,  dmg: 1, minDepth: 1,  erratic: 0.1,  tier: 2 }, // 硬い・低火力（一撃で倒せない壁）
+  { key: "bat",    glyph: "b", name: "洞蝙蝠",   hp: 2,  dmg: 1, minDepth: 2,  erratic: 0.6,  tier: 1 },
+  { key: "snake",  glyph: "s", name: "石蛇",     hp: 5,  dmg: 2, minDepth: 5,  erratic: 0.2,  tier: 2 },
+  { key: "ghoul",  glyph: "g", name: "屍喰らい", hp: 7,  dmg: 2, minDepth: 9,  erratic: 0.1,  tier: 3 },
+  { key: "wisp",   glyph: "w", name: "迷い火",   hp: 4,  dmg: 3, minDepth: 13, erratic: 0.4,  tier: 3 },
+  { key: "wraith", glyph: "W", name: "怨霊",     hp: 10, dmg: 3, minDepth: 16, erratic: 0.15, tier: 4 },
+  { key: "ogre",   glyph: "O", name: "石鬼",     hp: 14, dmg: 4, minDepth: 22, erratic: 0.05, tier: 5 },
 ];
 
 /** 敵の次手のテレグラフ（4-11A 読める盤面）。move=ここへ動く / attack=このマスを討つ */
