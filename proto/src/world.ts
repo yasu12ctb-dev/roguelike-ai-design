@@ -9,8 +9,8 @@ import { BASE_STATS } from "./progression.ts";
 let idCounter = 0;
 const newId = (prefix: string) => `${prefix}_${(++idCounter).toString(36)}`;
 
-/** セーブ版数（v2=4-11F②ステ導入／v3=4-11F③ spells 追加。横断D）。 */
-export const SAVE_VERSION = 3;
+/** セーブ版数（v2=②ステ／v3=③ spells／v4=④ equipment。横断D）。 */
+export const SAVE_VERSION = 4;
 
 /** 旧セーブを現行スキーマへ補完（破壊しない）。
  *  欠落フィールドは版数に関わらず常に補う（版数判定だけに頼ると、追加フィールドの
@@ -22,6 +22,7 @@ export function migrateWorld(w: World): World {
     if (typeof ch.level !== "number") ch.level = 1;
     if (typeof ch.xp !== "number") ch.xp = 0;
     if (!Array.isArray(ch.spells)) ch.spells = [];
+    if (!ch.equipment) ch.equipment = { weapon: null, armor: null, relic: null };
   }
   w.version = SAVE_VERSION;
   return w;
@@ -72,6 +73,7 @@ export function createCharacter(world: World, name: string, archetype: string, l
     id: newId("ch"), name, archetype, lineage,
     traits: [], exposure: 0, depth: 0, bonds: [], alive: true,
     stats: { ...BASE_STATS }, level: 1, xp: 0, spells: [],
+    equipment: { weapon: null, armor: null, relic: null },
   };
   // 系譜（4-10D）：先代から因縁と薄い形質を継ぐ
   if (lineage.relation !== "none" && lineage.ancestorFossilId) {
@@ -98,7 +100,8 @@ export function fossilizeCurrent(world: World, manner: DeathManner, finalAct: Fi
     kind: "character",
     origin: {
       name: ch.name, archetype: ch.archetype,
-      gearTags: [defaultGearFor(ch.archetype)],
+      // 死亡時に握っていた武器を刻む（4-11E：「○○を握った亡霊」。継承で奪還できる痕跡素材）。
+      gearTags: [ch.equipment?.weapon?.name ?? defaultGearFor(ch.archetype)],
       catchphrase: finalAct.note,
     },
     death: { manner, finalAct, depth: ch.depth, generationCreated: world.generation },

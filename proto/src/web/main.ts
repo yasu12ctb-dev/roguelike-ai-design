@@ -13,19 +13,21 @@ import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.t
 import {
   maxHp, meleeDmg, heartFactor, xpToNext, xpForKill, statsLine,
   STAT_KEYS, STAT_LABEL, HP_PER,
+  armorReduce, effectiveReason, xpMul, equipExposure,
 } from "../progression.ts";
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
+import { rollItem, itemPower, itemLabel, SLOT_LABEL } from "../items.ts";
 import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText } from "../render.ts";
 import { rollEncounter } from "../weights.ts";
 import { filterByTags } from "../content.ts";
-import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, rollChestOutcome } from "../storylets.ts";
+import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects } from "../storylets.ts";
 import storyletsJson from "../../content/storylets.json";
 import { ensureAudio, sfx, setAmbient, setMuted, isMuted, loadMutePref } from "./audio.ts";
 import {
   genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx,
   VIEW_W, VIEW_H, type Floor, type Pos, type Chest, type Monster,
 } from "../dungeon.ts";
-import type { Character, FinalActChoice, Fossil, Fragment, SetPiece, Storylet, World } from "../types.ts";
+import type { Character, FinalActChoice, Fossil, Fragment, Item, SetPiece, Storylet, World } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
@@ -373,8 +375,8 @@ async function endTurn() {
   if (!floor || !world.current) return;
   const ch = world.current;
 
-  // 深蝕（4-10C）。心が高いほど染み込みが遅い（progression.heartFactor）。
-  ch.exposure += exposureGain(floor.depth) * heartFactor(ch);
+  // 深蝕（4-10C）。心・遺物で染み込みが遅く、異物装備でじわり増える（progression）。
+  ch.exposure += exposureGain(floor.depth) * heartFactor(ch) + equipExposure(ch);
   const quirkCount = QUIRK_THRESHOLDS.filter((th) => ch.exposure >= th).length;
   while (ch.traits.filter((t) => t.startsWith("奇癖:")).length < quirkCount) {
     const pool = filterByTags(db, "exposure_quirk", {});
@@ -390,8 +392,9 @@ async function endTurn() {
   const res = resolveMonsters(floor, player);
   if (res.hits.length) sfx("hurt");
   for (const h of res.hits) {
-    hp -= h.dmg;
-    log(`${h.monster.kind.name}の一撃！ ${h.dmg}の傷。`, "warn");
+    const dmg = Math.max(1, h.dmg - armorReduce(ch)); // 防具で軽減（下限1）
+    hp -= dmg;
+    log(`${h.monster.kind.name}の一撃！ ${dmg}の傷。`, "warn");
   }
   for (const m of res.dodges) log(`${m.kind.name}の一撃を見切った。`, "dim");
   // 次の一手を予告する（プレイヤーが見て動けるように）
@@ -399,7 +402,42 @@ async function endTurn() {
 
   draw();
   await handleLevelUps();
+  await handleDrops();
   if (hp <= 0) await deathFlow();
+}
+
+// ---------- 装備（4-11F④）。拾得＝装備プロンプト。ボス/宝箱から入手。 ----------
+let pendingDrops: Item[] = [];
+
+/** 手番末に溜まったドロップ（主にボス）を順に提示。 */
+async function handleDrops() {
+  if (!pendingDrops.length) return;
+  busy = true;
+  while (pendingDrops.length) await equipPrompt(pendingDrops.shift()!);
+  busy = false;
+  save(); updateStatus(); draw();
+}
+
+/** 装備プロンプト（busy は呼び出し側が保持）。装備すると未鑑定は判明する。 */
+async function equipPrompt(item: Item) {
+  const ch = world.current;
+  if (!ch) return;
+  const cur = ch.equipment[item.slot];
+  const head = item.unidentified
+    ? `見知らぬ${SLOT_LABEL[item.slot]}を手にした。（未鑑定：装備すれば正体が分かる）`
+    : `${item.name} を手にした。（${itemPower(item)}）`;
+  const r = await sheet({
+    text: head + (cur ? `\n今の${SLOT_LABEL[item.slot]}：${itemLabel(cur)}` : ""),
+    meta: `${SLOT_LABEL[item.slot]} ── 装備`,
+    options: ["装備する", "見送る"],
+  });
+  if (r.pick === 1) {
+    item.unidentified = false; // 装備で鑑定
+    ch.equipment[item.slot] = item;
+    sfx("open");
+    log(`${item.name} を装備した（${itemPower(item)}）。`);
+    if (item.exposurePerTurn) log("……身につけた途端、深みがじわりと滲む。", "warn");
+  }
 }
 
 // ---------- 深蝕魔法（4-11F③）。燃料＝深蝕。詠唱＝そのターンの行動。自動対象で最小UX ----------
@@ -431,7 +469,7 @@ async function castSpell(key: string) {
     if (!visMon.length) { log("討つべき敵が見えない。", "dim"); draw(); return; }
     const target = visMon.reduce((a, b) =>
       Math.hypot(a.x - player.x, a.y - player.y) <= Math.hypot(b.x - player.x, b.y - player.y) ? a : b);
-    const dmg = warpDamage(ch.stats.reason);
+    const dmg = warpDamage(effectiveReason(ch)); // 遺物「理脈」で威力+
     target.hp -= dmg;
     sfx("spell_warp"); flashFx("warp", { x: target.x, y: target.y });
     if (target.hp <= 0) rewardKill(target, `歪んだ一撃。${target.kind.name}を討ち砕いた。`);
@@ -559,12 +597,14 @@ async function autoTravel(dest: Pos) {
 /** 撃破時の報酬：XP（敵の堅さ比例）。ボスは特別演出＋年代記に刻む（4-11F）。 */
 function rewardKill(mon: Monster, killLine?: string) {
   const ch = world.current!;
-  ch.xp += xpForKill(mon.kind.hp);
+  ch.xp += Math.round(xpForKill(mon.kind.hp) * xpMul(ch)); // 遺物「貪欲」でXP増
   if (mon.boss) {
     sfx("intervene");
     flashFx("warp");
     log(`★ ${mon.kind.name}を打ち倒した！`, "warn");
     chronicle(world, "legend", `${ch.name}が深度${floor!.depth}で${mon.kind.name}を打ち倒した。`, [ch.id]);
+    // ボスドロップ：エリアは確定、エリートは高確率（手番末の装備プロンプトへ）
+    if (mon.boss === "area" || rng.next() < 0.7) pendingDrops.push(rollItem(floor!.depth, rng, { boss: true }));
   } else {
     log(killLine ?? `${mon.kind.name}を倒した。`);
   }
@@ -711,24 +751,28 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   draw();
 }
 
-// ---------- 宝箱（NetHack風：空/拾得/異物/罠） ----------
+// ---------- 宝箱（NetHack風：装備ドロップ／稀に罠。4-11F④） ----------
 async function chestScene(ce: Chest) {
   if (busy) return;
   busy = true;
   const depth = floor!.depth;
+  const ch = world.current!;
   const r = await sheet({ text: "古びた宝箱がある。開けてみるか？", meta: `深度${depth} ── 宝箱`, options: ["開ける", "見送る"] });
   if (r.pick === 1) {
     sfx("chest");
-    const outcome = rollChestOutcome(db, depth, rng);
-    if (outcome?.result) {
-      log(fillDungeonText(depth, outcome.result.text));
-      for (const line of applyDungeonEffects(world, world.current!, depth, outcome.result.effects)) log(line, "dim");
-    } else {
-      log("箱は、ただ朽ちているだけだった。");
-    }
     // 開けた宝箱はマップから取り除く（空き箱を残さない）
     const i = floor!.chests.indexOf(ce);
     if (i >= 0) floor!.chests.splice(i, 1);
+    if (rng.next() < 0.15) { // 罠
+      const dmg = 0.12 + rng.next() * 0.12;
+      ch.exposure += dmg;
+      log("蓋を開けた瞬間、淀んだ気が噴き上がった——罠だ。", "warn");
+      log(`深みが、まともに染みた（深蝕 +${dmg.toFixed(2)}）。`, "dim");
+    } else { // 装備ドロップ
+      const item = rollItem(depth, rng);
+      log("宝箱から、何かを手にした。");
+      await equipPrompt(item);
+    }
   }
   save();
   busy = false;
@@ -770,8 +814,12 @@ $("menuBtn").onclick = async () => {
   busy = true;
   const ch = world.current;
   const spellNames = ch ? ch.spells.map((k) => spellByKey(k)?.name).filter(Boolean).join("、") : "";
+  const eq = ch?.equipment;
+  const eqLine = eq
+    ? `\n装備: 武器=${eq.weapon ? itemLabel(eq.weapon) : "なし"} / 防具=${eq.armor ? itemLabel(eq.armor) : "なし"} / 遺物=${eq.relic ? itemLabel(eq.relic) : "なし"}`
+    : "";
   const sheetHead = ch
-    ? `《${ch.name}》Lv${ch.level} ── ${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のレベルまで残り${Math.max(0, xpToNext(ch.level) - ch.xp)}\n深蝕 ${ch.exposure.toFixed(2)}${spellNames ? `\n術: ${spellNames}` : ""}${ch.traits.length ? `\n形質: ${ch.traits.join("、")}` : ""}\n\n`
+    ? `《${ch.name}》Lv${ch.level} ── ${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のレベルまで残り${Math.max(0, xpToNext(ch.level) - ch.xp)}${eqLine}\n深蝕 ${ch.exposure.toFixed(2)}${spellNames ? `\n術: ${spellNames}` : ""}${ch.traits.length ? `\n形質: ${ch.traits.join("、")}` : ""}\n\n`
     : "";
   const mark = { birth: "生", death: "死", rediscovery: "再", intervention: "干", legend: "伝", rumor: "噂" } as const;
   const tail = world.chronicle.slice(-10).map((e) => `世代${e.generation} [${mark[e.kind]}] ${e.text}`).join("\n");
