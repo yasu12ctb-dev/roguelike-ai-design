@@ -15,6 +15,7 @@ import { rollEncounter } from "../weights.ts";
 import { filterByTags } from "../content.ts";
 import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, rollChestOutcome } from "../storylets.ts";
 import storyletsJson from "../../content/storylets.json";
+import { ensureAudio, sfx, setAmbient, setMuted, isMuted, loadMutePref } from "./audio.ts";
 import {
   genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx,
   VIEW_W, VIEW_H, type Floor, type Pos,
@@ -254,7 +255,7 @@ async function characterCreation() {
 
 // ---------- 街 ----------
 async function townLoop() {
-  mode = "town"; floor = null; updateStatus();
+  mode = "town"; floor = null; setAmbient(false); updateStatus();
   for (;;) {
     const ch = world.current!;
     const r = await sheet({
@@ -293,6 +294,7 @@ function enterFloor(depth: number, fromAbove: boolean) {
     if (Math.abs(fossil.laidDepth - depth) <= 4 && placeFossil(floor, rng, player, fossil)) exclude.add(fossil.id);
   }
   planMonsters(floor, player, rng); // 入った瞬間に見えている敵は予告を出す
+  setAmbient(true, depth); // 環境ドローン（深いほど低い）
   draw();
   log(`── 深度${depth} ──`, "dim");
 }
@@ -333,6 +335,7 @@ async function playerAct(dx: number, dy: number) {
 
   // 敵の手番：予告した一手を実行（退いた予告は空振り＝見切り）
   const res = resolveMonsters(floor, player);
+  if (res.hits.length) sfx("hurt");
   for (const h of res.hits) {
     hp -= h.dmg;
     log(`${h.monster.kind.name}の一撃！ ${h.dmg}の傷。`, "warn");
@@ -353,6 +356,7 @@ function moveOrInteract(nx: number, ny: number): boolean {
   const mon = f.monsters.find((m) => m.hp > 0 && m.x === nx && m.y === ny);
   if (mon) { // 攻撃（確定命中・確定ダメージ）
     mon.hp -= PLAYER_DMG;
+    sfx("hit");
     log(mon.hp <= 0 ? `${mon.kind.name}を倒した。` : `${mon.kind.name}に${PLAYER_DMG}の一撃。`);
     return true;
   }
@@ -364,6 +368,7 @@ function moveOrInteract(nx: number, ny: number): boolean {
   if (ce && !ce.opened) { void chestScene(ce); return true; }
 
   player = { x: nx, y: ny };
+  sfx("move");
 
   // 階段
   if (nx === f.stairsDown.x && ny === f.stairsDown.y) void stairsPrompt("down");
@@ -377,7 +382,7 @@ async function stairsPrompt(dir: "down" | "up") {
   const f = floor!;
   if (dir === "down") {
     const r = await sheet({ text: `下り階段がある。深度${f.depth + 1}へ降りるか？`, options: ["降りる", "とどまる"] });
-    if (r.pick === 1) { enterFloor(f.depth + 1, true); await maybeDungeonEvent(floor!.depth); }
+    if (r.pick === 1) { sfx("stairs"); enterFloor(f.depth + 1, true); await maybeDungeonEvent(floor!.depth); }
   } else if (f.depth === 1) {
     const r = await sheet({ text: "地上への階段だ。街へ戻るか？\n（傷は癒えるが、浴びた深みは消えない）", options: ["街へ戻る", "とどまる"] });
     if (r.pick === 1) {
@@ -399,6 +404,7 @@ async function maybeDungeonEvent(depth: number) {
   if (depth < 2 || rng.next() >= 0.55) return;
   const ev = selectDungeonStorylet(db, depth, rng);
   if (!ev || !ev.choices || ev.choices.length === 0) return;
+  sfx("open");
   const wasBusy = busy; busy = true;
   const r = await sheet({
     text: fillDungeonText(depth, ev.text ?? ""),
@@ -418,6 +424,7 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   if (busy) return;
   busy = true;
   const fossil = world.fossils.find((f) => f.id === fe.fossilId)!;
+  sfx("open");
   const v = computeVariation(fossil, world.generation);
   const setPiece = renderSetPieceIfAny(db, fossil, v);
   const text = setPiece ?? renderRediscovery(db, rng, fossil, v);
@@ -460,9 +467,11 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       continue;
     }
     if (label.startsWith("鎮魂")) {
+      sfx("intervene");
       intervene(world, fossil.id, "requiem");
       log(`${ch.name}は祈りを捧げた。何かが、静かに鎮まった。`);
     } else if (label.startsWith("遺されたもの")) {
+      sfx("intervene");
       intervene(world, fossil.id, "inherit");
       ch.traits.push(`継承:${fossil.origin.gearTags[0] ?? fossil.origin.name}`);
       log(`${ch.name}は${fossil.origin.name}の遺したものを受け取った。`);
@@ -484,6 +493,7 @@ async function chestScene(ce: { opened: boolean }) {
   const depth = floor!.depth;
   const r = await sheet({ text: "古びた宝箱がある。開けてみるか？", meta: `深度${depth} ── 宝箱`, options: ["開ける", "見送る"] });
   if (r.pick === 1) {
+    sfx("chest");
     const outcome = rollChestOutcome(db, depth, rng);
     if (outcome?.result) {
       log(fillDungeonText(depth, outcome.result.text));
@@ -501,6 +511,7 @@ async function chestScene(ce: { opened: boolean }) {
 // ---------- 死 → 最後の一手（4-10B）→ 世代交代 ----------
 async function deathFlow() {
   busy = true;
+  sfx("death"); setAmbient(false);
   const ch = world.current!;
   const depth = floor!.depth;
   const r = await sheet({
@@ -533,13 +544,21 @@ $("menuBtn").onclick = async () => {
   busy = true;
   const mark = { birth: "生", death: "死", rediscovery: "再", intervention: "干", legend: "伝", rumor: "噂" } as const;
   const tail = world.chronicle.slice(-14).map((e) => `世代${e.generation} [${mark[e.kind]}] ${e.text}`).join("\n");
-  await sheet({ text: tail || "まだ何も記されていない。", meta: `年代記 ── 全${world.chronicle.length}件`, options: ["閉じる"] });
+  const r = await sheet({
+    text: tail || "まだ何も記されていない。",
+    meta: `年代記 ── 全${world.chronicle.length}件`,
+    options: [isMuted() ? "♪ 音を出す" : "🔇 音を消す", "閉じる"],
+  });
   busy = false;
+  if (r.pick === 1) { ensureAudio(); setMuted(!isMuted()); }
 };
 
 // ---------- 入力（スワイプ＝移動／タップ＝その方向へ一歩・自分タップ＝待機） ----------
 $("mapBtn").onclick = () => { if (mode === "dive" && !busy) setMapMode(!mapMode); };
+// 最初のユーザー操作で音を起動（iOS は AudioContext を gesture 内で resume する必要がある）
+addEventListener("pointerdown", () => ensureAudio());
 addEventListener("keydown", (e) => {
+  ensureAudio();
   const map: Record<string, [number, number]> = {
     ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], ".": [0, 0],
   };
@@ -580,6 +599,7 @@ addEventListener("resize", () => { if (mode === "dive") { buildGridDom(); draw()
 
 // ---------- 起動 ----------
 async function boot() {
+  loadMutePref();
   buildGridDom();
   updateStatus();
   if (!world.current || !world.current.alive) await characterCreation();
