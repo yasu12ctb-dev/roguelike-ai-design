@@ -368,7 +368,7 @@ async function stairsPrompt(dir: "down" | "up") {
 
 /** 階移動時のダンジョン環境イベント（context=dungeon・4-12 F）。深度2以上で時々発火。 */
 async function maybeDungeonEvent(depth: number) {
-  if (depth < 2 || rng.next() >= 0.35) return;
+  if (depth < 2 || rng.next() >= 0.55) return;
   const ev = selectDungeonStorylet(db, depth, rng);
   if (!ev || !ev.choices || ev.choices.length === 0) return;
   const wasBusy = busy; busy = true;

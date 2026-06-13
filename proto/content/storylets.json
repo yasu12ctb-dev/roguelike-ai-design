@@ -334,6 +334,50 @@
         { "label": "立ち止まり耳を澄ます", "text": "無音の底に、何か巨大なものの寝息のようなものを聞いた——気がした。", "effects": [ { "exposure": 0.12 }, { "chronicle": "深度#depth#の無音に長く浸かり、底の気配に触れた。" } ] },
         { "label": "急いで抜ける", "text": "音の戻ってくる場所まで、振り返らずに歩いた。", "effects": [ { "exposure": 0.04 }, { "chronicle": "深度#depth#の無音を、足早に抜けた。" } ] }
       ]
+    },
+    {
+      "id": "dg_shallow_spring",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "shallow" },
+      "weight": 1,
+      "text": "岩間から澄んだ水が湧き出している。冷たく、不思議と濁りがない。",
+      "choices": [
+        { "label": "飲んで休む", "text": "ひと口含むと、強張っていた体がほどけた。", "effects": [ { "chronicle": "深度#depth#の湧き水で、束の間ひと息ついた。" } ] },
+        { "label": "水筒に汲んで進む", "text": "後のために、少し汲んでおいた。", "effects": [ { "trait": "拾得:澄んだ深層水" }, { "chronicle": "深度#depth#で澄んだ湧き水を汲んだ。" } ] }
+      ]
+    },
+    {
+      "id": "dg_shallow_carving",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "shallow" },
+      "weight": 1,
+      "text": "壁に、先に潜った誰かの彫り書きがある。「ここから先、二人で来い」。",
+      "choices": [
+        { "label": "書き足す", "text": "自分の印を、その隣に小さく刻んだ。誰かが、また読むだろう。", "effects": [ { "chronicle": "深度#depth#の壁書きに、自分の印を書き足した。" } ] },
+        { "label": "読んで進む", "text": "忠告を胸に留め、先へ進んだ。", "effects": [ { "chronicle": "深度#depth#で、先人の忠告を読んだ。" } ] }
+      ]
+    },
+    {
+      "id": "dg_mid_mirror",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "mid" },
+      "weight": 1,
+      "text": "黒曜のように磨かれた壁面。映った自分の顔が、ほんの一瞬、知らない誰かに見えた。",
+      "choices": [
+        { "label": "覗き込む", "text": "鏡の奥で、向こうの自分がこちらより一拍遅れて動いた。", "effects": [ { "exposure": 0.1 }, { "trait": "見たもの:鏡の中の他人" }, { "chronicle": "深度#depth#の黒い鏡に、自分でない自分を見た。" } ] },
+        { "label": "見ないで通る", "text": "目を伏せ、足早に壁面を離れた。", "effects": [ { "chronicle": "深度#depth#の黒い鏡を、見ずに通り過ぎた。" } ] }
+      ]
+    },
+    {
+      "id": "dg_deep_garden",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "deep" },
+      "weight": 1,
+      "text": "石の花が一面に咲いている。風も無いのに、いっせいにこちらへ首を向けた。",
+      "choices": [
+        { "label": "一輪手折る", "text": "茎を折ると、甲高い悲鳴のような音が一瞬だけ響いた。", "effects": [ { "exposure": 0.14 }, { "trait": "拾得:石の花" }, { "chronicle": "深度#depth#で、悲鳴をあげる石の花を手折った。" } ] },
+        { "label": "踏まぬよう抜ける", "text": "花を踏まないよう、爪先立ちで畑を渡った。", "effects": [ { "exposure": 0.05 }, { "chronicle": "深度#depth#の石の花畑を、そっと渡った。" } ] }
+      ]
     }
   ]
 }

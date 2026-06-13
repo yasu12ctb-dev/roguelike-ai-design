@@ -64,9 +64,10 @@ export function genFloor(world: World, depth: number): Floor {
   const overlaps = (a: Room) =>
     rooms.some((b) => a.x - 1 < b.x + b.w && b.x - 1 < a.x + a.w && a.y - 1 < b.y + b.h && b.y - 1 < a.y + a.h);
 
-  const targetRooms = 5 + rng.int(2);
-  for (let tries = 0; tries < 60 && rooms.length < targetRooms; tries++) {
-    const w = 4 + rng.int(4), h = 3 + rng.int(3);
+  // 部屋を大きめ・開放的にし、深いほど数も少し増やす（毎回ランダム）。
+  const targetRooms = 6 + Math.min(depth >> 3, 4) + rng.int(2);
+  for (let tries = 0; tries < 140 && rooms.length < targetRooms; tries++) {
+    const w = 5 + rng.int(6), h = 4 + rng.int(4);
     const x = 1 + rng.int(FLOOR_W - w - 2), y = 1 + rng.int(FLOOR_H - h - 2);
     const r = { x, y, w, h };
     if (!overlaps(r)) { rooms.push(r); carveRoom(r); }
