@@ -59,8 +59,15 @@
     @keyframes danger { 50% { color: #fff1e0; text-shadow: 0 0 18px rgba(255,120,90,1), 0 0 36px rgba(255,60,40,.85); } }
     /* 移動予告：敵が踏み込む先のマスを背景でハイライト（琥珀。攻撃予告の赤へ自然に段階づく） */
     .cell.tele-move { background: rgba(224,140,72,.34); box-shadow: 0 0 7px rgba(224,140,72,.3) inset; }
-    .g-mon    { color: #d96459; text-shadow: 0 0 8px rgba(217,100,89,.6); }
-    .g-mon-atk { color: #ff7a5c; text-shadow: 0 0 12px rgba(255,122,92,.95), 0 0 22px rgba(255,90,60,.5); animation: pulse 1s ease-in-out infinite; }
+    /* 敵：記号＝種類／色＝強さの段（tier）。一目で危険度が分かる（4-11F）。 */
+    .g-mon-t1 { color: #c4ccd4; text-shadow: 0 0 6px rgba(196,204,212,.5); }   /* 灰白：雑魚 */
+    .g-mon-t2 { color: #e0c46a; text-shadow: 0 0 7px rgba(224,196,106,.55); }  /* 黄 */
+    .g-mon-t3 { color: #e58a45; text-shadow: 0 0 9px rgba(229,138,69,.65); }   /* 橙 */
+    .g-mon-t4 { color: #e0564a; text-shadow: 0 0 10px rgba(224,86,74,.75); }   /* 赤 */
+    .g-mon-t5 { color: #c071ff; text-shadow: 0 0 13px rgba(192,113,255,.9); animation: pulse 2s ease-in-out infinite; } /* 紫発光：最危険 */
+    /* 攻撃を予告中：色はtierのまま、強く明滅して「来る」と知らせる */
+    .g-mon-atk { animation: monatk .5s ease-in-out infinite; }
+    @keyframes monatk { 0%,100% { text-shadow: 0 0 6px currentColor; } 50% { text-shadow: 0 0 16px currentColor, 0 0 26px currentColor; filter: brightness(1.5); } }
     .g-fossil { color: #9fd8cf; text-shadow: 0 0 10px rgba(159,216,207,.75); animation: pulse 2.6s ease-in-out infinite; }
     .g-fossil-quiet { color: #6f9a93; }
     .g-chest { color: #e8c06a; text-shadow: 0 0 9px rgba(232,192,106,.7); }

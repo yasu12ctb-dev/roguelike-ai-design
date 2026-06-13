@@ -214,7 +214,7 @@ function draw() {
       const ce = floor.chests.find((c) => c.x === x && c.y === y);
       if (ce) { glyph = "▭"; cls = ce.opened ? "g-chest-open" : "g-chest"; }
       const m = floor.monsters.find((m) => m.hp > 0 && m.x === x && m.y === y);
-      if (m) { glyph = m.kind.glyph; cls = m.intent?.type === "attack" ? "g-mon-atk" : "g-mon"; }
+      if (m) { glyph = m.kind.glyph; cls = `g-mon-t${m.kind.tier}${m.intent?.type === "attack" ? " g-mon-atk" : ""}`; }
     }
     // 移動予告：敵が踏み込む先の「何も無い床マス」を背景色でハイライト（グリフは出さない）
     c.classList.toggle("tele-move", visible && cls === "g-floor" && teleMove.has(mi));
