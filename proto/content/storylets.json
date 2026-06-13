@@ -2,7 +2,7 @@
   "storylets": [
     {
       "id": "sl_grudge_marks",
-      "prerequisites": { "tone": "grudge" },
+      "prerequisites": { "tone": "grudge", "notFlag": "traced" },
       "weight": 1,
       "investigate": {
         "text": "#origin_name# が手放さなかった#origin_gear#。その柄には、爪で刻んだような細い線が幾重にも走り、数えるほどに増えていく気がする。憎しみは、まだ稼働している。",
@@ -11,6 +11,26 @@
           { "exposure": 0.1 },
           { "trait": "見たもの:#origin_name#の刻み傷" },
           { "chronicle": "#origin_name# の刻み傷を検め、その無念の深さを知った。" }
+        ]
+      },
+      "search": {
+        "text": "#origin_name# が斃れたあたりを探ると、#origin_gear#の下に破れた手記の一葉が挟まっていた。最後の頁にだけ、震える筆跡で一行——「鍵は、さらに下」。",
+        "effects": [
+          { "plant": "traced" },
+          { "trait": "遺品:#origin_name#の手記" },
+          { "chronicle": "#origin_name# の手記の断片を見つけた。その行方を、追えるかもしれない。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_grudge_thread",
+      "prerequisites": { "tone": "grudge", "flag": "traced" },
+      "weight": 1,
+      "investigate": {
+        "text": "先に拾った#origin_name#の手記。『鍵は、さらに下』——その一行が、いま#origin_gear#の指す方角と重なって読める。レンの未練は、まだ底の方で待っている。",
+        "effects": [
+          { "bond": 1 },
+          { "chronicle": "#origin_name# の手記が指す先を悟った。いずれ、決着をつけねばならない。" }
         ]
       }
     },
@@ -36,6 +56,12 @@
         "effects": [
           { "bond": 1 },
           { "chronicle": "#origin_name# の遺品を検め、その静かな来歴を知った。" }
+        ]
+      },
+      "search": {
+        "text": "亡骸のまわりを探ると、#origin_gear#のそばに小さな干からびた花束が供えられていた。誰かが、ここへ来ていた。",
+        "effects": [
+          { "chronicle": "#origin_name# の傍らに、先客の供花を見つけた。" }
         ]
       }
     }

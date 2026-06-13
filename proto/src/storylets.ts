@@ -1,5 +1,5 @@
-// 遭遇イベント：ストーリーレットの選出と effects 還流（snapshot 4-12・遭-①）
-// 化石の状況（極/変質段階/死の一手）× プレイヤー状態（絆/未完/深蝕）で状況を選び、
+// 遭遇イベント：ストーリーレットの選出と effects 還流（snapshot 4-12・遭-①/②）
+// 化石の状況（極/変質段階/死の一手）× プレイヤー状態（絆/未完/深蝕/伏線）で状況を選び、
 // 選択の結果を世界状態へ書き戻す。実行時LLMは使わない（条件照合＋テンプレ充填のみ）。
 
 import type { ContentDb } from "./content.ts";
@@ -8,8 +8,11 @@ import type { Rng } from "./rng.ts";
 import { chronicle } from "./world.ts";
 import { fillStoryletText } from "./render.ts";
 
+/** 伏線フラグは「この化石」にスコープする（レンの手記はレンの後続だけを開く）。 */
+const flagKey = (base: string, fossil: Fossil) => `${base}@${fossil.id}`;
+
 /** prereq の指定項目すべてに一致するか（未指定はワイルドカード）。 */
-function matches(p: Prereq, ch: Character, fossil: Fossil, v: VariationResult): boolean {
+function matches(p: Prereq, world: World, ch: Character, fossil: Fossil, v: VariationResult): boolean {
   if (p.tone !== undefined && p.tone !== fossil.tonePole) return false;
   if (p.stage !== undefined && p.stage !== v.stage) return false;
   if (p.finalAct !== undefined && p.finalAct !== fossil.death.finalAct.choice) return false;
@@ -18,14 +21,17 @@ function matches(p: Prereq, ch: Character, fossil: Fossil, v: VariationResult): 
   if (p.minBond !== undefined && (bond?.value ?? 0) < p.minBond) return false;
   if (p.unfinished !== undefined && (bond?.unfinished ?? false) !== p.unfinished) return false;
   if (p.minExposure !== undefined && ch.exposure < p.minExposure) return false;
+  const flags = world.flags ?? [];
+  if (p.flag !== undefined && !flags.includes(flagKey(p.flag, fossil))) return false;
+  if (p.notFlag !== undefined && flags.includes(flagKey(p.notFlag, fossil))) return false;
   return true;
 }
 
 /** 化石の状況に合うストーリーレットを重み付きで1つ選ぶ（無ければ null）。 */
 export function selectStorylet(
-  db: ContentDb, ch: Character, fossil: Fossil, v: VariationResult, rng: Rng,
+  db: ContentDb, world: World, ch: Character, fossil: Fossil, v: VariationResult, rng: Rng,
 ): Storylet | null {
-  const pool = db.storylets.filter((s) => matches(s.prerequisites, ch, fossil, v));
+  const pool = db.storylets.filter((s) => matches(s.prerequisites, world, ch, fossil, v));
   if (pool.length === 0) return null;
   if (pool.length === 1) return pool[0];
   const total = pool.reduce((a, s) => a + Math.max(0, s.weight), 0);
@@ -60,6 +66,11 @@ export function applyEffects(
     }
     if (e.chronicle !== undefined) {
       chronicle(world, "rediscovery", fillStoryletText(fossil, e.chronicle), [fossil.id]);
+    }
+    if (e.plant !== undefined) {
+      const key = flagKey(e.plant, fossil);
+      (world.flags ??= []);
+      if (!world.flags.includes(key)) { world.flags.push(key); logs.push("……これは、伏線になる。"); }
     }
   }
   return logs;

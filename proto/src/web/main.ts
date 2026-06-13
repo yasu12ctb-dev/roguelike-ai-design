@@ -379,13 +379,14 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   const ch = world.current!;
 
   const canInherit = fossil.death.finalAct.choice === "leave_will" || fossil.death.finalAct.choice === "guard_relic";
-  const storylet = selectStorylet(db, ch, fossil, v, rng);
-  let investigated = false;
+  const storylet = selectStorylet(db, world, ch, fossil, v, rng);
+  const done = new Set<string>();
 
-  // 遭遇＝イベントノード（4-12）：〈調べる〉で状況を掘り下げてから干渉動詞を選ぶ
+  // 遭遇＝イベントノード（4-12）：〈調べる〉〈捜索〉で掘り下げ／伏線を残してから干渉動詞を選ぶ
   for (;;) {
     const opts: string[] = [];
-    if (storylet && !investigated) opts.push("調べる");
+    if (storylet?.investigate && !done.has("investigate")) opts.push("調べる");
+    if (storylet?.search && !done.has("search")) opts.push("周辺を捜索する");
     opts.push("鎮魂する（末路を閉じ、変質の時計を巻き戻す）");
     if (canInherit) opts.push("遺されたものを継ぐ");
     opts.push("そっと立ち去る");
@@ -397,12 +398,19 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
     });
     const label = opts[r.pick - 1];
 
-    if (label === "調べる" && storylet) {
-      investigated = true;
+    if (label === "調べる" && storylet?.investigate) {
+      done.add("investigate");
       log(fillStoryletText(fossil, storylet.investigate.text));
       for (const line of applyEffects(world, ch, fossil, storylet.investigate.effects)) log(line, "dim");
       save();
-      continue; // 掘り下げたうえで、改めて鎮魂/継承/立ち去るを選ぶ
+      continue;
+    }
+    if (label === "周辺を捜索する" && storylet?.search) {
+      done.add("search");
+      log(fillStoryletText(fossil, storylet.search.text));
+      for (const line of applyEffects(world, ch, fossil, storylet.search.effects)) log(line, "dim");
+      save();
+      continue;
     }
     if (label.startsWith("鎮魂")) {
       intervene(world, fossil.id, "requiem");

@@ -18,6 +18,7 @@ export function newWorld(seed: number): World {
     tracked: [],
     chronicle: [],
     town: { witnessNpcId: "witness_yen", safety: 3, memorials: [] },
+    flags: [],
   };
   // シード化石①：老兵の亡骸（喪失・浅層）
   world.fossils.push({

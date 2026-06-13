@@ -13,6 +13,7 @@ export interface World {
   tracked: TrackedEntity[];
   chronicle: ChronicleEntry[];
   town: TownState;
+  flags?: string[];             // 伏線フラグ（遭遇の選択が立てる。化石ごとにスコープ：4-12 遭-②）
 }
 
 export interface Character {
@@ -132,6 +133,8 @@ export interface Prereq {
   minBond?: number;        // この化石との絆 value がこれ以上
   unfinished?: boolean;    // この化石との未完の因縁の有無
   minExposure?: number;    // プレイヤーの深蝕がこれ以上
+  flag?: string;           // この化石に立った伏線フラグが有る（遭-②：伏線→後続）
+  notFlag?: string;        // この化石に立った伏線フラグが無い（重複発火を防ぐ）
 }
 
 /** 選択の結果として世界状態へ還流する変化。文字列は origin スロットを充填できる。 */
@@ -141,17 +144,22 @@ export interface Effect {
   exposure?: number;       // プレイヤー深蝕への増減
   trait?: string;          // 形質を付与（#origin_name# 等のスロット可）
   chronicle?: string;      // 年代記に一行残す（スロット可）
+  plant?: string;          // 伏線フラグを立てる（この化石にスコープ。後続の prereq.flag が拾う）
 }
 
-/** 遭遇ノードで立ち上がる状況。遭-① では〈調べる〉分岐を提供する。 */
+/** 遭遇ノードの動詞ぶんの本文と還流（〈調べる〉〈捜索〉が各々持つ）。 */
+export interface StoryletBranch {
+  text: string;            // origin スロット可
+  effects: Effect[];
+}
+
+/** 遭遇ノードで立ち上がる状況。動詞分岐（調べる/捜索）を提供する（4-12）。 */
 export interface Storylet {
   id: string;
   prerequisites: Prereq;
   weight: number;
-  investigate: {           // 〈調べる〉で明かされる詳細とその還流
-    text: string;          // origin スロット可
-    effects: Effect[];
-  };
+  investigate?: StoryletBranch;  // 〈調べる〉：状況・lore の掘り下げ
+  search?: StoryletBranch;       // 〈捜索〉：周辺の遺品・手がかり（伏線を立てうる）
 }
 
 // ---- 変質計算の結果 ----
