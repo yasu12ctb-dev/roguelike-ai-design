@@ -23,7 +23,7 @@ import storyletsJson from "../../content/storylets.json";
 import { ensureAudio, sfx, setAmbient, setMuted, isMuted, loadMutePref } from "./audio.ts";
 import {
   genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx,
-  VIEW_W, VIEW_H, type Floor, type Pos, type Chest,
+  VIEW_W, VIEW_H, type Floor, type Pos, type Chest, type Monster,
 } from "../dungeon.ts";
 import type { Character, FinalActChoice, Fossil, Fragment, SetPiece, Storylet, World } from "../types.ts";
 
@@ -214,7 +214,11 @@ function draw() {
       const ce = floor.chests.find((c) => c.x === x && c.y === y);
       if (ce) { glyph = "▭"; cls = ce.opened ? "g-chest-open" : "g-chest"; }
       const m = floor.monsters.find((m) => m.hp > 0 && m.x === x && m.y === y);
-      if (m) { glyph = m.kind.glyph; cls = `g-mon-t${m.kind.tier}${m.intent?.type === "attack" ? " g-mon-atk" : ""}`; }
+      if (m) {
+        glyph = m.kind.glyph;
+        cls = m.boss === "area" ? "g-boss" : m.boss === "elite" ? "g-elite"
+          : `g-mon-t${m.kind.tier}${m.intent?.type === "attack" ? " g-mon-atk" : ""}`;
+      }
     }
     // 移動予告：敵が踏み込む先の「何も無い床マス」を背景色でハイライト（グリフは出さない）
     c.classList.toggle("tele-move", visible && cls === "g-floor" && teleMove.has(mi));
@@ -430,7 +434,7 @@ async function castSpell(key: string) {
     const dmg = warpDamage(ch.stats.reason);
     target.hp -= dmg;
     sfx("spell_warp"); flashFx("warp", { x: target.x, y: target.y });
-    if (target.hp <= 0) { ch.xp += xpForKill(target.kind.hp); log(`歪んだ一撃。${target.kind.name}を討ち砕いた。`); }
+    if (target.hp <= 0) rewardKill(target, `歪んだ一撃。${target.kind.name}を討ち砕いた。`);
     else log(`歪撃が${target.kind.name}を抉る（${dmg}）。`);
   } else if (key === "still_eye") {
     if (!visMon.length) { log("止めるべき敵が見えない。", "dim"); draw(); return; }
@@ -552,6 +556,20 @@ async function autoTravel(dest: Pos) {
   }
 }
 
+/** 撃破時の報酬：XP（敵の堅さ比例）。ボスは特別演出＋年代記に刻む（4-11F）。 */
+function rewardKill(mon: Monster, killLine?: string) {
+  const ch = world.current!;
+  ch.xp += xpForKill(mon.kind.hp);
+  if (mon.boss) {
+    sfx("intervene");
+    flashFx("warp");
+    log(`★ ${mon.kind.name}を打ち倒した！`, "warn");
+    chronicle(world, "legend", `${ch.name}が深度${floor!.depth}で${mon.kind.name}を打ち倒した。`, [ch.id]);
+  } else {
+    log(killLine ?? `${mon.kind.name}を倒した。`);
+  }
+}
+
 /** 移動 or 体当たり。falseなら手番を消費しない（壁） */
 function moveOrInteract(nx: number, ny: number): boolean {
   const f = floor!;
@@ -563,12 +581,8 @@ function moveOrInteract(nx: number, ny: number): boolean {
     const dmg = meleeDmg(ch);
     mon.hp -= dmg;
     sfx("hit");
-    if (mon.hp <= 0) {
-      ch.xp += xpForKill(mon.kind.hp); // 撃破でXP（レベルアップ判定は手番末で）
-      log(`${mon.kind.name}を倒した。`);
-    } else {
-      log(`${mon.kind.name}に${dmg}の一撃。`);
-    }
+    if (mon.hp <= 0) rewardKill(mon); // 撃破でXP（レベルアップ判定は手番末で）
+    else log(`${mon.kind.name}に${dmg}の一撃。`);
     return true;
   }
 
