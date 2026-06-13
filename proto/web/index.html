@@ -55,6 +55,7 @@
     .g-down, .g-up { color: #6fb3c8; text-shadow: 0 0 9px rgba(111,179,200,.6); }
     .g-player { color: #ffd87a; text-shadow: 0 0 12px rgba(255,216,122,.9), 0 0 26px rgba(255,160,60,.45); }
     .g-mon    { color: #d96459; text-shadow: 0 0 8px rgba(217,100,89,.6); }
+    .g-mon-atk { color: #ff7a5c; text-shadow: 0 0 12px rgba(255,122,92,.95), 0 0 22px rgba(255,90,60,.5); animation: pulse 1s ease-in-out infinite; }
     .g-fossil { color: #9fd8cf; text-shadow: 0 0 10px rgba(159,216,207,.75); animation: pulse 2.6s ease-in-out infinite; }
     .g-fossil-quiet { color: #6f9a93; }
     .g-chest { color: #e8c06a; text-shadow: 0 0 9px rgba(232,192,106,.7); }
@@ -63,14 +64,14 @@
     /* 敵の次手の予告（テレグラフ：4-11）。攻撃＝討たれるマスの赤枠／移動＝踏み込むマスの点 */
     .cell.tele-atk::after {
       content: ""; position: absolute; inset: 1px; border-radius: 4px; pointer-events: none;
-      border: 1.5px solid rgba(224,108,90,.9); box-shadow: 0 0 7px rgba(224,108,90,.5) inset;
-      animation: tele 1s ease-in-out infinite;
+      border: 2.5px solid rgba(236,92,68,.98); box-shadow: 0 0 12px rgba(236,92,68,.7) inset, 0 0 8px rgba(236,92,68,.55);
+      animation: tele 0.9s ease-in-out infinite;
     }
     .cell.tele-move::after {
-      content: ""; position: absolute; width: 30%; height: 30%; border-radius: 50%; pointer-events: none;
-      background: rgba(224,108,90,.4); box-shadow: 0 0 6px rgba(224,108,90,.4);
+      content: ""; position: absolute; width: 52%; height: 52%; border-radius: 50%; pointer-events: none;
+      background: rgba(236,150,96,.6); box-shadow: 0 0 10px rgba(236,150,96,.55);
     }
-    @keyframes tele { 50% { border-color: rgba(224,108,90,.32); box-shadow: 0 0 3px rgba(224,108,90,.2) inset; } }
+    @keyframes tele { 50% { border-color: rgba(236,92,68,.45); box-shadow: 0 0 5px rgba(236,92,68,.3) inset; } }
     #light {
       position: absolute; inset: 0; pointer-events: none;
       background: radial-gradient(circle at var(--px, 50%) var(--py, 50%),

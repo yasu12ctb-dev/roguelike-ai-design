@@ -72,24 +72,19 @@ export function genFloor(world: World, depth: number): Floor {
   const carveRoom = (r: Room) => {
     for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) tiles[gi(x, y)] = 1;
   };
+  const carve = (x: number, y: number) => { tiles[gi(x, y)] = 1; };
+  // 部屋同士に2マスの岩を残す＝部屋と通路が見分けられる（開放的すぎる大広間を防ぐ）。
   const overlaps = (a: Room) =>
-    rooms.some((b) => a.x - 1 < b.x + b.w && b.x - 1 < a.x + a.w && a.y - 1 < b.y + b.h && b.y - 1 < a.y + a.h);
-
-  // 部屋を大きめ・開放的に。マップ面積に比例して部屋数を出す（深いほど広く＝多く）。
-  const targetRooms = Math.max(6, Math.round((W * H) / 95));
-  for (let tries = 0; tries < targetRooms * 18 && rooms.length < targetRooms; tries++) {
-    const w = 5 + rng.int(6), h = 4 + rng.int(5);
-    const x = 1 + rng.int(W - w - 2), y = 1 + rng.int(H - h - 2);
-    const r = { x, y, w, h };
-    if (!overlaps(r)) { rooms.push(r); carveRoom(r); }
-  }
-  // L字通路で順次接続
-  for (let i = 1; i < rooms.length; i++) {
-    let { x: ax, y: ay } = center(rooms[i - 1]);
-    const { x: bx, y: by } = center(rooms[i]);
-    const xFirst = rng.next() < 0.5;
-    const carve = (x: number, y: number) => { tiles[gi(x, y)] = 1; };
-    if (xFirst) {
+    rooms.some((b) => a.x - 2 < b.x + b.w && b.x - 2 < a.x + a.w && a.y - 2 < b.y + b.h && b.y - 2 < a.y + a.h);
+  const dist2 = (a: Room, b: Room) => {
+    const ca = center(a), cb = center(b);
+    return (ca.x - cb.x) ** 2 + (ca.y - cb.y) ** 2;
+  };
+  // L字の1マス幅通路で2部屋の中心を結ぶ
+  const carveCorridor = (a: Room, b: Room) => {
+    let { x: ax, y: ay } = center(a);
+    const { x: bx, y: by } = center(b);
+    if (rng.next() < 0.5) {
       for (; ax !== bx; ax += Math.sign(bx - ax)) carve(ax, ay);
       for (; ay !== by; ay += Math.sign(by - ay)) carve(ax, ay);
     } else {
@@ -97,10 +92,55 @@ export function genFloor(world: World, depth: number): Floor {
       for (; ax !== bx; ax += Math.sign(bx - ax)) carve(ax, ay);
     }
     carve(bx, by);
+  };
+
+  // 小部屋を多めに、稀に大広間を一つ二つ。面積に比例して多数置く（大部屋ばかりを脱却）。
+  const targetRooms = Math.max(8, Math.round((W * H) / 72));
+  for (let tries = 0; tries < targetRooms * 22 && rooms.length < targetRooms; tries++) {
+    const big = rng.next() < 0.16;
+    const w = big ? 6 + rng.int(5) : 3 + rng.int(3); // 大:6-10 / 小:3-5
+    const h = big ? 5 + rng.int(3) : 3 + rng.int(2); // 大:5-7 / 小:3-4
+    const x = 1 + rng.int(W - w - 2), y = 1 + rng.int(H - h - 2);
+    const r = { x, y, w, h };
+    if (!overlaps(r)) { rooms.push(r); carveRoom(r); }
   }
 
+  // 接続：最近傍を順につないで全室連結（迷路的な木）。leaf＝行き止まりが自然に残る。
+  const connected = new Set<number>([0]);
+  while (connected.size < rooms.length) {
+    let bestA = -1, bestB = -1, best = Infinity;
+    for (let a = 0; a < rooms.length; a++) {
+      if (!connected.has(a)) continue;
+      for (let b = 0; b < rooms.length; b++) {
+        if (connected.has(b)) continue;
+        const d = dist2(rooms[a], rooms[b]);
+        if (d < best) { best = d; bestA = a; bestB = b; }
+      }
+    }
+    if (bestB < 0) break;
+    carveCorridor(rooms[bestA], rooms[bestB]);
+    connected.add(bestB);
+  }
+  // 一部にループを足す（回遊性。行き止まりは残しつつ一本道を崩す）。
+  for (let i = 0; i < rooms.length; i++) {
+    if (rng.next() >= 0.2) continue;
+    let bj = -1, bd = Infinity;
+    for (let j = 0; j < rooms.length; j++) {
+      if (j === i) continue;
+      const d = dist2(rooms[i], rooms[j]);
+      if (d < bd) { bd = d; bj = j; }
+    }
+    if (bj >= 0) carveCorridor(rooms[i], rooms[bj]);
+  }
+
+  // 階段：上り＝最初の部屋、下り＝上りから最も遠い部屋（潜行が一筆書きにならない距離を確保）。
   const stairsUp = center(rooms[0]);
-  const stairsDown = center(rooms[rooms.length - 1]);
+  let farIdx = rooms.length - 1, farD = -1;
+  for (let i = 1; i < rooms.length; i++) {
+    const d = dist2(rooms[0], rooms[i]);
+    if (d > farD) { farD = d; farIdx = i; }
+  }
+  const stairsDown = center(rooms[farIdx]);
 
   const floor: Floor = {
     depth, w: W, h: H, tiles, stairsUp, stairsDown,
@@ -108,19 +148,19 @@ export function genFloor(world: World, depth: number): Floor {
     explored: new Array(W * H).fill(false),
   };
 
-  // ---------- モンスター配置（深いほど多く・強く） ----------
+  // ---------- モンスター配置（マップ面積＋深度でスケール。大マップでも密度を確保） ----------
   const pool = MONSTER_KINDS.filter((k) => k.minDepth <= depth);
-  const count = Math.min(2 + (depth >> 2), 6);
+  const count = Math.min(Math.round((W * H) / 135) + Math.floor(depth / 3), 20);
   for (let i = 0; i < count; i++) {
     const kind = pool[rng.int(pool.length)];
     const p = randomFloorAway(floor, rng, stairsUp, 5);
     if (p) floor.monsters.push({ id: `m${depth}_${i}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: false, intent: null });
   }
 
-  // ---------- 宝箱配置（深いほど少し増える。中身は開封時に抽選） ----------
+  // ---------- 宝箱配置（深いほど少し増える。入口から離して＝奥/行き止まりに置く） ----------
   const chestCount = 1 + Math.min(depth >> 3, 3) + (rng.next() < 0.5 ? 1 : 0);
   for (let i = 0; i < chestCount; i++) {
-    const p = randomFloorAway(floor, rng, stairsUp, 3);
+    const p = randomFloorAway(floor, rng, stairsUp, 6);
     if (p) floor.chests.push({ id: `c${depth}_${i}`, x: p.x, y: p.y, opened: false });
   }
   return floor;
