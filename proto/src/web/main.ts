@@ -52,6 +52,23 @@ function log(text: string, cls = "") {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
+// セーフティ網：どこかで未捕捉の例外が出ても入力ロック(busy)が永続化＝フリーズしないよう、
+// 必ず解除しオーバーレイを閉じ、原因を画面に出す（バグ報告の手がかりにもなる）。
+function recoverFromError(msg: string) {
+  busy = false;
+  try { overlayEl.classList.remove("show"); } catch { /* noop */ }
+  try { log(`⚠ 不具合を検知（操作は復帰します）：${msg}`, "warn"); } catch { /* noop */ }
+}
+addEventListener("error", (e) => {
+  const ev = e as ErrorEvent;
+  recoverFromError(`${ev.message || "内部エラー"} @${ev.lineno}:${ev.colno}`);
+});
+addEventListener("unhandledrejection", (e) => {
+  const r = (e as PromiseRejectionEvent).reason as Error | undefined;
+  const frame = r?.stack?.split("\n")[1]?.trim();
+  recoverFromError(`${r?.message ?? String(r)}${frame ? ` / ${frame}` : ""}`);
+});
+
 // ---------- シート（場面＋選択肢。promise を返す） ----------
 interface SheetOpts { text: string; meta?: string; options: string[]; input?: string; }
 function sheet(o: SheetOpts): Promise<{ pick: number; text: string }> {
@@ -422,34 +439,38 @@ async function castSpell(key: string) {
 async function handleLevelUps() {
   const ch = world.current;
   if (!ch) return;
-  while (ch.xp >= xpToNext(ch.level)) {
-    ch.xp -= xpToNext(ch.level);
-    ch.level += 1;
-    busy = true;
-    // ステ+1 に加え、未習得の術を「識る」選択肢（snapshot：ステ上昇 or 術習得）
-    const learnable = SPELLS.filter((s) => !ch.spells.includes(s.key));
-    const r = await sheet({
-      text: `レベル${ch.level}に達した。何を伸ばす？`,
-      meta: `${statsLine(ch)} ── 最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)}`,
-      options: [
-        `体 ＋1（最大HPが上がる）`,
-        `力 ＋1（攻撃が上がる）`,
-        `理 ＋1（深蝕魔法の威力：のちの力）`,
-        `心 ＋1（深蝕に染まりにくくなる）`,
-        ...learnable.map((s) => `術を識る：${s.name}（深蝕＋${s.cost}／${s.desc}）`),
-      ],
-    });
-    if (r.pick <= 4) {
-      const key = STAT_KEYS[r.pick - 1];
-      ch.stats[key] += 1;
-      if (key === "body") hp = Math.min(hp + HP_PER, maxHp(ch)); // 体UPぶんを回復
-      log(`レベル${ch.level} ── ${STAT_LABEL[key]}が伸びた（${statsLine(ch)}）。`, "warn");
-    } else {
-      const s = learnable[r.pick - 5];
-      ch.spells.push(s.key);
-      log(`レベル${ch.level} ── 深みから《${s.name}》を識った。`, "warn");
+  try {
+    while (ch.xp >= xpToNext(ch.level)) {
+      ch.xp -= xpToNext(ch.level);
+      ch.level += 1;
+      busy = true;
+      // ステ+1 に加え、未習得の術を「識る」選択肢（snapshot：ステ上昇 or 術習得）
+      const learnable = SPELLS.filter((s) => !ch.spells.includes(s.key));
+      const r = await sheet({
+        text: `レベル${ch.level}に達した。何を伸ばす？`,
+        meta: `${statsLine(ch)} ── 最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)}`,
+        options: [
+          `体 ＋1（最大HPが上がる）`,
+          `力 ＋1（攻撃が上がる）`,
+          `理 ＋1（深蝕魔法の威力：のちの力）`,
+          `心 ＋1（深蝕に染まりにくくなる）`,
+          ...learnable.map((s) => `術を識る：${s.name}（深蝕＋${s.cost}／${s.desc}）`),
+        ],
+      });
+      if (r.pick <= 4) {
+        const key = STAT_KEYS[r.pick - 1];
+        ch.stats[key] += 1;
+        if (key === "body") hp = Math.min(hp + HP_PER, maxHp(ch)); // 体UPぶんを回復
+        log(`レベル${ch.level} ── ${STAT_LABEL[key]}が伸びた（${statsLine(ch)}）。`, "warn");
+      } else {
+        const s = learnable[r.pick - 5];
+        ch.spells.push(s.key);
+        log(`レベル${ch.level} ── 深みから《${s.name}》を識った。`, "warn");
+      }
+      busy = false;
     }
-    busy = false;
+  } finally {
+    busy = false; // 例外が出ても入力ロックを残さない
   }
   save();
   updateStatus();
