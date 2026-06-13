@@ -78,14 +78,37 @@ function sheet(o: SheetOpts): Promise<{ pick: number; text: string }> {
     sheetInputRow.classList.toggle("show", o.input !== undefined);
     sheetInput.value = ""; sheetInput.placeholder = o.input ?? "";
     sheetButtons.innerHTML = "";
+    const shownAt = performance.now();
     o.options.forEach((label, i) => {
       const b = document.createElement("button");
       b.type = "button"; b.textContent = label;
-      b.onclick = () => { overlayEl.classList.remove("show"); resolve({ pick: i + 1, text: sheetInput.value }); };
+      // 直前の操作（敵を倒したタップ等）が出たてのシートを貫通して誤選択するのを防ぐデバウンス。
+      b.onclick = () => {
+        if (performance.now() - shownAt < 300) return;
+        overlayEl.classList.remove("show");
+        resolve({ pick: i + 1, text: sheetInput.value });
+      };
       sheetButtons.appendChild(b);
     });
     overlayEl.classList.add("show");
   });
+}
+
+// 術のエリア点滅（4-11F③）。at を渡すと対象/自分の画面位置を中心に光らせる。
+let fxClearTimer: ReturnType<typeof setTimeout> | null = null;
+function flashFx(kind: "warp" | "still" | "blink", at?: Pos) {
+  const fxEl = $("fx") as HTMLElement;
+  if (at) {
+    fxEl.style.setProperty("--fxx", ((at.x - cam.x + 0.5) / VIEW_W * 100) + "%");
+    fxEl.style.setProperty("--fxy", ((at.y - cam.y + 0.5) / VIEW_H * 100) + "%");
+  } else {
+    fxEl.style.setProperty("--fxx", "50%"); fxEl.style.setProperty("--fxy", "48%");
+  }
+  fxEl.classList.remove("warp", "still", "blink");
+  void fxEl.offsetWidth; // リフロー＝連続詠唱でもアニメを頭から再生
+  fxEl.classList.add(kind);
+  if (fxClearTimer) clearTimeout(fxClearTimer);
+  fxClearTimer = setTimeout(() => fxEl.classList.remove(kind), 650);
 }
 
 // ---------- 世界の永続化 ----------
@@ -406,12 +429,13 @@ async function castSpell(key: string) {
       Math.hypot(a.x - player.x, a.y - player.y) <= Math.hypot(b.x - player.x, b.y - player.y) ? a : b);
     const dmg = warpDamage(ch.stats.reason);
     target.hp -= dmg;
-    sfx("hit");
+    sfx("spell_warp"); flashFx("warp", { x: target.x, y: target.y });
     if (target.hp <= 0) { ch.xp += xpForKill(target.kind.hp); log(`歪んだ一撃。${target.kind.name}を討ち砕いた。`); }
     else log(`歪撃が${target.kind.name}を抉る（${dmg}）。`);
   } else if (key === "still_eye") {
     if (!visMon.length) { log("止めるべき敵が見えない。", "dim"); draw(); return; }
     for (const m of visMon) { m.intent = { type: "wait" }; m.stunned = 1; }
+    sfx("spell_still"); flashFx("still");
     log(`静止の眼。${visMon.length}体の動きが、凍りついた。`);
   } else if (key === "shadow_step") {
     if (!visMon.length) { log("逃げる相手がいない。", "dim"); draw(); return; }
@@ -425,8 +449,9 @@ async function castSpell(key: string) {
       if (nearest > bestScore) { bestScore = nearest; best = { x, y }; }
     }
     if (!best) { log("渡れる先がない。", "dim"); draw(); return; }
+    flashFx("blink", { x: player.x, y: player.y }); // 抜ける瞬間（元の位置）を光らせる
     player = best;
-    sfx("stairs");
+    sfx("spell_blink");
     log("影を踏んで、ひと息に渡った。");
   }
 

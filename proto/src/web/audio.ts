@@ -49,9 +49,13 @@ export function setAmbient(on: boolean, depth = 1): void {
   else if (ambTimer !== null) { clearTimeout(ambTimer); ambTimer = null; }
 }
 
+// ランダム環境音（水滴等）は「ポポンと謎の音が鳴って不快」との指摘で停止中。
+// 環境音／BGM は ROADMAP 横断G で再設計予定。setAmbient API は据え置き（呼び出し側そのまま）。
+const AMBIENT_ONESHOTS = false;
+
 function scheduleAmbient(): void {
   if (ambTimer !== null) { clearTimeout(ambTimer); ambTimer = null; }
-  if (!ambOn || !started) return;
+  if (!AMBIENT_ONESHOTS || !ambOn || !started) return;
   // 深いほど間隔が縮む（浅:5〜11秒 → 深:2.5〜6秒）
   const base = Math.max(2.5, 8 - ambDepth * 0.16);
   const delay = base * (0.7 + Math.random() * 0.9) * 1000;
@@ -127,7 +131,9 @@ function noise(dur: number, peak: number, filterFreq: number): void {
   src.start(); src.stop(ctx.currentTime + dur + 0.03);
 }
 
-export type Sfx = "move" | "hit" | "hurt" | "open" | "chest" | "stairs" | "death" | "intervene";
+export type Sfx =
+  | "move" | "hit" | "hurt" | "open" | "chest" | "stairs" | "death" | "intervene"
+  | "spell_warp" | "spell_still" | "spell_blink";
 
 /** 短い合成効果音。ミュート中・未初期化なら無音。音量は控えめドローン廃止に合わせて上げてある。 */
 export function sfx(kind: Sfx): void {
@@ -142,5 +148,9 @@ export function sfx(kind: Sfx): void {
     case "stairs": tone(300, 0.24, "sine", 0.15, 150); break;
     case "death": tone(120, 0.9, "sine", 0.24, 55); break;
     case "intervene": tone(660, 0.45, "sine", 0.15); break;
+    // 深蝕魔法（4-11F③）。歪撃＝歪んだ鋭い炸裂／静止＝昇る冷たいシマー／影渡り＝抜ける疾走音。
+    case "spell_warp": tone(880, 0.22, "sawtooth", 0.2, 120); noise(0.12, 0.14, 1800); break;
+    case "spell_still": tone(320, 0.45, "sine", 0.16, 1500); setTimeout(() => tone(1500, 0.3, "sine", 0.08), 120); break;
+    case "spell_blink": noise(0.26, 0.16, 900); tone(500, 0.18, "sine", 0.12, 1300); break;
   }
 }
