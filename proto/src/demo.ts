@@ -9,7 +9,8 @@ import {
 } from "./world.ts";
 import { saveWorld, loadWorld } from "./persist-node.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "./variation.ts";
-import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny } from "./render.ts";
+import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText } from "./render.ts";
+import { selectStorylet, applyEffects } from "./storylets.ts";
 import { rollEncounter } from "./weights.ts";
 import { filterByTags } from "./content.ts";
 import type { Character, World } from "./types.ts";
@@ -120,6 +121,16 @@ say("─".repeat(40));
 say(renderRediscovery(db, rng, ren, vRen));
 say("─".repeat(40));
 recordRediscovery(world, ren.id);
+
+// 遭-①：遭遇＝イベントノード（4-12）。〈調べる〉で状況を掘り下げ、結果が世界へ還流する
+say("\n[遭-①：〈調べる〉→ effects 還流（怨念極のストーリーレットが発火）]");
+const sl = selectStorylet(db, haru, ren, vRen, rng);
+if (sl) {
+  say(`  〈調べる〉 ${fillStoryletText(ren, sl.investigate.text)}`);
+  for (const line of applyEffects(world, haru, ren, sl.investigate.effects)) say(`    ${line}`);
+  const bond = haru.bonds.find((b) => b.entityRef === ren.id);
+  say(`  → 絆=${bond?.value ?? 0} / 形質=[${haru.traits.join(", ")}] ／ 年代記に追記（選択が世界に残る）`);
+}
 
 say("\n[鎮魂された化石：カイ（第2世代でアリアが時計を巻き戻した）]");
 const vKai = computeVariation(kaiF, world.generation);

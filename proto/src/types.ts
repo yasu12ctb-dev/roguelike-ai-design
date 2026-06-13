@@ -121,6 +121,39 @@ export interface SetPiece {
   frame: string;
 }
 
+// ---- 遭遇イベント（ストーリーレット駆動：snapshot 4-12） ----
+
+/** 発火条件。指定された項目すべてに一致する化石/状況でのみ立ち上がる（AND）。 */
+export interface Prereq {
+  tone?: TonePole;
+  stage?: VariationStage;
+  finalAct?: FinalActChoice;
+  kind?: Fossil["kind"];
+  minBond?: number;        // この化石との絆 value がこれ以上
+  unfinished?: boolean;    // この化石との未完の因縁の有無
+  minExposure?: number;    // プレイヤーの深蝕がこれ以上
+}
+
+/** 選択の結果として世界状態へ還流する変化。文字列は origin スロットを充填できる。 */
+export interface Effect {
+  bond?: number;           // この化石との絆 value への増減
+  closeUnfinished?: boolean;
+  exposure?: number;       // プレイヤー深蝕への増減
+  trait?: string;          // 形質を付与（#origin_name# 等のスロット可）
+  chronicle?: string;      // 年代記に一行残す（スロット可）
+}
+
+/** 遭遇ノードで立ち上がる状況。遭-① では〈調べる〉分岐を提供する。 */
+export interface Storylet {
+  id: string;
+  prerequisites: Prereq;
+  weight: number;
+  investigate: {           // 〈調べる〉で明かされる詳細とその還流
+    text: string;          // origin スロット可
+    effects: Effect[];
+  };
+}
+
 // ---- 変質計算の結果 ----
 
 export interface VariationResult {

@@ -96,6 +96,11 @@ export function renderSetPieceIfAny(
   return hasOriginTrace(text, fossil) ? text : null;
 }
 
+/** ストーリーレット本文の origin スロット充填（4-12。痕跡＝出自を必ず差し込む）。 */
+export function fillStoryletText(fossil: Fossil, text: string): string {
+  return fillSlots(text, originSlotValues(fossil));
+}
+
 /** 死の一手の地の文（finalAct タグで抽選） */
 export function renderDeathLine(db: ContentDb, rng: Rng, finalAct: Fossil["death"]["finalAct"]): string {
   return pickByTags(db, rng, "death_line", { finalAct: finalAct.choice }).text;

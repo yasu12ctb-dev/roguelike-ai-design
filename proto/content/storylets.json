@@ -1,0 +1,43 @@
+{
+  "storylets": [
+    {
+      "id": "sl_grudge_marks",
+      "prerequisites": { "tone": "grudge" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# が手放さなかった#origin_gear#。その柄には、爪で刻んだような細い線が幾重にも走り、数えるほどに増えていく気がする。憎しみは、まだ稼働している。",
+        "effects": [
+          { "bond": 1 },
+          { "exposure": 0.1 },
+          { "trait": "見たもの:#origin_name#の刻み傷" },
+          { "chronicle": "#origin_name# の刻み傷を検め、その無念の深さを知った。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_myth_warmth",
+      "prerequisites": { "tone": "myth" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# の#origin_gear#は、深部の冷気の中でなお淡く温い。柄に巻かれた布には、護るべき者の名のように小さな文字が縫い込まれている。",
+        "effects": [
+          { "bond": 1 },
+          { "trait": "聞いた偉業:#origin_name#" },
+          { "chronicle": "#origin_name# の偉業の一端に、そっと触れた。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_loss_relic",
+      "prerequisites": { "tone": "loss" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# の#origin_gear#は、もう誰も守らない。その裏に、家族の名らしき擦れた刻印が一つだけ残っている。",
+        "effects": [
+          { "bond": 1 },
+          { "chronicle": "#origin_name# の遺品を検め、その静かな来歴を知った。" }
+        ]
+      }
+    }
+  ]
+}

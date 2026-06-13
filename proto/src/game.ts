@@ -10,7 +10,8 @@ import {
   chronicle, finalActLabel,
 } from "./world.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "./variation.ts";
-import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny } from "./render.ts";
+import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText } from "./render.ts";
+import { selectStorylet, applyEffects } from "./storylets.ts";
 import { rollEncounter } from "./weights.ts";
 import type { Character, FinalActChoice, Fossil, World } from "./types.ts";
 
@@ -161,18 +162,38 @@ export async function runGame(
     recordRediscovery(world, fossil.id);
 
     const canInherit = fossil.death.finalAct.choice === "leave_will" || fossil.death.finalAct.choice === "guard_relic";
-    const opts = ["鎮魂する（末路を閉じ、変質の時計を巻き戻す）", "そっと立ち去る"];
-    if (canInherit) opts.splice(1, 0, "遺されたものを継ぐ");
-    const pick = await io.choose("どうする？", opts);
-    if (pick === 1) {
-      intervene(world, fossil.id, "requiem");
-      say(`  ${ch.name}は祈りを捧げた。何かが、静かに鎮まった。`);
-    } else if (canInherit && pick === 2) {
-      intervene(world, fossil.id, "inherit");
-      ch.traits.push(`継承:${fossil.origin.gearTags[0] ?? fossil.origin.name}`);
-      say(`  ${ch.name}は${fossil.origin.name}の遺したものを受け取った。`);
-    } else {
-      say("  お前は何もせず、その場を後にした。……それもまた、ひとつの答えだ。");
+    const storylet = selectStorylet(db, ch, fossil, v, rng);
+    let investigated = false;
+
+    // 遭遇＝イベントノード（4-12）：〈調べる〉で掘り下げてから干渉動詞を選ぶ
+    for (;;) {
+      const opts: string[] = [];
+      if (storylet && !investigated) opts.push("調べる");
+      opts.push("鎮魂する（末路を閉じ、変質の時計を巻き戻す）");
+      if (canInherit) opts.push("遺されたものを継ぐ");
+      opts.push("そっと立ち去る");
+      const pick = await io.choose("どうする？", opts);
+      const label = opts[pick - 1];
+
+      if (label === "調べる" && storylet) {
+        investigated = true;
+        say("");
+        say(`  ${fillStoryletText(fossil, storylet.investigate.text)}`);
+        for (const line of applyEffects(world, ch, fossil, storylet.investigate.effects)) say(`  ${line}`);
+        autosave();
+        continue;
+      }
+      if (label.startsWith("鎮魂")) {
+        intervene(world, fossil.id, "requiem");
+        say(`  ${ch.name}は祈りを捧げた。何かが、静かに鎮まった。`);
+      } else if (label.startsWith("遺されたもの")) {
+        intervene(world, fossil.id, "inherit");
+        ch.traits.push(`継承:${fossil.origin.gearTags[0] ?? fossil.origin.name}`);
+        say(`  ${ch.name}は${fossil.origin.name}の遺したものを受け取った。`);
+      } else {
+        say("  お前は何もせず、その場を後にした。……それもまた、ひとつの答えだ。");
+      }
+      break;
     }
     autosave();
   }

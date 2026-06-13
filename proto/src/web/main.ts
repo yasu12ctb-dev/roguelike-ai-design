@@ -10,14 +10,16 @@ import {
   chronicle, poleLabel, finalActLabel,
 } from "../world.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
-import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny } from "../render.ts";
+import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText } from "../render.ts";
 import { rollEncounter } from "../weights.ts";
 import { filterByTags } from "../content.ts";
+import { selectStorylet, applyEffects } from "../storylets.ts";
+import storyletsJson from "../../content/storylets.json";
 import {
   genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, cellIndex,
   FLOOR_W, FLOOR_H, type Floor, type Pos,
 } from "../dungeon.ts";
-import type { Character, FinalActChoice, Fossil, Fragment, SetPiece, World } from "../types.ts";
+import type { Character, FinalActChoice, Fossil, Fragment, SetPiece, Storylet, World } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 const MAX_HP = 12;
@@ -26,6 +28,7 @@ const PLAYER_DMG = 3; // 通常攻撃は確定ダメージ（miss無し・乱数
 const db = makeContentDb(
   fragmentsJson as { fragments: Fragment[] },
   setpiecesJson as { setpieces: SetPiece[] },
+  storyletsJson as { storylets: Storylet[] },
 );
 
 // ---------- DOM ----------
@@ -373,27 +376,45 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   const text = setPiece ?? renderRediscovery(db, rng, fossil, v);
   recordRediscovery(world, fossil.id);
   seenThisDive.push(fossil.id);
+  const ch = world.current!;
 
   const canInherit = fossil.death.finalAct.choice === "leave_will" || fossil.death.finalAct.choice === "guard_relic";
-  const opts = ["鎮魂する（末路を閉じ、変質の時計を巻き戻す）"];
-  if (canInherit) opts.push("遺されたものを継ぐ");
-  opts.push("そっと立ち去る");
+  const storylet = selectStorylet(db, ch, fossil, v, rng);
+  let investigated = false;
 
-  const r = await sheet({
-    text,
-    meta: `${fossil.origin.name}の化石 ── 極=${poleLabel(fossil.tonePole)} / 変質=${v.stage}${setPiece ? " / 山場" : ""}`,
-    options: opts,
-  });
-  const ch = world.current!;
-  if (r.pick === 1) {
-    intervene(world, fossil.id, "requiem");
-    log(`${ch.name}は祈りを捧げた。何かが、静かに鎮まった。`);
-  } else if (canInherit && r.pick === 2) {
-    intervene(world, fossil.id, "inherit");
-    ch.traits.push(`継承:${fossil.origin.gearTags[0] ?? fossil.origin.name}`);
-    log(`${ch.name}は${fossil.origin.name}の遺したものを受け取った。`);
-  } else {
-    log("お前は何もせず、その場を後にした。……それもまた、ひとつの答えだ。");
+  // 遭遇＝イベントノード（4-12）：〈調べる〉で状況を掘り下げてから干渉動詞を選ぶ
+  for (;;) {
+    const opts: string[] = [];
+    if (storylet && !investigated) opts.push("調べる");
+    opts.push("鎮魂する（末路を閉じ、変質の時計を巻き戻す）");
+    if (canInherit) opts.push("遺されたものを継ぐ");
+    opts.push("そっと立ち去る");
+
+    const r = await sheet({
+      text,
+      meta: `${fossil.origin.name}の化石 ── 極=${poleLabel(fossil.tonePole)} / 変質=${v.stage}${setPiece ? " / 山場" : ""}`,
+      options: opts,
+    });
+    const label = opts[r.pick - 1];
+
+    if (label === "調べる" && storylet) {
+      investigated = true;
+      log(fillStoryletText(fossil, storylet.investigate.text));
+      for (const line of applyEffects(world, ch, fossil, storylet.investigate.effects)) log(line, "dim");
+      save();
+      continue; // 掘り下げたうえで、改めて鎮魂/継承/立ち去るを選ぶ
+    }
+    if (label.startsWith("鎮魂")) {
+      intervene(world, fossil.id, "requiem");
+      log(`${ch.name}は祈りを捧げた。何かが、静かに鎮まった。`);
+    } else if (label.startsWith("遺されたもの")) {
+      intervene(world, fossil.id, "inherit");
+      ch.traits.push(`継承:${fossil.origin.gearTags[0] ?? fossil.origin.name}`);
+      log(`${ch.name}は${fossil.origin.name}の遺したものを受け取った。`);
+    } else {
+      log("お前は何もせず、その場を後にした。……それもまた、ひとつの答えだ。");
+    }
+    break;
   }
   fe.resolved = true;
   save();

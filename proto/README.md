@@ -22,7 +22,7 @@ node --experimental-strip-types src/demo.ts
 ### CLI の遊び方
 - **街**：迷宮へ潜る／酒場で噂を聞く／年代記を読む／セーブして終える
 - **迷宮**：さらに潜る（深蝕が蓄積・深いほど危険）／探索する（化石との遭遇判定）／地上へ戻る
-- **化石と遭遇したら**：鎮魂する（変質の時計を巻き戻す）／遺品を継ぐ／立ち去る
+- **化石と遭遇したら**：調べる（状況を掘り下げ→絆/形質/年代記へ還流：4-12 遭-①）／鎮魂する（変質の時計を巻き戻す）／遺品を継ぐ／立ち去る
 - **死んだら**：最後の一手を選ぶ（→ 化石の極が決まる）→ 次の世代へ（先代の血縁/弟子/無関係を選択）
 - セーブは `save/world.json` に自動。終了してもあなたの世界は堆積し続ける
 
@@ -32,8 +32,10 @@ node --experimental-strip-types src/demo.ts
 content/   鋳造所コンテンツ（手書きの最小セット。将来はLLM鋳造所で増産）
   fragments.json   断片（再発見フレーム/亡霊呼称/挙動/死の一手/奇癖/噂）
   setpieces.json   山場の予約セットピース（legend_return / grudge_hunt）
+  storylets.json   遭遇イベントのストーリーレット（4-12。〈調べる〉分岐＋effects）
 src/
   game.ts        ゲーム進行フロー（CLI/Web共通。IOを抽象化）
+  storylets.ts   遭遇イベント：ストーリーレット選出＋effects還流（spec §9・4-12）
   web/main.ts    Web（PWA）シェル：DOM IO＋localStorage永続化
   content-node.ts / persist-node.ts   Node専用のロード/セーブ
   types.ts       永続層スキーマ（spec §2）
