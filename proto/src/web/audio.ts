@@ -134,8 +134,9 @@ export function sfx(kind: Sfx): void {
   if (!ctx || muted) return;
   switch (kind) {
     case "move": tone(150, 0.05, "triangle", 0.06); break;
-    case "hit": noise(0.08, 0.22, 1300); tone(200, 0.09, "square", 0.13, 110); break;
-    case "hurt": tone(180, 0.2, "sawtooth", 0.24, 80); break;
+    // 攻撃した＝高く鋭い一撃（こちらが討つ）。被弾＝低く重い衝撃（こちらが討たれる）。聞き分け重視で音域を離す。
+    case "hit": noise(0.05, 0.16, 2600); tone(660, 0.07, "square", 0.12, 300); break;
+    case "hurt": noise(0.1, 0.18, 480); tone(135, 0.26, "sawtooth", 0.27, 56); break;
     case "open": tone(420, 0.13, "sine", 0.14); break;
     case "chest": tone(523, 0.13, "sine", 0.15); setTimeout(() => tone(784, 0.18, "sine", 0.12), 95); break;
     case "stairs": tone(300, 0.24, "sine", 0.15, 150); break;

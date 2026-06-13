@@ -18,7 +18,7 @@ import storyletsJson from "../../content/storylets.json";
 import { ensureAudio, sfx, setAmbient, setMuted, isMuted, loadMutePref } from "./audio.ts";
 import {
   genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx,
-  VIEW_W, VIEW_H, type Floor, type Pos,
+  VIEW_W, VIEW_H, type Floor, type Pos, type Chest,
 } from "../dungeon.ts";
 import type { Character, FinalActChoice, Fossil, Fragment, SetPiece, Storylet, World } from "../types.ts";
 
@@ -485,7 +485,7 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
 }
 
 // ---------- 宝箱（NetHack風：空/拾得/異物/罠） ----------
-async function chestScene(ce: { opened: boolean }) {
+async function chestScene(ce: Chest) {
   if (busy) return;
   busy = true;
   const depth = floor!.depth;
@@ -499,7 +499,9 @@ async function chestScene(ce: { opened: boolean }) {
     } else {
       log("箱は、ただ朽ちているだけだった。");
     }
-    ce.opened = true;
+    // 開けた宝箱はマップから取り除く（空き箱を残さない）
+    const i = floor!.chests.indexOf(ce);
+    if (i >= 0) floor!.chests.splice(i, 1);
   }
   save();
   busy = false;
