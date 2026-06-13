@@ -21,17 +21,27 @@ function matches(p: Prereq, world: World, ch: Character, fossil: Fossil, v: Vari
   if (p.minBond !== undefined && (bond?.value ?? 0) < p.minBond) return false;
   if (p.unfinished !== undefined && (bond?.unfinished ?? false) !== p.unfinished) return false;
   if (p.minExposure !== undefined && ch.exposure < p.minExposure) return false;
+  if (p.hasCatchphrase !== undefined && !!fossil.origin.catchphrase !== p.hasCatchphrase) return false;
   const flags = world.flags ?? [];
   if (p.flag !== undefined && !flags.includes(flagKey(p.flag, fossil))) return false;
   if (p.notFlag !== undefined && flags.includes(flagKey(p.notFlag, fossil))) return false;
   return true;
 }
 
+/** いま発火しうる遭遇（encounter）ストーリーレットの候補（前提を満たすもの）。 */
+export function candidateStorylets(
+  db: ContentDb, world: World, ch: Character, fossil: Fossil, v: VariationResult,
+): Storylet[] {
+  return db.storylets.filter(
+    (s) => (s.context ?? "encounter") === "encounter" && matches(s.prerequisites, world, ch, fossil, v),
+  );
+}
+
 /** 化石の状況に合うストーリーレットを重み付きで1つ選ぶ（無ければ null）。 */
 export function selectStorylet(
   db: ContentDb, world: World, ch: Character, fossil: Fossil, v: VariationResult, rng: Rng,
 ): Storylet | null {
-  const pool = db.storylets.filter((s) => matches(s.prerequisites, world, ch, fossil, v));
+  const pool = candidateStorylets(db, world, ch, fossil, v);
   if (pool.length === 0) return null;
   if (pool.length === 1) return pool[0];
   const total = pool.reduce((a, s) => a + Math.max(0, s.weight), 0);
@@ -59,6 +69,7 @@ export function applyEffects(
     if (e.exposure !== undefined) {
       ch.exposure = Math.max(0, ch.exposure + e.exposure);
       if (e.exposure > 0) logs.push(`深みが、少しだけ滲みた（深蝕 +${e.exposure.toFixed(2)}）。`);
+      else if (e.exposure < 0) logs.push(`張りつめていた何かが、わずかに和らいだ（深蝕 ${e.exposure.toFixed(2)}）。`);
     }
     if (e.trait !== undefined) {
       const t = fillStoryletText(fossil, e.trait);

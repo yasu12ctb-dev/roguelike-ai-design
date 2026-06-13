@@ -32,7 +32,7 @@ node --experimental-strip-types src/demo.ts
 content/   鋳造所コンテンツ（手書きの最小セット。将来はLLM鋳造所で増産）
   fragments.json   断片（再発見フレーム/亡霊呼称/挙動/死の一手/奇癖/噂）
   setpieces.json   山場の予約セットピース（legend_return / grudge_hunt）
-  storylets.json   遭遇イベントのストーリーレット（4-12。〈調べる〉分岐＋effects）
+  storylets.json   遭遇イベントのストーリーレット（4-12。context別・トーン/段階/口癖/伏線で発火。〈調べる〉〈捜索〉＋effects）
 src/
   game.ts        ゲーム進行フロー（CLI/Web共通。IOを抽象化）
   storylets.ts   遭遇イベント：ストーリーレット選出＋effects還流（spec §9・4-12）
