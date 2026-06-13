@@ -234,6 +234,106 @@
           { "chronicle": "#origin_name# の最後の言葉が、風に紛れて届いた。" }
         ]
       }
+    },
+
+    {
+      "id": "dg_shallow_cache",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "shallow" },
+      "weight": 1,
+      "text": "崩れた壁の奥に、古い木箱が一つ。誰かの野営の跡らしい。",
+      "choices": [
+        { "label": "開ける", "text": "蓋を起こすと、まだ使えそうな保存食と火口が入っていた。", "effects": [ { "trait": "拾得:野営者の遺した物資" }, { "chronicle": "深度#depth#で、先客の野営の跡から物資を得た。" } ] },
+        { "label": "そのままにする", "text": "誰かの帰りを待っているのかもしれない。箱は開けずに進んだ。", "effects": [ { "chronicle": "深度#depth#の木箱には、手を触れなかった。" } ] }
+      ]
+    },
+    {
+      "id": "dg_shallow_mushroom",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "shallow" },
+      "weight": 1,
+      "text": "燐光を放つ茸が群生している。食べられそうにも、猛毒にも見える。",
+      "choices": [
+        { "label": "一つ摘む", "text": "傘の裏がひやりと光る。とりあえず布に包んで持つことにした。", "effects": [ { "trait": "拾得:燐光茸" }, { "chronicle": "深度#depth#で燐光茸を摘んだ。毒かどうかは、まだ分からない。" } ] },
+        { "label": "触れない", "text": "光るものには、たいてい理由がある。見送った。", "effects": [ { "chronicle": "深度#depth#の燐光茸を、見送った。" } ] }
+      ]
+    },
+    {
+      "id": "dg_mid_crystal",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "mid" },
+      "weight": 1,
+      "text": "壁の亀裂から、見たことのない結晶が脈のように染み出している。淡く脈打ち、近づくと耳の奥で低く鳴る。",
+      "choices": [
+        { "label": "採取する", "text": "ひとかけら砕いて懐に収めた。指先がしばらく冷たく痺れる。", "effects": [ { "trait": "拾得:脈打つ結晶" }, { "exposure": 0.12 }, { "chronicle": "深度#depth#で脈打つ結晶を採取した。代償に、少し深く蝕まれた。" } ] },
+        { "label": "触れずに進む", "text": "鳴り続ける結晶を背に、足早に通り過ぎた。", "effects": [ { "chronicle": "深度#depth#の結晶には、手を出さなかった。" } ] }
+      ]
+    },
+    {
+      "id": "dg_mid_whispers",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "mid" },
+      "weight": 1,
+      "text": "誰もいないのに、背後で囁きが続いている。言葉のようで、言葉ではない。",
+      "choices": [
+        { "label": "耳を澄ます", "text": "意味の手前まで、確かに届いた。理解できなかったことが、かえって恐ろしい。", "effects": [ { "exposure": 0.1 }, { "trait": "聞いたもの:名のない囁き" }, { "chronicle": "深度#depth#で、聞いてはいけない囁きに耳を傾けた。" } ] },
+        { "label": "意識から締め出す", "text": "歌でも口ずさんで、囁きを塗りつぶした。", "effects": [ { "chronicle": "深度#depth#の囁きを、辛うじて締め出した。" } ] }
+      ]
+    },
+    {
+      "id": "dg_mid_shrine",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "mid" },
+      "weight": 1,
+      "text": "小さな祠が、岩肌に彫られている。誰が祀ったものかは分からないが、不思議と心が鎮まる。",
+      "choices": [
+        { "label": "祈る", "text": "膝を折り、しばし目を閉じた。胸の澱が、少しだけ晴れた気がする。", "effects": [ { "exposure": -0.1 }, { "chronicle": "深度#depth#の名もなき祠で祈り、人としての芯を少し取り戻した。" } ] },
+        { "label": "手を合わせるだけ", "text": "軽く一礼して、先を急いだ。", "effects": [ { "chronicle": "深度#depth#の祠に、手を合わせた。" } ] }
+      ]
+    },
+    {
+      "id": "dg_mid_corpse",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "mid" },
+      "weight": 1,
+      "text": "名も知れぬ亡骸が転がっている。装備は朽ち、もう誰のものとも分からない。",
+      "choices": [
+        { "label": "検める", "text": "使えそうな金具だけ、いくつか頂いた。すまない、と胸の内で詫びる。", "effects": [ { "trait": "拾得:名もなき者の金具" }, { "chronicle": "深度#depth#で、名もなき亡骸から幾つか頂いた。" } ] },
+        { "label": "弔って進む", "text": "石を一つ積んで、手を合わせた。化石になるには、関わりが足りない。", "effects": [ { "chronicle": "深度#depth#の名もなき亡骸を、静かに弔った。" } ] }
+      ]
+    },
+    {
+      "id": "dg_deep_warp",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "deep" },
+      "weight": 1,
+      "text": "通路が、ありえない角度で折れ曲がっている。まっすぐ進んでいるはずなのに、いつのまにか天井が床になっている。",
+      "choices": [
+        { "label": "構わず進む", "text": "理屈を捨て、足の向くままに進んだ。何かが、頭の奥でずれた。", "effects": [ { "exposure": 0.15 }, { "chronicle": "深度#depth#で歪んだ理を踏み抜き、深く蝕まれた。" } ] },
+        { "label": "壁づたいに慎重に", "text": "手で壁を確かめながら、一歩ずつ。それでも、平衡が時々裏返る。", "effects": [ { "exposure": 0.06 }, { "chronicle": "深度#depth#の歪んだ通路を、慎重に抜けた。" } ] }
+      ]
+    },
+    {
+      "id": "dg_deep_eye",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "deep" },
+      "weight": 1,
+      "text": "暗闇の奥で、大きな眼のようなものが一つ、ゆっくりと瞬いた。まだ、敵意は無い。",
+      "choices": [
+        { "label": "見つめ返す", "text": "逸らしてはいけない気がして、見つめ返した。向こうも、こちらを覚えただろう。", "effects": [ { "exposure": 0.18 }, { "trait": "見られたもの:深部の眼" }, { "chronicle": "深度#depth#で、深部の眼に見つめ返した。記憶された。" } ] },
+        { "label": "視線を外して通る", "text": "気づかぬふりで、息を殺して通り過ぎた。", "effects": [ { "exposure": 0.05 }, { "chronicle": "深度#depth#の眼から、視線を外して通り抜けた。" } ] }
+      ]
+    },
+    {
+      "id": "dg_deep_silence",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "deep" },
+      "weight": 1,
+      "text": "ここには、音が無い。自分の鼓動さえ聞こえない。理が、ほどけている。",
+      "choices": [
+        { "label": "立ち止まり耳を澄ます", "text": "無音の底に、何か巨大なものの寝息のようなものを聞いた——気がした。", "effects": [ { "exposure": 0.12 }, { "chronicle": "深度#depth#の無音に長く浸かり、底の気配に触れた。" } ] },
+        { "label": "急いで抜ける", "text": "音の戻ってくる場所まで、振り返らずに歩いた。", "effects": [ { "exposure": 0.04 }, { "chronicle": "深度#depth#の無音を、足早に抜けた。" } ] }
+      ]
     }
   ]
 }

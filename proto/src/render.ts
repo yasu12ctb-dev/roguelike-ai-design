@@ -101,6 +101,11 @@ export function fillStoryletText(fossil: Fossil, text: string): string {
   return fillSlots(text, originSlotValues(fossil));
 }
 
+/** ダンジョン環境イベント本文の充填（アクター無し。深度スロットのみ：4-12 F）。 */
+export function fillDungeonText(depth: number, text: string): string {
+  return text.replace(/#depth#/g, String(depth));
+}
+
 /** 死の一手の地の文（finalAct タグで抽選） */
 export function renderDeathLine(db: ContentDb, rng: Rng, finalAct: Fossil["death"]["finalAct"]): string {
   return pickByTags(db, rng, "death_line", { finalAct: finalAct.choice }).text;

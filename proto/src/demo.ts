@@ -9,8 +9,8 @@ import {
 } from "./world.ts";
 import { saveWorld, loadWorld } from "./persist-node.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "./variation.ts";
-import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText } from "./render.ts";
-import { selectStorylet, applyEffects, candidateStorylets } from "./storylets.ts";
+import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText } from "./render.ts";
+import { selectStorylet, applyEffects, candidateStorylets, selectDungeonStorylet, applyDungeonEffects } from "./storylets.ts";
 import { rollEncounter } from "./weights.ts";
 import { filterByTags } from "./content.ts";
 import type { Character, World } from "./types.ts";
@@ -144,6 +144,16 @@ if (chain?.search) {
 say(`  → 伏線フラグ：${(world.flags ?? []).join(", ") || "なし"}`);
 say(`  → 解錠後の候補＝[${candidateStorylets(db, world, haru, ren, vRen).map((s) => s.id).join(", ")}]`);
 say("    （sl_grudge_thread が加わり、sl_grudge_marks は外れる＝手記を拾ったことで後続へ移行）");
+
+// イベント拡充：ダンジョン環境イベント（context=dungeon・アクター無し・深度帯で発火）
+say("\n[ダンジョン環境イベント（context=dungeon・深度18=中層で発火）]");
+const dg = selectDungeonStorylet(db, 18, rng);
+if (dg && dg.choices) {
+  say(`  状況＝[${dg.id}] ${fillDungeonText(18, dg.text ?? "")}`);
+  const dgc = dg.choices[0];
+  say(`  → 選択「${dgc.label}」：${fillDungeonText(18, dgc.text ?? "")}`);
+  for (const line of applyDungeonEffects(world, haru, 18, dgc.effects)) say(`    ${line}`);
+}
 
 say("\n[鎮魂された化石：カイ（第2世代でアリアが時計を巻き戻した）]");
 const vKai = computeVariation(kaiF, world.generation);

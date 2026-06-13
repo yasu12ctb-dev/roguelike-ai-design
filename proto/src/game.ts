@@ -10,8 +10,8 @@ import {
   chronicle, finalActLabel,
 } from "./world.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "./variation.ts";
-import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText } from "./render.ts";
-import { selectStorylet, applyEffects } from "./storylets.ts";
+import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText } from "./render.ts";
+import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects } from "./storylets.ts";
 import { rollEncounter } from "./weights.ts";
 import type { Character, FinalActChoice, Fossil, World } from "./types.ts";
 
@@ -131,24 +131,39 @@ export async function runGame(
           const dmg = 1 + rng.int(2) + (ch.depth >= 25 ? 1 : 0);
           hp -= dmg;
           say(`  暗がりから牙が走った──${dmg}の傷。`);
-        } else {
+        } else if (!(rng.next() < 0.35 && await dungeonEvent(ch))) {
           say("  道は深く、静かに続いている。");
         }
       }
 
       if (pick === 2) {
         const enc = rollEncounter(world, ch, rng, seenThisDive);
-        if (!enc) {
-          say("  ……何も見つからない。風の音だけがする。");
-        } else {
+        if (enc) {
           seenThisDive.add(enc.id);
           await encounterScene(ch, enc);
+        } else if (!(rng.next() < 0.55 && await dungeonEvent(ch))) {
+          say("  ……何も見つからない。風の音だけがする。");
         }
         if (rng.next() < 0.12) { hp -= 1; say("  足元が崩れ、したたかに打った──1の傷。"); }
       }
 
       if (hp <= 0) { await deathScene(ch); return "died"; }
     }
+  }
+
+  /** ダンジョン環境イベント（context=dungeon・4-12 F）。発火したら true。 */
+  async function dungeonEvent(ch: Character): Promise<boolean> {
+    const ev = selectDungeonStorylet(db, ch.depth, rng);
+    if (!ev || !ev.choices || ev.choices.length === 0) return false;
+    say("");
+    say(`  ${fillDungeonText(ch.depth, ev.text ?? "")}`);
+    const pick = await io.choose("どうする？", ev.choices.map((c) => c.label));
+    const choice = ev.choices[pick - 1];
+    if (choice.text) say(`  ${fillDungeonText(ch.depth, choice.text)}`);
+    for (const line of applyDungeonEffects(world, ch, ch.depth, choice.effects)) say(`  ${line}`);
+    gainQuirks(ch); // 深蝕が増えたら奇癖判定
+    autosave();
+    return true;
   }
 
   async function encounterScene(ch: Character, fossil: Fossil) {
