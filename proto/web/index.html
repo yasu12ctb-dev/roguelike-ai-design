@@ -54,6 +54,10 @@
     .g-floor  { color: #2c333d; }
     .g-down, .g-up { color: #6fb3c8; text-shadow: 0 0 9px rgba(111,179,200,.6); }
     .g-player { color: #ffd87a; text-shadow: 0 0 12px rgba(255,216,122,.9), 0 0 26px rgba(255,160,60,.45); }
+    .g-player-danger { color: #ff4f3c; text-shadow: 0 0 14px rgba(255,79,60,1), 0 0 30px rgba(255,50,30,.7); animation: danger .55s ease-in-out infinite; }
+    @keyframes danger { 50% { color: #fff1e0; text-shadow: 0 0 18px rgba(255,120,90,1), 0 0 36px rgba(255,60,40,.85); } }
+    /* 移動予告：踏み込む敵の残像グリフ（薄い橙） */
+    .tele-ghost { color: rgba(236,150,96,.5); text-shadow: 0 0 5px rgba(236,150,96,.35); }
     .g-mon    { color: #d96459; text-shadow: 0 0 8px rgba(217,100,89,.6); }
     .g-mon-atk { color: #ff7a5c; text-shadow: 0 0 12px rgba(255,122,92,.95), 0 0 22px rgba(255,90,60,.5); animation: pulse 1s ease-in-out infinite; }
     .g-fossil { color: #9fd8cf; text-shadow: 0 0 10px rgba(159,216,207,.75); animation: pulse 2.6s ease-in-out infinite; }
@@ -61,17 +65,13 @@
     .g-chest { color: #e8c06a; text-shadow: 0 0 9px rgba(232,192,106,.7); }
     .g-chest-open { color: #7a6a44; }
     @keyframes pulse { 50% { text-shadow: 0 0 16px rgba(159,216,207,1), 0 0 30px rgba(159,216,207,.4); } }
-    /* 敵の次手の予告（テレグラフ：4-11）。攻撃＝討たれるマスの赤枠／移動＝踏み込むマスの点 */
+    /* 攻撃予告：自分のマスが討たれる＝赤い危険枠（@ も赤く明滅する：g-player-danger） */
     .cell.tele-atk::after {
-      content: ""; position: absolute; inset: 1px; border-radius: 4px; pointer-events: none;
-      border: 2.5px solid rgba(236,92,68,.98); box-shadow: 0 0 12px rgba(236,92,68,.7) inset, 0 0 8px rgba(236,92,68,.55);
-      animation: tele 0.9s ease-in-out infinite;
+      content: ""; position: absolute; inset: 0; border-radius: 3px; pointer-events: none;
+      border: 2.5px solid rgba(255,79,60,.98); box-shadow: 0 0 14px rgba(255,79,60,.75) inset, 0 0 10px rgba(255,79,60,.6);
+      animation: tele 0.55s ease-in-out infinite;
     }
-    .cell.tele-move::after {
-      content: ""; position: absolute; width: 52%; height: 52%; border-radius: 50%; pointer-events: none;
-      background: rgba(236,150,96,.6); box-shadow: 0 0 10px rgba(236,150,96,.55);
-    }
-    @keyframes tele { 50% { border-color: rgba(236,92,68,.45); box-shadow: 0 0 5px rgba(236,92,68,.3) inset; } }
+    @keyframes tele { 50% { border-color: rgba(255,79,60,.4); box-shadow: 0 0 5px rgba(255,79,60,.3) inset; } }
     #light {
       position: absolute; inset: 0; pointer-events: none;
       background: radial-gradient(circle at var(--px, 50%) var(--py, 50%),
