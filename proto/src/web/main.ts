@@ -14,13 +14,14 @@ import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny } 
 import { rollEncounter } from "../weights.ts";
 import { filterByTags } from "../content.ts";
 import {
-  genFloor, placeFossil, computeFov, stepMonsters, tileAt, cellIndex,
+  genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, cellIndex,
   FLOOR_W, FLOOR_H, type Floor, type Pos,
 } from "../dungeon.ts";
 import type { Character, FinalActChoice, Fossil, Fragment, SetPiece, World } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 const MAX_HP = 12;
+const PLAYER_DMG = 3; // 通常攻撃は確定ダメージ（miss無し・乱数なし：4-11A）
 
 const db = makeContentDb(
   fragmentsJson as { fragments: Fragment[] },
@@ -96,7 +97,7 @@ function updateStatus() {
   $("stHp").textContent = `HP ${hp}/${MAX_HP}`;
   const e = ch?.exposure ?? 0;
   const n = Math.min(5, Math.floor(e / 0.6));
-  $("stExp").textContent = `被曝 ${"▮".repeat(n)}${"░".repeat(5 - n)}`;
+  $("stExp").textContent = `深蝕 ${"▮".repeat(n)}${"░".repeat(5 - n)}`;
 }
 
 // ---------- マップ描画（方向A） ----------
@@ -126,12 +127,21 @@ function draw() {
   if (mapMode) { drawMapMode(); return; }
   lightEl.style.display = "";
   const vis = computeFov(floor, player);
+  // テレグラフ：見えている敵の予告マスを集める（攻撃＝討たれるマス／移動＝踏み込むマス）
+  const teleAtk = new Set<number>(), teleMove = new Set<number>();
+  for (const m of floor.monsters) {
+    if (m.hp <= 0 || !m.intent || !vis.has(cellIndex(m.x, m.y))) continue;
+    if (m.intent.type === "attack") teleAtk.add(cellIndex(m.intent.x, m.intent.y));
+    else if (m.intent.type === "move") teleMove.add(cellIndex(m.intent.x, m.intent.y));
+  }
   for (let y = 0; y < FLOOR_H; y++) for (let x = 0; x < FLOOR_W; x++) {
     const i = cellIndex(x, y);
     const c = cells[i], span = c.firstChild as HTMLElement;
     const t = tileAt(floor, x, y);
     const visible = vis.has(i), explored = floor.explored[i];
     c.classList.toggle("wall", t === 0 && explored);
+    c.classList.toggle("tele-atk", visible && teleAtk.has(i));
+    c.classList.toggle("tele-move", visible && !teleAtk.has(i) && teleMove.has(i));
     if (!explored) { span.textContent = ""; c.style.filter = "brightness(0)"; continue; }
 
     let glyph = t === 0 ? "▒" : "·";
@@ -166,6 +176,7 @@ function drawMapMode() {
     const t = tileAt(floor, x, y);
     const explored = floor.explored[i];
     c.classList.toggle("wall", t === 0 && explored);
+    c.classList.remove("tele-atk", "tele-move"); // 地図モードでは予告を出さない
     if (!explored) { span.textContent = ""; c.style.filter = "brightness(0)"; continue; }
     let glyph = t === 0 ? "▒" : "·";
     let cls = t === 0 ? "g-wall" : "g-floor";
@@ -253,6 +264,7 @@ function enterFloor(depth: number, fromAbove: boolean) {
     if (!fossil) break;
     if (Math.abs(fossil.laidDepth - depth) <= 4 && placeFossil(floor, rng, player, fossil)) exclude.add(fossil.id);
   }
+  planMonsters(floor, player, rng); // 入った瞬間に見えている敵は予告を出す
   draw();
   log(`── 深度${depth} ──`, "dim");
 }
@@ -275,10 +287,10 @@ async function playerAct(dx: number, dy: number) {
     const nx = player.x + dx, ny = player.y + dy;
     if (!moveOrInteract(nx, ny)) return; // 壁
   }
-  // 化石・階段の場面が開いた場合は、このターンの進行（被曝・敵の手番）を保留する
+  // 化石・階段の場面が開いた場合は、このターンの進行（深蝕・敵の手番）を保留する
   if (busy) { draw(); return; }
 
-  // 被曝（4-10C）
+  // 深蝕（4-10C）
   ch.exposure += exposureGain(floor.depth);
   const quirkCount = QUIRK_THRESHOLDS.filter((th) => ch.exposure >= th).length;
   while (ch.traits.filter((t) => t.startsWith("奇癖:")).length < quirkCount) {
@@ -291,12 +303,15 @@ async function playerAct(dx: number, dy: number) {
     log(`深みが染みてくる……奇癖を得た──「${q.text}」`, "warn");
   }
 
-  // モンスターのターン
-  const hits = stepMonsters(floor, player, rng);
-  for (const h of hits) {
+  // 敵の手番：予告した一手を実行（退いた予告は空振り＝見切り）
+  const res = resolveMonsters(floor, player);
+  for (const h of res.hits) {
     hp -= h.dmg;
-    log(`${h.monster.kind.name}の攻撃！ ${h.dmg}の傷。`, "warn");
+    log(`${h.monster.kind.name}の一撃！ ${h.dmg}の傷。`, "warn");
   }
+  for (const m of res.dodges) log(`${m.kind.name}の一撃を見切った。`, "dim");
+  // 次の一手を予告する（プレイヤーが見て動けるように）
+  planMonsters(floor, player, rng);
 
   draw();
   if (hp <= 0) await deathFlow();
@@ -308,10 +323,9 @@ function moveOrInteract(nx: number, ny: number): boolean {
   if (tileAt(f, nx, ny) !== 1) return false;
 
   const mon = f.monsters.find((m) => m.hp > 0 && m.x === nx && m.y === ny);
-  if (mon) { // 攻撃
-    const dmg = 2 + rng.int(2);
-    mon.hp -= dmg;
-    log(mon.hp <= 0 ? `${mon.kind.name}を倒した。` : `${mon.kind.name}に${dmg}の一撃。`);
+  if (mon) { // 攻撃（確定命中・確定ダメージ）
+    mon.hp -= PLAYER_DMG;
+    log(mon.hp <= 0 ? `${mon.kind.name}を倒した。` : `${mon.kind.name}に${PLAYER_DMG}の一撃。`);
     return true;
   }
 

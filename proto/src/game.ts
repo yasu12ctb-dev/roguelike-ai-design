@@ -37,7 +37,7 @@ export async function runGame(
 
   function status(ch: Character) {
     const quirks = ch.traits.filter((t) => t.startsWith("奇癖:")).length;
-    say(`〔深度${ch.depth}  HP ${hp}/${MAX_HP}  被曝 ${ch.exposure.toFixed(2)}${quirks ? `  奇癖${quirks}` : ""}〕`);
+    say(`〔深度${ch.depth}  HP ${hp}/${MAX_HP}  深蝕 ${ch.exposure.toFixed(2)}${quirks ? `  奇癖${quirks}` : ""}〕`);
   }
 
   function gainQuirks(ch: Character) {

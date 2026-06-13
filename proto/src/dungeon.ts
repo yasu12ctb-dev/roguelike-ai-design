@@ -22,8 +22,15 @@ export const MONSTER_KINDS: MonsterKind[] = [
   { key: "wisp",  glyph: "w", name: "迷い火",   hp: 3, dmg: 3, minDepth: 16, erratic: 0.4 },
 ];
 
+/** 敵の次手のテレグラフ（4-11A 読める盤面）。move=ここへ動く / attack=このマスを討つ */
+export type MonsterIntent =
+  | { type: "attack"; x: number; y: number }
+  | { type: "move"; x: number; y: number }
+  | { type: "wait" };
+
 export interface Monster extends Pos {
   id: string; kind: MonsterKind; hp: number; awake: boolean;
+  intent: MonsterIntent | null;  // 次ターンに実行する予告（プレイヤーに見える）
 }
 export interface FossilEntity extends Pos {
   id: string; fossilId: string; resolved: boolean; // resolved=このフロアで対面済み
@@ -95,7 +102,7 @@ export function genFloor(world: World, depth: number): Floor {
   for (let i = 0; i < count; i++) {
     const kind = pool[rng.int(pool.length)];
     const p = randomFloorAway(floor, rng, stairsUp, 5);
-    if (p) floor.monsters.push({ id: `m${depth}_${i}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: false });
+    if (p) floor.monsters.push({ id: `m${depth}_${i}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: false, intent: null });
   }
   return floor;
 }
@@ -153,27 +160,30 @@ export function computeFov(f: Floor, p: Pos): Set<number> {
   return vis;
 }
 
-// ---------- モンスターのターン ----------
+// ---------- モンスターのターン（テレグラフ＝予告 → 実行の2段：4-11A） ----------
 export interface MonsterHit { monster: Monster; dmg: number; }
+export interface Resolution { hits: MonsterHit[]; dodges: Monster[]; }
 
-/** 全モンスターを1ターン動かす。プレイヤーに隣接していれば攻撃（命中分を返す）。 */
-export function stepMonsters(f: Floor, player: Pos, rng: Rng): MonsterHit[] {
-  const hits: MonsterHit[] = [];
-  const occupied = (x: number, y: number) =>
-    f.monsters.some((m) => m.hp > 0 && m.x === x && m.y === y) ||
-    f.fossils.some((e) => e.x === x && e.y === y);
+const monsterDmg = (m: Monster, f: Floor) => m.kind.dmg + (f.depth >= 20 ? 1 : 0);
 
+const occupiedBy = (f: Floor, x: number, y: number, self: Monster) =>
+  f.monsters.some((m) => m !== self && m.hp > 0 && m.x === x && m.y === y) ||
+  f.fossils.some((e) => e.x === x && e.y === y);
+
+/** 各モンスターの次手を決め、intent に予告として書く（プレイヤーが見て動ける）。
+ *  覚醒判定もここで行う：新たに気づいた敵はまず予告し、実行は次ターン（理不尽な不意打ちを排す）。 */
+export function planMonsters(f: Floor, player: Pos, rng: Rng): void {
   for (const m of f.monsters) {
-    if (m.hp <= 0) continue;
+    if (m.hp <= 0) { m.intent = null; continue; }
     const d = Math.hypot(m.x - player.x, m.y - player.y);
     if (!m.awake && d <= FOV_RADIUS && losClear(f, m.x, m.y, player.x, player.y)) m.awake = true;
-    if (!m.awake) continue;
+    if (!m.awake) { m.intent = null; continue; }
 
-    if (d < 1.5) { // 隣接 → 攻撃
-      hits.push({ monster: m, dmg: m.kind.dmg + (f.depth >= 20 ? 1 : 0) });
+    if (d < 1.5) { // 隣接 → プレイヤーの現在マスを討つと予告（退けば空振り＝見切り）
+      m.intent = { type: "attack", x: player.x, y: player.y };
       continue;
     }
-    // 移動：基本は追跡、erratic 率でランダム
+    // 追跡。erratic 率でぶれるが、ぶれた結果も予告に出るので盤面は読める
     let dx = Math.sign(player.x - m.x), dy = Math.sign(player.y - m.y);
     if (rng.next() < m.kind.erratic) { dx = rng.int(3) - 1; dy = rng.int(3) - 1; }
     const cand: Pos[] = [
@@ -181,13 +191,31 @@ export function stepMonsters(f: Floor, player: Pos, rng: Rng): MonsterHit[] {
       { x: m.x + dx, y: m.y },
       { x: m.x, y: m.y + dy },
     ];
+    let dest: Pos | null = null;
     for (const c of cand) {
-      if (tileAt(f, c.x, c.y) === 1 && !(c.x === player.x && c.y === player.y) && !occupied(c.x, c.y)) {
-        m.x = c.x; m.y = c.y; break;
-      }
+      if (tileAt(f, c.x, c.y) === 1 && !(c.x === player.x && c.y === player.y) && !occupiedBy(f, c.x, c.y, m)) { dest = c; break; }
     }
+    m.intent = dest ? { type: "move", x: dest.x, y: dest.y } : { type: "wait" };
   }
-  return hits;
+}
+
+/** 予告した intent を実行する。攻撃は確定命中・確定ダメージ（miss無し）だが、
+ *  予告マスから退いていれば空振り（見切り）＝負けは読み違えとして納得できる（4-11A）。 */
+export function resolveMonsters(f: Floor, player: Pos): Resolution {
+  const hits: MonsterHit[] = [];
+  const dodges: Monster[] = [];
+  for (const m of f.monsters) {
+    if (m.hp <= 0 || !m.intent) continue;
+    if (m.intent.type === "attack") {
+      if (player.x === m.intent.x && player.y === m.intent.y) hits.push({ monster: m, dmg: monsterDmg(m, f) });
+      else dodges.push(m); // 予告マスから退いた＝見切り
+    } else if (m.intent.type === "move") {
+      const { x, y } = m.intent;
+      if (tileAt(f, x, y) === 1 && !(x === player.x && y === player.y) && !occupiedBy(f, x, y, m)) { m.x = x; m.y = y; }
+    }
+    m.intent = null;
+  }
+  return { hits, dodges };
 }
 
 export const cellIndex = idx;

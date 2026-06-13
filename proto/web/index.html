@@ -56,6 +56,17 @@
     .g-fossil { color: #9fd8cf; text-shadow: 0 0 10px rgba(159,216,207,.75); animation: pulse 2.6s ease-in-out infinite; }
     .g-fossil-quiet { color: #6f9a93; }
     @keyframes pulse { 50% { text-shadow: 0 0 16px rgba(159,216,207,1), 0 0 30px rgba(159,216,207,.4); } }
+    /* 敵の次手の予告（テレグラフ：4-11）。攻撃＝討たれるマスの赤枠／移動＝踏み込むマスの点 */
+    .cell.tele-atk::after {
+      content: ""; position: absolute; inset: 1px; border-radius: 4px; pointer-events: none;
+      border: 1.5px solid rgba(224,108,90,.9); box-shadow: 0 0 7px rgba(224,108,90,.5) inset;
+      animation: tele 1s ease-in-out infinite;
+    }
+    .cell.tele-move::after {
+      content: ""; position: absolute; width: 30%; height: 30%; border-radius: 50%; pointer-events: none;
+      background: rgba(224,108,90,.4); box-shadow: 0 0 6px rgba(224,108,90,.4);
+    }
+    @keyframes tele { 50% { border-color: rgba(224,108,90,.32); box-shadow: 0 0 3px rgba(224,108,90,.2) inset; } }
     #light {
       position: absolute; inset: 0; pointer-events: none;
       background: radial-gradient(circle at var(--px, 50%) var(--py, 50%),
@@ -106,7 +117,7 @@
     <span id="stName">—</span>
     <span>深度 <b id="stDepth">0</b></span>
     <span id="stHp">HP --</span>
-    <span id="stExp">被曝 ░░░░░</span>
+    <span id="stExp">深蝕 ░░░░░</span>
     <span class="spacer"></span>
     <button id="mapBtn" type="button">図</button>
     <button id="menuBtn" type="button">≡</button>
