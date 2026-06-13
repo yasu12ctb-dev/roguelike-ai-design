@@ -16,8 +16,8 @@ import { filterByTags } from "../content.ts";
 import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects } from "../storylets.ts";
 import storyletsJson from "../../content/storylets.json";
 import {
-  genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, cellIndex,
-  FLOOR_W, FLOOR_H, type Floor, type Pos,
+  genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx,
+  VIEW_W, VIEW_H, type Floor, type Pos,
 } from "../dungeon.ts";
 import type { Character, FinalActChoice, Fossil, Fragment, SetPiece, Storylet, World } from "../types.ts";
 
@@ -91,6 +91,8 @@ let player: Pos = { x: 0, y: 0 };
 let busy = false; // シート表示中の入力ロック
 let mapMode = false; // 地図表示（踏破範囲の俯瞰）
 let cellSize = 0;
+let cam: Pos = { x: 0, y: 0 }; // ビューポートの左上（@ を追うカメラ）
+const clampCam = (v: number, mapSize: number, viewSize: number) => Math.max(0, Math.min(v, mapSize - viewSize));
 
 // ---------- ステータスバー ----------
 function updateStatus() {
@@ -108,13 +110,13 @@ let cells: HTMLElement[] = [];
 function buildGridDom() {
   gridEl.innerHTML = "";
   cells = [];
-  const csW = Math.min(window.innerWidth, 560) / FLOOR_W;
-  const csH = ($("mapWrap").clientHeight - 4) / FLOOR_H;
+  const csW = Math.min(window.innerWidth, 560) / VIEW_W;
+  const csH = ($("mapWrap").clientHeight - 4) / VIEW_H;
   const cs = Math.min(csW, csH);
   cellSize = cs;
-  (gridEl as HTMLElement).style.gridTemplateColumns = `repeat(${FLOOR_W}, ${cs}px)`;
+  (gridEl as HTMLElement).style.gridTemplateColumns = `repeat(${VIEW_W}, ${cs}px)`;
   (gridEl as HTMLElement).style.justifyContent = "center";
-  for (let i = 0; i < FLOOR_W * FLOOR_H; i++) {
+  for (let i = 0; i < VIEW_W * VIEW_H; i++) {
     const c = document.createElement("div");
     c.className = "cell";
     c.style.height = cs + "px";
@@ -130,21 +132,27 @@ function draw() {
   if (mapMode) { drawMapMode(); return; }
   lightEl.style.display = "";
   const vis = computeFov(floor, player);
-  // テレグラフ：見えている敵の予告マスを集める（攻撃＝討たれるマス／移動＝踏み込むマス）
+  // カメラ：@ を中心に、マップ端ではクランプ（マップは常にビューより大きい）
+  const camX = clampCam(player.x - (VIEW_W >> 1), floor.w, VIEW_W);
+  const camY = clampCam(player.y - (VIEW_H >> 1), floor.h, VIEW_H);
+  cam = { x: camX, y: camY };
+  // テレグラフ：見えている敵の予告マスをマップ添字で集める（攻撃＝討たれるマス／移動＝踏み込むマス）
   const teleAtk = new Set<number>(), teleMove = new Set<number>();
   for (const m of floor.monsters) {
-    if (m.hp <= 0 || !m.intent || !vis.has(cellIndex(m.x, m.y))) continue;
-    if (m.intent.type === "attack") teleAtk.add(cellIndex(m.intent.x, m.intent.y));
-    else if (m.intent.type === "move") teleMove.add(cellIndex(m.intent.x, m.intent.y));
+    if (m.hp <= 0 || !m.intent || !vis.has(mapIdx(floor, m.x, m.y))) continue;
+    if (m.intent.type === "attack") teleAtk.add(mapIdx(floor, m.intent.x, m.intent.y));
+    else if (m.intent.type === "move") teleMove.add(mapIdx(floor, m.intent.x, m.intent.y));
   }
-  for (let y = 0; y < FLOOR_H; y++) for (let x = 0; x < FLOOR_W; x++) {
-    const i = cellIndex(x, y);
-    const c = cells[i], span = c.firstChild as HTMLElement;
+  for (let vy = 0; vy < VIEW_H; vy++) for (let vx = 0; vx < VIEW_W; vx++) {
+    const c = cells[vy * VIEW_W + vx], span = c.firstChild as HTMLElement;
+    const x = camX + vx, y = camY + vy;
+    const inside = x >= 0 && y >= 0 && x < floor.w && y < floor.h;
+    const mi = inside ? mapIdx(floor, x, y) : -1;
     const t = tileAt(floor, x, y);
-    const visible = vis.has(i), explored = floor.explored[i];
+    const visible = inside && vis.has(mi), explored = inside && floor.explored[mi];
     c.classList.toggle("wall", t === 0 && explored);
-    c.classList.toggle("tele-atk", visible && teleAtk.has(i));
-    c.classList.toggle("tele-move", visible && !teleAtk.has(i) && teleMove.has(i));
+    c.classList.toggle("tele-atk", visible && teleAtk.has(mi));
+    c.classList.toggle("tele-move", visible && !teleAtk.has(mi) && teleMove.has(mi));
     if (!explored) { span.textContent = ""; c.style.filter = "brightness(0)"; continue; }
 
     let glyph = t === 0 ? "▒" : "·";
@@ -164,30 +172,43 @@ function draw() {
     const b = visible ? Math.max(0.35, 1 - d / 11) : 0.16; // 記憶は薄暗く
     c.style.filter = `brightness(${b.toFixed(2)})`;
   }
-  lightEl.style.setProperty("--px", ((player.x + 0.5) / FLOOR_W * 100) + "%");
-  lightEl.style.setProperty("--py", ((player.y + 0.5) / FLOOR_H * 100) + "%");
+  // 光源は @ のビュー内位置
+  lightEl.style.setProperty("--px", ((player.x - camX + 0.5) / VIEW_W * 100) + "%");
+  lightEl.style.setProperty("--py", ((player.y - camY + 0.5) / VIEW_H * 100) + "%");
   updateStatus();
 }
 
-/** 地図モード：踏破済み範囲を明るく俯瞰（敵は出さない。階段・化石・自分のみ） */
+/** 地図モード：マップ全体をビューに縮小して俯瞰（踏破範囲・階段・化石・自分） */
 function drawMapMode() {
   if (!floor) return;
   lightEl.style.display = "none"; // 松明の減光を外す
-  for (let y = 0; y < FLOOR_H; y++) for (let x = 0; x < FLOOR_W; x++) {
-    const i = cellIndex(x, y);
-    const c = cells[i], span = c.firstChild as HTMLElement;
-    const t = tileAt(floor, x, y);
-    const explored = floor.explored[i];
-    c.classList.toggle("wall", t === 0 && explored);
-    c.classList.remove("tele-atk", "tele-move"); // 地図モードでは予告を出さない
-    if (!explored) { span.textContent = ""; c.style.filter = "brightness(0)"; continue; }
-    let glyph = t === 0 ? "▒" : "·";
-    let cls = t === 0 ? "g-wall" : "g-floor";
-    if (x === floor.stairsDown.x && y === floor.stairsDown.y) { glyph = "›"; cls = "g-down"; }
-    if (x === floor.stairsUp.x && y === floor.stairsUp.y) { glyph = "‹"; cls = "g-up"; }
-    const fe = floor.fossils.find((e) => e.x === x && e.y === y);
-    if (fe) { glyph = "†"; cls = fe.resolved ? "g-fossil-quiet" : "g-fossil"; }
-    if (x === player.x && y === player.y) { glyph = "@"; cls = "g-player"; }
+  const sx = floor.w / VIEW_W, sy = floor.h / VIEW_H; // マップ→ビューの縮小率（>1）
+  const pvx = Math.min(VIEW_W - 1, Math.floor(player.x / sx));
+  const pvy = Math.min(VIEW_H - 1, Math.floor(player.y / sy));
+  for (let vy = 0; vy < VIEW_H; vy++) for (let vx = 0; vx < VIEW_W; vx++) {
+    const c = cells[vy * VIEW_W + vx], span = c.firstChild as HTMLElement;
+    c.classList.remove("tele-atk", "tele-move");
+    // このビューセルが覆うマップ矩形を走査して、踏破済みの床/階段/化石を集約
+    const mx0 = Math.floor(vx * sx), mx1 = Math.max(mx0 + 1, Math.floor((vx + 1) * sx));
+    const my0 = Math.floor(vy * sy), my1 = Math.max(my0 + 1, Math.floor((vy + 1) * sy));
+    let anyExplored = false, floorSeen = false, stair: "up" | "down" | null = null, fossilCls: string | null = null;
+    for (let my = my0; my < my1 && my < floor.h; my++) for (let mx = mx0; mx < mx1 && mx < floor.w; mx++) {
+      if (!floor.explored[mapIdx(floor, mx, my)]) continue;
+      anyExplored = true;
+      if (tileAt(floor, mx, my) === 1) floorSeen = true;
+      if (mx === floor.stairsDown.x && my === floor.stairsDown.y) stair = "down";
+      else if (mx === floor.stairsUp.x && my === floor.stairsUp.y) stair = "up";
+      const fe = floor.fossils.find((e) => e.x === mx && e.y === my);
+      if (fe) fossilCls = fe.resolved ? "g-fossil-quiet" : "g-fossil";
+    }
+    c.classList.toggle("wall", anyExplored && !floorSeen);
+    if (!anyExplored) { span.textContent = ""; c.style.filter = "brightness(0)"; continue; }
+    let glyph = floorSeen ? "·" : "▒";
+    let cls = floorSeen ? "g-floor" : "g-wall";
+    if (fossilCls) { glyph = "†"; cls = fossilCls; }
+    if (stair === "down") { glyph = "›"; cls = "g-down"; }
+    else if (stair === "up") { glyph = "‹"; cls = "g-up"; }
+    if (vx === pvx && vy === pvy) { glyph = "@"; cls = "g-player"; }
     span.textContent = glyph;
     span.className = cls;
     c.style.filter = "brightness(0.85)";
@@ -520,8 +541,8 @@ $("mapWrap").addEventListener("touchend", (e) => {
   const r = gridEl.getBoundingClientRect();
   const cx = Math.floor((tx - r.left) / cellSize);
   const cy = Math.floor((ty - r.top) / cellSize);
-  if (cx < 0 || cy < 0 || cx >= FLOOR_W || cy >= FLOOR_H) return;
-  const ddx = cx - player.x, ddy = cy - player.y;
+  if (cx < 0 || cy < 0 || cx >= VIEW_W || cy >= VIEW_H) return;
+  const ddx = (cam.x + cx) - player.x, ddy = (cam.y + cy) - player.y; // ビュー → マップ座標
   if (ddx === 0 && ddy === 0) { void playerAct(0, 0); return; } // 待機
   if (Math.abs(ddx) >= Math.abs(ddy)) void playerAct(Math.sign(ddx), 0);
   else void playerAct(0, Math.sign(ddy));

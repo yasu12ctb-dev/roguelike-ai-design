@@ -4,8 +4,9 @@
 import { makeRng, type Rng } from "./rng.ts";
 import type { World, Fossil } from "./types.ts";
 
-export const FLOOR_W = 21;
-export const FLOOR_H = 23;
+// 表示ビューポート（DOMグリッド）のサイズ。マップ自体はこれより大きく、カメラが @ を追う。
+export const VIEW_W = 21;
+export const VIEW_H = 23;
 
 export type Tile = 0 | 1; // 0=岩盤(壁) 1=床
 export interface Pos { x: number; y: number; }
@@ -38,16 +39,18 @@ export interface FossilEntity extends Pos {
 
 export interface Floor {
   depth: number;
-  tiles: Tile[];                 // FLOOR_W * FLOOR_H
+  w: number; h: number;          // マップ寸法（深度でスケール。ビューより大きい）
+  tiles: Tile[];                 // w * h
   stairsUp: Pos; stairsDown: Pos;
   monsters: Monster[];
   fossils: FossilEntity[];
   explored: boolean[];           // 既踏破（記憶表示用）
 }
 
-const idx = (x: number, y: number) => y * FLOOR_W + x;
-export const inBounds = (x: number, y: number) => x >= 0 && y >= 0 && x < FLOOR_W && y < FLOOR_H;
-export const tileAt = (f: Floor, x: number, y: number): Tile => (inBounds(x, y) ? f.tiles[idx(x, y)] : 0);
+/** マップ座標 → tiles/explored の添字（フロアの幅で決まる） */
+export const mapIdx = (f: Floor, x: number, y: number) => y * f.w + x;
+export const inBounds = (f: Floor, x: number, y: number) => x >= 0 && y >= 0 && x < f.w && y < f.h;
+export const tileAt = (f: Floor, x: number, y: number): Tile => (inBounds(f, x, y) ? f.tiles[mapIdx(f, x, y)] : 0);
 
 // ---------- フロア生成（部屋＋L字通路。順次接続なので必ず連結） ----------
 interface Room { x: number; y: number; w: number; h: number; }
@@ -55,20 +58,24 @@ const center = (r: Room): Pos => ({ x: r.x + (r.w >> 1), y: r.y + (r.h >> 1) });
 
 export function genFloor(world: World, depth: number): Floor {
   const rng = makeRng((world.seed ^ (depth * 2654435761) ^ (world.generation * 97)) >>> 0);
-  const tiles: Tile[] = new Array(FLOOR_W * FLOOR_H).fill(0);
+  // マップ寸法：深いほど広い（毎回ランダムな形）。常に VIEW より大きく、カメラがスクロールする。
+  const W = 24 + Math.min(depth, 26);
+  const H = 28 + Math.min(depth, 26);
+  const tiles: Tile[] = new Array(W * H).fill(0);
+  const gi = (x: number, y: number) => y * W + x;
   const rooms: Room[] = [];
 
   const carveRoom = (r: Room) => {
-    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) tiles[idx(x, y)] = 1;
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) tiles[gi(x, y)] = 1;
   };
   const overlaps = (a: Room) =>
     rooms.some((b) => a.x - 1 < b.x + b.w && b.x - 1 < a.x + a.w && a.y - 1 < b.y + b.h && b.y - 1 < a.y + a.h);
 
-  // 部屋を大きめ・開放的にし、深いほど数も少し増やす（毎回ランダム）。
-  const targetRooms = 6 + Math.min(depth >> 3, 4) + rng.int(2);
-  for (let tries = 0; tries < 140 && rooms.length < targetRooms; tries++) {
-    const w = 5 + rng.int(6), h = 4 + rng.int(4);
-    const x = 1 + rng.int(FLOOR_W - w - 2), y = 1 + rng.int(FLOOR_H - h - 2);
+  // 部屋を大きめ・開放的に。マップ面積に比例して部屋数を出す（深いほど広く＝多く）。
+  const targetRooms = Math.max(6, Math.round((W * H) / 95));
+  for (let tries = 0; tries < targetRooms * 18 && rooms.length < targetRooms; tries++) {
+    const w = 5 + rng.int(6), h = 4 + rng.int(5);
+    const x = 1 + rng.int(W - w - 2), y = 1 + rng.int(H - h - 2);
     const r = { x, y, w, h };
     if (!overlaps(r)) { rooms.push(r); carveRoom(r); }
   }
@@ -77,7 +84,7 @@ export function genFloor(world: World, depth: number): Floor {
     let { x: ax, y: ay } = center(rooms[i - 1]);
     const { x: bx, y: by } = center(rooms[i]);
     const xFirst = rng.next() < 0.5;
-    const carve = (x: number, y: number) => { tiles[idx(x, y)] = 1; };
+    const carve = (x: number, y: number) => { tiles[gi(x, y)] = 1; };
     if (xFirst) {
       for (; ax !== bx; ax += Math.sign(bx - ax)) carve(ax, ay);
       for (; ay !== by; ay += Math.sign(by - ay)) carve(ax, ay);
@@ -92,9 +99,9 @@ export function genFloor(world: World, depth: number): Floor {
   const stairsDown = center(rooms[rooms.length - 1]);
 
   const floor: Floor = {
-    depth, tiles, stairsUp, stairsDown,
+    depth, w: W, h: H, tiles, stairsUp, stairsDown,
     monsters: [], fossils: [],
-    explored: new Array(FLOOR_W * FLOOR_H).fill(false),
+    explored: new Array(W * H).fill(false),
   };
 
   // ---------- モンスター配置（深いほど多く・強く） ----------
@@ -111,7 +118,7 @@ export function genFloor(world: World, depth: number): Floor {
 /** from から minDist 以上離れた床タイルを返す */
 export function randomFloorAway(f: Floor, rng: Rng, from: Pos, minDist: number): Pos | null {
   for (let tries = 0; tries < 80; tries++) {
-    const x = 1 + rng.int(FLOOR_W - 2), y = 1 + rng.int(FLOOR_H - 2);
+    const x = 1 + rng.int(f.w - 2), y = 1 + rng.int(f.h - 2);
     if (tileAt(f, x, y) !== 1) continue;
     if (Math.hypot(x - from.x, y - from.y) < minDist) continue;
     if (f.monsters.some((m) => m.x === x && m.y === y)) continue;
@@ -149,12 +156,12 @@ function losClear(f: Floor, x0: number, y0: number, x1: number, y1: number): boo
 /** 可視セル集合を返し、explored を更新する */
 export function computeFov(f: Floor, p: Pos): Set<number> {
   const vis = new Set<number>();
-  for (let y = Math.max(0, p.y - FOV_RADIUS); y <= Math.min(FLOOR_H - 1, p.y + FOV_RADIUS); y++) {
-    for (let x = Math.max(0, p.x - FOV_RADIUS); x <= Math.min(FLOOR_W - 1, p.x + FOV_RADIUS); x++) {
+  for (let y = Math.max(0, p.y - FOV_RADIUS); y <= Math.min(f.h - 1, p.y + FOV_RADIUS); y++) {
+    for (let x = Math.max(0, p.x - FOV_RADIUS); x <= Math.min(f.w - 1, p.x + FOV_RADIUS); x++) {
       if (Math.hypot(x - p.x, y - p.y) > FOV_RADIUS + 0.5) continue;
       if (losClear(f, p.x, p.y, x, y)) {
-        vis.add(idx(x, y));
-        f.explored[idx(x, y)] = true;
+        vis.add(mapIdx(f, x, y));
+        f.explored[mapIdx(f, x, y)] = true;
       }
     }
   }
@@ -218,5 +225,3 @@ export function resolveMonsters(f: Floor, player: Pos): Resolution {
   }
   return { hits, dodges };
 }
-
-export const cellIndex = idx;
