@@ -14,6 +14,7 @@ import {
   maxHp, meleeDmg, heartFactor, xpToNext, xpForKill, statsLine,
   STAT_KEYS, STAT_LABEL, HP_PER,
 } from "../progression.ts";
+import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
 import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText } from "../render.ts";
 import { rollEncounter } from "../weights.ts";
 import { filterByTags } from "../content.ts";
@@ -313,7 +314,6 @@ async function startDive() {
 // ---------- 1ターンの処理 ----------
 async function playerAct(dx: number, dy: number) {
   if (busy || mode !== "dive" || !floor || !world.current) return;
-  const ch = world.current;
 
   if (!(dx === 0 && dy === 0)) {
     const nx = player.x + dx, ny = player.y + dy;
@@ -321,6 +321,13 @@ async function playerAct(dx: number, dy: number) {
   }
   // 化石・階段の場面が開いた場合は、このターンの進行（深蝕・敵の手番）を保留する
   if (busy) { draw(); return; }
+  await endTurn();
+}
+
+/** 1手ぶんの後処理：深蝕→奇癖→敵の手番→予告更新→描画→昇級→死。移動も詠唱もここに合流する。 */
+async function endTurn() {
+  if (!floor || !world.current) return;
+  const ch = world.current;
 
   // 深蝕（4-10C）。心が高いほど染み込みが遅い（progression.heartFactor）。
   ch.exposure += exposureGain(floor.depth) * heartFactor(ch);
@@ -335,7 +342,7 @@ async function playerAct(dx: number, dy: number) {
     log(`深みが染みてくる……奇癖を得た──「${q.text}」`, "warn");
   }
 
-  // 敵の手番：予告した一手を実行（退いた予告は空振り＝見切り）
+  // 敵の手番：予告した一手を実行（退いた予告は空振り＝見切り。静止中はwait）
   const res = resolveMonsters(floor, player);
   if (res.hits.length) sfx("hurt");
   for (const h of res.hits) {
@@ -351,6 +358,66 @@ async function playerAct(dx: number, dy: number) {
   if (hp <= 0) await deathFlow();
 }
 
+// ---------- 深蝕魔法（4-11F③）。燃料＝深蝕。詠唱＝そのターンの行動。自動対象で最小UX ----------
+$("spellBtn").onclick = async () => {
+  if (busy || mode !== "dive" || !floor || !world.current) return;
+  const ch = world.current;
+  if (ch.spells.length === 0) { log("まだ術を識らない。レベルアップで識れる。", "dim"); return; }
+  busy = true;
+  const known = ch.spells.map((k) => spellByKey(k)).filter((s): s is NonNullable<typeof s> => !!s);
+  const r = await sheet({
+    text: `深みの力を引く。代償は深蝕（今 ${ch.exposure.toFixed(2)}）。`,
+    meta: "術 ── 深蝕を支払って盤面を曲げる",
+    options: [...known.map((s) => `${s.name}（深蝕＋${s.cost}）── ${s.desc}`), "やめる"],
+  });
+  busy = false;
+  const spell = known[r.pick - 1];
+  if (spell) await castSpell(spell.key);
+};
+
+async function castSpell(key: string) {
+  if (busy || mode !== "dive" || !floor || !world.current) return;
+  const ch = world.current;
+  const def = spellByKey(key);
+  if (!def) return;
+  const vis = computeFov(floor, player);
+  const visMon = floor.monsters.filter((m) => m.hp > 0 && vis.has(mapIdx(floor, m.x, m.y)));
+
+  if (key === "warp_strike") {
+    if (!visMon.length) { log("討つべき敵が見えない。", "dim"); draw(); return; }
+    const target = visMon.reduce((a, b) =>
+      Math.hypot(a.x - player.x, a.y - player.y) <= Math.hypot(b.x - player.x, b.y - player.y) ? a : b);
+    const dmg = warpDamage(ch.stats.reason);
+    target.hp -= dmg;
+    sfx("hit");
+    if (target.hp <= 0) { ch.xp += xpForKill(target.kind.hp); log(`歪んだ一撃。${target.kind.name}を討ち砕いた。`); }
+    else log(`歪撃が${target.kind.name}を抉る（${dmg}）。`);
+  } else if (key === "still_eye") {
+    if (!visMon.length) { log("止めるべき敵が見えない。", "dim"); draw(); return; }
+    for (const m of visMon) { m.intent = { type: "wait" }; m.stunned = 1; }
+    log(`静止の眼。${visMon.length}体の動きが、凍りついた。`);
+  } else if (key === "shadow_step") {
+    if (!visMon.length) { log("逃げる相手がいない。", "dim"); draw(); return; }
+    let best: Pos | null = null, bestScore = -1;
+    for (const mi of vis) {
+      const x = mi % floor.w, y = Math.floor(mi / floor.w);
+      if (tileAt(floor, x, y) !== 1) continue;
+      if (x === player.x && y === player.y) continue;
+      if (floor.monsters.some((m) => m.hp > 0 && m.x === x && m.y === y)) continue;
+      const nearest = Math.min(...visMon.map((m) => Math.hypot(m.x - x, m.y - y)));
+      if (nearest > bestScore) { bestScore = nearest; best = { x, y }; }
+    }
+    if (!best) { log("渡れる先がない。", "dim"); draw(); return; }
+    player = best;
+    sfx("stairs");
+    log("影を踏んで、ひと息に渡った。");
+  }
+
+  ch.exposure += def.cost;
+  log(`（${def.name}の代償：深蝕＋${def.cost}）`, "dim");
+  await endTurn();
+}
+
 /** 撃破で貯まったXPがレベル閾値を超えていれば、超えたぶんだけ昇級＝ステ選択（4-11F②）。 */
 async function handleLevelUps() {
   const ch = world.current;
@@ -359,20 +426,29 @@ async function handleLevelUps() {
     ch.xp -= xpToNext(ch.level);
     ch.level += 1;
     busy = true;
+    // ステ+1 に加え、未習得の術を「識る」選択肢（snapshot：ステ上昇 or 術習得）
+    const learnable = SPELLS.filter((s) => !ch.spells.includes(s.key));
     const r = await sheet({
       text: `レベル${ch.level}に達した。何を伸ばす？`,
       meta: `${statsLine(ch)} ── 最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)}`,
       options: [
         `体 ＋1（最大HPが上がる）`,
         `力 ＋1（攻撃が上がる）`,
-        `理 ＋1（深蝕魔法の素養：のちの力）`,
+        `理 ＋1（深蝕魔法の威力：のちの力）`,
         `心 ＋1（深蝕に染まりにくくなる）`,
+        ...learnable.map((s) => `術を識る：${s.name}（深蝕＋${s.cost}／${s.desc}）`),
       ],
     });
-    const key = STAT_KEYS[r.pick - 1];
-    ch.stats[key] += 1;
-    if (key === "body") hp = Math.min(hp + HP_PER, maxHp(ch)); // 体UPぶんを回復
-    log(`レベル${ch.level} ── ${STAT_LABEL[key]}が伸びた（${statsLine(ch)}）。`, "warn");
+    if (r.pick <= 4) {
+      const key = STAT_KEYS[r.pick - 1];
+      ch.stats[key] += 1;
+      if (key === "body") hp = Math.min(hp + HP_PER, maxHp(ch)); // 体UPぶんを回復
+      log(`レベル${ch.level} ── ${STAT_LABEL[key]}が伸びた（${statsLine(ch)}）。`, "warn");
+    } else {
+      const s = learnable[r.pick - 5];
+      ch.spells.push(s.key);
+      log(`レベル${ch.level} ── 深みから《${s.name}》を識った。`, "warn");
+    }
     busy = false;
   }
   save();
@@ -582,8 +658,9 @@ $("menuBtn").onclick = async () => {
   if (busy) return;
   busy = true;
   const ch = world.current;
+  const spellNames = ch ? ch.spells.map((k) => spellByKey(k)?.name).filter(Boolean).join("、") : "";
   const sheetHead = ch
-    ? `《${ch.name}》Lv${ch.level} ── ${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のレベルまで残り${Math.max(0, xpToNext(ch.level) - ch.xp)}\n深蝕 ${ch.exposure.toFixed(2)}${ch.traits.length ? `\n形質: ${ch.traits.join("、")}` : ""}\n\n`
+    ? `《${ch.name}》Lv${ch.level} ── ${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のレベルまで残り${Math.max(0, xpToNext(ch.level) - ch.xp)}\n深蝕 ${ch.exposure.toFixed(2)}${spellNames ? `\n術: ${spellNames}` : ""}${ch.traits.length ? `\n形質: ${ch.traits.join("、")}` : ""}\n\n`
     : "";
   const mark = { birth: "生", death: "死", rediscovery: "再", intervention: "干", legend: "伝", rumor: "噂" } as const;
   const tail = world.chronicle.slice(-10).map((e) => `世代${e.generation} [${mark[e.kind]}] ${e.text}`).join("\n");

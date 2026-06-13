@@ -33,6 +33,7 @@ export interface Character {
   stats: Stats;
   level: number;
   xp: number;                   // 次のレベルまでの蓄積（敵撃破で増える）
+  spells: string[];             // 習得した深蝕魔法のキー（4-11F③・SpellKey）
 }
 
 export interface Lineage {

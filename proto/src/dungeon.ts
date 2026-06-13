@@ -32,6 +32,7 @@ export type MonsterIntent =
 export interface Monster extends Pos {
   id: string; kind: MonsterKind; hp: number; awake: boolean;
   intent: MonsterIntent | null;  // 次ターンに実行する予告（プレイヤーに見える）
+  stunned?: number;              // >0 の間は行動不能（静止の眼：4-11F③）
 }
 export interface FossilEntity extends Pos {
   id: string; fossilId: string; resolved: boolean; // resolved=このフロアで対面済み
@@ -235,6 +236,7 @@ const occupiedBy = (f: Floor, x: number, y: number, self: Monster) =>
 export function planMonsters(f: Floor, player: Pos, rng: Rng): void {
   for (const m of f.monsters) {
     if (m.hp <= 0) { m.intent = null; continue; }
+    if (m.stunned && m.stunned > 0) { m.stunned--; m.intent = { type: "wait" }; continue; } // 静止の眼
     const d = Math.hypot(m.x - player.x, m.y - player.y);
     if (!m.awake && d <= FOV_RADIUS && losClear(f, m.x, m.y, player.x, player.y)) m.awake = true;
     if (!m.awake) { m.intent = null; continue; }
