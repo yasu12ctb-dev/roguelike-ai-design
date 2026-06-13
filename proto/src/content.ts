@@ -1,19 +1,25 @@
 // 鋳造所コンテンツ：タグ整合の抽選（環境非依存・純ロジック）
 // ロードは環境ごとに行う：Node = content-node.ts / ブラウザ = JSON を bundler が同梱
 
-import type { Fragment, FragmentTags, SetPiece } from "./types.ts";
+import type { Fragment, FragmentTags, SetPiece, Storylet } from "./types.ts";
 import type { Rng } from "./rng.ts";
 
 export interface ContentDb {
   fragments: Fragment[];
   setpieces: SetPiece[];
+  storylets: Storylet[];
 }
 
 export function makeContentDb(
   fragmentsJson: { fragments: Fragment[] },
   setpiecesJson: { setpieces: SetPiece[] },
+  storyletsJson?: { storylets: Storylet[] },
 ): ContentDb {
-  return { fragments: fragmentsJson.fragments, setpieces: setpiecesJson.setpieces };
+  return {
+    fragments: fragmentsJson.fragments,
+    setpieces: setpiecesJson.setpieces,
+    storylets: storyletsJson?.storylets ?? [],
+  };
 }
 
 /** タグが要求に矛盾しない断片だけを返す（断片側にタグが無ければワイルドカード扱い） */
