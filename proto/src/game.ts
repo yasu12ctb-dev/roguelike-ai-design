@@ -11,7 +11,7 @@ import {
 } from "./world.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "./variation.ts";
 import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText } from "./render.ts";
-import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects } from "./storylets.ts";
+import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, rollChestOutcome } from "./storylets.ts";
 import { rollEncounter } from "./weights.ts";
 import type { Character, FinalActChoice, Fossil, World } from "./types.ts";
 
@@ -141,6 +141,8 @@ export async function runGame(
         if (enc) {
           seenThisDive.add(enc.id);
           await encounterScene(ch, enc);
+        } else if (rng.next() < 0.25) {
+          await chestScene(ch);
         } else if (!(rng.next() < 0.7 && await dungeonEvent(ch))) {
           say("  ……何も見つからない。風の音だけがする。");
         }
@@ -164,6 +166,22 @@ export async function runGame(
     gainQuirks(ch); // 深蝕が増えたら奇癖判定
     autosave();
     return true;
+  }
+
+  /** 宝箱（NetHack風：空/拾得/異物/罠）。 */
+  async function chestScene(ch: Character): Promise<void> {
+    const pick = await io.choose("古びた宝箱がある。開けるか？", ["開ける", "見送る"]);
+    if (pick !== 1) { say("  宝箱には手を触れず、先へ進んだ。"); return; }
+    const outcome = rollChestOutcome(db, ch.depth, rng);
+    say("");
+    if (outcome?.result) {
+      say(`  ${fillDungeonText(ch.depth, outcome.result.text)}`);
+      for (const line of applyDungeonEffects(world, ch, ch.depth, outcome.result.effects)) say(`  ${line}`);
+      gainQuirks(ch);
+    } else {
+      say("  箱は、ただ朽ちているだけだった。");
+    }
+    autosave();
   }
 
   async function encounterScene(ch: Character, fossil: Fossil) {

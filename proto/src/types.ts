@@ -163,9 +163,9 @@ export interface StoryletChoice {
 }
 
 /** イベントの発生場所＝コンテキスト（4-12(F)。混合せず、コンテキスト内で大量×重み）。 */
-export type StoryletContext = "encounter" | "dungeon" | "town" | "quest";
+export type StoryletContext = "encounter" | "dungeon" | "town" | "quest" | "chest";
 
-/** 状況。encounter は investigate/search、dungeon は text+choices を使う（4-12 F）。 */
+/** 状況。encounter は investigate/search、dungeon は text+choices、chest は result を使う（4-12 F）。 */
 export interface Storylet {
   id: string;
   context?: StoryletContext;     // 省略時 = "encounter"（化石/アクターとの出会い）
@@ -175,6 +175,7 @@ export interface Storylet {
   search?: StoryletBranch;       // 〈捜索〉：周辺の遺品・手がかり（伏線を立てうる・encounter）
   text?: string;                 // 状況の地の文（dungeon。#depth# スロット可）
   choices?: StoryletChoice[];    // 環境イベントの選択肢（dungeon）
+  result?: StoryletBranch;       // 開封結果（chest。開けると自動適用。空/拾得/異物/罠）
 }
 
 // ---- 変質計算の結果 ----

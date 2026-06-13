@@ -90,11 +90,11 @@ export function applyEffects(
 
 // ---------- ダンジョン環境イベント（context=dungeon。アクター無し：4-12 F） ----------
 
-/** 現在深度で発火しうるダンジョン環境イベントを重み付きで1つ選ぶ（無ければ null）。 */
-export function selectDungeonStorylet(db: ContentDb, depth: number, rng: Rng): Storylet | null {
+/** 指定 context のうち、深度帯に合うものを重み付きで1つ選ぶ（無ければ null）。 */
+function pickByContext(db: ContentDb, context: string, depth: number, rng: Rng): Storylet | null {
   const band = depthBand(depth);
   const pool = db.storylets.filter(
-    (s) => s.context === "dungeon" && (s.prerequisites.depthBand === undefined || s.prerequisites.depthBand === band),
+    (s) => s.context === context && (s.prerequisites.depthBand === undefined || s.prerequisites.depthBand === band),
   );
   if (pool.length === 0) return null;
   if (pool.length === 1) return pool[0];
@@ -103,6 +103,16 @@ export function selectDungeonStorylet(db: ContentDb, depth: number, rng: Rng): S
   let r = rng.next() * total;
   for (const s of pool) { r -= Math.max(0, s.weight); if (r <= 0) return s; }
   return pool[pool.length - 1];
+}
+
+/** 現在深度で発火しうるダンジョン環境イベントを重み付きで1つ選ぶ（無ければ null）。 */
+export function selectDungeonStorylet(db: ContentDb, depth: number, rng: Rng): Storylet | null {
+  return pickByContext(db, "dungeon", depth, rng);
+}
+
+/** 宝箱の中身を抽選（NetHack風：空/拾得/異物/罠）。result を持つ chest 状況を返す。 */
+export function rollChestOutcome(db: ContentDb, depth: number, rng: Rng): Storylet | null {
+  return pickByContext(db, "chest", depth, rng);
 }
 
 /** ダンジョン環境イベントの選択結果を還流させる（アクター無しなので exposure/trait/chronicle のみ）。 */
