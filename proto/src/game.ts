@@ -10,6 +10,7 @@ import {
   chronicle, finalActLabel,
 } from "./world.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "./variation.ts";
+import { maxHp, meleeDmg, heartFactor, xpToNext, statsLine, STAT_KEYS, STAT_LABEL, HP_PER } from "./progression.ts";
 import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText } from "./render.ts";
 import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, rollChestOutcome } from "./storylets.ts";
 import { rollEncounter } from "./weights.ts";
@@ -27,18 +28,34 @@ export interface GameHooks {
   save(world: World): void;
 }
 
-const MAX_HP = 10;
-
 export async function runGame(
   world: World, db: ContentDb, rng: Rng, io: GameIO, hooks: GameHooks,
 ): Promise<void> {
   const say = io.print.bind(io);
-  let hp = MAX_HP;
+  let hp = world.current ? maxHp(world.current) : 12; // HP・攻撃はステ由来（progression.ts）
   const autosave = () => hooks.save(world);
 
   function status(ch: Character) {
     const quirks = ch.traits.filter((t) => t.startsWith("奇癖:")).length;
-    say(`〔深度${ch.depth}  HP ${hp}/${MAX_HP}  深蝕 ${ch.exposure.toFixed(2)}${quirks ? `  奇癖${quirks}` : ""}〕`);
+    say(`〔Lv${ch.level} ${statsLine(ch)}  深度${ch.depth}  HP ${hp}/${maxHp(ch)}  深蝕 ${ch.exposure.toFixed(2)}${quirks ? `  奇癖${quirks}` : ""}〕`);
+  }
+
+  /** 撃破/潜行で得たXPでレベルアップ＝ステ選択成長（4-11F②）。 */
+  async function gainXp(ch: Character, amount: number) {
+    ch.xp += amount;
+    while (ch.xp >= xpToNext(ch.level)) {
+      ch.xp -= xpToNext(ch.level);
+      ch.level += 1;
+      say(`\n  ── レベル${ch.level} ──`);
+      const pick = await io.choose(`何を伸ばす？（${statsLine(ch)}）`, [
+        "体 ＋1（最大HP↑）", "力 ＋1（攻撃↑）", "理 ＋1（深蝕魔法の素養）", "心 ＋1（深蝕に強く）",
+      ]);
+      const key = STAT_KEYS[pick - 1];
+      ch.stats[key] += 1;
+      if (key === "body") hp = Math.min(hp + HP_PER, maxHp(ch));
+      say(`  ${STAT_LABEL[key]}が伸びた（${statsLine(ch)}）。`);
+    }
+    autosave();
   }
 
   function gainQuirks(ch: Character) {
@@ -70,9 +87,9 @@ export async function runGame(
       if (pick <= ancestors.length) lineage = { relation: "blood", ancestorFossilId: ancestors[pick - 1].id };
       else if (pick <= ancestors.length * 2) lineage = { relation: "pupil", ancestorFossilId: ancestors[pick - ancestors.length - 1].id };
     }
-    const arch = await io.choose("流儀は？", ["剣士", "斥候", "学徒"]);
-    const ch = createCharacter(world, name, ["swordman", "scout", "sage"][arch - 1], lineage);
-    hp = MAX_HP;
+    const ch = createCharacter(world, name, "wanderer", lineage);
+    hp = maxHp(ch);
+    say(`素質: ${statsLine(ch)}（潜って撃破し、レベルで伸ばす）`);
     if (ch.traits.length) say(`形質: [${ch.traits.join(", ")}]`);
     if (ch.bonds.some((b) => b.unfinished)) say("……先代の未完の因縁が、お前に引き継がれた。");
     autosave();
@@ -119,21 +136,24 @@ export async function runGame(
 
       if (pick === 3) {
         say(`${ch.name}は地上へ帰り着いた。傷は癒えるが、浴びた深みは消えない。`);
-        ch.depth = 0; hp = MAX_HP; autosave();
+        ch.depth = 0; hp = maxHp(ch); autosave();
         return "returned";
       }
 
       if (pick === 1) {
         ch.depth += 1;
-        for (let t = 0; t < 3; t++) ch.exposure += exposureGain(ch.depth);
+        for (let t = 0; t < 3; t++) ch.exposure += exposureGain(ch.depth) * heartFactor(ch);
         gainQuirks(ch);
+        let xp = 2; // 潜行ぶん
         if (rng.next() < Math.min(0.15 + ch.depth * 0.015, 0.6)) {
           const dmg = 1 + rng.int(2) + (ch.depth >= 25 ? 1 : 0);
           hp -= dmg;
           say(`  暗がりから牙が走った──${dmg}の傷。`);
+          xp += 3; // 一戦交えた
         } else if (!(rng.next() < 0.5 && await dungeonEvent(ch))) {
           say("  道は深く、静かに続いている。");
         }
+        if (hp > 0) await gainXp(ch, xp);
       }
 
       if (pick === 2) {

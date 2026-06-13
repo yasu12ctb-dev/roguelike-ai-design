@@ -1,0 +1,27 @@
+// 成長と派生値（4-11F②）。ステ4種 → 最大HP・近接ダメージ・深蝕耐性、撃破XP→レベル選択成長。
+// UIに依存しない純ロジック。web/CLI/demo で共有する。
+
+import type { Character, Stats } from "./types.ts";
+
+export const BASE_STATS: Stats = { body: 2, power: 2, reason: 2, heart: 2 };
+
+export const HP_BASE = 6, HP_PER = 3;
+/** 最大HP＝体（body2 で 12＝従来値） */
+export const maxHp = (ch: Character) => HP_BASE + ch.stats.body * HP_PER;
+/** 近接ダメージ＝力（power2 で 3＝従来値） */
+export const meleeDmg = (ch: Character) => ch.stats.power + 1;
+/** 深蝕の染み込み係数＝心（heart2 で 1.0。高いほど深蝕が遅くなる・下限0.3） */
+export const heartFactor = (ch: Character) => Math.max(0.3, 1 - (ch.stats.heart - 2) * 0.12);
+
+/** 次レベルに必要なXP（撃破XPで貯まる） */
+export const xpToNext = (level: number) => 6 + level * 6;
+/** 敵1体の撃破XP（堅いほど多い） */
+export const xpForKill = (monsterHp: number) => Math.max(1, monsterHp);
+
+export const STAT_KEYS = ["body", "power", "reason", "heart"] as const;
+export type StatKey = typeof STAT_KEYS[number];
+export const STAT_LABEL: Record<StatKey, string> = { body: "体", power: "力", reason: "理", heart: "心" };
+
+/** 「体X 力X 理X 心X」表記 */
+export const statsLine = (ch: Character) =>
+  STAT_KEYS.map((k) => `${STAT_LABEL[k]}${ch.stats[k]}`).join(" ");
