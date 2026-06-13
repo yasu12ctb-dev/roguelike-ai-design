@@ -10,10 +10,10 @@ import {
   chronicle, poleLabel, finalActLabel,
 } from "../world.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
-import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText } from "../render.ts";
+import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText } from "../render.ts";
 import { rollEncounter } from "../weights.ts";
 import { filterByTags } from "../content.ts";
-import { selectStorylet, applyEffects } from "../storylets.ts";
+import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects } from "../storylets.ts";
 import storyletsJson from "../../content/storylets.json";
 import {
   genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, cellIndex,
@@ -349,7 +349,7 @@ async function stairsPrompt(dir: "down" | "up") {
   const f = floor!;
   if (dir === "down") {
     const r = await sheet({ text: `下り階段がある。深度${f.depth + 1}へ降りるか？`, options: ["降りる", "とどまる"] });
-    if (r.pick === 1) enterFloor(f.depth + 1, true);
+    if (r.pick === 1) { enterFloor(f.depth + 1, true); await maybeDungeonEvent(floor!.depth); }
   } else if (f.depth === 1) {
     const r = await sheet({ text: "地上への階段だ。街へ戻るか？\n（傷は癒えるが、浴びた深みは消えない）", options: ["街へ戻る", "とどまる"] });
     if (r.pick === 1) {
@@ -360,10 +360,29 @@ async function stairsPrompt(dir: "down" | "up") {
     }
   } else {
     const r = await sheet({ text: `上り階段がある。深度${f.depth - 1}へ戻るか？`, options: ["戻る", "とどまる"] });
-    if (r.pick === 1) enterFloor(f.depth - 1, false);
+    if (r.pick === 1) { enterFloor(f.depth - 1, false); await maybeDungeonEvent(floor!.depth); }
   }
   busy = false;
   draw();
+}
+
+/** 階移動時のダンジョン環境イベント（context=dungeon・4-12 F）。深度2以上で時々発火。 */
+async function maybeDungeonEvent(depth: number) {
+  if (depth < 2 || rng.next() >= 0.35) return;
+  const ev = selectDungeonStorylet(db, depth, rng);
+  if (!ev || !ev.choices || ev.choices.length === 0) return;
+  const wasBusy = busy; busy = true;
+  const r = await sheet({
+    text: fillDungeonText(depth, ev.text ?? ""),
+    meta: `深度${depth} ── 迷宮の気配`,
+    options: ev.choices.map((c) => c.label),
+  });
+  const choice = ev.choices[r.pick - 1];
+  if (choice.text) log(fillDungeonText(depth, choice.text));
+  for (const line of applyDungeonEffects(world, world.current!, depth, choice.effects)) log(line, "dim");
+  save();
+  busy = wasBusy;
+  if (!wasBusy) draw();
 }
 
 // ---------- 化石との対面（再発見 → 干渉） ----------

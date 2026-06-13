@@ -6,7 +6,8 @@ import type { ContentDb } from "./content.ts";
 import type { Character, Effect, Fossil, Prereq, Storylet, VariationResult, World } from "./types.ts";
 import type { Rng } from "./rng.ts";
 import { chronicle } from "./world.ts";
-import { fillStoryletText } from "./render.ts";
+import { fillStoryletText, fillDungeonText } from "./render.ts";
+import { depthBand } from "./variation.ts";
 
 /** 伏線フラグは「この化石」にスコープする（レンの手記はレンの後続だけを開く）。 */
 const flagKey = (base: string, fossil: Fossil) => `${base}@${fossil.id}`;
@@ -82,6 +83,43 @@ export function applyEffects(
       const key = flagKey(e.plant, fossil);
       (world.flags ??= []);
       if (!world.flags.includes(key)) { world.flags.push(key); logs.push("……これは、伏線になる。"); }
+    }
+  }
+  return logs;
+}
+
+// ---------- ダンジョン環境イベント（context=dungeon。アクター無し：4-12 F） ----------
+
+/** 現在深度で発火しうるダンジョン環境イベントを重み付きで1つ選ぶ（無ければ null）。 */
+export function selectDungeonStorylet(db: ContentDb, depth: number, rng: Rng): Storylet | null {
+  const band = depthBand(depth);
+  const pool = db.storylets.filter(
+    (s) => s.context === "dungeon" && (s.prerequisites.depthBand === undefined || s.prerequisites.depthBand === band),
+  );
+  if (pool.length === 0) return null;
+  if (pool.length === 1) return pool[0];
+  const total = pool.reduce((a, s) => a + Math.max(0, s.weight), 0);
+  if (total <= 0) return pool[0];
+  let r = rng.next() * total;
+  for (const s of pool) { r -= Math.max(0, s.weight); if (r <= 0) return s; }
+  return pool[pool.length - 1];
+}
+
+/** ダンジョン環境イベントの選択結果を還流させる（アクター無しなので exposure/trait/chronicle のみ）。 */
+export function applyDungeonEffects(world: World, ch: Character, depth: number, effects: Effect[]): string[] {
+  const logs: string[] = [];
+  for (const e of effects) {
+    if (e.exposure !== undefined) {
+      ch.exposure = Math.max(0, ch.exposure + e.exposure);
+      if (e.exposure > 0) logs.push(`深みが、少しだけ滲みた（深蝕 +${e.exposure.toFixed(2)}）。`);
+      else if (e.exposure < 0) logs.push(`張りつめていた何かが、わずかに和らいだ（深蝕 ${e.exposure.toFixed(2)}）。`);
+    }
+    if (e.trait !== undefined) {
+      const t = fillDungeonText(depth, e.trait);
+      if (!ch.traits.includes(t)) { ch.traits.push(t); logs.push(`手に入れた──「${t}」`); }
+    }
+    if (e.chronicle !== undefined) {
+      chronicle(world, "rediscovery", fillDungeonText(depth, e.chronicle), []);
     }
   }
   return logs;
