@@ -501,6 +501,57 @@ async function handleLevelUps() {
   updateStatus();
 }
 
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** 既踏破の床のみを通って from→to の最短経路を返す（4方向BFS）。到達不能なら null。 */
+function bfsPath(f: Floor, from: Pos, to: Pos): Pos[] | null {
+  const W = f.w, H = f.h;
+  if (to.x < 0 || to.y < 0 || to.x >= W || to.y >= H) return null;
+  if (!f.explored[mapIdx(f, to.x, to.y)] || f.tiles[mapIdx(f, to.x, to.y)] !== 1) return null;
+  const prev = new Int32Array(W * H).fill(-1);
+  const start = mapIdx(f, from.x, from.y);
+  prev[start] = start;
+  const q: Pos[] = [from];
+  for (let head = 0; head < q.length; head++) {
+    const c = q[head];
+    if (c.x === to.x && c.y === to.y) break;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      const nx = c.x + dx, ny = c.y + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const i = mapIdx(f, nx, ny);
+      if (prev[i] !== -1 || !f.explored[i] || f.tiles[i] !== 1) continue;
+      prev[i] = mapIdx(f, c.x, c.y);
+      q.push({ x: nx, y: ny });
+    }
+  }
+  const ti = mapIdx(f, to.x, to.y);
+  if (prev[ti] === -1) return null;
+  const path: Pos[] = [];
+  for (let cur = ti; cur !== start; cur = prev[cur]) path.push({ x: cur % W, y: Math.floor(cur / W) });
+  path.reverse();
+  return path;
+}
+
+/** 図でタップした既踏破地点まで自動移動。敵が見えたら/場面が開いたら止まる（4-11 便利機能）。 */
+async function autoTravel(dest: Pos) {
+  if (busy || mode !== "dive" || !floor) return;
+  const path = bfsPath(floor, player, dest);
+  if (!path || !path.length) { log("そこへの道が見つからない。", "dim"); return; }
+  for (const step of path) {
+    if (busy || mode !== "dive" || !floor) break;
+    // 敵が見えていたら自動移動は危険なので止める
+    const vis = computeFov(floor, player);
+    if (floor.monsters.some((m) => m.hp > 0 && vis.has(mapIdx(floor, m.x, m.y)))) { log("敵の気配。自動移動を止めた。", "warn"); break; }
+    const dx = Math.sign(step.x - player.x), dy = Math.sign(step.y - player.y);
+    const px = player.x, py = player.y;
+    if (!moveOrInteract(player.x + dx, player.y + dy)) break; // 壁
+    if (busy) { draw(); break; } // 宝箱/化石/階段の場面が開いた＝そこで止める
+    await endTurn();
+    if (hp <= 0 || (player.x === px && player.y === py)) break; // 死亡 or 進めず
+    await sleep(70);
+  }
+}
+
 /** 移動 or 体当たり。falseなら手番を消費しない（壁） */
 function moveOrInteract(nx: number, ny: number): boolean {
   const f = floor!;
@@ -719,7 +770,7 @@ $("menuBtn").onclick = async () => {
   if (r.pick === 1) { ensureAudio(); setMuted(!isMuted()); }
 };
 
-// ---------- 入力（スワイプ＝移動／タップ＝その方向へ一歩・自分タップ＝待機） ----------
+// ---------- 入力（スワイプ＝移動／タップ＝待機／図でタップ＝そこまで自動移動・矢印キー＝移動・.＝待機） ----------
 $("mapBtn").onclick = () => { if (mode === "dive" && !busy) setMapMode(!mapMode); };
 // 最初のユーザー操作で音を起動（iOS は AudioContext を gesture 内で resume する必要がある）
 addEventListener("pointerdown", () => ensureAudio());
@@ -743,22 +794,32 @@ $("mapWrap").addEventListener("touchend", (e) => {
   const tx = e.changedTouches[0].clientX, ty = e.changedTouches[0].clientY;
   const dx = tx - touchStart.x, dy = ty - touchStart.y;
   touchStart = null;
-  if (mapMode) { setMapMode(false); return; } // 地図中はどの操作でも閉じる
-  if (Math.hypot(dx, dy) >= 24) { // スワイプ＝移動
+  const tap = Math.hypot(dx, dy) < 24;
+
+  if (mapMode) {
+    // 図：踏破済みの床をタップ→そこまで自動移動。スワイプ等は閉じるだけ。
+    if (tap && floor && cellSize > 0) {
+      const r = gridEl.getBoundingClientRect();
+      const cx = Math.floor((tx - r.left) / cellSize), cy = Math.floor((ty - r.top) / cellSize);
+      if (cx >= 0 && cy >= 0 && cx < floor.w && cy < floor.h &&
+          floor.explored[mapIdx(floor, cx, cy)] && tileAt(floor, cx, cy) === 1 &&
+          !(cx === player.x && cy === player.y)) {
+        setMapMode(false);
+        void autoTravel({ x: cx, y: cy });
+        return;
+      }
+    }
+    setMapMode(false);
+    return;
+  }
+
+  if (!tap) { // スワイプ＝移動
     if (Math.abs(dx) > Math.abs(dy)) void playerAct(Math.sign(dx), 0);
     else void playerAct(0, Math.sign(dy));
     return;
   }
-  // タップ＝その方向へ一歩（自分のマスをタップ＝待機）
-  if (!floor || cellSize <= 0) return;
-  const r = gridEl.getBoundingClientRect();
-  const cx = Math.floor((tx - r.left) / cellSize);
-  const cy = Math.floor((ty - r.top) / cellSize);
-  if (cx < 0 || cy < 0 || cx >= VIEW_W || cy >= VIEW_H) return;
-  const ddx = (cam.x + cx) - player.x, ddy = (cam.y + cy) - player.y; // ビュー → マップ座標
-  if (ddx === 0 && ddy === 0) { void playerAct(0, 0); return; } // 待機
-  if (Math.abs(ddx) >= Math.abs(ddy)) void playerAct(Math.sign(ddx), 0);
-  else void playerAct(0, Math.sign(ddy));
+  // タップ（ボタン以外の任意位置）＝待機。移動はスワイプで行う。
+  void playerAct(0, 0);
 }, { passive: true });
 
 addEventListener("resize", () => {
