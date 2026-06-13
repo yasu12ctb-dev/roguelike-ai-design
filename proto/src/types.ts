@@ -20,6 +20,19 @@ export interface World {
 /** ステ4種（4-11F②）。体=最大HP / 力=近接ダメージ / 理=深蝕魔法の素養(③) / 心=深蝕耐性 */
 export interface Stats { body: number; power: number; reason: number; heart: number; }
 
+/** 装備（4-11F④・4-11E）。武器=攻撃+ / 防具=被ダメ- / 遺物=パッシブ。異物=未鑑定。 */
+export type ItemSlot = "weapon" | "armor" | "relic";
+export type RelicKind = "calm" | "reason" | "greed"; // 深蝕レート減 / 理+1 / 撃破XP増
+export interface Item {
+  id: string; slot: ItemSlot; name: string;
+  dmg?: number;             // 武器：近接ダメージ+
+  reduce?: number;          // 防具：被ダメージ-
+  relic?: RelicKind;        // 遺物：パッシブ種
+  exposurePerTurn?: number; // 異物の副作用：装備中の毎ターン深蝕+
+  unidentified?: boolean;   // 未鑑定（装備すると判明）
+}
+export interface Equipment { weapon: Item | null; armor: Item | null; relic: Item | null; }
+
 export interface Character {
   id: string;
   name: string;
@@ -34,6 +47,7 @@ export interface Character {
   level: number;
   xp: number;                   // 次のレベルまでの蓄積（敵撃破で増える）
   spells: string[];             // 習得した深蝕魔法のキー（4-11F③・SpellKey）
+  equipment: Equipment;         // 装備スロット（4-11F④）
 }
 
 export interface Lineage {
