@@ -883,6 +883,171 @@
         { "label": "物々交換する", "text": "手持ちの端切れと、見慣れぬ小物を交換した。役に立つかは、潜ってみないと分からない。", "effects": [ { "trait": "拾得:#origin_name#との交換品" }, { "plant": "traded" }, { "chronicle": "街で#origin_name# と物々交換をした。" } ] },
         { "label": "今日は遠慮する", "text": "懐具合を考えて、今日は見るだけにした。", "effects": [ { "chronicle": "街で#origin_name# の商いを、今日は見送った。" } ] }
       ]
+    },
+    {
+      "id": "tw_warn_depth",
+      "context": "town",
+      "prerequisites": {},
+      "weight": 2,
+      "text": "#origin_name# が #origin_gear# を磨きながら、声を落とした。「深いとこは、もう人の理が効かねえ。無理に潜るんじゃねえぞ」。",
+      "choices": [
+        { "label": "忠告を心に刻む", "text": "頷いて、その言葉を懐に仕舞った。逸る気持ちが、少しだけ鎮まる。", "effects": [ { "exposure": -0.03 }, { "chronicle": "街で#origin_name# に深部の戒めを受けた。" } ] },
+        { "label": "笑って受け流す", "text": "「肝に銘じるよ」と軽口で返し、卓を離れた。", "effects": [ { "chronicle": "街で#origin_name# の忠告を、笑って受け流した。" } ] }
+      ]
+    },
+    {
+      "id": "tw_corruption_notice",
+      "context": "town",
+      "prerequisites": { "minExposure": 0.6 },
+      "weight": 3,
+      "text": "#origin_name# がこちらの顔をじっと見て、眉を寄せた。「あんた……深蝕、だいぶ来てるな。鏡、見たか？」。",
+      "choices": [
+        { "label": "認める", "text": "「ああ、自分でも分かってる」。隠さず頷くと、#origin_name# は黙って酒を一杯おごってくれた。", "effects": [ { "bond": 1 }, { "exposure": -0.04 }, { "chronicle": "街で#origin_name# に深蝕を見抜かれ、静かな気遣いを受けた。" } ] },
+        { "label": "とぼける", "text": "「気のせいだろう」。短く返したが、#origin_name# の目は誤魔化せていない。", "effects": [ { "chronicle": "街で#origin_name# に深蝕を案じられたが、とぼけた。" } ] }
+      ]
+    },
+    {
+      "id": "tw_fallen_talk",
+      "context": "town",
+      "prerequisites": {},
+      "weight": 2,
+      "text": "#origin_name# が、誰にともなく呟いた。「先月、また一人帰らなかった。……名前くらいは、覚えておいてやりたいもんだ」。",
+      "choices": [
+        { "label": "知る名を挙げる", "text": "ひとつ、忘れがたい名を口にした。#origin_name# は静かに頷き、杯を傾けた。", "effects": [ { "chronicle": "街で#origin_name# と、還らなかった者の名を悼んだ。" } ] },
+        { "label": "口をつぐむ", "text": "言葉が見つからず、ただ黙って隣に座っていた。", "effects": [ { "chronicle": "街で#origin_name# の追想に、黙して寄り添った。" } ] }
+      ]
+    },
+    {
+      "id": "tw_noble_gate",
+      "context": "town",
+      "prerequisites": {},
+      "weight": 1,
+      "text": "#origin_name# が北の門のほうへ顎をしゃくった。「あの先は貴族の庭だ。おれたちが稼いだ異物で肥えてるくせに、門は開かねえ」。",
+      "choices": [
+        { "label": "鼻で笑う", "text": "「いつか、あの門もくぐってやるさ」。半ば本気で、半ば冗談で言った。", "effects": [ { "chronicle": "街で#origin_name# と、貴族街の閉ざされた門を肴にした。" } ] },
+        { "label": "肩をすくめる", "text": "「住む世界が違うのさ」。それ以上は言わなかった。", "effects": [ { "chronicle": "街で#origin_name# から貴族街の噂を聞いた。" } ] }
+      ]
+    },
+    {
+      "id": "tw_drink_offer",
+      "context": "town",
+      "prerequisites": {},
+      "weight": 2,
+      "text": "#origin_name# が杯をふたつ持ってきた。「景気づけだ。生きて帰った祝いに、一杯どうだ」。",
+      "choices": [
+        { "label": "受けて飲む", "text": "喉を焼く酒が、強張った肩をほどいていく。今夜くらいは、忘れてもいい。", "effects": [ { "exposure": -0.05 }, { "chronicle": "街で#origin_name# と杯を交わし、束の間の安らぎを得た。" } ] },
+        { "label": "丁重に断る", "text": "「明日も潜る。今日はよしておくよ」。#origin_name# は笑って引き下がった。", "effects": [ { "chronicle": "街で#origin_name# の酒を、明日に備えて断った。" } ] }
+      ]
+    },
+    {
+      "id": "tw_lineage_sense",
+      "context": "town",
+      "prerequisites": { "unfinished": true },
+      "weight": 3,
+      "text": "#origin_name# がこちらの所作を見て、ふと真顔になった。「あんた……誰かの遺したもんを、背負ってるな。目で分かる」。",
+      "choices": [
+        { "label": "それを語る", "text": "継いだ因縁のことを、ぽつぽつと話した。#origin_name# は最後まで黙って聞いてくれた。", "effects": [ { "bond": 1 }, { "chronicle": "街で#origin_name# に、継いだ未完の因縁を打ち明けた。" } ] },
+        { "label": "言葉を濁す", "text": "「気のせいだ」。それ以上は語らず、話題を変えた。", "effects": [ { "chronicle": "街で#origin_name# に背負うものを見抜かれたが、語らなかった。" } ] }
+      ]
+    },
+    {
+      "id": "tw_cult_whisper",
+      "context": "town",
+      "prerequisites": { "notFlag": "cult_curious" },
+      "weight": 1,
+      "text": "#origin_epithet##origin_name# が、声をひそめて身を寄せた。「深蝕は呪いじゃない。祝福だ。……教えに来てみないか。北の路地の、あの堂へ」。",
+      "choices": [
+        { "label": "話を聞いてみる", "text": "禁忌めいた言葉が、なぜか耳に残った。深淵を讃える者たち――その名だけが、頭にこびりつく。", "effects": [ { "exposure": 0.04 }, { "plant": "cult_curious" }, { "chronicle": "街で#origin_name# から、深淵の教団の囁きを受けた。" } ] },
+        { "label": "拒んで離れる", "text": "「結構だ」。背を向けると、#origin_name# は薄く笑っただけだった。", "effects": [ { "chronicle": "街で#origin_name# の教団の誘いを、はっきりと拒んだ。" } ] }
+      ]
+    },
+    {
+      "id": "tw_cult_followup",
+      "context": "town",
+      "prerequisites": { "flag": "cult_curious" },
+      "weight": 2,
+      "text": "また#origin_name# だ。「考えてくれたか？　深く潜るほど、深淵はお前を選ぶ。逆らうな、委ねろ」。前より、目の光が濃い。",
+      "choices": [
+        { "label": "聞き流す", "text": "曖昧に頷いて、その場を後にした。だが言葉は、まだ耳の奥で鳴っている。", "effects": [ { "exposure": 0.03 }, { "chronicle": "街で#origin_name# の教えが、また耳に残った。" } ] },
+        { "label": "きっぱり縁を切る", "text": "「二度と話しかけるな」。強く言い切ると、ようやく#origin_name# は引いた。", "effects": [ { "chronicle": "街で#origin_name# の教団と、はっきり縁を切った。" } ] }
+      ]
+    },
+    {
+      "id": "tw_price_grumble",
+      "context": "town",
+      "prerequisites": {},
+      "weight": 2,
+      "text": "#origin_name# がパンを片手にぼやいた。「また値上がりだ。異物の相場が動くと、すぐこれだ。地下が荒れてる証拠さ」。",
+      "choices": [
+        { "label": "同調する", "text": "「物価は迷宮次第、か」。互いに苦笑して、しばし世間話に興じた。", "effects": [ { "chronicle": "街で#origin_name# と物価の愚痴をこぼし合った。" } ] },
+        { "label": "相場の話を訊く", "text": "どの異物が高いか、#origin_name# は得意げに教えてくれた。次の潜行の役に立つかもしれない。", "effects": [ { "chronicle": "街で#origin_name# から異物相場の話を仕入れた。" } ] }
+      ]
+    },
+    {
+      "id": "tw_veteran_advice",
+      "context": "town",
+      "prerequisites": { "minBond": 2 },
+      "weight": 2,
+      "text": "顔なじみの#origin_name# が、隣に腰を下ろした。「お前もずいぶん潜ったな。……一つだけ言わせろ。欲をかいた奴から、帰らなくなる」。",
+      "choices": [
+        { "label": "深く頷く", "text": "経験者の言葉は、重い。引き際を見誤るな――そう胸に刻んだ。", "effects": [ { "bond": 1 }, { "chronicle": "街で#origin_name# から、引き際の戒めを授かった。" } ] },
+        { "label": "礼を言う", "text": "「覚えておく」。短く礼を言って、杯を合わせた。", "effects": [ { "chronicle": "街で#origin_name# と、潜行者どうしの言葉を交わした。" } ] }
+      ]
+    },
+    {
+      "id": "tw_keepsake",
+      "context": "town",
+      "prerequisites": { "notFlag": "got_charm", "minBond": 1 },
+      "weight": 1,
+      "text": "#origin_name# が、#origin_gear# の隙間から小さなお守りを取り出した。「持っていけ。気休めだが……無いよりはマシだろう」。",
+      "choices": [
+        { "label": "受け取る", "text": "掌に乗せられた、温もりの残るお守り。重さはないのに、妙に心強い。", "effects": [ { "trait": "守り:#origin_name#のお守り" }, { "plant": "got_charm" }, { "chronicle": "街で#origin_name# から、道中のお守りを受け取った。" } ] },
+        { "label": "気持ちだけ受け取る", "text": "「お前が持っていろ」。押し返すと、#origin_name# は少し寂しそうに笑った。", "effects": [ { "chronicle": "街で#origin_name# のお守りを、気持ちだけ受け取った。" } ] }
+      ]
+    },
+    {
+      "id": "tw_rumor_relic",
+      "context": "town",
+      "prerequisites": {},
+      "weight": 2,
+      "text": "#origin_name# が地図の切れ端を指で叩いた。「深層に、誰も持ち帰れなかった聖遺物があるって話だ。……眉唾だがな」。",
+      "choices": [
+        { "label": "詳しく訊く", "text": "場所も真偽も曖昧だったが、胸の奥に小さな火が灯った。いつか、確かめてやる。", "effects": [ { "chronicle": "街で#origin_name# から、深層の聖遺物の噂を聞いた。" } ] },
+        { "label": "与太話と流す", "text": "「帰れなかった、ってのが答えだろ」。冷静に返して、酒を呷った。", "effects": [ { "chronicle": "街で#origin_name# の聖遺物の噂を、与太話と切り捨てた。" } ] }
+      ]
+    },
+    {
+      "id": "tw_quiet_moment",
+      "context": "town",
+      "prerequisites": {},
+      "weight": 1,
+      "text": "#origin_name# が窓の外、迷宮の口を眺めていた。「……不思議だな。あんなに恐いのに、明日もまた、潜るんだ」。誰へともなく、そう言った。",
+      "choices": [
+        { "label": "並んで眺める", "text": "言葉はいらなかった。同じものを恐れ、同じものに惹かれる者どうし、ただ並んでいた。", "effects": [ { "exposure": -0.03 }, { "chronicle": "街で#origin_name# と、迷宮の口を黙って眺めた。" } ] },
+        { "label": "肩を叩いて去る", "text": "「また地下で」。それだけ言って、宿へ向かった。", "effects": [ { "chronicle": "街で#origin_name# と、短い別れの言葉を交わした。" } ] }
+      ]
+    },
+    {
+      "id": "tw_guild_tip",
+      "context": "town",
+      "prerequisites": {},
+      "weight": 2,
+      "text": "#origin_name# が肘で小突いてきた。「ギルドで依頼、受けたか？　ただ潜るより実入りがいい。回収業は、街の血だぜ」。",
+      "choices": [
+        { "label": "礼を言う", "text": "「次に寄ってみる」。回収業ギルドの扉を、頭の隅に留めた。", "effects": [ { "chronicle": "街で#origin_name# から、ギルドの依頼を勧められた。" } ] },
+        { "label": "自分のやり方でいくと返す", "text": "「縛られるのは性に合わなくてね」。#origin_name# は「好きにしな」と笑った。", "effects": [ { "chronicle": "街で#origin_name# のギルド勧誘を、やんわり断った。" } ] }
+      ]
+    },
+    {
+      "id": "tw_deep_kinship",
+      "context": "town",
+      "prerequisites": { "minExposure": 1.2 },
+      "weight": 2,
+      "text": "#origin_name# が、自分の手の甲を見せた。そこには、見覚えのある黒い染みが滲んでいる。「お互い、もう後戻りはできねえな」。静かな声だった。",
+      "choices": [
+        { "label": "手を合わせる", "text": "同じ深蝕を負う者どうし、言葉以上のものが通じた。孤独が、ほんの少し薄れる。", "effects": [ { "bond": 1 }, { "exposure": -0.03 }, { "chronicle": "街で#origin_name# と、深蝕を分かち合う者の絆を結んだ。" } ] },
+        { "label": "目をそらす", "text": "自分の手の染みを袖で隠し、何も言わずに離れた。", "effects": [ { "chronicle": "街で#origin_name# の深蝕を見て、目をそらした。" } ] }
+      ]
     }
   ]
 }
