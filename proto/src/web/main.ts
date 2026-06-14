@@ -401,6 +401,7 @@ async function endTurn() {
   planMonsters(floor, player, rng);
 
   draw();
+  await handleBossResolve();
   await handleLevelUps();
   await handleDrops();
   if (hp <= 0) await deathFlow();
@@ -408,6 +409,43 @@ async function endTurn() {
 
 // ---------- 装備（4-11F④）。拾得＝装備プロンプト。ボス/宝箱から入手。 ----------
 let pendingDrops: Item[] = [];
+let pendingBossResolve: Monster[] = [];
+
+/** 撃破処理の入口。敵性化探索者ボス（出自=化石）は「討つ/鎮める」へ。それ以外は通常撃破。 */
+function downOrKill(mon: Monster, killLine?: string) {
+  if (mon.boss === "area" && mon.fossilId) {
+    pendingBossResolve.push(mon);
+    log(`${mon.kind.name}は膝をついた……。`, "warn");
+  } else {
+    rewardKill(mon, killLine);
+  }
+}
+
+/** ⑤鎮め筋（4-11D）：弱らせた敵性化探索者を「討つ／鎮める（非殺）」。選択が年代記に残る。 */
+async function handleBossResolve() {
+  if (!pendingBossResolve.length) return;
+  busy = true;
+  while (pendingBossResolve.length) {
+    const boss = pendingBossResolve.shift()!;
+    const ch = world.current!;
+    const r = await sheet({
+      text: `${boss.kind.name}は膝をついた。かつて人だったものの眼が、こちらを見ている。\nとどめを刺すか――それとも、鎮めるか。`,
+      meta: `${boss.kind.name} ── 決着（戦闘版の干渉）`,
+      options: ["討つ（とどめ：XP満額＋遺物）", "鎮める（祈り：非殺・年代記に残る）"],
+    });
+    if (r.pick === 2 && boss.fossilId) {
+      sfx("intervene"); flashFx("still");
+      intervene(world, boss.fossilId, "requiem"); // 出自の化石を鎮魂（4-2 干渉動詞）
+      ch.xp += Math.round(xpForKill(boss.kind.hp) * 0.5 * xpMul(ch)); // 鎮めは報酬控えめ＝慈悲の代償
+      log(`★ ${ch.name}は${boss.kind.name}を鎮めた。深みの底で、何かが静かになった。`, "warn");
+      chronicle(world, "intervention", `${ch.name}が深度${floor!.depth}で${boss.kind.name}を鎮めた。`, [ch.id, boss.fossilId]);
+    } else {
+      rewardKill(boss); // 討つ＝通常撃破（XP満額＋ドロップ＋legend）
+    }
+  }
+  busy = false;
+  save(); updateStatus(); draw();
+}
 
 /** 手番末に溜まったドロップ（主にボス）を順に提示。 */
 async function handleDrops() {
@@ -472,7 +510,7 @@ async function castSpell(key: string) {
     const dmg = warpDamage(effectiveReason(ch)); // 遺物「理脈」で威力+
     target.hp -= dmg;
     sfx("spell_warp"); flashFx("warp", { x: target.x, y: target.y });
-    if (target.hp <= 0) rewardKill(target, `歪んだ一撃。${target.kind.name}を討ち砕いた。`);
+    if (target.hp <= 0) downOrKill(target, `歪んだ一撃。${target.kind.name}を討ち砕いた。`);
     else log(`歪撃が${target.kind.name}を抉る（${dmg}）。`);
   } else if (key === "still_eye") {
     if (!visMon.length) { log("止めるべき敵が見えない。", "dim"); draw(); return; }
@@ -621,7 +659,7 @@ function moveOrInteract(nx: number, ny: number): boolean {
     const dmg = meleeDmg(ch);
     mon.hp -= dmg;
     sfx("hit");
-    if (mon.hp <= 0) rewardKill(mon); // 撃破でXP（レベルアップ判定は手番末で）
+    if (mon.hp <= 0) downOrKill(mon); // 撃破→ボスは討つ/鎮める、他は通常（手番末で処理）
     else log(`${mon.kind.name}に${dmg}の一撃。`);
     return true;
   }

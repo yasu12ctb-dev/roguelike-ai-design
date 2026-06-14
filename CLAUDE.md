@@ -42,8 +42,9 @@
 - **② ステ4種（体/力/理/心）＋撃破XPでレベル選択成長＋職業（流儀）撤去 ← 完了**（`progression.ts`・セーブ version=2 マイグレーション。体→HP/力→攻撃/心→深蝕レート/理は③威力。snapshot 4-11F(F) に確定数値）。
 - **③ 深蝕魔法・スキル（第1弾）← 完了・Web**（`spells.ts`／`Character.spells`。歪撃・静止の眼・影渡りを「術」ボタン＋自動対象で。燃料＝深蝕。習得＝レベルアップ選択。`Monster.stunned`／`endTurn()` 抽出）。理崩し/反転は③次バッチ。
 - **敵ティア（記号×色）＋上位種＋ボス（中/エリア）← 完了・Web**（`MONSTER_KINDS.tier`・`Monster.boss`・`makeBossKind`。エリアボスは化石名を冠す→⑤布石）。
-- **④ 装備（武器/防具/遺物・異物・死亡刻印）← 完了・Web**（`items.ts`／`Character.equipment`・セーブ version=4。武器=攻+/防具=被ダメ-/遺物=パッシブ。宝箱＋ボスドロップ。snapshot 4-11④/E）。→ ⑤ 鎮め筋。
-- **バランス（術/コスト/敵密度/レベル速度/装備数値）は最終通し調整**（横断E/G）。
+- **④ 装備（武器/防具/遺物・異物・死亡刻印・継承で武器奪還）← 完了・Web**（`items.ts`／`Character.equipment`・セーブ version=4。武器=攻+/防具=被ダメ-/遺物=パッシブ。宝箱＋ボスドロップ。死亡時に武器を化石へ刻印→継承で `itemByName` 復元・再装備。snapshot 4-11④/E）。
+- **⑤ 鎮め筋（討つ/鎮める）← 完了・Web**（敵性化探索者ボス＝`Monster.fossilId` をHP0で「討つ/鎮める」決着。鎮める＝requiem＋XP半分＋年代記。`downOrKill`/`handleBossResolve`。snapshot 4-11D）。
+- **バランス（術/コスト/敵密度/レベル速度/装備数値）は最終通し調整**（横断E/G）。戦闘①〜⑤の主要部は実装済み。
 
 **遭遇イベント（snapshot 4-12）：** 化石遭遇を「ストーリーレット駆動のイベントノード」へ昇格。選択ごとに分岐イベント＋effects還流で、プレイのたび違う物語を生む（実行時LLMゼロ・spec §3 の Storylet スキーマを正式結線）。
 - **遭-①** 〈調べる〉＋ストーリーレット駆動＋effects還流 **← 完了・PR #13 マージ済み**（型 Storylet/Prereq/Effect・`storylets.ts`・`content/storylets.json`）。
