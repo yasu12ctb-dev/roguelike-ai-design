@@ -49,6 +49,7 @@ export interface Character {
   xp: number;                   // 次のレベルまでの蓄積（敵撃破で増える）
   spells: string[];             // 習得した深蝕魔法のキー（4-11F③・SpellKey）
   equipment: Equipment;         // 装備スロット（4-11F④）
+  gold: number;                 // 金貨（4-10G 経済。拾得物の売却・依頼報酬で増え、店で減る）
 }
 
 export interface Lineage {

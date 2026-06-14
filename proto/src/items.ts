@@ -79,3 +79,14 @@ export function itemPower(it: Item): string {
 export function itemLabel(it: Item): string {
   return it.unidentified ? `見知らぬ${SLOT_LABEL[it.slot]}（未鑑定）` : `${it.name}（${itemPower(it)}）`;
 }
+
+/** 金貨での価値（4-10G 経済）。売却額＝この値。購入は店側で割増する。 */
+export function itemValue(it: Item): number {
+  let v: number;
+  if (it.slot === "weapon") v = 6 + (it.dmg ?? 0) * 8;
+  else if (it.slot === "armor") v = 6 + (it.reduce ?? 0) * 8;
+  else v = 14; // 遺物
+  if (it.exposurePerTurn) v += 10;          // 異物は世界唯一の輸出品＝高値（4-3③）
+  if (it.unidentified) v = Math.round(v * 0.7); // 未鑑定は買い叩かれる
+  return v;
+}

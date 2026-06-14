@@ -16,7 +16,7 @@ import {
   armorReduce, effectiveReason, xpMul, equipExposure,
 } from "../progression.ts";
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
-import { rollItem, itemByName, itemPower, itemLabel, SLOT_LABEL } from "../items.ts";
+import { rollItem, itemByName, itemPower, itemLabel, itemValue, SLOT_LABEL } from "../items.ts";
 import {
   renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText, fillActorText,
   requiemLine, leaveLine, inheritLine, REQUIEM_RELIEF,
@@ -168,6 +168,7 @@ function updateStatus() {
   const e = ch?.exposure ?? 0;
   const n = Math.min(5, Math.floor(e / 0.6));
   $("stExp").textContent = `深蝕 ${"▮".repeat(n)}${"░".repeat(5 - n)}`;
+  $("stGold").textContent = ch ? `金 ${ch.gold}` : "";
 }
 
 // ---------- マップ描画（方向A） ----------
@@ -705,10 +706,11 @@ async function equipPrompt(item: Item) {
   const head = item.unidentified
     ? `見知らぬ${SLOT_LABEL[item.slot]}を手にした。（未鑑定：装備すれば正体が分かる）`
     : `${item.name} を手にした。（${itemPower(item)}）`;
+  const val = itemValue(item);
   const r = await sheet({
     text: head + (cur ? `\n今の${SLOT_LABEL[item.slot]}：${itemLabel(cur)}` : ""),
-    meta: `${SLOT_LABEL[item.slot]} ── 装備`,
-    options: ["装備する", "見送る"],
+    meta: `${SLOT_LABEL[item.slot]} ── 装備（金 ${ch.gold}）`,
+    options: ["装備する", `売る（＋${val}金貨）`, "見送る"],
   });
   if (r.pick === 1) {
     item.unidentified = false; // 装備で鑑定
@@ -716,7 +718,12 @@ async function equipPrompt(item: Item) {
     sfx("open");
     log(`${item.name} を装備した（${itemPower(item)}）。`);
     if (item.exposurePerTurn) log("……身につけた途端、深みがじわりと滲む。", "warn");
+  } else if (r.pick === 2) {
+    ch.gold += val;
+    sfx("open");
+    log(`持ち帰らず、その場で金に換えた（＋${val}金貨／所持 ${ch.gold}）。`, "dim");
   }
+  save();
 }
 
 // ---------- 深蝕魔法（4-11F③）。燃料＝深蝕。詠唱＝そのターンの行動。自動対象で最小UX ----------

@@ -9,8 +9,8 @@ import { BASE_STATS } from "./progression.ts";
 let idCounter = 0;
 const newId = (prefix: string) => `${prefix}_${(++idCounter).toString(36)}`;
 
-/** セーブ版数（v2=②ステ／v3=③ spells／v4=④ equipment／v6=歩ける街シーン。横断D）。 */
-export const SAVE_VERSION = 6;
+/** セーブ版数（v2=②ステ／v3=③ spells／v4=④ equipment／v6=歩ける街シーン／v7=金貨。横断D）。 */
+export const SAVE_VERSION = 7;
 
 /** 旧セーブを現行スキーマへ補完（破壊しない）。
  *  欠落フィールドは版数に関わらず常に補う（版数判定だけに頼ると、追加フィールドの
@@ -23,6 +23,7 @@ export function migrateWorld(w: World): World {
     if (typeof ch.xp !== "number") ch.xp = 0;
     if (!Array.isArray(ch.spells)) ch.spells = [];
     if (!ch.equipment) ch.equipment = { weapon: null, armor: null, relic: null };
+    if (typeof ch.gold !== "number") ch.gold = 0; // v7：金貨
   }
   if (!Array.isArray(w.actors)) w.actors = []; // 生者NPC（4-12(G)）：欠落は常に補完
   if (!Array.isArray(w.flags)) w.flags = [];
@@ -82,6 +83,7 @@ export function createCharacter(world: World, name: string, archetype: string, l
     traits: [], exposure: 0, depth: 0, bonds: [], alive: true,
     stats: { ...BASE_STATS }, level: 1, xp: 0, spells: [],
     equipment: { weapon: null, armor: null, relic: null },
+    gold: 0,
   };
   // 系譜（4-10D）：先代から因縁と薄い形質を継ぐ
   if (lineage.relation !== "none" && lineage.ancestorFossilId) {
