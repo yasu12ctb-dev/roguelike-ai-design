@@ -53,7 +53,7 @@
     { "id": "quirk_5", "slotType": "exposure_quirk", "tags": {}, "text": "傷の治りが妙に早い。早すぎる" },
 
     { "id": "rumor_1", "slotType": "rumor", "tags": {}, "text": "「#origin_name#を見たって奴がいる。……いや、あれはもう、本人じゃあない」" },
-    { "id": "rumor_2", "slotType": "rumor", "tags": {}, "text": "「深度#depth#のあたりで、#origin_gear#を持った何かが彷徨ってるらしい」" },
+    { "id": "rumor_2", "slotType": "rumor", "tags": {}, "text": "「#depth#のあたりで、#origin_gear#を持った何かが彷徨ってるらしい」" },
     { "id": "rumor_3", "slotType": "rumor", "tags": {}, "text": "「#origin_name#の亡骸、まだ誰も弔ってないんだとさ」" },
 
     { "id": "arole_1", "slotType": "actor_role", "tags": {}, "text": "行商人" },
