@@ -9,8 +9,8 @@ import { BASE_STATS } from "./progression.ts";
 let idCounter = 0;
 const newId = (prefix: string) => `${prefix}_${(++idCounter).toString(36)}`;
 
-/** セーブ版数（v2=②ステ／v3=③ spells／v4=④ equipment／v6=歩ける街シーン／v7=金貨。横断D）。 */
-export const SAVE_VERSION = 7;
+/** セーブ版数（v2=②ステ／v3=③ spells／v4=④ equipment／v6=歩ける街シーン／v7=金貨／v8=依頼。横断D）。 */
+export const SAVE_VERSION = 8;
 
 /** 旧セーブを現行スキーマへ補完（破壊しない）。
  *  欠落フィールドは版数に関わらず常に補う（版数判定だけに頼ると、追加フィールドの
@@ -27,6 +27,7 @@ export function migrateWorld(w: World): World {
   }
   if (!Array.isArray(w.actors)) w.actors = []; // 生者NPC（4-12(G)）：欠落は常に補完
   if (!Array.isArray(w.flags)) w.flags = [];
+  if (!Array.isArray(w.quests)) w.quests = []; // v8：依頼（回収業 4-10G）
   if (w.town) { // 歩ける街（4-4B）：旧セーブに欠落するサブシーン状態を補完
     if (w.town.scene !== "town" && w.town.scene !== "interior") w.town.scene = "town";
     if (w.town.interiorKind === undefined) w.town.interiorKind = null;
@@ -49,6 +50,7 @@ export function newWorld(seed: number): World {
     town: { witnessNpcId: "witness_yen", safety: 3, memorials: [], scene: "town", interiorKind: null },
     flags: [],
     actors: [],
+    quests: [],
   };
   // シード化石①：老兵の亡骸（喪失・浅層）
   world.fossils.push({

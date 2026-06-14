@@ -25,6 +25,10 @@ import { rollEncounter } from "../weights.ts";
 import { filterByTags } from "../content.ts";
 import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, selectTownStorylet, applyActorEffects } from "../storylets.ts";
 import { meetActor } from "../actors.ts";
+import {
+  generateOffers, acceptQuest, activeQuests, doneQuests, claimQuest,
+  onReachDepth, onRediscoverFossil,
+} from "../quests.ts";
 import storyletsJson from "../../content/storylets.json";
 import townJson from "../../content/town.json";
 import {
@@ -421,6 +425,39 @@ async function chronicleScene() {
   await sheet({ text: tail || "まだ何も記されていない。", meta: `年代記 ── 全${world.chronicle.length}件`, options: ["頁を閉じる"] });
   busy = false;
 }
+// 回収業ギルド：依頼の受注・達成報酬の受領（4-10G）。1操作＝受注 or 受領（再入場で続けられる）。
+async function questBoard() {
+  busy = true;
+  const ch = world.current!;
+  const done = doneQuests(world);
+  const act = activeQuests(world);
+  const offers = generateOffers(world, ch, rng, Math.max(0, 2 - (done.length + act.length)));
+  const lines: string[] = [];
+  if (done.length) lines.push("【達成済】" + done.map((q) => q.title).join("／"));
+  if (act.length) lines.push("【受注中】" + act.map((q) => `${q.title}`).join("／"));
+  type Action = { label: string; run: () => void };
+  const actions: Action[] = [];
+  for (const q of done) actions.push({
+    label: `報酬を受け取る：${q.title}（＋${q.rewardGold}金貨）`,
+    run: () => {
+      const g = claimQuest(world, ch, q.id);
+      log(`ギルド長から報酬を受け取った（＋${g}金貨／所持 ${ch.gold}）。`);
+      chronicle(world, "legend", `${ch.name}が依頼「${q.title}」を果たした。`, [ch.id]);
+    },
+  });
+  for (const q of offers) actions.push({
+    label: `受ける：${q.title}（報酬 ${q.rewardGold}金貨）`,
+    run: () => { acceptQuest(world, q); log(`依頼を受けた：「${q.title}」。`, "dim"); },
+  });
+  const r = await sheet({
+    text: `回収業ギルド。所持 金${ch.gold}。\n${lines.join("\n") || "（受注中の依頼はない）"}`,
+    meta: "ギルド ── 依頼（回収業）",
+    options: [...actions.map((a) => a.label), "やめる"],
+  });
+  busy = false;
+  const i = r.pick - 1;
+  if (i >= 0 && i < actions.length) { actions[i].run(); save(); }
+}
 // 武具屋：金貨で装備を購入（在庫は来訪ごとにロール・鑑定済み）。インベントリ無しのため即装備。
 async function smithBuy() {
   busy = true;
@@ -482,6 +519,7 @@ async function talkKeeper() {
   if (kind === "archive" && actIdx === 0) return void chronicleScene(); // 年代記を読む
   if (kind === "smith" && actIdx === 0) return void smithBuy();         // 装備を売買／修理する
   if (kind === "healer" && actIdx === 1) return void healerTreat();     // 深蝕の進行を診てもらう
+  if (kind === "guild" && actIdx === 0) return void questBoard();       // 依頼を受ける（回収業）
   busy = true;
   await sheet({
     text: `${d.name}：「${d.acts[actIdx]}」\n\n……その商いは、まだ整っていない。`,
@@ -631,6 +669,7 @@ function enterFloor(depth: number, fromAbove: boolean) {
   setAmbient(true, depth); // 環境ドローン（深いほど低い）
   draw();
   log(`── 深度${depth} ──`, "dim");
+  for (const l of onReachDepth(world, depth)) { log(l, "cue"); save(); } // 到達系の依頼達成
 }
 
 let seenThisDive: string[] = [];
@@ -1026,6 +1065,7 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   const text = setPiece ?? renderRediscovery(db, rng, fossil, v);
   recordRediscovery(world, fossil.id);
   seenThisDive.push(fossil.id);
+  for (const l of onRediscoverFossil(world, fossil.id)) { log(l, "cue"); save(); } // 回収系の依頼達成
   const ch = world.current!;
 
   const canInherit = fossil.death.finalAct.choice === "leave_will" || fossil.death.finalAct.choice === "guard_relic";
