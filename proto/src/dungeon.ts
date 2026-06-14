@@ -39,6 +39,7 @@ export interface Monster extends Pos {
   intent: MonsterIntent | null;  // 次ターンに実行する予告（プレイヤーに見える）
   stunned?: number;              // >0 の間は行動不能（静止の眼：4-11F③）
   boss?: "elite" | "area";       // 中ボス（奥の強敵）／エリアボス（節目の山場）：4-11F
+  fossilId?: string;             // 出自の化石（敵性化した探索者）。⑤鎮め筋の対象（4-11D）
 }
 export interface FossilEntity extends Pos {
   id: string; fossilId: string; resolved: boolean; // resolved=このフロアで対面済み
@@ -166,9 +167,9 @@ export function genFloor(world: World, depth: number): Floor {
 
   // ---------- ボス配置（4-11F：エリアボス＝深度節目で下り階段を守る／中ボス＝奥の部屋の強敵） ----------
   if (depth >= 8 && depth % 8 === 0) {
-    const kind = makeBossKind(world, depth, rng);
+    const { kind, fossilId } = makeAreaBoss(world, depth, rng);
     const bp = freeFloorNear(floor, stairsDown);
-    if (bp) floor.monsters.push({ id: `boss${depth}`, kind, hp: kind.hp, x: bp.x, y: bp.y, awake: true, intent: null, boss: "area" });
+    if (bp) floor.monsters.push({ id: `boss${depth}`, kind, hp: kind.hp, x: bp.x, y: bp.y, awake: true, intent: null, boss: "area", fossilId });
   } else if (depth >= 5 && rng.next() < 0.3) {
     const base = pool.reduce((a, b) => (b.tier > a.tier ? b : a));
     const kind: MonsterKind = {
@@ -188,11 +189,13 @@ export function genFloor(world: World, depth: number): Floor {
   return floor;
 }
 
-/** エリアボスの種別。可能なら過去の探索者化石の名を冠する（敵性化＝⑤鎮め筋への布石）。 */
-function makeBossKind(world: World, depth: number, rng: Rng): MonsterKind {
+/** エリアボスの種別＋出自。可能なら過去の探索者化石の名を冠する（敵性化＝⑤鎮め筋の対象）。 */
+function makeAreaBoss(world: World, depth: number, rng: Rng): { kind: MonsterKind; fossilId?: string } {
   const pool = world.fossils.filter((f) => f.kind === "character" || f.kind === "explorer");
-  const name = pool.length ? `${rng.pick(pool).origin.name}の成れの果て` : "深淵の主";
-  return { key: `boss${depth}`, glyph: "Ω", name, hp: 20 + depth * 2, dmg: 4 + (depth >> 3), minDepth: depth, erratic: 0.05, tier: 5 };
+  const src = pool.length ? rng.pick(pool) : null;
+  const name = src ? `${src.origin.name}の成れの果て` : "深淵の主";
+  const kind: MonsterKind = { key: `boss${depth}`, glyph: "Ω", name, hp: 20 + depth * 2, dmg: 4 + (depth >> 3), minDepth: depth, erratic: 0.05, tier: 5 };
+  return { kind, fossilId: src?.id };
 }
 
 /** p の近傍（外周をスパイラル）で空いた床タイルを探す。なければ null。 */
