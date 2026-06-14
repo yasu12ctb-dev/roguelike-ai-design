@@ -421,6 +421,49 @@ async function chronicleScene() {
   await sheet({ text: tail || "まだ何も記されていない。", meta: `年代記 ── 全${world.chronicle.length}件`, options: ["頁を閉じる"] });
   busy = false;
 }
+// 武具屋：金貨で装備を購入（在庫は来訪ごとにロール・鑑定済み）。インベントリ無しのため即装備。
+async function smithBuy() {
+  busy = true;
+  const ch = world.current!;
+  const tier = Math.max(3, ch.level + 1);
+  const stock = [rollItem(tier, rng), rollItem(tier, rng), rollItem(tier, rng)];
+  for (const it of stock) it.unidentified = false; // 正規の店売り＝素性は明らか
+  const prices = stock.map((it) => Math.round(itemValue(it) * 1.6));
+  const r = await sheet({
+    text: `鍛冶ヴァロの店。所持 金${ch.gold}。\n買えば、その場で装備する（今の同種は置き換え）。`,
+    meta: "武具屋 ── 購入",
+    options: [...stock.map((it, i) => `${itemLabel(it)}／${SLOT_LABEL[it.slot]} ${prices[i]}金貨`), "やめる"],
+  });
+  busy = false;
+  const i = r.pick - 1;
+  if (i < 0 || i >= stock.length) return;
+  const it = stock[i], price = prices[i];
+  if (ch.gold < price) { busy = true; await sheet({ text: "金貨が足りない。", options: ["うなずく"] }); busy = false; return; }
+  ch.gold -= price; ch.equipment[it.slot] = it;
+  sfx("open");
+  log(`${it.name} を買って装備した（−${price}金貨／所持 ${ch.gold}）。`);
+  if (it.exposurePerTurn) log("……身につけた途端、深みがじわりと滲む。", "warn");
+  save();
+}
+// 薬師：金貨で深蝕の進行を和らげる（exposure を一段戻す）。
+async function healerTreat() {
+  busy = true;
+  const ch = world.current!;
+  if (ch.exposure <= 0.05) { await sheet({ text: "深蝕は、今は薄い。施療の要はない。", options: ["うなずく"] }); busy = false; return; }
+  const cost = 12 + Math.round(ch.exposure * 10);
+  const r = await sheet({
+    text: `老薬師トウ。お前の深蝕は ${ch.exposure.toFixed(2)}。\n薬と祈りで少し退かせる（−0.6・${cost}金貨）。所持 金${ch.gold}。`,
+    meta: "薬師 ── 深蝕治療",
+    options: [`施療を受ける（${cost}金貨）`, "やめる"],
+  });
+  busy = false;
+  if (r.pick !== 1) return;
+  if (ch.gold < cost) { busy = true; await sheet({ text: "金貨が足りない。", options: ["うなずく"] }); busy = false; return; }
+  ch.gold -= cost; ch.exposure = Math.max(0, ch.exposure - 0.6);
+  sfx("open");
+  log(`薬と祈りで、深蝕がわずかに退いた（−0.6／所持 ${ch.gold}）。`, "dim");
+  save();
+}
 async function talkKeeper() {
   if (busy || !interior) return;
   const kind = interior.kind;
@@ -437,6 +480,8 @@ async function talkKeeper() {
   // 既存機能の結線（機能後退させない）。他の動詞は後続 content 拡充で実装。
   if (kind === "tavern" && actIdx === 0) return void rumorScene();      // 噂を聞く
   if (kind === "archive" && actIdx === 0) return void chronicleScene(); // 年代記を読む
+  if (kind === "smith" && actIdx === 0) return void smithBuy();         // 装備を売買／修理する
+  if (kind === "healer" && actIdx === 1) return void healerTreat();     // 深蝕の進行を診てもらう
   busy = true;
   await sheet({
     text: `${d.name}：「${d.acts[actIdx]}」\n\n……その商いは、まだ整っていない。`,
