@@ -60,7 +60,7 @@
 </head>
 <body>
 <header>
-  <h1>街マップ モック — 第2層（snapshot 4-4B）v5</h1>
+  <h1>街マップ モック — 第2層（snapshot 4-4B）v6</h1>
   <p>広い固定マップ（56×40）。商店街は門の近く／住宅・謎の施設は離れて／貴族街は門番で封鎖（将来解禁）</p>
 </header>
 
@@ -188,22 +188,28 @@ const GATE = { x:28, y:36 }; tiles[GATE.y][GATE.x]="gate";
 // ====== 景物 ======
 const props = [];
 props.push({ x:28, y:31, glyph:"碑", color:"#8fd8c8", glow:true, line:"慰霊碑。迷宮に還らなかった者たちの名が刻まれている。" });
-props.push({ x:21, y:33, glyph:"井", color:"#5f7f8a", line:"古い井戸。水面に自分の顔が映る。" });
+props.push({ x:24, y:34, glyph:"井", color:"#5f7f8a", line:"古い井戸。水面に自分の顔が映る。" });
 props.push({ x:38, y:36, glyph:"井", color:"#5f7f8a" });
-for (const [x,y] of [[4,24],[52,24],[14,9],[45,9],[3,38],[52,38],[27,20],[40,16]]) props.push({ x, y, glyph:"木", color:"#4f7a4a" });
+for (const [x,y] of [
+  [14,9],[45,9],[40,16],[27,18],
+  [2,12],[3,16],[2,21],[4,27],[3,31],[2,36],
+  [53,12],[52,16],[53,21],[52,27],[53,31],[52,36],
+  [10,23],[13,26],[25,22],[41,18],[48,22],[43,34],[49,33],[10,35],
+  [24,37],[33,37],[25,33],[31,34],[7,24],[51,38],[5,9],[50,9]
+]) props.push({ x, y, glyph:"木", color:"#4f7a4a" });
 const propMap = {}; for (const p of props) propMap[p.x+","+p.y]=p;
 
 // ====== 街路を歩く群衆 ======
 const AMB = {
-  commoner: { glyph:"民", color:"#9aa4b0", label:"一般人（町民）",
+  commoner: { glyph:"c", color:"#9aa4b0", label:"一般人（町民）",
     lines:["今日は冒険者が多いね。地下はおっかないよ。","パン屋がまた値を上げた。物価は迷宮次第さ。"] },
-  merchant: { glyph:"商", color:"#d9b34a", label:"商人",
+  merchant: { glyph:"$", color:"#d9b34a", label:"商人",
     lines:["掘り出し物の異物だ、見ていかないか？……鑑定はしてないがね。","各国の使いがまた来てる。きな臭いねえ。"] },
-  noble:    { glyph:"貴", color:"#c08fd8", label:"貴族（お忍び）",
+  noble:    { glyph:"n", color:"#c08fd8", label:"貴族（お忍び）",
     lines:["平民が。……まあいい、迷宮の英雄なら話は別だ。","この街の富はすべて、足下の闇から湧くのだ。"] },
-  rogue:    { glyph:"悪", color:"#d96459", label:"悪人（ならず者）",
+  rogue:    { glyph:"t", color:"#d96459", label:"悪人（ならず者）",
     lines:["……懐、温かそうだな。","昨夜もまた一人帰らなかったらしいぜ。せいぜい気をつけな。"] },
-  delver:   { glyph:"冒", color:"#6fb3c8", label:"冒険者（ギルド所属）",
+  delver:   { glyph:"f", color:"#6fb3c8", label:"冒険者（ギルド所属）",
     lines:["次はどこまで潜る？　無理はするな、戻れなくなる。","お前の先代の話、ギルドで聞いたよ。大した人だった。"] },
 };
 const AMB_KEYS = ["commoner","commoner","commoner","commoner","merchant","merchant","noble","rogue","delver","delver","delver"];
