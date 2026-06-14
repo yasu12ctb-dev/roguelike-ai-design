@@ -235,6 +235,235 @@
         ]
       }
     },
+    {
+      "id": "sl_grudge_curse",
+      "prerequisites": { "tone": "grudge", "finalAct": "curse_dungeon" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# は死にぎわ、この一帯そのものを呪った。#origin_gear# を中心に、床石の目地が黒く脈を打ち、近づくほど足が重くなる。怨みは場所に住み着いている。",
+        "effects": [
+          { "exposure": 0.12 },
+          { "trait": "踏んだ地:#origin_name#の呪域" },
+          { "chronicle": "#origin_name# が遺した呪いの地を踏み、その澱を浴びた。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_grudge_explorer",
+      "prerequisites": { "tone": "grudge", "kind": "explorer" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# も、かつてはお前と同じ探索者だった。#origin_gear# の握りには、何百日ぶんの汗が黒く染みている。先へ行った者を、まだ恨んでいる。",
+        "effects": [
+          { "bond": 1 },
+          { "exposure": 0.06 },
+          { "chronicle": "探索者#origin_name# の握り跡に、置いて行かれた者の怨みを見た。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_grudge_unfinished",
+      "prerequisites": { "tone": "grudge", "unfinished": true },
+      "weight": 2,
+      "investigate": {
+        "text": "立ち去ったあの時のことを、#origin_name# は忘れていない。#origin_gear# がこちらの足取りに合わせて向きを変える。果たされなかった決着が、まだ二人の間に張り渡されている。",
+        "effects": [
+          { "bond": 1 },
+          { "exposure": 0.08 },
+          { "chronicle": "#origin_name# との未決の因縁が、まだ切れていないことを思い知った。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_grudge_deep",
+      "prerequisites": { "tone": "grudge", "minExposure": 0.4 },
+      "weight": 1,
+      "investigate": {
+        "text": "深く蝕まれたお前には、#origin_name# の怨みが言葉のように聞き取れる。#origin_gear# の錆が、まるで同類を見つけたかのように、淡く呼応して震えた。",
+        "effects": [
+          { "bond": 1 },
+          { "exposure": 0.1 },
+          { "trait": "通じてしまった:#origin_name#の怨" },
+          { "chronicle": "深く蝕まれた身に、#origin_name# の怨みが言葉として届いた。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_grudge_token_search",
+      "prerequisites": { "tone": "grudge", "notFlag": "token_kept" },
+      "weight": 1,
+      "search": {
+        "text": "#origin_gear# の柄頭に、革紐で何かが括りつけてある。ほどくと、片割れだけの古い割り符。対になる片を持つ者へ、まだ向けられた憎しみだ。",
+        "effects": [
+          { "plant": "token_kept" },
+          { "trait": "遺品:#origin_name#の割り符" },
+          { "chronicle": "#origin_name# が握りしめていた割り符の片割れを得た。対の相手が、どこかにいる。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_grudge_token_follow",
+      "prerequisites": { "tone": "grudge", "flag": "token_kept" },
+      "weight": 2,
+      "investigate": {
+        "text": "先に拾った割り符の片割れが、#origin_gear# の前でかすかに熱を持つ。対の片は、この迷宮のもっと深くにある——#origin_name# の怨みが、まっすぐそれを指している。",
+        "effects": [
+          { "bond": 1 },
+          { "exposure": 0.06 },
+          { "chronicle": "#origin_name# の割り符が、対の相手の在処を指し示した。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_myth_relic_guard",
+      "prerequisites": { "tone": "myth", "finalAct": "guard_relic" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# は最後まで#origin_gear# を抱いて、何かを守り抜いて事切れた。亡骸の腕は今も解けず、託す相手をずっと待っていたかのようだ。",
+        "effects": [
+          { "bond": 1 },
+          { "trait": "受け継ぐ覚悟:#origin_name#の遺託" },
+          { "chronicle": "#origin_name# が守り抜いた#origin_gear# の前で、その遺志に触れた。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_myth_character",
+      "prerequisites": { "tone": "myth", "kind": "character" },
+      "weight": 1,
+      "investigate": {
+        "text": "語り草になった#origin_name# が、これほど小さく見えるとは思わなかった。けれど#origin_gear# の据わりだけは、伝え聞いた偉業のとおり微塵も揺るがない。",
+        "effects": [
+          { "bond": 1 },
+          { "trait": "間近で見た伝説:#origin_name#" },
+          { "chronicle": "語り草の#origin_name# を間近に見て、伝説が人だったことを知った。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_myth_calm_deep",
+      "prerequisites": { "tone": "myth", "minExposure": 0.4 },
+      "weight": 2,
+      "investigate": {
+        "text": "深みに削られて軋むお前の芯に、#origin_name# の#origin_gear# が静かに寄り添う。英雄の落ち着きが移ったように、ざわめいていた何かが凪いでいく。",
+        "effects": [
+          { "bond": 1 },
+          { "exposure": -0.12 },
+          { "chronicle": "#origin_name# の静けさに支えられ、深みに削られた芯を少し取り戻した。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_myth_twisting",
+      "prerequisites": { "tone": "myth", "stage": "twisting" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# の輪郭が、光と影の境でゆらぎ始めている。まだ英雄の面影は残っているが、#origin_gear# の縁から、見覚えのない紋様がゆっくり咲き出していた。",
+        "effects": [
+          { "exposure": 0.08 },
+          { "chronicle": "#origin_name# が変わり果てていく途中の姿を見た。美しく、少し怖かった。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_myth_star_search",
+      "prerequisites": { "tone": "myth", "notFlag": "star_map" },
+      "weight": 1,
+      "search": {
+        "text": "#origin_gear# を退けた壁の窪みに、#origin_name# が刻んだらしい星図がある。見知らぬ星の並びの一点に、ことさら深い印が穿たれていた。",
+        "effects": [
+          { "plant": "star_map" },
+          { "trait": "遺品:#origin_name#の星図" },
+          { "chronicle": "#origin_name# が遺した星図を写し取った。深部のどこかを指しているらしい。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_myth_star_follow",
+      "prerequisites": { "tone": "myth", "flag": "star_map" },
+      "weight": 2,
+      "investigate": {
+        "text": "写し取った星図の深い印が、いま#origin_gear# の指す方角と寸分たがわず重なった。#origin_name# は、最後に見るべきものへの道を遺していたのだ。",
+        "effects": [
+          { "bond": 1 },
+          { "chronicle": "#origin_name# の星図が指す先を読み解いた。導かれている。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_loss_accept",
+      "prerequisites": { "tone": "loss", "finalAct": "accept" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# は抗わなかった。#origin_gear# を膝に揃え、座したまま終わりを受け入れた姿勢のまま、静かに化石になっている。恐れの痕がどこにもない。",
+        "effects": [
+          { "exposure": -0.08 },
+          { "chronicle": "#origin_name# の、抗わずに終わりを受け入れた姿に、胸の澱が少し晴れた。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_loss_relic_kind",
+      "prerequisites": { "tone": "loss", "kind": "relic" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# は、もう人の名というより一個の遺物の名だ。#origin_gear# と亡骸の境目は溶け合い、どこまでが持ち主でどこからが持ち物か、もう分からない。",
+        "effects": [
+          { "exposure": 0.06 },
+          { "trait": "見たもの:物と化した#origin_name#" },
+          { "chronicle": "#origin_name# は持ち物と溶け合い、一個の遺物になりかけていた。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_loss_unfinished",
+      "prerequisites": { "tone": "loss", "unfinished": true },
+      "weight": 2,
+      "investigate": {
+        "text": "#origin_name# に、まだ言えていないことがある。#origin_gear# のそばに膝をついても、言葉は喉の途中でほどけて、形にならない。喪失は、まだ終わっていない。",
+        "effects": [
+          { "bond": 1 },
+          { "chronicle": "#origin_name# に告げ損ねた言葉が、まだ胸につかえていることを知った。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_loss_child",
+      "prerequisites": { "tone": "loss", "kind": "character" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_gear# のあいだに、小さな木彫りの人形が挟まっている。#origin_name# が、地上で待つ誰かのために彫りかけていたものらしい。あと少しで、顔ができるところだった。",
+        "effects": [
+          { "trait": "遺品:#origin_name#の彫りかけの人形" },
+          { "chronicle": "#origin_name# が彫りかけたまま遺した人形を見つけた。待っていた人が、いたのだ。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_loss_will_search",
+      "prerequisites": { "tone": "loss", "finalAct": "leave_will", "notFlag": "will_read" },
+      "weight": 1,
+      "search": {
+        "text": "#origin_name# は遺言を遺して逝った。#origin_gear# の下、油紙にくるまれた一葉に、宛名のない短い言伝が綴られている。「見つけた人へ——」とだけ、はっきりと。",
+        "effects": [
+          { "plant": "will_read" },
+          { "trait": "遺品:#origin_name#の遺言" },
+          { "chronicle": "#origin_name# が見知らぬ拾い手へ宛てた遺言を読んだ。" }
+        ]
+      }
+    },
+    {
+      "id": "sl_loss_will_follow",
+      "prerequisites": { "tone": "loss", "flag": "will_read" },
+      "weight": 2,
+      "investigate": {
+        "text": "預かってしまった#origin_name# の遺言。その一行を地上の誰かへ届けるまで、#origin_gear# の前を通るたび、約束の重みが少しだけ増していく。",
+        "effects": [
+          { "bond": 1 },
+          { "chronicle": "#origin_name# の遺言を託された者として、その約束を胸に刻んだ。" }
+        ]
+      }
+    },
 
     {
       "id": "dg_shallow_cache",
@@ -379,6 +608,138 @@
         { "label": "踏まぬよう抜ける", "text": "花を踏まないよう、爪先立ちで畑を渡った。", "effects": [ { "exposure": 0.05 }, { "chronicle": "深度#depth#の石の花畑を、そっと渡った。" } ] }
       ]
     },
+    {
+      "id": "dg_shallow_ropes",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "shallow" },
+      "weight": 1,
+      "text": "壁の鉤に、まだしっかりした登攀用の縄が垂れている。先客が残していったものらしい。",
+      "choices": [
+        { "label": "回収する", "text": "束ね直して肩にかけた。下りでも登りでも、いずれ役に立つ。", "effects": [ { "trait": "拾得:先客の登攀縄" }, { "chronicle": "深度#depth#で、先客の残した登攀縄を回収した。" } ] },
+        { "label": "残しておく", "text": "次に来る誰かのために、そのままにしておいた。", "effects": [ { "chronicle": "深度#depth#の登攀縄は、次の誰かのために残した。" } ] }
+      ]
+    },
+    {
+      "id": "dg_shallow_nest",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "shallow" },
+      "weight": 1,
+      "text": "岩棚に、何かの巣がある。主は留守らしいが、奥に固い殻の卵がいくつか光っている。",
+      "choices": [
+        { "label": "卵を頂く", "text": "ひとつ懐に入れた。茹でれば、ひと晩は食いつなげるだろう。", "effects": [ { "trait": "拾得:深層の獣の卵" }, { "chronicle": "深度#depth#の巣から、卵をひとつ失敬した。" } ] },
+        { "label": "触れずに離れる", "text": "主が戻る前に、足音を殺してその場を離れた。", "effects": [ { "chronicle": "深度#depth#の巣には、手を出さずに離れた。" } ] }
+      ]
+    },
+    {
+      "id": "dg_shallow_warning",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "shallow" },
+      "weight": 1,
+      "text": "床に、石を並べて作った矢印がある。来た道を指して——「戻れ」。",
+      "choices": [
+        { "label": "矢印を直す", "text": "崩れかけた石を並べ直した。誰かがまた、この警告に救われるかもしれない。", "effects": [ { "chronicle": "深度#depth#の「戻れ」の石矢印を、並べ直した。" } ] },
+        { "label": "踏み越える", "text": "忠告は胸に留め、それでも先へ足を向けた。引き返す気は、ない。", "effects": [ { "chronicle": "深度#depth#の「戻れ」の警告を、踏み越えて進んだ。" } ] }
+      ]
+    },
+    {
+      "id": "dg_shallow_idol",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "shallow" },
+      "weight": 1,
+      "text": "壁龕に、素朴な木彫りの像が一つ。顔は摩耗して失われているが、温かみだけが残っている。",
+      "choices": [
+        { "label": "手を合わせる", "text": "誰を象ったものかも知らぬまま、しばし頭を垂れた。気持ちが、少し軽くなる。", "effects": [ { "exposure": -0.08 }, { "chronicle": "深度#depth#の顔なき木像に手を合わせ、心が少し軽くなった。" } ] },
+        { "label": "持ち上げてみる", "text": "台座の下に、小銭がいくらか隠されていた。誰かの賽銭だろう。", "effects": [ { "trait": "拾得:木像の下の賽銭" }, { "chronicle": "深度#depth#の木像の下から、古い賽銭を見つけた。" } ] }
+      ]
+    },
+    {
+      "id": "dg_mid_chasm",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "mid" },
+      "weight": 1,
+      "text": "道を、底の見えない裂け目が断っている。向こう岸まで、朽ちかけた丸木が一本だけ渡してある。",
+      "choices": [
+        { "label": "渡る", "text": "丸木が軋み、足の下で何かが落ちていく音がした。渡り切ったときには、背が汗で冷えていた。", "effects": [ { "chronicle": "深度#depth#の裂け目を、朽ちた丸木一本で渡り切った。" } ] },
+        { "label": "回り道を探す", "text": "遠回りになるが、確かな足場を選んだ。命は、急いては拾えない。", "effects": [ { "chronicle": "深度#depth#の裂け目は渡らず、回り道を選んだ。" } ] }
+      ]
+    },
+    {
+      "id": "dg_mid_pool",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "mid" },
+      "weight": 1,
+      "text": "燐光を湛えた水溜まりが、鏡のように静まっている。底に、沈んだ何かが鈍く光っている。",
+      "choices": [
+        { "label": "手を入れて探る", "text": "肘まで浸して摑み上げると、見知らぬ金属の小片。腕が、しばらく青白く光っていた。", "effects": [ { "trait": "拾得:燐光水底の金属片" }, { "exposure": 0.1 }, { "chronicle": "深度#depth#の燐光の淵に腕を浸し、底の金属片を拾い上げた。" } ] },
+        { "label": "覗くだけにする", "text": "水面に映る自分の顔が、少しだけ笑っていた気がして、後ずさった。", "effects": [ { "exposure": 0.04 }, { "chronicle": "深度#depth#の燐光の淵は、覗くだけにとどめた。" } ] }
+      ]
+    },
+    {
+      "id": "dg_mid_hall",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "mid" },
+      "weight": 1,
+      "text": "天井の高い広間。足音が、本来あるべき数より一つ多く反響して返ってくる。",
+      "choices": [
+        { "label": "立ち止まって数える", "text": "止まると、反響も止まる。だが最後の一歩ぶんだけ、確かに遅れて返ってきた。", "effects": [ { "exposure": 0.1 }, { "trait": "聞いたもの:一つ多い足音" }, { "chronicle": "深度#depth#の広間で、自分のものでない足音を一つ聞いた。" } ] },
+        { "label": "走り抜ける", "text": "反響に追いつかれないよう、一息に広間を駆け抜けた。", "effects": [ { "exposure": 0.04 }, { "chronicle": "深度#depth#の反響する広間を、振り返らず駆け抜けた。" } ] }
+      ]
+    },
+    {
+      "id": "dg_mid_cell",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "mid" },
+      "weight": 1,
+      "text": "錆びた鉄格子の牢が並んでいる。誰を閉じ込めたものか、内側から曲げられた格子が一つだけある。",
+      "choices": [
+        { "label": "中を検める", "text": "床の藁の下に、爪で壁に刻んだ無数の正の字。最後の一画は、途中で途切れていた。", "effects": [ { "exposure": 0.08 }, { "trait": "見たもの:数え切れぬ日々の刻み" }, { "chronicle": "深度#depth#の牢で、終わらなかった日数の刻みを見た。" } ] },
+        { "label": "扉を閉じて去る", "text": "せめて、と軋む鉄扉を閉ざしてやった。誰のためかは、分からない。", "effects": [ { "chronicle": "深度#depth#の牢の扉を、そっと閉ざして去った。" } ] }
+      ]
+    },
+    {
+      "id": "dg_deep_clockwork",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "deep" },
+      "weight": 1,
+      "text": "壁一面が、ありえない歯車の絡繰りになっている。どの歯車も他のどれとも噛み合っていないのに、すべてが滑らかに回り続けている。",
+      "choices": [
+        { "label": "歯車に触れる", "text": "指先で一つを止めた。すると遠くで、止めたはずのない何かが、代わりに止まった音がした。", "effects": [ { "exposure": 0.16 }, { "trait": "触れたもの:噛み合わぬ絡繰り" }, { "chronicle": "深度#depth#で、理を外れた絡繰りに触れ、深く蝕まれた。" } ] },
+        { "label": "回り続けるに任せる", "text": "意味を問うのをやめ、絡繰りを背にして進んだ。", "effects": [ { "exposure": 0.05 }, { "chronicle": "深度#depth#の噛み合わぬ絡繰りを、問わずに通り過ぎた。" } ] }
+      ]
+    },
+    {
+      "id": "dg_deep_choir",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "deep" },
+      "weight": 1,
+      "text": "幾つもの声が、どこからともなく和して歌っている。言葉は分からないのに、なぜか涙がこぼれそうになる。",
+      "choices": [
+        { "label": "声に和す", "text": "気づけば、自分も同じ旋律を口ずさんでいた。喉が、覚えのない音の形を作る。", "effects": [ { "exposure": 0.18 }, { "trait": "覚えた音:底の合唱" }, { "chronicle": "深度#depth#の合唱に声を重ね、知らぬ旋律を喉が覚えてしまった。" } ] },
+        { "label": "耳をふさぐ", "text": "両手で耳を覆い、旋律が芯まで届く前に足を速めた。", "effects": [ { "exposure": 0.06 }, { "chronicle": "深度#depth#の合唱を、辛うじて締め出した。" } ] }
+      ]
+    },
+    {
+      "id": "dg_deep_door",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "deep" },
+      "weight": 1,
+      "text": "通路の真ん中に、どこにも繋がっていない一枚の扉が、ただ立っている。向こう側には、同じ通路が続いているのが隙間から見える。",
+      "choices": [
+        { "label": "扉を開けて通る", "text": "ノブを回して潜ると、出たのは——たった今いた場所の、少しだけ違う版だった。壁の染みの形が、違う。", "effects": [ { "exposure": 0.15 }, { "trait": "通った扉:どこにも無い扉" }, { "chronicle": "深度#depth#で、どこにも繋がらぬ扉を潜り、少しずれた世界へ出た。" } ] },
+        { "label": "脇をすり抜ける", "text": "扉など無いかのように、その横を回って進んだ。背中で、ひとりでに閉じる音がした。", "effects": [ { "exposure": 0.05 }, { "chronicle": "深度#depth#の独りでに立つ扉を、開けずに脇を抜けた。" } ] }
+      ]
+    },
+    {
+      "id": "dg_deep_tide",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "deep" },
+      "weight": 1,
+      "text": "通路の奥から、光を呑む闇がゆっくりと満ちてくる。潮のように、寄せては、わずかに引く。",
+      "choices": [
+        { "label": "引き際に乗じて進む", "text": "闇が引く一瞬を見計らい、奥へ駆け込んだ。背後で、闇が再び満ちる気配がした。", "effects": [ { "exposure": 0.12 }, { "chronicle": "深度#depth#で、満ちる闇の引き際に乗じて奥へ抜けた。" } ] },
+        { "label": "退いて満ちるに任せる", "text": "今日はここまで、と踵を返した。あの闇に呑まれる図が、まだ想像できてしまううちは。", "effects": [ { "exposure": 0.04 }, { "chronicle": "深度#depth#の満ちる闇を前に、深追いせず退いた。" } ] }
+      ]
+    },
 
     {
       "id": "ch_empty",
@@ -442,6 +803,48 @@
       "prerequisites": { "depthBand": "deep" },
       "weight": 2,
       "result": { "text": "箱の内側に、見たことのない紋様。指が触れた途端、視界がぐらりと歪んだ。", "effects": [ { "exposure": 0.2 }, { "chronicle": "深度#depth#の宝箱の紋様が、深く食い込んだ。" } ] }
+    },
+    {
+      "id": "ch_letter",
+      "context": "chest",
+      "prerequisites": {},
+      "weight": 2,
+      "result": { "text": "宝の代わりに、封蝋の残る一通の手紙。宛名は擦れて読めないが、便箋はまだ白い。", "effects": [ { "trait": "拾得:宛先のない手紙" }, { "chronicle": "深度#depth#の宝箱に、届かなかった手紙が一通だけ眠っていた。" } ] }
+    },
+    {
+      "id": "ch_keys",
+      "context": "chest",
+      "prerequisites": {},
+      "weight": 2,
+      "result": { "text": "錆びた鍵束がひと括り。どれも、もうこの迷宮には合う錠が残っていないのかもしれない。", "effects": [ { "trait": "拾得:錆びた鍵束" }, { "chronicle": "深度#depth#の宝箱から、合う錠の知れぬ鍵束を得た。" } ] }
+    },
+    {
+      "id": "ch_idol",
+      "context": "chest",
+      "prerequisites": {},
+      "weight": 1,
+      "result": { "text": "掌に収まる小さな守り神の像。撫でると、強張っていた指がほどけていく。", "effects": [ { "exposure": -0.08 }, { "trait": "拾得:掌の守り神" }, { "chronicle": "深度#depth#の宝箱で、心をほどく守り神を得た。" } ] }
+    },
+    {
+      "id": "ch_shallow_map",
+      "context": "chest",
+      "prerequisites": { "depthBand": "shallow" },
+      "weight": 2,
+      "result": { "text": "手描きの地図の切れ端。途中まで几帳面で、ある一点から先は、震える線で乱れている。", "effects": [ { "trait": "拾得:途中で乱れた地図" }, { "chronicle": "深度#depth#の宝箱に、途中で筆が乱れた手描きの地図を見つけた。" } ] }
+    },
+    {
+      "id": "ch_mid_lantern",
+      "context": "chest",
+      "prerequisites": { "depthBand": "mid" },
+      "weight": 2,
+      "result": { "text": "油の残った角灯が一つ。先へ進む者には、何にも勝る宝だ。", "effects": [ { "trait": "拾得:油の残る角灯" }, { "chronicle": "深度#depth#の宝箱から、まだ灯る角灯を得た。" } ] }
+    },
+    {
+      "id": "ch_deep_seed",
+      "context": "chest",
+      "prerequisites": { "depthBand": "deep" },
+      "weight": 2,
+      "result": { "text": "箱の底で、黒い種が一粒、ゆっくりと脈打っている。掌に乗せると、根を張る先を探すように蠢いた。", "effects": [ { "trait": "拾得:脈打つ黒い種" }, { "exposure": 0.12 }, { "chronicle": "深度#depth#の宝箱の底で、脈打つ黒い種を拾った。" } ] }
     }
   ]
 }
