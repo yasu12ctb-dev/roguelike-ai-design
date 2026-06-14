@@ -14,7 +14,8 @@ export interface World {
   tracked: TrackedEntity[];
   chronicle: ChronicleEntry[];
   town: TownState;
-  flags?: string[];             // 伏線フラグ（遭遇の選択が立てる。化石ごとにスコープ：4-12 遭-②）
+  flags?: string[];             // 伏線フラグ（遭遇の選択が立てる。化石/アクターごとにスコープ：4-12 遭-②）
+  actors?: LivingActor[];       // 永続化された生者NPC（lazy：参照された者だけ：4-12(G)/(C)）
 }
 
 /** ステ4種（4-11F②）。体=最大HP / 力=近接ダメージ / 理=深蝕魔法の素養(③) / 心=深蝕耐性 */
@@ -61,12 +62,24 @@ export interface Bond {
   unfinished: boolean;
 }
 
-export interface FossilOrigin {
+/** アクター記述子（4-12(G)）。化石 origin を一般化し、生者NPCも同じ機構で表す。 */
+export interface Actor {
   name: string;
   archetype: string;
   gearTags: string[];
   catchphrase?: string;
   epithet?: string;
+  alive?: boolean;          // 生者NPC=true（痕跡保証ASSERT 4-2 は化石のみ対象）
+}
+
+/** 化石の出自。Actor の別名（後方互換）。 */
+export interface FossilOrigin extends Actor {}
+
+/** 生者NPC（lazy：遭遇時に mint し、effects が参照した時だけ World.actors に永続：4-6/4-12C）。 */
+export interface LivingActor {
+  id: string;
+  actor: Actor;
+  metGeneration: number;
 }
 
 export interface FinalAct {

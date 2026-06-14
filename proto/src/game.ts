@@ -12,10 +12,11 @@ import {
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "./variation.ts";
 import { maxHp, meleeDmg, heartFactor, xpToNext, statsLine, STAT_KEYS, STAT_LABEL, HP_PER } from "./progression.ts";
 import {
-  renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText,
+  renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText, fillActorText,
   requiemLine, leaveLine, inheritLine, REQUIEM_RELIEF,
 } from "./render.ts";
-import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, rollChestOutcome } from "./storylets.ts";
+import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, rollChestOutcome, selectTownStorylet, applyActorEffects } from "./storylets.ts";
+import { meetActor } from "./actors.ts";
 import { rollEncounter } from "./weights.ts";
 import type { Character, FinalActChoice, Fossil, World } from "./types.ts";
 
@@ -104,7 +105,7 @@ export async function runGame(
     for (;;) {
       say(`\n━━━ 街 ── 迷宮の口（第${world.generation}世代） ━━━`);
       const pick = await io.choose(`${ch.name}、どうする？`, [
-        "迷宮へ潜る", "酒場で噂を聞く", "年代記を読む（老書記イェン）", "セーブして終える",
+        "迷宮へ潜る", "酒場で噂を聞く", "旅の者と語らう", "年代記を読む（老書記イェン）", "セーブして終える",
       ]);
       if (pick === 1) return "dive";
       if (pick === 2) {
@@ -118,13 +119,27 @@ export async function runGame(
         } else say("今日は、これといった噂もない。");
       }
       if (pick === 3) {
+        // 生者NPC（アクター記述子）との出会い（4-12(G)）
+        const la = meetActor(world, db, rng);
+        const sl = selectTownStorylet(db, world, ch, la, rng);
+        if (sl && sl.choices) {
+          say(`\n${la.actor.epithet ?? ""}${la.actor.name}（${la.actor.archetype}）と出会った。`);
+          say(`  ${fillActorText(la.actor, sl.text ?? "")}`);
+          const c = await io.choose("どうする？", sl.choices.map((o) => o.label));
+          const choice = sl.choices[c - 1];
+          if (choice.text) say(`  ${fillActorText(la.actor, choice.text)}`);
+          for (const line of applyActorEffects(world, ch, la, choice.effects)) say(`    ${line}`);
+          autosave();
+        } else say("今日は、誰も話しかけてはこない。");
+      }
+      if (pick === 4) {
         say("\n━━━ 年代記 ── 老書記イェンが頁を繰る ━━━");
         const tail = world.chronicle.slice(-15);
         const mark = { birth: "生", death: "死", rediscovery: "再", intervention: "干", legend: "伝", rumor: "噂" } as const;
         for (const e of tail) say(`  世代${e.generation} [${mark[e.kind]}] ${e.text}`);
         if (world.chronicle.length > tail.length) say(`  （ほか${world.chronicle.length - tail.length}件の記述）`);
       }
-      if (pick === 4) { autosave(); return "quit"; }
+      if (pick === 5) { autosave(); return "quit"; }
     }
   }
 

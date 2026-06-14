@@ -849,6 +849,40 @@
       "prerequisites": { "depthBand": "deep" },
       "weight": 2,
       "result": { "text": "箱の底で、黒い種が一粒、ゆっくりと脈打っている。掌に乗せると、根を張る先を探すように蠢いた。", "effects": [ { "trait": "拾得:脈打つ黒い種" }, { "exposure": 0.12 }, { "chronicle": "深度#depth#の宝箱の底で、脈打つ黒い種を拾った。" } ] }
+    },
+
+    {
+      "id": "tw_greeting",
+      "context": "town",
+      "prerequisites": { "notFlag": "spoke" },
+      "weight": 2,
+      "text": "#origin_epithet##origin_name# が、#origin_gear# を傍らに置いて卓に着いている。「あんたも、潜る口かい」と話しかけてきた。",
+      "choices": [
+        { "label": "耳を傾ける", "text": "深部の噂をひとくさり聞かせてくれた。話し相手がいるだけで、強張りが少しほどける。", "effects": [ { "exposure": -0.04 }, { "plant": "spoke" }, { "chronicle": "街で#origin_name# と言葉を交わし、深部の噂を聞いた。" } ] },
+        { "label": "そっけなく返す", "text": "短く礼だけ言って、卓を離れた。", "effects": [ { "chronicle": "街で#origin_name# に話しかけられたが、深くは関わらなかった。" } ] }
+      ]
+    },
+    {
+      "id": "tw_again",
+      "context": "town",
+      "prerequisites": { "flag": "spoke" },
+      "weight": 3,
+      "text": "また#origin_name# だ。#origin_gear# 越しにこちらを認めると、「よう、まだ生きてたか」と片手を挙げた。覚えていてくれたらしい。",
+      "choices": [
+        { "label": "近況を交わす", "text": "互いの無事を確かめ合った。顔見知りが一人いるだけで、迷宮の口が少し違って見える。", "effects": [ { "bond": 1 }, { "chronicle": "街で旧知の#origin_name# と再会し、絆を深めた。" } ] },
+        { "label": "会釈して通る", "text": "軽く頷いて、その場を通り過ぎた。", "effects": [ { "chronicle": "街で#origin_name# と再会し、目礼を交わした。" } ] }
+      ]
+    },
+    {
+      "id": "tw_trade",
+      "context": "town",
+      "prerequisites": { "notFlag": "traded" },
+      "weight": 1,
+      "text": "#origin_name# が #origin_gear# の中身を広げて見せた。「掘り出し物だぜ。なんなら、交換といこう」。",
+      "choices": [
+        { "label": "物々交換する", "text": "手持ちの端切れと、見慣れぬ小物を交換した。役に立つかは、潜ってみないと分からない。", "effects": [ { "trait": "拾得:#origin_name#との交換品" }, { "plant": "traded" }, { "chronicle": "街で#origin_name# と物々交換をした。" } ] },
+        { "label": "今日は遠慮する", "text": "懐具合を考えて、今日は見るだけにした。", "effects": [ { "chronicle": "街で#origin_name# の商いを、今日は見送った。" } ] }
+      ]
     }
   ]
 }
