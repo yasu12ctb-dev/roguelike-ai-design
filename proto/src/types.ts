@@ -16,6 +16,7 @@ export interface World {
   town: TownState;
   flags?: string[];             // 伏線フラグ（遭遇の選択が立てる。化石/アクターごとにスコープ：4-12 遭-②）
   actors?: LivingActor[];       // 永続化された生者NPC（lazy：参照された者だけ：4-12(G)/(C)）
+  quests?: Quest[];             // 受注中/達成済の依頼（回収業 4-10G）
 }
 
 /** ステ4種（4-11F②）。体=最大HP / 力=近接ダメージ / 理=深蝕魔法の素養(③) / 心=深蝕耐性 */
@@ -126,6 +127,19 @@ export interface ChronicleEntry {
   kind: "birth" | "death" | "rediscovery" | "intervention" | "legend" | "rumor";
   text: string;
   refs: string[];
+}
+
+// 依頼（回収業 4-10G／4-12F quest）。ギルドで受注→ダンジョンで達成→街で金貨報酬。
+export interface Quest {
+  id: string;
+  kind: "descend" | "reclaim";   // 到達／回収
+  title: string;
+  desc: string;
+  targetDepth?: number;          // descend: 到達すべき深度 / reclaim: 対象化石の眠る深度
+  targetFossilId?: string;       // reclaim: 再発見すべき化石
+  rewardGold: number;
+  status: "active" | "done" | "claimed";
+  issuedGeneration: number;
 }
 
 export interface TownState {
