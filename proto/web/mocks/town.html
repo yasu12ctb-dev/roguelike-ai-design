@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0d10" />
+<title>街マップ モック — 堆積する世界（4-4B 第2層）</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: #0b0d10; color: #cfd6dd; min-height: 100dvh;
+    font-family: "Hiragino Sans", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  }
+  header { padding: 14px 16px 6px; text-align: center; }
+  header h1 { font-size: 15px; letter-spacing: .14em; color: #9aa4b0; font-weight: 600; }
+  header p { font-size: 11px; color: #5b6470; margin-top: 4px; }
+
+  .caption { max-width: 560px; padding: 4px 16px 10px; font-size: 12px; line-height: 1.7; color: #8b94a0; }
+  .caption b { color: #cfd6dd; }
+
+  /* 往復制フロー図 */
+  .flow {
+    max-width: 560px; width: 96vw; margin: 0 auto 4px; padding: 9px 12px;
+    font-size: 11.5px; line-height: 1.6; color: #9aa4b0;
+    background: #11151c; border: 1px solid #232a33; border-radius: 10px;
+  }
+  .flow b { color: #cfd6dd; }
+  .flow .arr { color: #6fb3c8; }
+  .flow .dead { color: #d96459; }
+
+  /* ゲーム画面フレーム */
+  #frame {
+    width: min(96vw, 560px); border: 1px solid #232a33; border-radius: 14px;
+    overflow: hidden; background: #0d1014; box-shadow: 0 8px 40px rgba(0,0,0,.5);
+    margin-top: 4px;
+  }
+  #status {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px; font-size: 12.5px; color: #aab4c0;
+    border-bottom: 1px solid #1c222b; background: #10141a;
+  }
+  #status .hp { color: #e06c5a; letter-spacing: 2px; }
+  #status .exp { color: #9d8fd8; }
+  #status .place { color: #cdbf93; letter-spacing: .12em; }
+
+  #mapWrap { position: relative; }
+  #grid { display: grid; width: 100%; }
+  .cell { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+
+  /* 全面可視（街は安全・既知＝FOV/松明なし）。地上のやわらかな環境光のみ */
+  #light {
+    position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(120% 90% at 50% 18%, rgba(150,170,200,.10), rgba(120,140,170,.04) 45%, rgba(0,0,0,.30) 100%);
+  }
+
+  /* メッセージlog */
+  #log {
+    padding: 10px 14px; font-size: 13px; line-height: 1.75; min-height: 70px;
+    border-top: 1px solid #1c222b; background: #10141a;
+    font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; color: #d6cfc0;
+  }
+  #log .dim { color: #6b7480; font-size: 12px; }
+  #log .cue { color: #7fc4d8; }
+
+  /* D-pad */
+  #dpad {
+    position: absolute; right: 10px; bottom: 10px; width: 108px; height: 108px;
+    display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); gap: 2px; opacity: .82;
+  }
+  #dpad div {
+    background: rgba(40,48,60,.55); border: 1px solid rgba(120,135,155,.35);
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: #aab4c0; backdrop-filter: blur(2px); user-select: none;
+  }
+  #dpad div.x { visibility: hidden; }
+
+  /* NPC会話シート */
+  #overlay {
+    position: absolute; inset: 0; display: none; align-items: flex-end;
+    background: rgba(5,6,8,.62); backdrop-filter: blur(1.5px);
+  }
+  #overlay.show { display: flex; }
+  #sheet {
+    width: 100%; background: #14181f; border-top: 1px solid #2c3440;
+    padding: 16px 16px 14px; font-family: "Hiragino Mincho ProN", serif;
+  }
+  #sheet .who { font-size: 13.5px; color: #e8e2d4; letter-spacing: .06em; }
+  #sheet .who .title { color: #8f9aa8; font-size: 11.5px; }
+  #sheet .line { font-size: 14px; line-height: 1.95; color: #d8dee6; margin: 9px 0 4px; }
+  #sheet .meta { font-size: 11px; color: #7d8794; margin: 6px 0 10px; font-family: system-ui, sans-serif; }
+  #sheet button {
+    display: block; width: 100%; text-align: left; font-family: inherit; font-size: 14px;
+    color: #d8dee6; background: #1c232d; border: 1px solid #2e3946; border-radius: 10px;
+    padding: 11px 14px; margin-top: 8px;
+  }
+  #sheet button.close { text-align: center; color: #8b94a0; font-family: system-ui, sans-serif; font-size: 12.5px; }
+
+  .legend {
+    max-width: 560px; width: 96vw; margin: 10px auto 4px; padding: 10px 12px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px;
+    font-size: 11.5px; color: #9aa4b0; background: #11151c;
+    border: 1px solid #232a33; border-radius: 10px;
+  }
+  .legend .g { font-family: "Menlo","Consolas",monospace; font-weight: 700; margin-right: 7px; }
+
+  /* ---- 方向A：発光グリフ（街配色） ---- */
+  .cell { background: #08090c; }
+  .cell .g {
+    display: block; font-family: "Menlo","Consolas","Hiragino Sans",monospace; font-weight: 700;
+    font-size: calc(var(--cs) * .58); line-height: 1;
+  }
+  .cell[data-t="void"]  { background: #0b0d10; }
+  .cell[data-t="wall"]  { background: #15140f; }       /* 地上の石壁＝わずかに暖色 */
+  .cell[data-t="wall"] .g  { color: #4a4233; }
+  .cell[data-t="floor"]    { background: #0d0f0d; }     /* 石畳 */
+  .cell[data-t="floor"] .g { color: #2f3a2f; }
+  .cell[data-t="well"] .g  { color: #5f7f8a; text-shadow: 0 0 7px rgba(95,127,138,.5); }
+  .cell[data-t="gate"] .g  { color: #6fb3c8; text-shadow: 0 0 10px rgba(111,179,200,.75), 0 0 22px rgba(60,140,170,.4); animation: pulse 2.8s ease-in-out infinite; }
+  @keyframes pulse { 50% { text-shadow: 0 0 16px rgba(111,179,200,1), 0 0 30px rgba(60,140,170,.5); } }
+  .cell[data-t="player"] .g { color: #ffd87a; text-shadow: 0 0 12px rgba(255,216,122,.9), 0 0 26px rgba(255,160,60,.45); }
+
+  /* 骨格NPC＝それぞれ固有の発光色 */
+  .cell[data-t="smith"]  .g { color: #e08a3c; text-shadow: 0 0 10px rgba(224,138,60,.7); }   /* 鍛冶＝炉の橙 */
+  .cell[data-t="tavern"] .g { color: #e0a85a; text-shadow: 0 0 10px rgba(224,168,90,.65); }  /* 酒場＝灯の琥珀 */
+  .cell[data-t="guild"]  .g { color: #7fa4d8; text-shadow: 0 0 10px rgba(127,164,216,.65); } /* ギルド＝鋼青 */
+  .cell[data-t="scribe"] .g { color: #8fd8c8; text-shadow: 0 0 10px rgba(143,216,200,.7); }  /* 書記＝記憶の翠 */
+
+  /* 話しかけ可能なNPCの淡い枠 */
+  .cell.near::after {
+    content:""; position: absolute; inset: 8%;
+    border: 1px solid rgba(255,255,255,.28); border-radius: 22%;
+    animation: blink 1.4s ease-in-out infinite;
+  }
+  @keyframes blink { 50% { border-color: rgba(255,255,255,.06); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>街マップ モック — 第2層（snapshot 4-4B）</h1>
+  <p>ステップ1：固定マップ＋@歩行（全面可視）＋街⇄迷宮の往復制。骨格NPC4人は配置と話しかけの確認用</p>
+</header>
+
+<div class="caption" id="caption">
+  <b>操作：</b>矢印/WASD・画面下のD-pad・床タップで一歩。<b>NPC</b>に隣接すると枠が点滅→タップ/スペースで会話。
+  <b>門「&gt;」</b>に乗ると〔潜行する〕。※会話文はモックの仮置き（実装では二重構造で表面のみ可変・identityは固定）。
+</div>
+
+<div class="flow">
+  <b>往復制（4-4B(C)・新設）：</b>
+  街 <span class="arr">─門&gt;→</span> 迷宮 　／　 迷宮 <span class="arr">─生還→</span> 街　に戻る。
+  <span class="dead">死</span> <span class="arr">→</span> 世代交代（系譜） <span class="arr">→</span> <b>街から再開</b>（拠点＝街）。系譜・年代記は書記／ギルドに接続。
+</div>
+
+<div id="frame">
+  <div id="status">
+    <span class="place">― 地上の街 ―</span>
+    <span class="hp">♥♥♥♥♥</span>
+    <span class="exp">深蝕 ▮▯▯▯▯</span>
+  </div>
+  <div id="mapWrap">
+    <div id="grid"></div>
+    <div id="light"></div>
+    <div id="dpad">
+      <div class="x"></div><div data-d="0,-1">▲</div><div class="x"></div>
+      <div data-d="-1,0">◀</div><div class="x"></div><div data-d="1,0">▶</div>
+      <div class="x"></div><div data-d="0,1">▼</div><div class="x"></div>
+    </div>
+    <div id="overlay"><div id="sheet"></div></div>
+  </div>
+  <div id="log">
+    <div>あなたは地上の街にいる。迷宮の口がひらいている。</div>
+    <div class="dim">店をのぞき、噂を聞き、依頼を受けてから潜るがいい。</div>
+  </div>
+</div>
+
+<div class="legend" id="legend"></div>
+
+<script>
+// ---- 固定の街マップ（自動生成なし・手書き） ----
+const INNER = {
+  blank:      ".........",
+  smithGuild: ".鍛.....組.",   // 武具屋（左）／ギルド（右）
+  tavScribe:  ".酒.....記.",   // 酒場（左）／老書記（右）
+  well:       "....◌....",     // 中央の井戸（装飾・通行不可）
+  player:     "....@....",
+  gate:       "....>....",     // 迷宮への門
+};
+const row = s => " #" + s + "# ";
+const ROWS0 = [
+  "             ",
+  " ########### ",
+  row(INNER.blank),
+  row(INNER.smithGuild),
+  row(INNER.blank),
+  row(INNER.well),
+  row(INNER.player),
+  row(INNER.blank),
+  row(INNER.tavScribe),
+  row(INNER.blank),
+  row(INNER.blank),
+  row(INNER.gate),
+  " ########### ",
+  "             ",
+];
+
+const TYPE = {
+  "#":"wall", ".":"floor", " ":"void", ">":"gate", "◌":"well", "@":"player",
+  "鍛":"smith", "酒":"tavern", "組":"guild", "記":"scribe",
+};
+const GLYPH = {
+  wall:"▒", floor:"·", void:"", gate:">", well:"◌", player:"@",
+  smith:"鍛", tavern:"酒", guild:"組", scribe:"記",
+};
+const WALKABLE = new Set(["floor","gate","player"]);
+const NPCS = new Set(["smith","tavern","guild","scribe"]);
+
+// NPC定義（仮名・トーンはお任せ反映／表面文はモック例）
+const NPC = {
+  smith:  { name:"鍛冶ヴァロ", title:"武具屋・二つ名「炉の番人」",
+    line:"……生きて戻ったか。なら、その得物も見てやろう。刃こぼれは命取りだぞ。",
+    acts:["装備を見る／修理する","異物を鑑定する（用途不明・副作用つき）","先代の刻印武器について訊く"] },
+  tavern: { name:"女将マレン", title:"酒場〈最後の一杯〉の主",
+    line:"よく顔を見せたね。……深蝕が濃いよ。無理をしすぎだ。まず一杯おいき。",
+    acts:["噂を聞く","旧き名・化石のことを尋ねる","休む（一杯やる）"] },
+  guild:  { name:"ギルド長", title:"回収業ギルドの長・英雄譜の管理者",
+    line:"その血筋、覚えがある。……先代の働きに免じて、いい依頼を回そう。",
+    acts:["依頼を受ける（回収業）","等級・英雄譜を見る","系譜の恩寵を確かめる"] },
+  scribe: { name:"老書記イェン", title:"年代記の番人・長命の証人",
+    line:"わたしはみな覚えている。誰も弔わぬ者の名さえ。……君の物語も、ここに。",
+    acts:["年代記を読む","旧キャラを伝説として承認する","系譜をたどる"] },
+};
+
+let ROWS = ROWS0.slice();
+const W = ROWS[0].length, H = ROWS.length;
+const grid = document.getElementById("grid");
+const light = document.getElementById("light");
+const logEl = document.getElementById("log");
+const overlay = document.getElementById("overlay");
+const sheet = document.getElementById("sheet");
+
+// プレイヤー初期位置＝'@'
+let P = { x: 0, y: 0 };
+for (let y=0;y<H;y++) for (let x=0;x<W;x++) if (ROWS[y][x]==="@") P = {x,y};
+
+const baseType = (x,y) => {
+  const ch = ROWS[y]?.[x] ?? " ";
+  return TYPE[ch] ?? "void";
+};
+// 描画用：'@'のあった床は floor として扱う（プレイヤーは別途重ねる）
+const tileType = (x,y) => {
+  const t = baseType(x,y);
+  return t === "player" ? "floor" : t;
+};
+
+let cells = [];
+function build() {
+  const cs = Math.min(window.innerWidth * 0.96, 560) / W;
+  grid.style.gridTemplateColumns = `repeat(${W}, 1fr)`;
+  document.documentElement.style.setProperty("--cs", cs + "px");
+  grid.style.setProperty("--cs", cs + "px");
+  grid.innerHTML = ""; cells = [];
+  for (let y=0;y<H;y++){ cells[y]=[]; for (let x=0;x<W;x++){
+    const c = document.createElement("div");
+    c.className = "cell"; c.style.height = cs + "px";
+    c.dataset.x = x; c.dataset.y = y;
+    grid.appendChild(c); cells[y][x] = c;
+  }}
+  paint();
+  grid.onclick = onGridClick;
+}
+function paint() {
+  const adj = adjacentNpcs();
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++){
+    const c = cells[y][x];
+    let t = (x===P.x && y===P.y) ? "player" : tileType(x,y);
+    c.dataset.t = t;
+    c.innerHTML = `<span class="g">${GLYPH[t] ?? ""}</span>`;
+    c.classList.toggle("near", adj.some(n => n.x===x && n.y===y));
+  }
+  light.style.setProperty("--px", ((P.x+.5)/W*100)+"%");
+  light.style.setProperty("--py", ((P.y+.5)/H*100)+"%");
+}
+
+function adjacentNpcs() {
+  const out = [];
+  for (const [dx,dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+    const x=P.x+dx, y=P.y+dy;
+    if (NPCS.has(baseType(x,y))) out.push({x,y,kind:baseType(x,y)});
+  }
+  return out;
+}
+
+function say(html, cls="") { logEl.innerHTML = `<div class="${cls}">${html}</div>` + logEl.innerHTML; }
+
+function move(dx,dy){
+  if (overlay.classList.contains("show")) return;
+  const nx=P.x+dx, ny=P.y+dy;
+  const t = baseType(nx,ny);
+  if (NPCS.has(t)) { talk(t); return; }               // NPCへ歩く＝話しかけ
+  if (!WALKABLE.has(t)) return;                         // 壁・井戸・外＝進めない
+  P = {x:nx,y:ny}; paint();
+  afterStep();
+}
+function afterStep(){
+  const adj = adjacentNpcs();
+  if (baseType(P.x,P.y)==="gate"){
+    say(`迷宮の口の前に立った。<span class="cue">〔潜行する〕</span>（門に乗ったまま下のボタン、または再度▼/タップ）`, "");
+    showDescend();
+  } else if (adj.length){
+    const names = adj.map(a=>NPC[a.kind].name).join("・");
+    say(`<span class="cue">${names}</span> が近い。話しかけられる。`, "");
+  }
+}
+
+let descendBtn = null;
+function showDescend(){
+  if (descendBtn) return;
+  descendBtn = document.createElement("button");
+  descendBtn.textContent = "▽ 潜行する（迷宮へ降りる）";
+  descendBtn.style.cssText = "display:block;width:96vw;max-width:560px;margin:8px auto 0;font:inherit;font-size:13px;color:#cfe6ee;background:#152229;border:1px solid #2c4751;border-radius:10px;padding:11px;";
+  descendBtn.onclick = () => {
+    say(`深い闇へ、最初の一歩を踏み出した。<span class="dim">……（モック：ここでダンジョン場面へ遷移）</span>`, "");
+    descendBtn.remove(); descendBtn=null;
+  };
+  document.getElementById("frame").after(descendBtn);
+}
+
+function talk(kind){
+  const n = NPC[kind];
+  sheet.innerHTML =
+    `<div class="who">${n.name} <span class="title">― ${n.title}</span></div>` +
+    `<div class="line">「${n.line}」</div>` +
+    `<div class="meta">identity＝固定（第2層）／このセリフは表面＝蓄積状態でプロセダル分岐（4-4B・二重構造）</div>` +
+    n.acts.map(a=>`<button>${a}</button>`).join("") +
+    `<button class="close">閉じる</button>`;
+  overlay.classList.add("show");
+  sheet.querySelectorAll("button").forEach((b,i)=>{
+    b.onclick = () => {
+      if (b.classList.contains("close")) { overlay.classList.remove("show"); return; }
+      overlay.classList.remove("show");
+      say(`<span class="cue">${n.name}</span>：「${n.acts[i]}」を選んだ。<span class="dim">（モック：対応するイベント/メニューへ）</span>`);
+    };
+  });
+}
+
+function onGridClick(e){
+  const cell = e.target.closest(".cell"); if (!cell) return;
+  const x=+cell.dataset.x, y=+cell.dataset.y;
+  const dx=x-P.x, dy=y-P.y;
+  if (Math.abs(dx)+Math.abs(dy)!==1) {           // 隣接マスのみ反応（タップ一歩）
+    if (x===P.x && y===P.y && baseType(x,y)==="gate") showDescend();
+    return;
+  }
+  move(Math.sign(dx), Math.sign(dy));
+}
+
+// 入力
+addEventListener("keydown", e=>{
+  const k=e.key.toLowerCase();
+  const m={arrowup:[0,-1],w:[0,-1],arrowdown:[0,1],s:[0,1],arrowleft:[-1,0],a:[-1,0],arrowright:[1,0],d:[1,0]};
+  if (m[k]) { e.preventDefault(); move(...m[k]); }
+  if (k===" "||k==="enter"){ const adj=adjacentNpcs(); if(adj.length) talk(adj[0].kind); }
+});
+document.getElementById("dpad").addEventListener("click", e=>{
+  const d=e.target.dataset.d; if(!d) return;
+  const [dx,dy]=d.split(",").map(Number); move(dx,dy);
+});
+addEventListener("resize", build);
+
+// 凡例
+const LEG = [
+  ["@","あなた（@）","player"], [">","迷宮への門","gate"],
+  ["鍛","武具屋・鍛冶ヴァロ","smith"], ["酒","酒場の女将マレン","tavern"],
+  ["組","ギルド長（依頼・英雄譜）","guild"], ["記","老書記イェン（年代記）","scribe"],
+  ["◌","井戸（装飾）","well"], ["▒","壁","wall"],
+];
+document.getElementById("legend").innerHTML = LEG.map(([g,t,k])=>
+  `<div><span class="g" data-k="${k}">${g}</span> ${t}</div>`).join("");
+// 凡例グリフに各色を付与
+document.querySelectorAll('.legend .g[data-k]').forEach(el=>{
+  const probe = document.createElement('div'); probe.className='cell'; probe.dataset.t=el.dataset.k;
+  probe.innerHTML='<span class="g"></span>'; document.body.appendChild(probe);
+  el.style.color = getComputedStyle(probe.querySelector('.g')).color;
+  el.style.textShadow = getComputedStyle(probe.querySelector('.g')).textShadow;
+  probe.remove();
+});
+
+build();
+</script>
+</body>
+</html>
