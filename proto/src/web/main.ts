@@ -18,7 +18,7 @@ import {
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
 import { rollItem, itemByName, itemPower, itemLabel, itemValue, SLOT_LABEL } from "../items.ts";
 import {
-  renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText, fillActorText,
+  renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, matchSetPiece, fillStoryletText, fillDungeonText, fillActorText,
   requiemLine, leaveLine, inheritLine, REQUIEM_RELIEF,
 } from "../render.ts";
 import { rollEncounter } from "../weights.ts";
@@ -1062,6 +1062,7 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   sfx("open");
   const v = computeVariation(fossil, world.generation);
   const setPiece = renderSetPieceIfAny(db, fossil, v);
+  const spType = setPiece ? matchSetPiece(db, fossil, v)?.type : undefined; // 山場の型（遭-④）
   const text = setPiece ?? renderRediscovery(db, rng, fossil, v);
   recordRediscovery(world, fossil.id);
   seenThisDive.push(fossil.id);
@@ -1075,6 +1076,9 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   // 遭遇＝イベントノード（4-12）：〈調べる〉〈捜索〉で掘り下げ／伏線を残してから干渉動詞を選ぶ
   for (;;) {
     const opts: string[] = [];
+    // 山場の固有決着（遭-④）：通常動詞より先に提示
+    if (spType === "legend_return") opts.push("導きを受ける（祝福）");
+    if (spType === "grudge_hunt") { opts.push("向き合って詫びる"); opts.push("怨みを撥ねつける"); }
     if (storylet?.investigate && !done.has("investigate")) opts.push("調べる");
     if (storylet?.search && !done.has("search")) opts.push("周辺を捜索する");
     opts.push("鎮魂する（末路を閉じ、変質の時計を巻き戻す）");
@@ -1101,6 +1105,38 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       for (const line of applyEffects(world, ch, fossil, storylet.search.effects)) log(line, "dim");
       save();
       continue;
+    }
+    if (label === "導きを受ける（祝福）") { // legend_return（遭-④）：昇華した英雄の祝福
+      sfx("intervene");
+      intervene(world, fossil.id, "memorial");
+      ch.traits.push("導きの印");
+      const before = ch.exposure;
+      ch.exposure = Math.max(0, ch.exposure - 0.4);
+      chronicle(world, "legend", `${ch.name}は${fossil.origin.name}の導きを受けた。`, [fossil.id, ch.id]);
+      log(`${fossil.origin.name}の光が、行く道を照らした。形質『導きの印』を得た。`);
+      if (ch.exposure < before) log(`深みに削られた芯が、人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
+      save();
+      break;
+    }
+    if (label === "向き合って詫びる") { // grudge_hunt（遭-④）：怨みを認め、鎮める
+      sfx("intervene");
+      intervene(world, fossil.id, "requiem");
+      const before = ch.exposure;
+      ch.exposure = Math.max(0, ch.exposure - REQUIEM_RELIEF);
+      chronicle(world, "intervention", `${ch.name}は${fossil.origin.name}の怨みに向き合い、詫びた。`, [fossil.id]);
+      log(`果たさなかった責めを認めた。${fossil.origin.name}の震えが、ゆっくりと収まっていく。`);
+      if (ch.exposure < before) log(`深みに削られた芯が、少し人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
+      save();
+      break;
+    }
+    if (label === "怨みを撥ねつける") { // grudge_hunt（遭-④）：拒絶＝再来の種＋深蝕
+      ch.exposure += 0.2;
+      const gb = ch.bonds.find((b) => b.entityRef === fossil.id);
+      if (gb) gb.unfinished = true; else ch.bonds.push({ entityRef: fossil.id, value: 0, unfinished: true });
+      chronicle(world, "rediscovery", `${ch.name}は${fossil.origin.name}の怨みを撥ねつけた。（未完のまま・再来の種）`, [fossil.id]);
+      log(`怨みを否定した。だがそれは、より深い闇となって絡みつく（深蝕 +0.20）。いつか、また。`, "warn");
+      save();
+      break;
     }
     if (label.startsWith("鎮魂")) {
       sfx("intervene");
