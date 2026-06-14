@@ -3,7 +3,7 @@
 
 import type { ContentDb } from "./content.ts";
 import { filterByTags, pickByTags } from "./content.ts";
-import type { Fossil, SetPiece, TonePole, VariationResult } from "./types.ts";
+import type { Actor, Fossil, SetPiece, TonePole, VariationResult } from "./types.ts";
 import type { Rng } from "./rng.ts";
 
 interface SlotValues { [slot: string]: string | undefined; }
@@ -28,13 +28,18 @@ export function hasOriginTrace(text: string, fossil: Fossil): boolean {
   return marks.some((m) => text.includes(m));
 }
 
-function originSlotValues(fossil: Fossil): SlotValues {
+/** アクター記述子（化石 origin / 生者NPC）の origin スロット値。depth は化石のみ。 */
+function actorSlotValues(actor: Actor, depth?: number): SlotValues {
   return {
-    origin_name: fossil.origin.name,
-    origin_gear: fossil.origin.gearTags.join("の"),
-    origin_catchphrase: fossil.origin.catchphrase,
-    depth: `深度${fossil.laidDepth}`,
+    origin_name: actor.name,
+    origin_gear: actor.gearTags.join("の"),
+    origin_catchphrase: actor.catchphrase,
+    origin_epithet: actor.epithet,
+    depth: depth !== undefined ? `深度${depth}` : undefined,
   };
+}
+function originSlotValues(fossil: Fossil): SlotValues {
+  return actorSlotValues(fossil.origin, fossil.laidDepth);
 }
 
 /** 再発見テキストの生成。痕跡 ASSERT に通るまでフレームを替えて再試行する。 */
@@ -99,6 +104,11 @@ export function renderSetPieceIfAny(
 /** ストーリーレット本文の origin スロット充填（4-12。痕跡＝出自を必ず差し込む）。 */
 export function fillStoryletText(fossil: Fossil, text: string): string {
   return fillSlots(text, originSlotValues(fossil));
+}
+
+/** アクター記述子（化石/生者）にアンカーした本文充填（4-12(G)。街/依頼で使う。深度は任意）。 */
+export function fillActorText(actor: Actor, text: string, depth?: number): string {
+  return fillSlots(text, actorSlotValues(actor, depth));
 }
 
 /** ダンジョン環境イベント本文の充填（アクター無し。深度スロットのみ：4-12 F）。 */

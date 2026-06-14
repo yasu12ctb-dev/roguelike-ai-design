@@ -9,8 +9,9 @@ import {
 } from "./world.ts";
 import { saveWorld, loadWorld } from "./persist-node.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "./variation.ts";
-import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText } from "./render.ts";
-import { selectStorylet, applyEffects, candidateStorylets, selectDungeonStorylet, applyDungeonEffects, rollChestOutcome } from "./storylets.ts";
+import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText, fillActorText } from "./render.ts";
+import { selectStorylet, applyEffects, candidateStorylets, selectDungeonStorylet, applyDungeonEffects, rollChestOutcome, selectTownStorylet, applyActorEffects } from "./storylets.ts";
+import { meetActor } from "./actors.ts";
 import { rollEncounter } from "./weights.ts";
 import { filterByTags } from "./content.ts";
 import type { Character, World } from "./types.ts";
@@ -161,6 +162,20 @@ const chestOut = rollChestOutcome(db, 18, rng);
 if (chestOut?.result) {
   say(`  開封 → [${chestOut.id}] ${fillDungeonText(18, chestOut.result.text)}`);
   for (const line of applyDungeonEffects(world, haru, 18, chestOut.result.effects)) say(`    ${line}`);
+}
+
+// 生者NPC：アクター記述子（4-12(G)）。鋳造所断片から mint → 街ストーリーレット → 伏線で再会
+say("\n[街：旅の者と語らう（アクター記述子・生者NPC＝化石originの一般化）]");
+const la = meetActor(world, db, rng);
+say(`  出会い＝${la.actor.epithet ?? ""}${la.actor.name}（${la.actor.archetype}／携え物=${la.actor.gearTags.join("の")}）`);
+const tw = selectTownStorylet(db, world, haru, la, rng);
+if (tw?.choices) {
+  say(`  状況＝[${tw.id}] ${fillActorText(la.actor, tw.text ?? "")}`);
+  const twc = tw.choices[0];
+  say(`  → 選択「${twc.label}」：${fillActorText(la.actor, twc.text ?? "")}`);
+  for (const line of applyActorEffects(world, haru, la, twc.effects)) say(`    ${line}`);
+  say(`  → 永続化された生者＝${(world.actors ?? []).length}人（参照された者だけ：lazy 4-12C）`);
+  say(`  → flag=[${(world.flags ?? []).filter((f) => f.includes(la.id)).join(", ") || "なし"}]（再会で follow-up が開く）`);
 }
 
 say("\n[鎮魂された化石：カイ（第2世代でアリアが時計を巻き戻した）]");

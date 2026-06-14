@@ -54,6 +54,34 @@
 
     { "id": "rumor_1", "slotType": "rumor", "tags": {}, "text": "「#origin_name#を見たって奴がいる。……いや、あれはもう、本人じゃあない」" },
     { "id": "rumor_2", "slotType": "rumor", "tags": {}, "text": "「深度#depth#のあたりで、#origin_gear#を持った何かが彷徨ってるらしい」" },
-    { "id": "rumor_3", "slotType": "rumor", "tags": {}, "text": "「#origin_name#の亡骸、まだ誰も弔ってないんだとさ」" }
+    { "id": "rumor_3", "slotType": "rumor", "tags": {}, "text": "「#origin_name#の亡骸、まだ誰も弔ってないんだとさ」" },
+
+    { "id": "arole_1", "slotType": "actor_role", "tags": {}, "text": "行商人" },
+    { "id": "arole_2", "slotType": "actor_role", "tags": {}, "text": "傷だらけの斥候" },
+    { "id": "arole_3", "slotType": "actor_role", "tags": {}, "text": "老いた巡礼者" },
+    { "id": "arole_4", "slotType": "actor_role", "tags": {}, "text": "酒場の語り部" },
+    { "id": "arole_5", "slotType": "actor_role", "tags": {}, "text": "迷宮帰りの元探索者" },
+    { "id": "arole_6", "slotType": "actor_role", "tags": {}, "text": "宿無しの占い師" },
+
+    { "id": "aname_1", "slotType": "actor_name", "tags": {}, "text": "ヴェル" },
+    { "id": "aname_2", "slotType": "actor_name", "tags": {}, "text": "サグ" },
+    { "id": "aname_3", "slotType": "actor_name", "tags": {}, "text": "老イド" },
+    { "id": "aname_4", "slotType": "actor_name", "tags": {}, "text": "リサ" },
+    { "id": "aname_5", "slotType": "actor_name", "tags": {}, "text": "ノエ" },
+    { "id": "aname_6", "slotType": "actor_name", "tags": {}, "text": "片目のタス" },
+
+    { "id": "agear_1", "slotType": "actor_gear", "tags": {}, "text": "擦り切れた背嚢" },
+    { "id": "agear_2", "slotType": "actor_gear", "tags": {}, "text": "節くれだった杖" },
+    { "id": "agear_3", "slotType": "actor_gear", "tags": {}, "text": "古びた地図筒" },
+    { "id": "agear_4", "slotType": "actor_gear", "tags": {}, "text": "欠けた角灯" },
+    { "id": "agear_5", "slotType": "actor_gear", "tags": {}, "text": "色褪せた護符" },
+    { "id": "agear_6", "slotType": "actor_gear", "tags": {}, "text": "鞣革の手袋" },
+
+    { "id": "aepi_1", "slotType": "actor_epithet", "tags": {}, "text": "辻の" },
+    { "id": "aepi_2", "slotType": "actor_epithet", "tags": {}, "text": "三度死にかけた" },
+    { "id": "aepi_3", "slotType": "actor_epithet", "tags": {}, "text": "底知らずの" },
+    { "id": "aepi_4", "slotType": "actor_epithet", "tags": {}, "text": "口の減らない" },
+    { "id": "aepi_5", "slotType": "actor_epithet", "tags": {}, "text": "懐かしがりの" },
+    { "id": "aepi_6", "slotType": "actor_epithet", "tags": {}, "text": "迷い慣れた" }
   ]
 }

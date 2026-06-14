@@ -18,12 +18,13 @@ import {
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
 import { rollItem, itemByName, itemPower, itemLabel, SLOT_LABEL } from "../items.ts";
 import {
-  renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText,
+  renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText, fillActorText,
   requiemLine, leaveLine, inheritLine, REQUIEM_RELIEF,
 } from "../render.ts";
 import { rollEncounter } from "../weights.ts";
 import { filterByTags } from "../content.ts";
-import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects } from "../storylets.ts";
+import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, selectTownStorylet, applyActorEffects } from "../storylets.ts";
+import { meetActor } from "../actors.ts";
 import storyletsJson from "../../content/storylets.json";
 import { ensureAudio, sfx, setAmbient, setMuted, isMuted, loadMutePref } from "./audio.ts";
 import {
@@ -311,7 +312,7 @@ async function townLoop() {
     const ch = world.current!;
     const r = await sheet({
       text: `街 ── 迷宮の口（第${world.generation}世代）\n${ch.name}、どうする？`,
-      options: ["迷宮へ潜る", "酒場で噂を聞く", "年代記を読む（老書記イェン）"],
+      options: ["迷宮へ潜る", "酒場で噂を聞く", "旅の者と語らう", "年代記を読む（老書記イェン）"],
     });
     if (r.pick === 1) return;
     if (r.pick === 2) {
@@ -324,6 +325,24 @@ async function townLoop() {
       }
     }
     if (r.pick === 3) {
+      // 生者NPC（アクター記述子）との出会い（4-12(G)）
+      const la = meetActor(world, db, rng);
+      const sl = selectTownStorylet(db, world, ch, la, rng);
+      if (sl && sl.choices) {
+        const head = `${la.actor.epithet ?? ""}${la.actor.name}（${la.actor.archetype}）\n\n${fillActorText(la.actor, sl.text ?? "")}`;
+        const c = await sheet({ text: head, options: sl.choices.map((o) => o.label) });
+        const choice = sl.choices[c.pick - 1];
+        const lines = applyActorEffects(world, ch, la, choice.effects);
+        await sheet({
+          text: [choice.text ? fillActorText(la.actor, choice.text) : "", ...lines].filter(Boolean).join("\n"),
+          options: ["席を立つ"],
+        });
+        save();
+      } else {
+        await sheet({ text: "今日は、誰も話しかけてはこない。", options: ["席を立つ"] });
+      }
+    }
+    if (r.pick === 4) {
       const mark = { birth: "生", death: "死", rediscovery: "再", intervention: "干", legend: "伝", rumor: "噂" } as const;
       const tail = world.chronicle.slice(-14).map((e) => `世代${e.generation} [${mark[e.kind]}] ${e.text}`).join("\n");
       await sheet({ text: tail || "まだ何も記されていない。", meta: `年代記 ── 全${world.chronicle.length}件`, options: ["頁を閉じる"] });

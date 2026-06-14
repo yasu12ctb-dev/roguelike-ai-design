@@ -10,7 +10,7 @@ let idCounter = 0;
 const newId = (prefix: string) => `${prefix}_${(++idCounter).toString(36)}`;
 
 /** セーブ版数（v2=②ステ／v3=③ spells／v4=④ equipment。横断D）。 */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 /** 旧セーブを現行スキーマへ補完（破壊しない）。
  *  欠落フィールドは版数に関わらず常に補う（版数判定だけに頼ると、追加フィールドの
@@ -24,6 +24,8 @@ export function migrateWorld(w: World): World {
     if (!Array.isArray(ch.spells)) ch.spells = [];
     if (!ch.equipment) ch.equipment = { weapon: null, armor: null, relic: null };
   }
+  if (!Array.isArray(w.actors)) w.actors = []; // 生者NPC（4-12(G)）：欠落は常に補完
+  if (!Array.isArray(w.flags)) w.flags = [];
   w.version = SAVE_VERSION;
   return w;
 }
@@ -40,6 +42,7 @@ export function newWorld(seed: number): World {
     chronicle: [],
     town: { witnessNpcId: "witness_yen", safety: 3, memorials: [] },
     flags: [],
+    actors: [],
   };
   // シード化石①：老兵の亡骸（喪失・浅層）
   world.fossils.push({
