@@ -9,8 +9,8 @@ import { BASE_STATS } from "./progression.ts";
 let idCounter = 0;
 const newId = (prefix: string) => `${prefix}_${(++idCounter).toString(36)}`;
 
-/** セーブ版数（v2=②ステ／v3=③ spells／v4=④ equipment。横断D）。 */
-export const SAVE_VERSION = 5;
+/** セーブ版数（v2=②ステ／v3=③ spells／v4=④ equipment／v6=歩ける街シーン。横断D）。 */
+export const SAVE_VERSION = 6;
 
 /** 旧セーブを現行スキーマへ補完（破壊しない）。
  *  欠落フィールドは版数に関わらず常に補う（版数判定だけに頼ると、追加フィールドの
@@ -26,6 +26,11 @@ export function migrateWorld(w: World): World {
   }
   if (!Array.isArray(w.actors)) w.actors = []; // 生者NPC（4-12(G)）：欠落は常に補完
   if (!Array.isArray(w.flags)) w.flags = [];
+  if (w.town) { // 歩ける街（4-4B）：旧セーブに欠落するサブシーン状態を補完
+    if (w.town.scene !== "town" && w.town.scene !== "interior") w.town.scene = "town";
+    if (w.town.interiorKind === undefined) w.town.interiorKind = null;
+    // w.town.pos は未設定のまま＝描画側で town.json の start を既定にする
+  }
   w.version = SAVE_VERSION;
   return w;
 }
@@ -40,7 +45,7 @@ export function newWorld(seed: number): World {
     fossils: [],
     tracked: [],
     chronicle: [],
-    town: { witnessNpcId: "witness_yen", safety: 3, memorials: [] },
+    town: { witnessNpcId: "witness_yen", safety: 3, memorials: [], scene: "town", interiorKind: null },
     flags: [],
     actors: [],
   };

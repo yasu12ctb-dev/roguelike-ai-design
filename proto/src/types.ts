@@ -131,6 +131,10 @@ export interface TownState {
   witnessNpcId: string;
   safety: number;
   memorials: string[];
+  // 歩ける街（4-4B）：現在のサブシーンとプレイヤー位置（リロード復元用）。全て任意＝旧セーブ非破壊。
+  scene?: "town" | "interior";
+  pos?: { x: number; y: number };
+  interiorKind?: string | null;
 }
 
 // ---- 鋳造所コンテンツ ----
