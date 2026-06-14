@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="ja">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#0b0d10" />
-<title>Town Mock — The Sedimented World (4-4B, Layer 2)</title>
+<title>街マップ モック — 堆積する世界（4-4B 第2層）</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -15,35 +15,21 @@
     padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
   }
   header { padding: 14px 16px 4px; text-align: center; }
-  header h1 { font-size: 15px; letter-spacing: .1em; color: #9aa4b0; font-weight: 600; }
+  header h1 { font-size: 15px; letter-spacing: .12em; color: #9aa4b0; font-weight: 600; }
   header p { font-size: 11px; color: #5b6470; margin-top: 4px; }
 
   nav { display: flex; gap: 6px; padding: 8px 12px; width: 100%; max-width: 560px; }
-  nav button {
-    flex: 1; font-family: inherit; font-size: 12.5px; color: #8b94a0;
-    background: #14181e; border: 1px solid #232a33; border-radius: 10px; padding: 8px 4px;
-  }
+  nav button { flex: 1; font-family: inherit; font-size: 12.5px; color: #8b94a0; background: #14181e; border: 1px solid #232a33; border-radius: 10px; padding: 8px 4px; }
   nav button.active { color: #e8e2d4; background: #1d242e; border-color: #3a4554; }
 
-  .caption { max-width: 560px; padding: 2px 16px 8px; font-size: 12px; line-height: 1.65; color: #8b94a0; }
+  .caption { max-width: 560px; padding: 2px 16px 8px; font-size: 12px; line-height: 1.7; color: #8b94a0; }
   .caption b { color: #cfd6dd; }
 
-  .flow {
-    max-width: 560px; width: 96vw; margin: 0 auto 4px; padding: 8px 12px;
-    font-size: 11.5px; line-height: 1.6; color: #9aa4b0;
-    background: #11151c; border: 1px solid #232a33; border-radius: 10px;
-  }
+  .flow { max-width: 560px; width: 96vw; margin: 0 auto 4px; padding: 8px 12px; font-size: 11.5px; line-height: 1.6; color: #9aa4b0; background: #11151c; border: 1px solid #232a33; border-radius: 10px; }
   .flow b { color: #cfd6dd; } .flow .arr { color: #6fb3c8; } .flow .dead { color: #d96459; }
 
-  #frame {
-    width: min(96vw, 560px); border: 1px solid #232a33; border-radius: 14px;
-    overflow: hidden; background: #0d1014; box-shadow: 0 8px 40px rgba(0,0,0,.5); margin-top: 4px;
-  }
-  #status {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 8px 12px; font-size: 12.5px; color: #aab4c0;
-    border-bottom: 1px solid #1c222b; background: #10141a;
-  }
+  #frame { width: min(96vw, 560px); border: 1px solid #232a33; border-radius: 14px; overflow: hidden; background: #0d1014; box-shadow: 0 8px 40px rgba(0,0,0,.5); margin-top: 4px; }
+  #status { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; font-size: 12.5px; color: #aab4c0; border-bottom: 1px solid #1c222b; background: #10141a; }
   #status .hp { color: #e06c5a; letter-spacing: 2px; }
   #status .exp { color: #9d8fd8; }
   #status .place { color: #cdbf93; letter-spacing: .08em; }
@@ -51,10 +37,7 @@
   #mapWrap { position: relative; }
   #grid { display: grid; width: 100%; }
   .cell { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  .cell .g {
-    display: block; font-family: "Menlo","Consolas",monospace; font-weight: 700;
-    font-size: calc(var(--cs) * .6); line-height: 1;
-  }
+  .cell .g { display: block; font-family: "Menlo","Consolas","Hiragino Sans",monospace; font-weight: 700; font-size: calc(var(--cs) * .6); line-height: 1; }
   .cell[data-t="void"]  { background: #0b0d10; }
   .cell[data-t="floor"] { background: #0c0e0c; }
   .cell[data-t="wall"]  { background: #100e09; }
@@ -66,11 +49,7 @@
 
   #light { position: absolute; inset: 0; pointer-events: none; }
 
-  #log {
-    padding: 9px 14px; font-size: 13px; line-height: 1.7; min-height: 58px;
-    border-top: 1px solid #1c222b; background: #10141a;
-    font-family: "Hiragino Mincho ProN", "Georgia", serif; color: #d6cfc0;
-  }
+  #log { padding: 9px 14px; font-size: 13px; line-height: 1.7; min-height: 58px; border-top: 1px solid #1c222b; background: #10141a; font-family: "Hiragino Mincho ProN","Yu Mincho",serif; color: #d6cfc0; }
   #log .dim { color: #6b7480; font-size: 12px; } #log .cue { color: #7fc4d8; }
 
   #dpad { position: absolute; right: 10px; bottom: 10px; width: 104px; height: 104px; display: grid; grid-template: repeat(3,1fr)/repeat(3,1fr); gap: 2px; opacity: .8; }
@@ -82,45 +61,45 @@
 
   #overlay { position: absolute; inset: 0; display: none; align-items: flex-end; background: rgba(5,6,8,.62); backdrop-filter: blur(1.5px); }
   #overlay.show { display: flex; }
-  #sheet { width: 100%; background: #14181f; border-top: 1px solid #2c3440; padding: 16px 16px 14px; font-family: "Hiragino Mincho ProN","Georgia",serif; }
-  #sheet .who { font-size: 13.5px; color: #e8e2d4; letter-spacing: .03em; }
+  #sheet { width: 100%; background: #14181f; border-top: 1px solid #2c3440; padding: 16px 16px 14px; font-family: "Hiragino Mincho ProN",serif; }
+  #sheet .who { font-size: 13.5px; color: #e8e2d4; letter-spacing: .04em; }
   #sheet .who .title { color: #8f9aa8; font-size: 11.5px; }
-  #sheet .line { font-size: 14px; line-height: 1.85; color: #d8dee6; margin: 9px 0 4px; }
+  #sheet .line { font-size: 14px; line-height: 1.9; color: #d8dee6; margin: 9px 0 4px; }
   #sheet .meta { font-size: 11px; color: #7d8794; margin: 6px 0 10px; font-family: system-ui, sans-serif; }
   #sheet button { display: block; width: 100%; text-align: left; font-family: inherit; font-size: 14px; color: #d8dee6; background: #1c232d; border: 1px solid #2e3946; border-radius: 10px; padding: 11px 14px; margin-top: 8px; }
   #sheet button.close { text-align: center; color: #8b94a0; font-family: system-ui, sans-serif; font-size: 12.5px; }
 
   .legend { max-width: 560px; width: 96vw; margin: 10px auto 6px; padding: 10px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px 14px; font-size: 11.5px; color: #9aa4b0; background: #11151c; border: 1px solid #232a33; border-radius: 10px; }
   .legend h4 { grid-column: 1/-1; font-size: 11px; color: #cdbf93; letter-spacing: .08em; margin: 4px 0 2px; }
-  .legend .g { font-family: "Menlo","Consolas",monospace; font-weight: 700; margin-right: 7px; }
+  .legend .g { font-family: "Menlo","Consolas","Hiragino Sans",monospace; font-weight: 700; margin-right: 7px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Town Mock — The Sedimented World (Layer 2 / 4-4B) v3</h1>
-  <p>A wide fixed town. Walk with @, enter buildings (sign → interior with the keeper), talk to the crowd, descend at the gate ">"</p>
+  <h1>街マップ モック — 第2層（snapshot 4-4B）v4</h1>
+  <p>広い固定マップ。@で散策→看板に入ると屋内（中に固定NPC）→道行く人に話しかけ→門「&gt;」で潜行</p>
 </header>
 
 <nav>
-  <button id="tabPlay" class="active">Play view (camera)</button>
-  <button id="tabAll">Overview (whole town)</button>
+  <button id="tabPlay" class="active">プレイ視点（カメラ追従）</button>
+  <button id="tabAll">全体図（街の俯瞰）</button>
 </nav>
 
 <div class="caption" id="caption">
-  <b>Move:</b> arrows / WASD / D-pad / tap an adjacent tile. <b>Step onto a shop sign</b> (S/T/H/B/A) to enter — inside, talk to the keeper.
-  <b>Townsfolk</b> walk the streets; step into one to talk. <b>Gate ">"</b> → descend. <i>Text & motion are placeholder.</i>
+  <b>操作：</b>矢印/WASD・D-pad・隣接マスのタップで一歩。<b>看板（武/道/組/酒/記）に乗る</b>と建物に入り、中の店主に話しかけ。
+  <b>道行く人</b>に隣接すると会話。<b>門「&gt;」</b>に乗ると〔潜行する〕。<i>会話・人の動きは仮置き。</i>
 </div>
 
 <div class="flow">
-  <b>Round trip (4-4B C):</b> Town <span class="arr">─gate>→</span> Dungeon ／ Dungeon <span class="arr">─return→</span> Town.
-  <span class="dead">Death</span> <span class="arr">→</span> succession <span class="arr">→</span> <b>resume in town</b>.
+  <b>往復制（4-4B(C)）：</b> 街 <span class="arr">─門&gt;→</span> 迷宮 ／ 迷宮 <span class="arr">─生還→</span> 街。
+  <span class="dead">死</span> <span class="arr">→</span> 世代交代 <span class="arr">→</span> <b>街から再開</b>。
 </div>
 
 <div id="frame">
   <div id="status">
-    <span class="place" id="place">— The Dungeon Town · Surface —</span>
+    <span class="place" id="place">― 迷宮の街・地上 ―</span>
     <span class="hp">♥♥♥♥♥</span>
-    <span class="exp">Corruption ▮▯▯▯▯</span>
+    <span class="exp">深蝕 ▮▯▯▯▯</span>
   </div>
   <div id="mapWrap">
     <div id="grid"></div>
@@ -133,8 +112,8 @@
     <div id="overlay"><div id="sheet"></div></div>
   </div>
   <div id="log">
-    <div>The town square, alive with trade. A cold draft rises from the mouth of the dungeon.</div>
-    <div class="dim">Arm up, stock up, gather rumors, take a commission — then descend.</div>
+    <div>賑わう街の広場。迷宮の口から冷たい風が吹き上げてくる。</div>
+    <div class="dim">武具を整え、道具を仕入れ、噂を聞き、依頼を受けてから潜るがいい。</div>
   </div>
 </div>
 
@@ -144,40 +123,39 @@
 const W = 36, H = 28, VW = 19, VH = 15;
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 
-// ===== Town tiles =====
+// ===== 街タイル =====
 let tiles = Array.from({length:H},()=>Array(W).fill("floor"));
 for (let x=0;x<W;x++){ tiles[0][x]="wall"; tiles[H-1][x]="wall"; }
 for (let y=0;y<H;y++){ tiles[y][0]="wall"; tiles[y][W-1]="wall"; }
 function rect(x,y,w,h,t){ for(let j=y;j<y+h;j++) for(let i=x;i<x+w;i++) if(tiles[j]&&tiles[j][i]!==undefined) tiles[j][i]=t; }
 
-// ===== Fixed keepers (inside each building) =====
+// ===== 固定NPC（建物の中に常駐） =====
 const SHOP = {
-  smith:  { sign:"S", color:"#e08a3c", place:"The Smithy",
-    name:"Varo, the Forgewarden", title:"Smith & Armorer",
-    line:"Back alive, then. Let's see that blade — a nicked edge gets you killed down there.",
-    acts:["Buy / repair gear","Appraise an oddment (unknown, side effects)","Ask about a forebear's marked weapon"] },
-  store:  { sign:"T", color:"#6fcf97", place:"Hal's Sundries",
-    name:"Hal", title:"General store, all manner of goods",
-    line:"Lamp oil, rope, antidote, rations — all you need to not die down there. What'll it be?",
-    acts:["Buy supplies","Sell oddments & finds","Restock your kit"] },
-  guild:  { sign:"H", color:"#7fa4d8", place:"The Reclaimers' Guild",
-    name:"The Guildmaster", title:"Head of the guild · keeper of the hero-roster",
-    line:"I know that bloodline. For your forebear's sake, I'll pass you the good work.",
-    acts:["Take a commission (reclamation)","View rank & hero-roster","Check your lineage's favor"] },
-  tavern: { sign:"B", color:"#e0a85a", place:"The Last Drop",
-    name:"Maren", title:"Keeper of the tavern",
-    line:"Good to see your face. The corruption's deep in you — you push too hard. Sit, drink first.",
-    acts:["Listen for rumors","Ask about old names & fossils","Rest (have a drink)"] },
-  archive:{ sign:"A", color:"#8fd8c8", place:"The Archive",
-    name:"Yen the Chronicler", title:"Keeper of the chronicle · the long-lived witness",
-    line:"I remember them all — even the names no one mourns. Your story belongs here too.",
-    acts:["Read the chronicle","Enshrine a past hero as legend","Trace your lineage"] },
+  smith:  { sign:"武", color:"#e08a3c", place:"武具屋",
+    name:"鍛冶ヴァロ", title:"武具屋・二つ名「炉の番人」",
+    line:"……生きて戻ったか。なら、その得物も見てやろう。刃こぼれは命取りだぞ。",
+    acts:["装備を売買／修理する","異物を鑑定する（用途不明・副作用つき）","先代の刻印武器について訊く"] },
+  store:  { sign:"道", color:"#6fcf97", place:"道具屋ハル",
+    name:"道具屋ハル", title:"よろず仕入れ",
+    line:"灯火に縄、解毒に携行食——下で死なないための物は、ここで揃う。何が要る？",
+    acts:["消耗品を買う","異物・拾い物を売る","携行品を整える"] },
+  guild:  { sign:"組", color:"#7fa4d8", place:"回収業ギルド",
+    name:"ギルド長", title:"ギルドの長・英雄譜の管理者",
+    line:"その血筋、覚えがある。先代の働きに免じて、いい依頼を回そう。",
+    acts:["依頼を受ける（回収業）","等級・英雄譜を見る","系譜の恩寵を確かめる"] },
+  tavern: { sign:"酒", color:"#e0a85a", place:"酒場〈最後の一杯〉",
+    name:"女将マレン", title:"酒場の主",
+    line:"よく顔を見せたね。……深蝕が濃いよ。無理をしすぎだ。まず一杯おいき。",
+    acts:["噂を聞く","旧き名・化石のことを尋ねる","休む（一杯やる）"] },
+  archive:{ sign:"記", color:"#8fd8c8", place:"書記の館",
+    name:"老書記イェン", title:"年代記の番人・長命の証人",
+    line:"わたしはみな覚えている。誰も弔わぬ者の名さえ。君の物語も、ここに。",
+    acts:["年代記を読む","旧キャラを伝説として承認する","系譜をたどる"] },
 };
-const HOUSE = { sign:"+", color:"#6a6048", place:"A home",
-  name:"Resident", title:"Townsfolk", line:"Oh — a delver. Mind the step, the floor's old.",
-  acts:[] };
+const HOUSE = { sign:"戸", color:"#6a6048", place:"民家",
+  name:"住人", title:"町の住人", line:"おや、潜る人かい。足下に気をつけて、古い床なんだ。", acts:[] };
 
-// ===== Buildings (footprint + walkable door that bears the sign) =====
+// ===== 建物（footprint＋看板を載せた通行可能な戸口） =====
 const buildings = [
   { x:2,  y:2,  w:7, h:4, door:[5,5],  kind:"smith"  },
   { x:11, y:2,  w:7, h:4, door:[14,5], kind:"store"  },
@@ -192,31 +170,31 @@ const buildings = [
 const doorMap = {};
 for (const b of buildings){ rect(b.x,b.y,b.w,b.h,"bldg"); tiles[b.door[1]][b.door[0]]="door"; doorMap[b.door[0]+","+b.door[1]]=b.kind; }
 
-// ===== Dungeon gate =====
+// ===== 迷宮の口（門） =====
 const GATE = { x:30, y:11 };
 rect(29,9,5,2,"bldg"); tiles[10][29]="bldg"; tiles[10][33]="bldg";
 tiles[GATE.y][GATE.x]="gate";
 
-// ===== Props =====
+// ===== 景物 =====
 const props = [];
-props.push({ x:18, y:13, glyph:"o", color:"#5f7f8a", line:"An old well. Your face wavers on the water." });
-props.push({ x:14, y:16, glyph:"o", color:"#5f7f8a" });
-props.push({ x:21, y:15, glyph:"‡", color:"#8fd8c8", glow:true, line:"A memorial. The names of those who never returned are carved here." });
-for (const [x,y] of [[9,7],[24,16],[16,6],[26,12]]) props.push({ x, y, glyph:"♣", color:"#4f7a4a" });
+props.push({ x:18, y:13, glyph:"井", color:"#5f7f8a", line:"古い井戸。水面に自分の顔が映る。" });
+props.push({ x:14, y:16, glyph:"井", color:"#5f7f8a" });
+props.push({ x:21, y:15, glyph:"碑", color:"#8fd8c8", glow:true, line:"慰霊碑。迷宮に還らなかった者たちの名が刻まれている。" });
+for (const [x,y] of [[9,7],[24,16],[16,6],[26,12]]) props.push({ x, y, glyph:"木", color:"#4f7a4a" });
 const propMap = {}; for (const p of props) propMap[p.x+","+p.y]=p;
 
-// ===== Wandering crowd =====
+// ===== 街路を歩く群衆 =====
 const AMB = {
-  commoner: { glyph:"c", color:"#9aa4b0", label:"Townsfolk",
-    lines:["So many delvers today. That pit gives me the shivers.","Bread's up again. Prices rise and fall with the dungeon."] },
-  merchant: { glyph:"m", color:"#d9b34a", label:"Merchant",
-    lines:["A rare oddment, friend — care for a look? Not appraised, mind.","Envoys from the great powers, again. Smells like trouble."] },
-  noble:    { glyph:"n", color:"#c08fd8", label:"Noble",
-    lines:["A commoner. ...Still, a hero of the pit is another matter.","All this city's wealth wells up from the dark beneath our feet."] },
-  rogue:    { glyph:"r", color:"#d96459", label:"Rogue",
-    lines:["...Pockets look heavy.","Another didn't come back last night. Do be careful."] },
-  delver:   { glyph:"a", color:"#6fb3c8", label:"Delver (Guild)",
-    lines:["How deep next time? Don't overreach — you won't climb back.","Heard about your forebear at the guild. Quite the legend."] },
+  commoner: { glyph:"民", color:"#9aa4b0", label:"一般人（町民）",
+    lines:["今日は冒険者が多いね。地下はおっかないよ。","パン屋がまた値を上げた。物価は迷宮次第さ。"] },
+  merchant: { glyph:"商", color:"#d9b34a", label:"商人",
+    lines:["掘り出し物の異物だ、見ていかないか？……鑑定はしてないがね。","各国の使いがまた来てる。きな臭いねえ。"] },
+  noble:    { glyph:"貴", color:"#c08fd8", label:"貴族",
+    lines:["平民が。……まあいい、迷宮の英雄なら話は別だ。","この街の富はすべて、足下の闇から湧くのだ。"] },
+  rogue:    { glyph:"悪", color:"#d96459", label:"悪人（ならず者）",
+    lines:["……懐、温かそうだな。","昨夜もまた一人帰らなかったらしいぜ。せいぜい気をつけな。"] },
+  delver:   { glyph:"冒", color:"#6fb3c8", label:"冒険者（ギルド所属）",
+    lines:["次はどこまで潜る？　無理はするな、戻れなくなる。","お前の先代の話、ギルドで聞いたよ。大した人だった。"] },
 };
 const AMB_KEYS = ["commoner","commoner","commoner","merchant","merchant","noble","rogue","delver","delver"];
 let ambient = [];
@@ -224,7 +202,7 @@ function isFloor(x,y){ return tiles[y]&&tiles[y][x]==="floor"&&!propMap[x+","+y]
 function ambAt(x,y){ return ambient.find(a=>a.x===x&&a.y===y); }
 function spawnAmbient(n){ let t=0; while(ambient.length<n&&t<2000){ t++; const x=1+Math.floor(Math.random()*(W-2)),y=1+Math.floor(Math.random()*(H-2)); if(!isFloor(x,y)||(x===P.x&&y===P.y)||ambAt(x,y))continue; ambient.push({x,y,kind:AMB_KEYS[Math.floor(Math.random()*AMB_KEYS.length)]}); } }
 
-// ===== Interior scene =====
+// ===== 屋内シーン =====
 const IW = 11, IH = 8;
 let scene = "town", curKind = null, townReturn = null;
 let itiles = [], keeperPos = null, exitPos = null;
@@ -232,19 +210,17 @@ function buildInterior(kind){
   itiles = Array.from({length:IH},()=>Array(IW).fill("floor"));
   for (let x=0;x<IW;x++){ itiles[0][x]="wall"; itiles[IH-1][x]="wall"; }
   for (let y=0;y<IH;y++){ itiles[y][0]="wall"; itiles[y][IW-1]="wall"; }
-  // shelves / fittings
   itiles[1][1]="bldg"; itiles[1][2]="bldg"; itiles[1][IW-2]="bldg"; itiles[1][IW-3]="bldg";
   itiles[2][1]="bldg"; itiles[2][IW-2]="bldg";
-  rect(4,2,3,1,"bldg"); itiles[2][5]="floor"; // a small counter with a gap
-  // rug
+  rect(4,2,3,1,"bldg"); itiles[2][5]="floor"; // カウンター（中央に隙間）
   itiles[4][5]="rug";
-  keeperPos = { x:5, y:1 + (kind==="house"?2:1) }; // keeper just behind counter
-  if (kind==="house"){ keeperPos = { x:5, y:2 }; rect(4,2,3,1,"floor"); }
+  keeperPos = { x:5, y:1 };
+  if (kind==="house"){ rect(4,2,3,1,"floor"); keeperPos = { x:5, y:2 }; }
   exitPos = { x:5, y:IH-2 };
   itiles[exitPos.y][exitPos.x]="exit";
 }
 
-// ===== Player =====
+// ===== プレイヤー =====
 let P = { x:18, y:18 };
 
 const grid = document.getElementById("grid");
@@ -280,12 +256,12 @@ function cellViewTown(x,y){
 }
 function cellViewInt(x,y){
   if (x===P.x&&y===P.y) return { t:"floor", g:"@", c:"#ffd87a", s:"0 0 12px rgba(255,216,122,.9)" };
-  if (keeperPos&&x===keeperPos.x&&y===keeperPos.y){ const d=keeperDef(curKind); return { t:"floor", g:curKind==="house"?"c":d.sign, c:d.color, s:`0 0 10px ${d.color}99` }; }
+  if (keeperPos&&x===keeperPos.x&&y===keeperPos.y){ const d=keeperDef(curKind); return { t:"floor", g:curKind==="house"?"民":d.sign, c:d.color, s:`0 0 10px ${d.color}99` }; }
   const t=itiles[y][x];
   if (t==="exit") return { t, g:"<", c:"#7fd0e6", s:"0 0 9px rgba(127,208,230,.7)" };
   if (t==="floor") return { t, g:"·", c:"#2a3328" };
   if (t==="rug")   return { t, g:"·", c:"#5a3f46" };
-  if (t==="bldg")  return { t, g:"", };
+  if (t==="bldg")  return { t, g:"" };
   if (t==="wall")  return { t, g:"▒", c:"#3a3322" };
   return { t:"void", g:"" };
 }
@@ -322,9 +298,9 @@ let descendBtn=null;
 function showDescend(){
   if (descendBtn) return;
   descendBtn=document.createElement("button");
-  descendBtn.textContent="▽ Descend into the dungeon";
+  descendBtn.textContent="▽ 潜行する（迷宮へ降りる）";
   descendBtn.style.cssText="display:block;width:96vw;max-width:560px;margin:8px auto 0;font:inherit;font-size:13px;color:#cfe6ee;background:#152229;border:1px solid #2c4751;border-radius:10px;padding:11px;";
-  descendBtn.onclick=()=>{ say(`You take the first step into the deep dark. <span class="dim">(mock: dungeon scene would load here)</span>`); descendBtn.remove(); descendBtn=null; };
+  descendBtn.onclick=()=>{ say(`深い闇へ、最初の一歩を踏み出した。<span class="dim">（モック：ダンジョン場面へ遷移）</span>`); descendBtn.remove(); descendBtn=null; };
   document.getElementById("frame").after(descendBtn);
 }
 function clearDescend(){ if(descendBtn){ descendBtn.remove(); descendBtn=null; } }
@@ -332,13 +308,13 @@ function clearDescend(){ if(descendBtn){ descendBtn.remove(); descendBtn=null; }
 function enterBuilding(kind){
   townReturn={x:P.x,y:P.y}; curKind=kind; scene="interior"; buildInterior(kind);
   P={x:exitPos.x,y:exitPos.y-1}; clearDescend();
-  const d=keeperDef(kind); placeEl.textContent="— "+d.place+" —";
-  say(`You step inside <span class="cue">${d.place}</span>.`); render();
+  const d=keeperDef(kind); placeEl.textContent="― "+d.place+" ―";
+  say(`<span class="cue">${d.place}</span> に入った。`); render();
 }
 function leaveBuilding(){
   scene="town"; P={...townReturn}; curKind=null;
-  placeEl.textContent="— The Dungeon Town · Surface —";
-  say(`You step back out into the street.`); render();
+  placeEl.textContent="― 迷宮の街・地上 ―";
+  say(`街路に戻った。`); render();
 }
 
 function move(dx,dy){
@@ -351,37 +327,36 @@ function move(dx,dy){
     if (t!=="floor"&&t!=="rug") return;
     P={x:nx,y:ny}; render(); return;
   }
-  // town
   const dk=doorMap[nx+","+ny]; if (dk){ enterBuilding(dk); return; }
   const a=ambAt(nx,ny); if (a){ talkAmb(a); return; }
   const p=propMap[nx+","+ny]; const t=tiles[ny]?.[nx];
   if (t!=="floor"&&t!=="gate"){ if(p&&p.line) say(p.line,"dim"); return; }
   if (p&&t!=="gate"){ if(p.line) say(p.line,"dim"); return; }
   P={x:nx,y:ny}; clearDescend(); render();
-  if (tiles[P.y][P.x]==="gate"){ say(`You stand at the mouth of the dungeon. <span class="cue">[Descend]</span>`); showDescend(); }
+  if (tiles[P.y][P.x]==="gate"){ say(`迷宮の口に立った。<span class="cue">〔潜行する〕</span>`); showDescend(); }
 }
 
 function openSheet(acts,name){
   overlay.classList.add("show");
   sheet.querySelectorAll("button").forEach((b,i)=>{ b.onclick=()=>{ overlay.classList.remove("show");
-    if(!b.classList.contains("close")) say(`<span class="cue">${name}</span>: you chose "${acts[i]}". <span class="dim">(mock: opens the matching menu/event)</span>`); }; });
+    if(!b.classList.contains("close")) say(`<span class="cue">${name}</span>：「${acts[i]}」を選んだ。<span class="dim">（モック：対応イベント/メニューへ）</span>`); }; });
 }
 function talkKeeper(){
   const d=keeperDef(curKind);
   sheet.innerHTML =
-    `<div class="who">${d.name} <span class="title">— ${d.title}</span></div>`+
-    `<div class="line">"${d.line}"</div>`+
-    `<div class="meta">Fixed NPC (Layer 2) · identity is fixed; the surface line varies procedurally from accumulated state (4-4B dual structure)</div>`+
-    (d.acts.length?d.acts.map(a=>`<button>${a}</button>`).join(""):"")+`<button class="close">Leave</button>`;
+    `<div class="who">${d.name} <span class="title">― ${d.title}</span></div>`+
+    `<div class="line">「${d.line}」</div>`+
+    `<div class="meta">固定NPC（第2層）／identity不変・このセリフは表面＝蓄積状態でプロセダル分岐（4-4B 二重構造）</div>`+
+    (d.acts.length?d.acts.map(a=>`<button>${a}</button>`).join(""):"")+`<button class="close">立ち去る</button>`;
   openSheet(d.acts,d.name);
 }
 function talkAmb(a){
   const d=AMB[a.kind]; const line=d.lines[Math.floor(Math.random()*d.lines.length)];
   sheet.innerHTML =
     `<div class="who">${d.label}</div>`+
-    `<div class="line">"${line}"</div>`+
-    `<div class="meta">Wandering townsfolk (the living crowd) · lines generated from an actor descriptor + accumulated state (in engine)</div>`+
-    `<button class="close">Nod and move on</button>`;
+    `<div class="line">「${line}」</div>`+
+    `<div class="meta">街路を歩く一般NPC（背景の群衆）／会話文はアクター記述子＋蓄積でプロセダル生成（実装）</div>`+
+    `<button class="close">うなずいて別れる</button>`;
   openSheet([],d.label);
 }
 
@@ -416,15 +391,15 @@ function setTab(){ tabPlay.classList.toggle("active",mode==="play"); tabAll.clas
 const legend=document.getElementById("legend");
 function cs(g,c){ return `<span class="g" style="color:${c}">${g}</span>`; }
 legend.innerHTML =
-  `<h4>You · gate</h4>`+
-  `<div>${cs("@","#ffd87a")} You</div><div>${cs(">","#7fd0e6")} Dungeon gate (descend)</div>`+
-  `<h4>Buildings — enter the sign, keeper inside</h4>`+
+  `<h4>あなた・出入口</h4>`+
+  `<div>${cs("@","#ffd87a")} あなた</div><div>${cs(">","#7fd0e6")} 迷宮の口（門→潜行）</div>`+
+  `<h4>建物（看板に入る→中に店主）</h4>`+
   Object.values(SHOP).map(d=>`<div>${cs(d.sign,d.color)} ${d.place}</div>`).join("")+
-  `<div>${cs("+","#6a6048")} Home</div>`+
-  `<h4>The street crowd</h4>`+
+  `<div>${cs("戸","#6a6048")} 民家</div>`+
+  `<h4>街路を歩く人々</h4>`+
   Object.values(AMB).map(d=>`<div>${cs(d.glyph,d.color)} ${d.label}</div>`).join("")+
-  `<h4>Square</h4>`+
-  `<div>${cs("o","#5f7f8a")} Well</div><div>${cs("‡","#8fd8c8")} Memorial</div><div>${cs("♣","#4f7a4a")} Tree</div><div>${cs("▒","#3a3322")} Wall</div>`;
+  `<h4>広場の景物</h4>`+
+  `<div>${cs("井","#5f7f8a")} 井戸</div><div>${cs("碑","#8fd8c8")} 慰霊碑</div><div>${cs("木","#4f7a4a")} 木</div><div>${cs("▒","#3a3322")} 壁</div>`;
 
 spawnAmbient(13);
 render();
