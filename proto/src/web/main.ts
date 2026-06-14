@@ -400,20 +400,71 @@ function leaveBuilding() {
   persistTown();
 }
 
+async function rumorScene() {
+  busy = true;
+  const pool = world.fossils.filter((f) => f.kind === "character" || f.bondAtDeath > 0);
+  const target = pool.length ? rng.pick(pool) : (world.fossils.length ? rng.pick(world.fossils) : null);
+  if (target) {
+    await sheet({ text: `酒場の喧噪のなか、誰かが言う──\n\n${renderRumor(db, rng, target)}`, options: ["席を立つ"] });
+    chronicle(world, "rumor", `酒場で${target.origin.name}の噂が流れる。`, [target.id]);
+    save();
+  } else {
+    await sheet({ text: "今宵は、語るほどの噂もない。", options: ["席を立つ"] });
+  }
+  busy = false;
+}
+async function chronicleScene() {
+  busy = true;
+  const mark = { birth: "生", death: "死", rediscovery: "再", intervention: "干", legend: "伝", rumor: "噂" } as const;
+  const tail = world.chronicle.slice(-14).map((e) => `世代${e.generation} [${mark[e.kind]}] ${e.text}`).join("\n");
+  await sheet({ text: tail || "まだ何も記されていない。", meta: `年代記 ── 全${world.chronicle.length}件`, options: ["頁を閉じる"] });
+  busy = false;
+}
 async function talkKeeper() {
   if (busy || !interior) return;
+  const kind = interior.kind;
+  const d = townGrid.data.keepers[kind];
   busy = true;
-  const d = townGrid.data.keepers[interior.kind];
-  await sheet({
+  const r = await sheet({
     text: `${d.name} ── ${d.title}\n\n「${d.line}」`,
-    meta: "固定NPC（第2層）／役割・品揃えは content 拡充で後日",
-    options: [...(d.acts.length ? d.acts : []), "立ち去る"],
+    meta: "固定NPC（第2層）",
+    options: [...d.acts, "立ち去る"],
+  });
+  busy = false;
+  const actIdx = r.pick - 1;
+  if (actIdx < 0 || actIdx >= d.acts.length) return; // 立ち去る
+  // 既存機能の結線（機能後退させない）。他の動詞は後続 content 拡充で実装。
+  if (kind === "tavern" && actIdx === 0) return void rumorScene();      // 噂を聞く
+  if (kind === "archive" && actIdx === 0) return void chronicleScene(); // 年代記を読む
+  busy = true;
+  await sheet({
+    text: `${d.name}：「${d.acts[actIdx]}」\n\n……その商いは、まだ整っていない。`,
+    meta: "（後日の content 拡充で結線）", options: ["うなずく"],
   });
   busy = false;
 }
 async function talkCrowd(a: CrowdActor) {
   if (busy) return;
   busy = true;
+  const ch = world.current;
+  // 一定確率で生者NPC（アクター記述子）との出会い＝旧「旅の者と語らう」（4-12G）を保存
+  if (ch && rng.next() < 0.5) {
+    const la = meetActor(world, db, rng);
+    const sl = selectTownStorylet(db, world, ch, la, rng);
+    if (sl && sl.choices) {
+      const head = `${la.actor.epithet ?? ""}${la.actor.name}（${la.actor.archetype}）\n\n${fillActorText(la.actor, sl.text ?? "")}`;
+      const c = await sheet({ text: head, options: sl.choices.map((o) => o.label) });
+      const choice = sl.choices[c.pick - 1];
+      const lines = applyActorEffects(world, ch, la, choice.effects);
+      await sheet({
+        text: [choice.text ? fillActorText(la.actor, choice.text) : "", ...lines].filter(Boolean).join("\n"),
+        options: ["席を立つ"],
+      });
+      save();
+      busy = false;
+      return;
+    }
+  }
   const k = townGrid.data.crowd.kinds[a.kind];
   await sheet({ text: `${k.label}\n\n「${rng.pick(k.lines)}」`, meta: "街路の群衆（背景）", options: ["うなずいて別れる"] });
   busy = false;
