@@ -3,7 +3,7 @@
 
 import type { ContentDb } from "./content.ts";
 import { filterByTags, pickByTags } from "./content.ts";
-import type { Fossil, SetPiece, VariationResult } from "./types.ts";
+import type { Fossil, SetPiece, TonePole, VariationResult } from "./types.ts";
 import type { Rng } from "./rng.ts";
 
 interface SlotValues { [slot: string]: string | undefined; }
@@ -110,6 +110,77 @@ export function fillDungeonText(depth: number, text: string): string {
 export function renderDeathLine(db: ContentDb, rng: Rng, finalAct: Fossil["death"]["finalAct"]): string {
   return pickByTags(db, rng, "death_line", { finalAct: finalAct.choice }).text;
 }
+
+// ---------- 遭遇の常設動詞の締め（4-12B：鎮魂/継承/立ち去るで結果を分岐させ反復を避ける） ----------
+
+type VerbLines = Record<TonePole, string[]>;
+
+/** 鎮魂で和らぐ深蝕量（人間性の回復弁＝魔法が深蝕を燃やすことの対の極：4-12B）。最終バランスで調整。 */
+export const REQUIEM_RELIEF = 0.12;
+
+// 鎮魂：末路を閉じ、張りつめたものを解く。tone別に複数用意して毎回違う締めにする。
+const REQUIEM_LINES: VerbLines = {
+  loss: [
+    "#origin_name# の強張りが、ようやくほどけていく。よく休め、と胸の内で告げた。",
+    "祈りのあいだ、#origin_name# の輪郭がほんの少し和らいだ気がした。",
+    "#origin_gear# を胸の上で組み直してやる。これでもう、誰も守らなくていい。",
+  ],
+  myth: [
+    "#origin_name# の偉業に、静かに礼を捧げた。光が、満ち足りたように薄れていく。",
+    "讃えるように頭を垂れると、#origin_gear# の輝きがやわらかく応えた。",
+    "語り継ぐと約束した。#origin_name# の気配が、安堵して遠ざかる。",
+  ],
+  grudge: [
+    "#origin_name# の怨みに、ただ詫びた。錆びた#origin_gear# から、わずかに力が抜ける。",
+    "憎しみを否定せず、受け止めると告げた。#origin_name# の震えが、少しずつ収まっていく。",
+    "「お前は、もう充分に戦った」。#origin_gear# の切先が、ゆっくりと下りた。",
+  ],
+};
+
+// 立ち去る：放置＝最も濃く危険な種（4-2 怨念極）。未練を底に置き去りにする不穏さ。
+const LEAVE_LINES: VerbLines = {
+  loss: [
+    "#origin_name# をそのままに、踵を返す。果たし損ねた何かが、背に張りついたままだ。",
+    "見なかったことにして通り過ぎた。#origin_gear# の沈黙が、いつまでも追ってくる。",
+    "今は、向き合えない。#origin_name# の未練を、深みに置き去りにした。",
+  ],
+  myth: [
+    "偉大な#origin_name# を、あえて起こさずに去る。応えなかった背中は、なぜか重い。",
+    "#origin_gear# の光を背に受けて進む。約束を欠いたことを、いつか悔いる気がした。",
+    "今は受け取れない。#origin_name# の遺志は、まだ底で待ち続けるだろう。",
+  ],
+  grudge: [
+    "#origin_name# の怨みに背を向けた。錆びた#origin_gear# が、確かにこちらの名を刻んだ。",
+    "応えずに去る。だが#origin_name# は——必ず、もう一度お前の前に立つだろう。",
+    "憎しみを放置した。深みへ下りるほど、その気配が濃く付きまとってくる。",
+  ],
+};
+
+// 継承：力・遺志を継ぐ＝未完の目的を負う（4-11E 武器奪還／4-12B）。
+const INHERIT_LINES: VerbLines = {
+  loss: [
+    "#origin_name# の#origin_gear# を受け取った。果たせなかった願いごと、引き受けると決めた。",
+    "形見を抱く。#origin_name# が遺した宿題が、今日からお前のものだ。",
+  ],
+  myth: [
+    "#origin_name# の#origin_gear# を継ぐ。その偉業の続きを、お前が書くことになる。",
+    "遺志を受け取った。#origin_name# が果たせなかった一歩を、お前が踏み出す番だ。",
+  ],
+  grudge: [
+    "#origin_name# の#origin_gear# を奪い返すように握った。その怨みごと、背負う覚悟だ。",
+    "憎しみの遺物を継ぐ。#origin_name# が誰を追っていたか、いずれ突き止めねばならない。",
+  ],
+};
+
+function pickLine(pool: VerbLines, fossil: Fossil, rng: Rng): string {
+  return fillSlots(rng.pick(pool[fossil.tonePole]), originSlotValues(fossil));
+}
+/** 鎮魂の締め（tone別・反復回避）。 */
+export const requiemLine = (fossil: Fossil, rng: Rng): string => pickLine(REQUIEM_LINES, fossil, rng);
+/** 立ち去るの締め（tone別・放置の不穏さ）。 */
+export const leaveLine = (fossil: Fossil, rng: Rng): string => pickLine(LEAVE_LINES, fossil, rng);
+/** 継承の締め（tone別・未完の目的を負う）。 */
+export const inheritLine = (fossil: Fossil, rng: Rng): string => pickLine(INHERIT_LINES, fossil, rng);
 
 /** 噂（街で聞く又聞き。痕跡スロットを差し込む） */
 export function renderRumor(db: ContentDb, rng: Rng, fossil: Fossil): string {

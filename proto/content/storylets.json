@@ -172,9 +172,10 @@
         ]
       },
       "search": {
-        "text": "亡骸のまわりを探ると、#origin_gear#のそばに小さな干からびた花束が供えられていた。誰かが、ここへ来ていた。",
+        "text": "亡骸のまわりを探ると、#origin_gear#のそばに小さな干からびた花束が供えられていた。誰かが、ここへ来ていた。その人の面影を、少しだけ想う。",
         "effects": [
-          { "chronicle": "#origin_name# の傍らに、先客の供花を見つけた。" }
+          { "trait": "見たもの:#origin_name#への供花" },
+          { "chronicle": "#origin_name# の傍らに先客の供花を見つけた。独りではなかったのだ。" }
         ]
       }
     },
@@ -183,9 +184,10 @@
       "prerequisites": { "tone": "loss" },
       "weight": 1,
       "investigate": {
-        "text": "#origin_name# の骨は白く乾き、#origin_gear# を抱くようにして崩れていた。安らかな、ただ静かなだけの終わり。",
+        "text": "#origin_name# の骨は白く乾き、#origin_gear# を抱くようにして崩れていた。安らかな、ただ静かなだけの終わり。その静けさが、こちらの強張りにも移ってくる。",
         "effects": [
-          { "chronicle": "#origin_name# の亡骸は、争った跡もなく静かだった。" }
+          { "exposure": -0.05 },
+          { "chronicle": "#origin_name# の安らかな亡骸に、こちらの澱も少し和らいだ。" }
         ]
       }
     },
@@ -194,9 +196,10 @@
       "prerequisites": { "tone": "loss", "stage": "weathered" },
       "weight": 1,
       "investigate": {
-        "text": "#origin_name# の#origin_gear# は色を失い、文字も模様もほとんど読めない。時間だけが、ここを通り過ぎていった。",
+        "text": "#origin_name# の#origin_gear# は色を失い、文字も模様もほとんど読めない。時間だけが、ここを通り過ぎていった。せめて、と輪郭を目に焼きつける。",
         "effects": [
-          { "chronicle": "#origin_name# の痕跡は、ただ風化しつつあった。" }
+          { "trait": "見届けたもの:風化する#origin_name#" },
+          { "chronicle": "#origin_name# の痕跡が消える前に、その姿を目に焼きつけた。" }
         ]
       }
     },
@@ -229,9 +232,10 @@
       "prerequisites": { "tone": "loss", "hasCatchphrase": true },
       "weight": 1,
       "investigate": {
-        "text": "風の音にまぎれて、#origin_name# の口癖が一度だけ聞こえた——『#origin_catchphrase#』。それきり、あたりは静かになった。",
+        "text": "風の音にまぎれて、#origin_name# の口癖が一度だけ聞こえた——『#origin_catchphrase#』。それきり、あたりは静かになった。耳を澄ましていた肩から、力が抜ける。",
         "effects": [
-          { "chronicle": "#origin_name# の最後の言葉が、風に紛れて届いた。" }
+          { "exposure": -0.04 },
+          { "chronicle": "#origin_name# の最後の言葉が風に紛れて届き、張りつめたものが少しほどけた。" }
         ]
       }
     },
@@ -582,7 +586,7 @@
       "weight": 1,
       "text": "壁に、先に潜った誰かの彫り書きがある。「ここから先、二人で来い」。",
       "choices": [
-        { "label": "書き足す", "text": "自分の印を、その隣に小さく刻んだ。誰かが、また読むだろう。", "effects": [ { "chronicle": "深度#depth#の壁書きに、自分の印を書き足した。" } ] },
+        { "label": "書き足す", "text": "自分の印を、その隣に小さく刻んだ。誰かが、また読むだろう。見ず知らずの誰かと、確かに繋がった気がした。", "effects": [ { "exposure": -0.04 }, { "chronicle": "深度#depth#の壁書きに自分の印を書き足し、見ぬ誰かとの繋がりに心が和んだ。" } ] },
         { "label": "読んで進む", "text": "忠告を胸に留め、先へ進んだ。", "effects": [ { "chronicle": "深度#depth#で、先人の忠告を読んだ。" } ] }
       ]
     },
@@ -637,8 +641,8 @@
       "weight": 1,
       "text": "床に、石を並べて作った矢印がある。来た道を指して——「戻れ」。",
       "choices": [
-        { "label": "矢印を直す", "text": "崩れかけた石を並べ直した。誰かがまた、この警告に救われるかもしれない。", "effects": [ { "chronicle": "深度#depth#の「戻れ」の石矢印を、並べ直した。" } ] },
-        { "label": "踏み越える", "text": "忠告は胸に留め、それでも先へ足を向けた。引き返す気は、ない。", "effects": [ { "chronicle": "深度#depth#の「戻れ」の警告を、踏み越えて進んだ。" } ] }
+        { "label": "矢印を直す", "text": "崩れかけた石を並べ直した。誰かがまた、この警告に救われるかもしれない。利他の小さな行いが、胸の澱をわずかに薄めた。", "effects": [ { "exposure": -0.03 }, { "chronicle": "深度#depth#の「戻れ」の石矢印を並べ直し、心が少し軽くなった。" } ] },
+        { "label": "踏み越える", "text": "忠告は胸に留め、それでも先へ足を向けた。引き返す気は、ない。その強情が、また少し深みへ引きずり込む。", "effects": [ { "exposure": 0.03 }, { "trait": "踏み越えた:#depth#の「戻れ」" }, { "chronicle": "深度#depth#の「戻れ」の警告を、あえて踏み越えた。" } ] }
       ]
     },
     {
@@ -659,7 +663,7 @@
       "weight": 1,
       "text": "道を、底の見えない裂け目が断っている。向こう岸まで、朽ちかけた丸木が一本だけ渡してある。",
       "choices": [
-        { "label": "渡る", "text": "丸木が軋み、足の下で何かが落ちていく音がした。渡り切ったときには、背が汗で冷えていた。", "effects": [ { "chronicle": "深度#depth#の裂け目を、朽ちた丸木一本で渡り切った。" } ] },
+        { "label": "渡る", "text": "丸木が軋み、足の下で何かが落ちていく音がした。渡り切ったときには、背が汗で冷えていた。だが、肝は据わった。", "effects": [ { "exposure": 0.04 }, { "trait": "渡り切った度胸:#depth#の裂け目" }, { "chronicle": "深度#depth#の裂け目を、朽ちた丸木一本で渡り切った。" } ] },
         { "label": "回り道を探す", "text": "遠回りになるが、確かな足場を選んだ。命は、急いては拾えない。", "effects": [ { "chronicle": "深度#depth#の裂け目は渡らず、回り道を選んだ。" } ] }
       ]
     },
