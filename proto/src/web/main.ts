@@ -26,6 +26,11 @@ import { filterByTags } from "../content.ts";
 import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, selectTownStorylet, applyActorEffects } from "../storylets.ts";
 import { meetActor } from "../actors.ts";
 import storyletsJson from "../../content/storylets.json";
+import townJson from "../../content/town.json";
+import {
+  buildTownGrid, buildInterior, spawnCrowd, wanderCrowd, crowdAt, townTileAt,
+  type TownData, type TownGrid, type Interior, type CrowdActor, type GuardDef,
+} from "../townscene.ts";
 import { ensureAudio, sfx, setAmbient, setMuted, isMuted, loadMutePref } from "./audio.ts";
 import {
   genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx,
@@ -136,7 +141,7 @@ const save = () => localStorage.setItem(SAVE_KEY, JSON.stringify(world));
 let world = loadOrCreateWorld();
 let rng: Rng = makeRng((world.seed ^ (world.chronicle.length * 2654435761) ^ (Date.now() & 0xffff)) >>> 0);
 let hp = world.current ? maxHp(world.current) : 12;
-let mode: "town" | "dive" = "town";
+let mode: "town" | "dive" | "interior" = "town";
 let floor: Floor | null = null;
 let player: Pos = { x: 0, y: 0 };
 let busy = false; // シート表示中の入力ロック
@@ -144,6 +149,15 @@ let mapMode = false; // 地図表示（踏破範囲の俯瞰）
 let cellSize = 0;
 let cam: Pos = { x: 0, y: 0 }; // ビューポートの左上（@ を追うカメラ）
 const clampCam = (v: number, mapSize: number, viewSize: number) => Math.max(0, Math.min(v, mapSize - viewSize));
+
+// ---------- 街シーン（4-4B：歩ける固定マップ） ----------
+const townGrid: TownGrid = buildTownGrid(townJson as unknown as TownData);
+let townPlayer: Pos = { ...townGrid.data.start };
+let crowd: CrowdActor[] = [];        // 街路の群衆（使い捨て・非永続）
+let interior: Interior | null = null; // 屋内シーン（null=街路）
+let townReturn: Pos | null = null;    // 屋内に入る直前の街路位置（出たら戻る）
+let wanderTimer: ReturnType<typeof setInterval> | null = null;
+let townDescendResolve: (() => void) | null = null; // 門で潜行＝townLoop を解決
 
 // ---------- ステータスバー ----------
 function updateStatus() {
@@ -279,6 +293,183 @@ function setMapMode(v: boolean) {
   else { buildGridDom(VIEW_W, VIEW_H); draw(); }
 }
 
+// ---------- 街・屋内の描画（全面可視・データ駆動のインライン色） ----------
+const TOWN_BG: Record<string, string> = {
+  void: "#0b0d10", floor: "#0c0e0c", wall: "#100e09", bldg: "#1b1813", noble: "#20191f",
+  door: "#1a2028", gate: "#0b1418", ngate: "#1c1822", exit: "#1a2028", rug: "#161013",
+};
+function paintCell(c: HTMLElement, t: string, glyph: string, color: string, shadow: string) {
+  const span = c.firstChild as HTMLElement;
+  c.classList.remove("wall", "tele-atk", "tele-move");
+  c.style.filter = "brightness(1)";
+  c.style.background = TOWN_BG[t] ?? "#0b0d10";
+  span.textContent = glyph; span.className = "";
+  span.style.color = color; span.style.textShadow = shadow;
+}
+/** 街路：カメラ追従・全面可視。優先度 player>crowd>guard>door(看板)>gate/ngate>prop>地形。 */
+function drawTown() {
+  const data = townGrid.data;
+  const VW = data.view.w, VH = data.view.h;
+  const camX = clampCam(townPlayer.x - (VW >> 1), data.width, VW);
+  const camY = clampCam(townPlayer.y - (VH >> 1), data.height, VH);
+  cam = { x: camX, y: camY };
+  lightEl.style.display = "none"; // 街は安全・既知＝松明なし（全面可視）
+  for (let vy = 0; vy < VH; vy++) for (let vx = 0; vx < VW; vx++) {
+    const c = cells[vy * VW + vx]; if (!c) continue;
+    const x = camX + vx, y = camY + vy;
+    const t = townTileAt(townGrid, x, y);
+    let glyph = "", color = "", shadow = "";
+    if (t === "floor") { glyph = "·"; color = "#28321f"; }
+    else if (t === "wall") { glyph = "▒"; color = "#3a3322"; }
+    const pk = `${x},${y}`;
+    const prop = townGrid.propMap.get(pk);
+    if (prop) { glyph = prop.glyph; color = prop.color; shadow = prop.glow ? `0 0 9px ${prop.color}aa` : `0 0 5px ${prop.color}44`; }
+    if (t === "gate") { glyph = ">"; color = "#7fd0e6"; shadow = "0 0 11px rgba(127,208,230,.8),0 0 24px rgba(60,150,180,.45)"; }
+    else if (t === "ngate") { glyph = "門"; color = "#9a8fb0"; shadow = "0 0 8px rgba(154,143,176,.5)"; }
+    const dk = townGrid.doorMap.get(pk);
+    if (dk) { const d = data.keepers[dk]; glyph = d.sign; color = d.color; shadow = `0 0 9px ${d.color}88`; }
+    const gu = townGrid.guardMap.get(pk);
+    if (gu) { glyph = gu.glyph; color = gu.color; shadow = `0 0 8px ${gu.color}77`; }
+    const a = crowdAt(crowd, x, y);
+    if (a) { const ck = data.crowd.kinds[a.kind]; glyph = ck.glyph; color = ck.color; shadow = `0 0 7px ${ck.color}66`; }
+    if (x === townPlayer.x && y === townPlayer.y) { glyph = "@"; color = "#ffd87a"; shadow = "0 0 12px rgba(255,216,122,.9),0 0 26px rgba(255,160,60,.45)"; }
+    paintCell(c, t, glyph, color, shadow);
+  }
+  updateStatus();
+}
+function drawInterior() {
+  if (!interior) return;
+  const IW = interior.w, IH = interior.h;
+  lightEl.style.display = "none";
+  for (let y = 0; y < IH; y++) for (let x = 0; x < IW; x++) {
+    const c = cells[y * IW + x]; if (!c) continue;
+    const t = interior.tiles[y][x];
+    let glyph = "", color = "", shadow = "";
+    if (t === "floor") { glyph = "·"; color = "#2a3328"; }
+    else if (t === "rug") { glyph = "·"; color = "#5a3f46"; }
+    else if (t === "wall") { glyph = "▒"; color = "#3a3322"; }
+    else if (t === "exit") { glyph = "<"; color = "#7fd0e6"; shadow = "0 0 9px rgba(127,208,230,.7)"; }
+    const kp = interior.keeperPos;
+    if (x === kp.x && y === kp.y) {
+      const d = townGrid.data.keepers[interior.kind];
+      glyph = interior.kind === "house" ? "民" : d.sign; color = d.color; shadow = `0 0 10px ${d.color}99`;
+    }
+    if (x === townPlayer.x && y === townPlayer.y) { glyph = "@"; color = "#ffd87a"; shadow = "0 0 12px rgba(255,216,122,.9)"; }
+    paintCell(c, t, glyph, color, shadow);
+  }
+  cam = { x: 0, y: 0 };
+  updateStatus();
+}
+
+// ---------- 街シーンのロジック ----------
+function persistTown() {
+  world.town.scene = mode === "interior" ? "interior" : "town";
+  world.town.pos = mode === "interior" ? (townReturn ?? townPlayer) : townPlayer;
+  world.town.interiorKind = mode === "interior" ? (interior?.kind ?? null) : null;
+  save();
+}
+function startWander() {
+  if (wanderTimer) return;
+  wanderTimer = setInterval(() => {
+    if (mode !== "town" || busy || overlayEl.classList.contains("show")) return;
+    wanderCrowd(townGrid, rng, crowd, townPlayer);
+    drawTown();
+  }, 650);
+}
+function stopWander() { if (wanderTimer) { clearInterval(wanderTimer); wanderTimer = null; } }
+
+function enterBuilding(kind: string, restore = false) {
+  if (!restore) townReturn = { ...townPlayer };
+  interior = buildInterior(kind);
+  mode = "interior";
+  townPlayer = { x: interior.exitPos.x, y: interior.exitPos.y - 1 };
+  stopWander();
+  buildGridDom(interior.w, interior.h);
+  if (!restore) log(`〈${townGrid.data.keepers[kind].place}〉に入った。`, "dim");
+  drawInterior();
+  persistTown();
+}
+function leaveBuilding() {
+  mode = "town"; interior = null;
+  townPlayer = townReturn ? { ...townReturn } : { ...townGrid.data.start };
+  townReturn = null;
+  buildGridDom(townGrid.data.view.w, townGrid.data.view.h);
+  startWander();
+  log("街路に戻った。", "dim");
+  drawTown();
+  persistTown();
+}
+
+async function talkKeeper() {
+  if (busy || !interior) return;
+  busy = true;
+  const d = townGrid.data.keepers[interior.kind];
+  await sheet({
+    text: `${d.name} ── ${d.title}\n\n「${d.line}」`,
+    meta: "固定NPC（第2層）／役割・品揃えは content 拡充で後日",
+    options: [...(d.acts.length ? d.acts : []), "立ち去る"],
+  });
+  busy = false;
+}
+async function talkCrowd(a: CrowdActor) {
+  if (busy) return;
+  busy = true;
+  const k = townGrid.data.crowd.kinds[a.kind];
+  await sheet({ text: `${k.label}\n\n「${rng.pick(k.lines)}」`, meta: "街路の群衆（背景）", options: ["うなずいて別れる"] });
+  busy = false;
+}
+async function talkGuard(g: GuardDef) {
+  if (busy) return;
+  busy = true;
+  await sheet({ text: `${g.name} ── 貴族街の門番\n\n「${g.line}」`, meta: "封鎖ゾーン（将来解禁フック）", options: ["引き返す"] });
+  busy = false;
+}
+async function promptDescend() {
+  if (busy) return;
+  busy = true;
+  const r = await sheet({ text: "迷宮の口に立った。潜行するか？", meta: "街 ── 迷宮の口", options: ["潜行する（迷宮へ降りる）", "とどまる"] });
+  busy = false;
+  if (r.pick === 1) leaveTownToDive();
+  else drawTown();
+}
+function leaveTownToDive() {
+  stopWander();
+  world.town.scene = "town"; world.town.interiorKind = null; world.town.pos = undefined; save();
+  const r = townDescendResolve; townDescendResolve = null;
+  if (r) r();
+}
+
+function townAct(dx: number, dy: number) {
+  if (busy) return;
+  if (mode === "interior") return interiorAct(dx, dy);
+  if (mode !== "town") return;
+  const nx = townPlayer.x + dx, ny = townPlayer.y + dy;
+  const gu = townGrid.guardMap.get(`${nx},${ny}`); if (gu) { void talkGuard(gu); return; }
+  const dk = townGrid.doorMap.get(`${nx},${ny}`); if (dk) { enterBuilding(dk); return; }
+  const a = crowdAt(crowd, nx, ny); if (a) { void talkCrowd(a); return; }
+  const t = townTileAt(townGrid, nx, ny);
+  if (t === "ngate") { log("固く閉ざされた門。門番が見張っている。", "dim"); return; }
+  const p = townGrid.propMap.get(`${nx},${ny}`);
+  if (t !== "floor" && t !== "gate") { if (p?.line) log(p.line, "dim"); return; }
+  if (p && t !== "gate") { if (p.line) log(p.line, "dim"); return; } // 景物（木・井戸・碑）は塞ぐ
+  townPlayer = { x: nx, y: ny };
+  drawTown();
+  if (t === "gate") { void promptDescend(); return; }
+  persistTown();
+}
+function interiorAct(dx: number, dy: number) {
+  if (busy || !interior) return;
+  const nx = townPlayer.x + dx, ny = townPlayer.y + dy;
+  const kp = interior.keeperPos;
+  if (nx === kp.x && ny === kp.y) { void talkKeeper(); return; }
+  const t = interior.tiles[ny]?.[nx];
+  if (t === "exit") { leaveBuilding(); return; }
+  if (t !== "floor" && t !== "rug") return;
+  townPlayer = { x: nx, y: ny };
+  drawInterior();
+  persistTown();
+}
+
 // ---------- キャラ作成（系譜 4-10D） ----------
 async function characterCreation() {
   const name = (await sheet({
@@ -305,49 +496,25 @@ async function characterCreation() {
   save();
 }
 
-// ---------- 街 ----------
-async function townLoop() {
-  mode = "town"; floor = null; setAmbient(false); updateStatus();
-  for (;;) {
-    const ch = world.current!;
-    const r = await sheet({
-      text: `街 ── 迷宮の口（第${world.generation}世代）\n${ch.name}、どうする？`,
-      options: ["迷宮へ潜る", "酒場で噂を聞く", "旅の者と語らう", "年代記を読む（老書記イェン）"],
-    });
-    if (r.pick === 1) return;
-    if (r.pick === 2) {
-      const pool = world.fossils.filter((f) => f.kind === "character" || f.bondAtDeath > 0);
-      const target = pool.length ? rng.pick(pool) : (world.fossils.length ? rng.pick(world.fossils) : null);
-      if (target) {
-        await sheet({ text: `酒場の喧噪のなか、誰かが言う──\n\n${renderRumor(db, rng, target)}`, options: ["席を立つ"] });
-        chronicle(world, "rumor", `酒場で${target.origin.name}の噂が流れる。`, [target.id]);
-        save();
-      }
+// ---------- 街（歩ける固定マップ。門 ">" で潜行＝この Promise を解決） ----------
+function townLoop(): Promise<void> {
+  return new Promise((resolve) => {
+    townDescendResolve = resolve;
+    mode = "town"; floor = null; setAmbient(false);
+    const t = world.town;
+    crowd = spawnCrowd(townGrid, rng, t.pos ?? townGrid.data.start);
+    if (t.scene === "interior" && t.interiorKind && townGrid.data.keepers[t.interiorKind]) {
+      townReturn = t.pos ? { x: t.pos.x, y: t.pos.y } : null;
+      enterBuilding(t.interiorKind, true); // 屋内で再開（リロード復元）
+    } else {
+      mode = "town"; interior = null;
+      townPlayer = t.pos ? { x: t.pos.x, y: t.pos.y } : { ...townGrid.data.start };
+      buildGridDom(townGrid.data.view.w, townGrid.data.view.h);
+      startWander();
+      drawTown();
     }
-    if (r.pick === 3) {
-      // 生者NPC（アクター記述子）との出会い（4-12(G)）
-      const la = meetActor(world, db, rng);
-      const sl = selectTownStorylet(db, world, ch, la, rng);
-      if (sl && sl.choices) {
-        const head = `${la.actor.epithet ?? ""}${la.actor.name}（${la.actor.archetype}）\n\n${fillActorText(la.actor, sl.text ?? "")}`;
-        const c = await sheet({ text: head, options: sl.choices.map((o) => o.label) });
-        const choice = sl.choices[c.pick - 1];
-        const lines = applyActorEffects(world, ch, la, choice.effects);
-        await sheet({
-          text: [choice.text ? fillActorText(la.actor, choice.text) : "", ...lines].filter(Boolean).join("\n"),
-          options: ["席を立つ"],
-        });
-        save();
-      } else {
-        await sheet({ text: "今日は、誰も話しかけてはこない。", options: ["席を立つ"] });
-      }
-    }
-    if (r.pick === 4) {
-      const mark = { birth: "生", death: "死", rediscovery: "再", intervention: "干", legend: "伝", rumor: "噂" } as const;
-      const tail = world.chronicle.slice(-14).map((e) => `世代${e.generation} [${mark[e.kind]}] ${e.text}`).join("\n");
-      await sheet({ text: tail || "まだ何も記されていない。", meta: `年代記 ── 全${world.chronicle.length}件`, options: ["頁を閉じる"] });
-    }
-  }
+    log("賑わう街。大通りの先、迷宮の口から冷たい風が吹き上げてくる。", "dim");
+  });
 }
 
 // ---------- 潜行 ----------
@@ -372,6 +539,7 @@ function enterFloor(depth: number, fromAbove: boolean) {
 let seenThisDive: string[] = [];
 
 async function startDive() {
+  stopWander(); // 街の群衆ループを止める
   mode = "dive";
   seenThisDive = [];
   if (world.current) hp = maxHp(world.current); // 街で癒えた状態から潜る
@@ -914,6 +1082,15 @@ $("mapBtn").onclick = () => { if (mode === "dive" && !busy) setMapMode(!mapMode)
 addEventListener("pointerdown", () => ensureAudio());
 addEventListener("keydown", (e) => {
   ensureAudio();
+  if (mode === "town" || mode === "interior") {
+    const tm: Record<string, [number, number]> = {
+      ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
+      w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0],
+    };
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (tm[k]) { e.preventDefault(); townAct(...tm[k]); }
+    return;
+  }
   const map: Record<string, [number, number]> = {
     ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], ".": [0, 0],
   };
@@ -933,6 +1110,20 @@ $("mapWrap").addEventListener("touchend", (e) => {
   const dx = tx - touchStart.x, dy = ty - touchStart.y;
   touchStart = null;
   const tap = Math.hypot(dx, dy) < 24;
+
+  if (mode === "town" || mode === "interior") {
+    if (!tap) { // スワイプ＝移動
+      if (Math.abs(dx) > Math.abs(dy)) townAct(Math.sign(dx), 0);
+      else townAct(0, Math.sign(dy));
+    } else if (cellSize > 0) { // タップ＝隣接マスへ一歩
+      const r = gridEl.getBoundingClientRect();
+      const gx = cam.x + Math.floor((tx - r.left) / cellSize);
+      const gy = cam.y + Math.floor((ty - r.top) / cellSize);
+      const ddx = gx - townPlayer.x, ddy = gy - townPlayer.y;
+      if (Math.abs(ddx) + Math.abs(ddy) === 1) townAct(Math.sign(ddx), Math.sign(ddy));
+    }
+    return;
+  }
 
   if (mapMode) {
     // 図：踏破済みの床をタップ→そこまで自動移動。スワイプ等は閉じるだけ。
@@ -961,6 +1152,8 @@ $("mapWrap").addEventListener("touchend", (e) => {
 }, { passive: true });
 
 addEventListener("resize", () => {
+  if (mode === "town") { buildGridDom(townGrid.data.view.w, townGrid.data.view.h); drawTown(); return; }
+  if (mode === "interior" && interior) { buildGridDom(interior.w, interior.h); drawInterior(); return; }
   if (mode !== "dive") return;
   if (mapMode && floor) { buildGridDom(floor.w, floor.h); drawMapMode(); }
   else { buildGridDom(); draw(); }
