@@ -16,7 +16,7 @@ import {
   armorReduce, effectiveReason, xpMul, equipExposure,
 } from "../progression.ts";
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
-import { rollItem, itemPower, itemLabel, SLOT_LABEL } from "../items.ts";
+import { rollItem, itemByName, itemPower, itemLabel, SLOT_LABEL } from "../items.ts";
 import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText } from "../render.ts";
 import { rollEncounter } from "../weights.ts";
 import { filterByTags } from "../content.ts";
@@ -738,8 +738,16 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
     } else if (label.startsWith("遺されたもの")) {
       sfx("intervene");
       intervene(world, fossil.id, "inherit");
-      ch.traits.push(`継承:${fossil.origin.gearTags[0] ?? fossil.origin.name}`);
-      log(`${ch.name}は${fossil.origin.name}の遺したものを受け取った。`);
+      // 先代が握っていた武器を奪還＝実際に装備できる（4-11E）。武器でなければ形質として継ぐ。
+      const gear = fossil.origin.gearTags[0];
+      const reclaimed = gear ? itemByName(gear) : null;
+      if (reclaimed) {
+        log(`${ch.name}は${fossil.origin.name}の${gear}を取り戻した。`);
+        await equipPrompt(reclaimed);
+      } else {
+        ch.traits.push(`継承:${gear ?? fossil.origin.name}`);
+        log(`${ch.name}は${fossil.origin.name}の遺したものを受け取った。`);
+      }
     } else {
       log("お前は何もせず、その場を後にした。……それもまた、ひとつの答えだ。");
     }
