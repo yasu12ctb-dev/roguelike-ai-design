@@ -84,10 +84,10 @@ function slotMap(slot: string): string {
   }
 }
 
-/** 山場：予約セットピース（4-9C）。条件を満たす型があればそれを使う。 */
-export function renderSetPieceIfAny(
+/** 山場：条件を満たす予約セットピースの定義を返す（4-9C／遭-④）。型で固有の決着を分岐するため。 */
+export function matchSetPiece(
   db: ContentDb, fossil: Fossil, variation: VariationResult,
-): string | null {
+): SetPiece | null {
   if (variation.stage === "weathered") return null; // 山場は変質が進んだ相手のみ
   const sp = db.setpieces.find(
     (s: SetPiece) =>
@@ -98,7 +98,15 @@ export function renderSetPieceIfAny(
   const values = originSlotValues(fossil);
   if (slotsOf(sp.frame).some((s) => values[s] === undefined)) return null;
   const text = fillSlots(sp.frame, values);
-  return hasOriginTrace(text, fossil) ? text : null;
+  return hasOriginTrace(text, fossil) ? sp : null;
+}
+
+/** 山場：予約セットピース（4-9C）。条件を満たす型があればその地の文を使う。 */
+export function renderSetPieceIfAny(
+  db: ContentDb, fossil: Fossil, variation: VariationResult,
+): string | null {
+  const sp = matchSetPiece(db, fossil, variation);
+  return sp ? fillSlots(sp.frame, originSlotValues(fossil)) : null;
 }
 
 /** ストーリーレット本文の origin スロット充填（4-12。痕跡＝出自を必ず差し込む）。 */
