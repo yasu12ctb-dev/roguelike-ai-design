@@ -1,5 +1,5 @@
 // Service Worker：アプリシェルをキャッシュして完全オフラインで遊べるようにする
-const CACHE = "sekitsui-v0-3";
+const CACHE = "sekitsui-v0-4";
 const ASSETS = ["./", "./index.html", "./app.js", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", (e) => {
@@ -20,8 +20,11 @@ self.addEventListener("fetch", (e) => {
   e.respondWith(
     fetch(e.request)
       .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
+        // 成功応答だけキャッシュ（404 等のエラーを掴んで残さない）
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy));
+        }
         return res;
       })
       .catch(() => caches.match(e.request, { ignoreSearch: true }).then((m) => m ?? caches.match("./index.html"))),
