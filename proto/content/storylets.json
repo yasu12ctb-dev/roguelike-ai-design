@@ -172,9 +172,10 @@
         ]
       },
       "search": {
-        "text": "亡骸のまわりを探ると、#origin_gear#のそばに小さな干からびた花束が供えられていた。誰かが、ここへ来ていた。",
+        "text": "亡骸のまわりを探ると、#origin_gear#のそばに小さな干からびた花束が供えられていた。誰かが、ここへ来ていた。その人の面影を、少しだけ想う。",
         "effects": [
-          { "chronicle": "#origin_name# の傍らに、先客の供花を見つけた。" }
+          { "trait": "見たもの:#origin_name#への供花" },
+          { "chronicle": "#origin_name# の傍らに先客の供花を見つけた。独りではなかったのだ。" }
         ]
       }
     },
@@ -183,9 +184,10 @@
       "prerequisites": { "tone": "loss" },
       "weight": 1,
       "investigate": {
-        "text": "#origin_name# の骨は白く乾き、#origin_gear# を抱くようにして崩れていた。安らかな、ただ静かなだけの終わり。",
+        "text": "#origin_name# の骨は白く乾き、#origin_gear# を抱くようにして崩れていた。安らかな、ただ静かなだけの終わり。その静けさが、こちらの強張りにも移ってくる。",
         "effects": [
-          { "chronicle": "#origin_name# の亡骸は、争った跡もなく静かだった。" }
+          { "exposure": -0.05 },
+          { "chronicle": "#origin_name# の安らかな亡骸に、こちらの澱も少し和らいだ。" }
         ]
       }
     },
@@ -194,9 +196,10 @@
       "prerequisites": { "tone": "loss", "stage": "weathered" },
       "weight": 1,
       "investigate": {
-        "text": "#origin_name# の#origin_gear# は色を失い、文字も模様もほとんど読めない。時間だけが、ここを通り過ぎていった。",
+        "text": "#origin_name# の#origin_gear# は色を失い、文字も模様もほとんど読めない。時間だけが、ここを通り過ぎていった。せめて、と輪郭を目に焼きつける。",
         "effects": [
-          { "chronicle": "#origin_name# の痕跡は、ただ風化しつつあった。" }
+          { "trait": "見届けたもの:風化する#origin_name#" },
+          { "chronicle": "#origin_name# の痕跡が消える前に、その姿を目に焼きつけた。" }
         ]
       }
     },
@@ -229,9 +232,10 @@
       "prerequisites": { "tone": "loss", "hasCatchphrase": true },
       "weight": 1,
       "investigate": {
-        "text": "風の音にまぎれて、#origin_name# の口癖が一度だけ聞こえた——『#origin_catchphrase#』。それきり、あたりは静かになった。",
+        "text": "風の音にまぎれて、#origin_name# の口癖が一度だけ聞こえた——『#origin_catchphrase#』。それきり、あたりは静かになった。耳を澄ましていた肩から、力が抜ける。",
         "effects": [
-          { "chronicle": "#origin_name# の最後の言葉が、風に紛れて届いた。" }
+          { "exposure": -0.04 },
+          { "chronicle": "#origin_name# の最後の言葉が風に紛れて届き、張りつめたものが少しほどけた。" }
         ]
       }
     },

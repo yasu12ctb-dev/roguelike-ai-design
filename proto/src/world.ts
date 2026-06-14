@@ -127,15 +127,18 @@ export function intervene(world: World, fossilId: string, type: "requiem" | "inh
   if (!fossil) throw new Error("fossil not found");
   fossil.interventions.push({ type, generation: world.generation });
   fossil.lastTouchedGeneration = world.generation; // 時計のリセット
+  // 継承＝未完の目的を負う／鎮魂・供養＝因縁を閉じる（4-12B）
+  const opensObligation = type === "inherit";
   const ch = world.current;
   if (ch) {
     const bond = ch.bonds.find((b) => b.entityRef === fossilId);
-    if (bond) bond.unfinished = false; // 因縁を閉じる
-    else ch.bonds.push({ entityRef: fossilId, value: 1, unfinished: false });
+    if (bond) bond.unfinished = opensObligation;
+    else ch.bonds.push({ entityRef: fossilId, value: 1, unfinished: opensObligation });
   }
   const label = type === "requiem" ? "鎮魂した" : type === "inherit" ? "遺志を継いだ" : "供養した";
+  const bondNote = opensObligation ? "（未完の目的を負った）" : "（因縁を閉じた）";
   chronicle(world, "intervention",
-    `${world.current?.name ?? "誰か"}が${fossilOriginName(world, fossilId)}を${label}。（因縁を閉じた）`,
+    `${world.current?.name ?? "誰か"}が${fossilOriginName(world, fossilId)}を${label}。${bondNote}`,
     [fossilId]);
 }
 

@@ -11,7 +11,10 @@ import {
 } from "./world.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "./variation.ts";
 import { maxHp, meleeDmg, heartFactor, xpToNext, statsLine, STAT_KEYS, STAT_LABEL, HP_PER } from "./progression.ts";
-import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText } from "./render.ts";
+import {
+  renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText,
+  requiemLine, leaveLine, inheritLine, REQUIEM_RELIEF,
+} from "./render.ts";
 import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, rollChestOutcome } from "./storylets.ts";
 import { rollEncounter } from "./weights.ts";
 import type { Character, FinalActChoice, Fossil, World } from "./types.ts";
@@ -247,13 +250,23 @@ export async function runGame(
       }
       if (label.startsWith("鎮魂")) {
         intervene(world, fossil.id, "requiem");
-        say(`  ${ch.name}は祈りを捧げた。何かが、静かに鎮まった。`);
+        const before = ch.exposure;
+        ch.exposure = Math.max(0, ch.exposure - REQUIEM_RELIEF); // 人間性の回復弁（4-12B）
+        say(`  ${requiemLine(fossil, rng)}`);
+        if (ch.exposure < before) say(`  深みに削られた芯が、少し人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。`);
       } else if (label.startsWith("遺されたもの")) {
-        intervene(world, fossil.id, "inherit");
-        ch.traits.push(`継承:${fossil.origin.gearTags[0] ?? fossil.origin.name}`);
-        say(`  ${ch.name}は${fossil.origin.name}の遺したものを受け取った。`);
+        intervene(world, fossil.id, "inherit"); // 未完の目的を負う（4-12B）
+        const gear = fossil.origin.gearTags[0] ?? fossil.origin.name;
+        ch.traits.push(`継承:${gear}`);
+        say(`  ${inheritLine(fossil, rng)}`);
+        say(`  受け継ぐ──「${gear}」（未完の目的を負った）`);
       } else {
-        say("  お前は何もせず、その場を後にした。……それもまた、ひとつの答えだ。");
+        // 立ち去る＝放置（4-12B）：因縁を未完のまま残す＝再来の種。intervene しない（変質の時計は進み続ける）
+        const bond = ch.bonds.find((b) => b.entityRef === fossil.id);
+        if (bond) bond.unfinished = true;
+        else ch.bonds.push({ entityRef: fossil.id, value: 0, unfinished: true });
+        chronicle(world, "rediscovery", `${ch.name}は${fossil.origin.name}を、深みに置き去りにした。（未完のまま）`, [fossil.id]);
+        say(`  ${leaveLine(fossil, rng)}`);
       }
       break;
     }
