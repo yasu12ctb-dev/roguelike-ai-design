@@ -679,6 +679,9 @@ async function startDive() {
   mode = "dive";
   seenThisDive = [];
   if (world.current) hp = maxHp(world.current); // 街で癒えた状態から潜る
+  // 街/屋内の paintCell が残したインライン背景・文字色・グローを引き継がないよう、
+  // ダンジョン用ビュー(VIEW)でグリッドを組み直してから描く（他遷移と同じ規約）。
+  buildGridDom(VIEW_W, VIEW_H);
   enterFloor(1, true);
   log("迷宮に降りた。冷えた空気が頬を撫でる。");
 }
