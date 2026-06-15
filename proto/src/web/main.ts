@@ -1042,13 +1042,24 @@ async function talkKeeper(asKind?: string) {
   });
   busy = false;
 }
+// 同一来訪中に同じ人物が何人も現れる現象を防ぐ：出会った生者の「見た目の素性」を記録し、
+// meetActor が既出の人物（再会含む）を返したら引き直す。街に入り直すとリセット（再会は世代越しに許す）。
+let sceneActorKeys = new Set<string>();
+const actorKey = (la: { actor: { epithet?: string; name: string; archetype: string } }) =>
+  `${la.actor.epithet ?? ""}|${la.actor.name}|${la.actor.archetype}`;
+function resolveMeetActor() {
+  let la = meetActor(world, db, rng);
+  for (let i = 0; i < 8 && sceneActorKeys.has(actorKey(la)); i++) la = meetActor(world, db, rng);
+  sceneActorKeys.add(actorKey(la));
+  return la;
+}
 async function talkCrowd(a: CrowdActor) {
   if (busy) return;
   busy = true;
   const ch = world.current;
   // 同じ通行人には同じ素性で応じる：初回に「生者NPC／純背景」を確定してキャッシュ。
   // （2回目で別人になるバグの修正。CrowdActor は街滞在中だけ生きる ephemeral）
-  if (a.npc === undefined) a.npc = (ch && rng.next() < 0.5) ? meetActor(world, db, rng) : null;
+  if (a.npc === undefined) a.npc = (ch && rng.next() < 0.5) ? resolveMeetActor() : null;
   // 生者NPC（アクター記述子）との出会い＝旧「旅の者と語らう」（4-12G）
   if (ch && a.npc) {
     const la = a.npc;
@@ -1058,9 +1069,11 @@ async function talkCrowd(a: CrowdActor) {
       const c = await sheet({ text: `${head}\n\n${fillActorText(la.actor, sl.text ?? "")}`, options: sl.choices.map((o) => o.label) });
       const choice = sl.choices[c.pick - 1];
       const lines = applyActorEffects(world, ch, la, choice.effects);
+      // 閉じる語は場面に合わせる（酒場の屋内なら「席を立つ」、それ以外＝立ち話なら「話を切り上げる」）。
+      const leave = mode === "interior" && interior?.kind === "tavern" ? "席を立つ" : "話を切り上げる";
       await sheet({
         text: [choice.text ? fillActorText(la.actor, choice.text) : "", ...lines].filter(Boolean).join("\n"),
-        options: ["席を立つ"],
+        options: [leave],
       });
       save();
     } else {
@@ -1183,6 +1196,7 @@ function townLoop(): Promise<void> {
     mode = "town"; floor = null; setAmbient(false);
     const t = world.town;
     crowd = spawnCrowd(townGrid, rng, t.pos ?? townGrid.data.start);
+    sceneActorKeys = new Set(); // 来訪ごとに出会い記録をリセット（同一来訪内での重複だけ防ぐ）
     if (t.scene === "interior" && t.interiorKind && townGrid.data.keepers[t.interiorKind]) {
       townReturn = t.pos ? { x: t.pos.x, y: t.pos.y } : null;
       enterBuilding(t.interiorKind, true); // 屋内で再開（リロード復元）
