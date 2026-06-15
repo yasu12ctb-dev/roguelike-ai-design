@@ -52,6 +52,7 @@ export interface Character {
   equipment: Equipment;         // 装備スロット（4-11F④）
   gold: number;                 // 金貨（4-10G 経済。拾得物の売却・依頼報酬で増え、店で減る）
   prayedAtShrineGen?: number;   // 慰霊堂「深蝕を清める祈り」を捧げた世代（1世代1回ガード）。任意＝旧セーブ非破壊。
+  cultBoonsThisGen?: number;    // 教団「深蝕を捧げる」を今世代に受けた回数（対価の逓増に使う）。任意＝旧セーブ非破壊。
 }
 
 export interface Lineage {

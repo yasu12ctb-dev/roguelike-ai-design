@@ -627,6 +627,52 @@ async function shrinePray() {
   log(`祈りのあいだ、胸の澱がわずかに晴れた（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
   save();
 }
+// 教団〈深淵を讃える者たち〉：金貨でなく深蝕で支払う店＝慰霊堂/薬師（深蝕を減らす）の暗い鏡。
+// 恩恵（禁術を識る／理・力+1）と引き換えに深蝕が上がる。深蝕は死亡時に化石へ焼き付き、
+// 高いほど自分の化石が「怨念極」へ寄り・速く変質＝後世で敵性化する（堆積/変質テンソンの核）。
+// バランス（ユーザー承認：「深蝕リスクを上げて回数無制限＝より深く」）：金貨不要・対価は深蝕で、
+// 捧げるほど重くなる（base + step×今世代の回数）・回数無制限。雪だるま式の代償が自然な歯止めになる。
+const CULT_COST_BASE = 0.6, CULT_COST_STEP = 0.2;
+function cultCost(ch: Character): number {
+  return CULT_COST_BASE + CULT_COST_STEP * (ch.cultBoonsThisGen ?? 0);
+}
+async function cultOffering() {
+  busy = true;
+  const ch = world.current!;
+  const cost = cultCost(ch);
+  type Boon = { label: string; run: () => void };
+  const boons: Boon[] = [];
+  for (const s of SPELLS.filter((s) => !ch.spells.includes(s.key))) boons.push({
+    label: `禁術を識る：${s.name}（${s.desc}）`,
+    run: () => { ch.spells.push(s.key); log(`深淵が囁く──《${s.name}》を識った。`, "warn"); },
+  });
+  boons.push({ label: "深淵の力：理 ＋1（深蝕魔法が伸びる）", run: () => { ch.stats.reason += 1; log("深みが理を押し上げた（理 ＋1）。", "warn"); } });
+  boons.push({ label: "深淵の力：力 ＋1（攻撃が伸びる）", run: () => { ch.stats.power += 1; log("深みが膂力を押し上げた（力 ＋1）。", "warn"); } });
+  const r = await sheet({
+    text: `仮面の教主。深蝕は呪いではなく祝福だ。\n捧げれば与えよう──対価は深蝕＋${cost.toFixed(2)}（捧げるほど深くなる）。\n今の深蝕 ${ch.exposure.toFixed(2)}（変質閾値 0.5／1.2／2.5）。`,
+    meta: "教団 ── 深蝕を捧げる（危険な恩恵）",
+    options: [...boons.map((b) => b.label), "立ち去る"],
+  });
+  busy = false;
+  const i = r.pick - 1;
+  if (i < 0 || i >= boons.length) return;
+  boons[i].run();
+  ch.exposure += cost;
+  ch.cultBoonsThisGen = (ch.cultBoonsThisGen ?? 0) + 1;
+  sfx("intervene");
+  log(`深淵に深蝕を捧げた（深蝕 ＋${cost.toFixed(2)} → ${ch.exposure.toFixed(2)}）。`, "warn");
+  if (ch.exposure >= 1.2) log("……お前の末路は、もう怨念の側へ傾いている。", "warn");
+  save();
+}
+// 教団のフレーバー（act0 福音／act2 儀式）：深蝕肯定の世界観と、変質/怨念の示唆。純テキスト。
+async function cultLore(which: "gospel" | "rite") {
+  busy = true;
+  const text = which === "gospel"
+    ? "仮面の教主は両腕を広げる。\n「深みに沈むのは堕落ではない。変わることだ。お前が深く染まるほど、世界はお前を覚えている。」\n──祝福のように、それは聞こえた。"
+    : "「儀式とは、深蝕を捧げ、深淵に己を書き加えること。\n清めの堂が時計を巻き戻すなら、我らは時計を進める。\nどちらを選ぶかは、お前の末路が決める。」";
+  await sheet({ text, meta: which === "gospel" ? "教団 ── 深淵の福音" : "教団 ── 儀式", options: ["耳を傾ける"] });
+  busy = false;
+}
 async function talkKeeper() {
   if (busy || !interior) return;
   const kind = interior.kind;
@@ -649,6 +695,9 @@ async function talkKeeper() {
   if (kind === "shrine" && actIdx === 0) return void shrineRequiem();   // 化石を鎮魂する（末路を閉じる）
   if (kind === "shrine" && actIdx === 1) return void shrineMourn();     // 先人を悼む（供養）
   if (kind === "shrine" && actIdx === 2) return void shrinePray();      // 深蝕を清める祈り
+  if (kind === "cult" && actIdx === 0) return void cultLore("gospel");  // 深淵の福音を聞く
+  if (kind === "cult" && actIdx === 1) return void cultOffering();      // 深蝕を捧げる（危険な恩恵）
+  if (kind === "cult" && actIdx === 2) return void cultLore("rite");    // 儀式について尋ねる
   busy = true;
   await sheet({
     text: `${d.name}：「${d.acts[actIdx]}」\n\n……その商いは、まだ整っていない。`,
