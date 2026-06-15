@@ -51,6 +51,7 @@ export interface Character {
   spells: string[];             // 習得した深蝕魔法のキー（4-11F③・SpellKey）
   equipment: Equipment;         // 装備スロット（4-11F④）
   gold: number;                 // 金貨（4-10G 経済。拾得物の売却・依頼報酬で増え、店で減る）
+  prayedAtShrineGen?: number;   // 慰霊堂「深蝕を清める祈り」を捧げた世代（1世代1回ガード）。任意＝旧セーブ非破壊。
 }
 
 export interface Lineage {
