@@ -12,6 +12,11 @@ export const maxHp = (ch: Character) => HP_BASE + ch.stats.body * HP_PER;
 export const CARRY_BASE = 6;
 export const carryCapacity = (ch: Character) =>
   CARRY_BASE + Math.floor(ch.level / 2) + (ch.equipment?.bag?.capacity ?? 0);
+/** 拾った装備の袋（持ち物 Phase4）。未装備のドロップを潜行中に携行＝街/行商人で売る。
+ *  容量＝レベル連動＋鞄（道具）で増える（消耗品と同じ鞄を共用＝良い鞄ほど何でも多く持てる）。 */
+export const GEARBAG_BASE = 3;
+export const gearCapacity = (ch: Character) =>
+  GEARBAG_BASE + Math.floor(ch.level / 2) + (ch.equipment?.bag?.capacity ?? 0);
 /** 自宅の保管庫（持ち物 Phase3）。総容量＝消耗品スタック＋装備の合計枠（H&Sの収集＝現代H&Sの1タブ相当60）。
  *  世代交代で次代へ残るのは消耗品・装備それぞれ STASH_INHERIT 枠まで（残りは失われる）。 */
 export const STASH_CAP = 60;

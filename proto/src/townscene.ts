@@ -3,6 +3,7 @@
 // 乱数はエンジンの Rng を注入（決定論を壊さない）。群衆は使い捨て＝world に保存しない。
 
 import type { Rng } from "./rng.ts";
+import type { LivingActor } from "./types.ts";
 
 export interface Pos { x: number; y: number; }
 
@@ -42,7 +43,13 @@ export interface TownData {
 }
 
 /** 街路を歩く群衆（ephemeral：保存しない）。 */
-export interface CrowdActor { x: number; y: number; kind: string; }
+export interface CrowdActor {
+  x: number; y: number; kind: string;
+  // 出会いの素性キャッシュ（同じ通行人には同じ人物として応じる）：
+  //   undefined=未対話 / null=純背景 / LivingActor=生者NPC。bgLine=背景の固定セリフ。
+  npc?: LivingActor | null;
+  bgLine?: string;
+}
 
 export type Scene = "town" | "interior";
 
@@ -168,7 +175,9 @@ const DIRS: [number, number][] = [[0, -1], [0, 1], [-1, 0], [1, 0]];
 
 export function wanderCrowd(g: TownGrid, rng: Rng, crowd: CrowdActor[], player: Pos): void {
   for (const a of crowd) {
-    if (rng.next() < 0.4) continue;
+    // プレイヤーに隣接した通行人は立ち止まる（近づけば話しかけられる＝すり抜けて逃げない）。
+    if (Math.abs(a.x - player.x) + Math.abs(a.y - player.y) <= 1) continue;
+    if (rng.next() < 0.5) continue; // 半数は毎手その場に留まる（落ち着いた人通り）
     // 方向をシャッフル（Rng 由来）
     const dirs = DIRS.slice();
     for (let i = dirs.length - 1; i > 0; i--) {
