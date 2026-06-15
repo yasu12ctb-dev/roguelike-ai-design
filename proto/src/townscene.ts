@@ -27,6 +27,14 @@ export interface PropDef {
   x: number; y: number; glyph: string; color: string; glow?: boolean; line?: string;
 }
 export interface CrowdKind { glyph: string; color: string; label: string; lines: string[]; }
+/** 屋内のレイアウト設定（建物種別ごと・任意）。無ければ既定の小部屋。 */
+export interface InteriorCfg {
+  w?: number; h?: number;
+  keeper?: [number, number];          // 主店主の位置（既定 [5,1]）
+  keeper2?: { keeperKind: string; pos: [number, number] }; // 副店主（例：武具屋の防具担当）
+  patrons?: { kind: string; pos: [number, number] }[];     // 雰囲気アクター（crowd.kinds 由来）
+  furniture?: PropDef[];              // テーブル等の調度（通行不可・bump で line）
+}
 export interface TownData {
   width: number; height: number;
   view: { w: number; h: number };
@@ -40,6 +48,7 @@ export interface TownData {
   guards: GuardDef[];
   props: PropDef[];
   crowd: { spawnCount: number; kinds: Record<string, CrowdKind>; weights: string[] };
+  interiors?: Record<string, InteriorCfg>;
 }
 
 /** 街路を歩く群衆（ephemeral：保存しない）。 */
@@ -121,33 +130,57 @@ export function isWalkableTown(g: TownGrid, x: number, y: number): boolean {
 }
 
 // ---------------- 屋内シーン ----------------
+/** 屋内のアクター（主店主以外）。話しかけで応じる。役割で描画/接客を分岐。 */
+export interface InteriorActor {
+  x: number; y: number;
+  role: "keeper" | "patron";
+  kind: string;               // keeper=店主defキー（例 smith_armor）／patron=crowd.kinds キー
+  // patron の出会いキャッシュ（街路群衆と同じ：同じ常連は同じ人物・同じセリフ）
+  npc?: LivingActor | null;
+  bgLine?: string;
+}
 export interface Interior {
   kind: string; w: number; h: number;
   tiles: TownTile[][];
   keeperPos: Pos; exitPos: Pos;
+  actors: InteriorActor[];    // 副店主＋常連
+  furniture: PropDef[];       // テーブル等（通行不可・bump で line）
 }
 
 const IW = 11, IH = 8;
 
-export function buildInterior(kind: string): Interior {
-  const tiles: TownTile[][] = Array.from({ length: IH }, () => Array<TownTile>(IW).fill("floor"));
-  for (let x = 0; x < IW; x++) { tiles[0][x] = "wall"; tiles[IH - 1][x] = "wall"; }
-  for (let y = 0; y < IH; y++) { tiles[y][0] = "wall"; tiles[y][IW - 1] = "wall"; }
-  // 棚・調度
-  tiles[1][1] = "bldg"; tiles[1][2] = "bldg"; tiles[1][IW - 2] = "bldg"; tiles[1][IW - 3] = "bldg";
-  tiles[2][1] = "bldg"; tiles[2][IW - 2] = "bldg";
-  // カウンター（中央に隙間）
-  for (let i = 4; i <= 6; i++) tiles[2][i] = "bldg";
-  tiles[2][5] = "floor";
-  tiles[4][5] = "rug";
-  let keeperPos: Pos = { x: 5, y: 1 };
-  if (kind === "house" || kind === "home") {
-    for (let i = 4; i <= 6; i++) tiles[2][i] = "floor"; // 民家・自宅はカウンターなし
-    keeperPos = { x: 5, y: 2 };
+export function buildInterior(kind: string, data?: TownData): Interior {
+  const cfg = data?.interiors?.[kind] ?? {};
+  const W = cfg.w ?? IW, H = cfg.h ?? IH;
+  const tiles: TownTile[][] = Array.from({ length: H }, () => Array<TownTile>(W).fill("floor"));
+  for (let x = 0; x < W; x++) { tiles[0][x] = "wall"; tiles[H - 1][x] = "wall"; }
+  for (let y = 0; y < H; y++) { tiles[y][0] = "wall"; tiles[y][W - 1] = "wall"; }
+  const isShop = kind !== "house" && kind !== "home";
+  if (isShop) {
+    // 棚・調度（左右の壁際）
+    tiles[1][1] = "bldg"; tiles[1][2] = "bldg"; tiles[1][W - 2] = "bldg"; tiles[1][W - 3] = "bldg";
+    tiles[2][1] = "bldg"; tiles[2][W - 2] = "bldg";
   }
-  const exitPos: Pos = { x: 5, y: IH - 2 };
+  const keeperPos: Pos = cfg.keeper ? { x: cfg.keeper[0], y: cfg.keeper[1] } : { x: 5, y: isShop ? 1 : 2 };
+  tiles[4] && (tiles[4][5] = "rug");
+  const exitPos: Pos = { x: Math.min(5, W - 2), y: H - 2 };
   tiles[exitPos.y][exitPos.x] = "exit";
-  return { kind, w: IW, h: IH, tiles, keeperPos, exitPos };
+
+  const actors: InteriorActor[] = [];
+  if (cfg.keeper2) actors.push({ x: cfg.keeper2.pos[0], y: cfg.keeper2.pos[1], role: "keeper", kind: cfg.keeper2.keeperKind });
+  for (const p of cfg.patrons ?? []) actors.push({ x: p.pos[0], y: p.pos[1], role: "patron", kind: p.kind });
+
+  const furniture: PropDef[] = [];
+  for (const f of cfg.furniture ?? []) {
+    const cur = tiles[f.y]?.[f.x];
+    if (cur === "floor" || cur === "rug") { tiles[f.y][f.x] = "bldg"; furniture.push(f); }
+  }
+  return { kind, w: W, h: H, tiles, keeperPos, exitPos, actors, furniture };
+}
+
+/** 屋内アクターの位置検索（接客・描画用）。 */
+export function interiorActorAt(actors: InteriorActor[], x: number, y: number): InteriorActor | undefined {
+  return actors.find((a) => a.x === x && a.y === y);
 }
 
 // ---------------- 群衆（使い捨て・Rng 注入） ----------------

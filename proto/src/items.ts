@@ -68,6 +68,15 @@ export function rollItem(depth: number, rng: Rng, opts: { boss?: boolean } = {})
   return item;
 }
 
+/** 指定スロットの装備を1つ抽選（武具屋＝武器担当/防具担当の品揃え用。必ずそのスロットが並ぶ）。
+ *  深度に合う候補が無ければ、そのスロットの最も浅いテンプレにフォールバック。鑑定済み相当。 */
+export function rollItemOfSlot(depth: number, rng: Rng, slot: ItemSlot): Item {
+  const ofSlot = TEMPLATES.filter((t) => t.slot === slot);
+  const avail = ofSlot.filter((t) => t.minDepth <= depth);
+  const src = avail.length ? avail : [[...ofSlot].sort((a, b) => a.minDepth - b.minDepth)[0]];
+  return fromTemplate(src[rng.int(src.length)]);
+}
+
 export const SLOT_LABEL: Record<ItemSlot, string> = { weapon: "武器", armor: "防具", relic: "遺物", bag: "鞄" };
 
 // 消耗品（4-10G／持ち物システム Phase1）。装備とは別系統＝持ち物に入り、使うと消える。

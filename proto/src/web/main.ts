@@ -17,7 +17,7 @@ import {
   DEPTH_SEAL_AT, ABYSS_DEPTH, RELIC_EXPOSURE_PER_TURN, RELIC_PURSUER_EVERY, RELIC_PURSUER_CAP,
 } from "../progression.ts";
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
-import { rollItem, itemByName, itemPower, itemLabel, itemValue, SLOT_LABEL, CONSUMABLES, consumableByKey } from "../items.ts";
+import { rollItem, rollItemOfSlot, itemByName, itemPower, itemLabel, itemValue, SLOT_LABEL, CONSUMABLES, consumableByKey } from "../items.ts";
 import {
   renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, matchSetPiece, fillStoryletText, fillDungeonText, fillActorText,
   requiemLine, leaveLine, inheritLine, REQUIEM_RELIEF,
@@ -33,8 +33,8 @@ import {
 import storyletsJson from "../../content/storylets.json";
 import townJson from "../../content/town.json";
 import {
-  buildTownGrid, buildInterior, spawnCrowd, wanderCrowd, crowdAt, townTileAt,
-  type TownData, type TownGrid, type Interior, type CrowdActor, type GuardDef,
+  buildTownGrid, buildInterior, spawnCrowd, wanderCrowd, crowdAt, townTileAt, interiorActorAt,
+  type TownData, type TownGrid, type Interior, type CrowdActor, type InteriorActor, type GuardDef,
 } from "../townscene.ts";
 import { ensureAudio, sfx, setAmbient, setMuted, isMuted, loadMutePref } from "./audio.ts";
 import {
@@ -347,6 +347,8 @@ function drawTown() {
 function drawInterior() {
   if (!interior) return;
   const IW = interior.w, IH = interior.h;
+  const furn = new Map(interior.furniture.map((f) => [`${f.x},${f.y}`, f]));
+  const kinds = townGrid.data.crowd.kinds;
   lightEl.style.display = "none";
   for (let y = 0; y < IH; y++) for (let x = 0; x < IW; x++) {
     const c = cells[y * IW + x]; if (!c) continue;
@@ -356,10 +358,20 @@ function drawInterior() {
     else if (t === "rug") { glyph = "·"; color = "#5a3f46"; }
     else if (t === "wall") { glyph = "▒"; color = "#3a3322"; }
     else if (t === "exit") { glyph = "<"; color = "#7fd0e6"; shadow = "0 0 9px rgba(127,208,230,.7)"; }
+    else if (t === "bldg") {
+      const f = furn.get(`${x},${y}`);
+      if (f) { glyph = f.glyph; color = f.color; shadow = f.glow ? `0 0 9px ${f.color}aa` : `0 0 5px ${f.color}44`; }
+      else { glyph = "▓"; color = "#3a3322"; } // 棚・調度
+    }
     const kp = interior.keeperPos;
     if (x === kp.x && y === kp.y) {
       const d = townGrid.data.keepers[interior.kind];
       glyph = interior.kind === "house" ? "民" : d.sign; color = d.color; shadow = `0 0 10px ${d.color}99`;
+    }
+    const a = interiorActorAt(interior.actors, x, y);
+    if (a) {
+      if (a.role === "keeper") { const d = townGrid.data.keepers[a.kind]; glyph = d.sign; color = d.color; shadow = `0 0 10px ${d.color}99`; }
+      else { const ck = kinds[a.kind]; glyph = ck.glyph; color = ck.color; shadow = `0 0 7px ${ck.color}66`; }
     }
     if (x === townPlayer.x && y === townPlayer.y) { glyph = "@"; color = "#ffd87a"; shadow = "0 0 12px rgba(255,216,122,.9)"; }
     paintCell(c, t, glyph, color, shadow);
@@ -387,7 +399,7 @@ function stopWander() { if (wanderTimer) { clearInterval(wanderTimer); wanderTim
 
 function enterBuilding(kind: string, restore = false) {
   if (!restore) townReturn = { ...townPlayer };
-  interior = buildInterior(kind);
+  interior = buildInterior(kind, townGrid.data);
   mode = "interior";
   townPlayer = { x: interior.exitPos.x, y: interior.exitPos.y - 1 };
   stopWander();
@@ -460,20 +472,6 @@ async function questBoard() {
   const i = r.pick - 1;
   if (i >= 0 && i < actions.length) { actions[i].run(); save(); }
 }
-// 武具屋：金貨で装備を購入（在庫は来訪ごとにロール・鑑定済み）。インベントリ無しのため即装備。
-// 武具屋ハブ：買う／売る（拾った装備の袋を確実・高値で買い取る）。
-async function smithShop() {
-  busy = true;
-  const ch = world.current!;
-  const bag = ch.gearBag ?? [];
-  const r = await sheet({
-    text: `鍛冶ヴァロの店。所持 金${ch.gold}。\n袋の拾い物 ${bag.length} 点。どうする？`,
-    meta: "武具屋 ── 売買", options: ["買う", `売る（袋の装備を買い取る）`, "やめる"],
-  });
-  busy = false;
-  if (r.pick === 1) return void smithBuy();
-  if (r.pick === 2) return void smithSell();
-}
 // 武具屋 売る：袋の未装備装備を確実・高値（itemValue×0.6）で買い取る。
 async function smithSell() {
   const ch = world.current!;
@@ -495,17 +493,19 @@ async function smithSell() {
     save();
   }
 }
-async function smithBuy() {
+// 武具屋 買う：指定スロット（武器担当＝weapon／防具担当＝armor）の品が必ず並ぶ。
+async function smithBuyKind(slot: "weapon" | "armor") {
   busy = true;
   const ch = world.current!;
   const tier = Math.max(3, ch.level + 1);
-  const stock = [rollItem(tier, rng), rollItem(tier, rng), rollItem(tier, rng)];
-  for (const it of stock) it.unidentified = false; // 正規の店売り＝素性は明らか
+  const stock = [rollItemOfSlot(tier, rng, slot), rollItemOfSlot(tier, rng, slot), rollItemOfSlot(tier, rng, slot)];
   const prices = stock.map((it) => Math.round(itemValue(it) * 1.6));
+  const who = slot === "weapon" ? "鍛冶ヴァロ" : "甲冑師ベルガ";
+  const what = SLOT_LABEL[slot];
   const r = await sheet({
-    text: `鍛冶ヴァロの店。所持 金${ch.gold}。\n買えば、その場で装備する（今の同種は置き換え）。`,
-    meta: "武具屋 ── 購入",
-    options: [...stock.map((it, i) => `${itemLabel(it)}／${SLOT_LABEL[it.slot]} ${prices[i]}金貨`), "やめる"],
+    text: `${who}の${what}棚。所持 金${ch.gold}。\n買えば、その場で装備する（今の${what}は置き換え）。`,
+    meta: `武具屋 ── ${what}を買う`,
+    options: [...stock.map((it, i) => `${itemLabel(it)} ${prices[i]}金貨`), "やめる"],
   });
   busy = false;
   const i = r.pick - 1;
@@ -998,9 +998,9 @@ async function lineageBoon() {
   await sheet({ text: body, meta: "ギルド ── 系譜の恩寵", options: ["わかった"] });
   busy = false;
 }
-async function talkKeeper() {
+async function talkKeeper(asKind?: string) {
   if (busy || !interior) return;
-  const kind = interior.kind;
+  const kind = asKind ?? interior.kind;
   const d = townGrid.data.keepers[kind];
   busy = true;
   const r = await sheet({
@@ -1016,7 +1016,9 @@ async function talkKeeper() {
   if (kind === "archive" && actIdx === 0) return void chronicleScene(); // 年代記を読む
   if (kind === "archive" && actIdx === 1) return void legendApprove();  // 旧キャラを伝説として承認する（4-4）
   if (kind === "archive" && actIdx === 2) return void lineageScene();   // 系譜をたどる
-  if (kind === "smith" && actIdx === 0) return void smithShop();        // 装備を売買する（買う／売る）
+  if (kind === "smith" && actIdx === 0) return void smithBuyKind("weapon"); // 武器を買う
+  if (kind === "smith" && actIdx === 1) return void smithSell();         // 拾い物を売る（袋を買い取る）
+  if (kind === "smith_armor" && actIdx === 0) return void smithBuyKind("armor"); // 防具を買う
   if (kind === "healer" && actIdx === 1) return void healerTreat();     // 深蝕の進行を診てもらう
   if (kind === "guild" && actIdx === 0) return void questBoard();       // 依頼を受ける（回収業）
   if (kind === "guild" && actIdx === 1) return void heroRoll();         // 等級・英雄譜を見る（4-4）
@@ -1137,8 +1139,11 @@ function interiorAct(dx: number, dy: number) {
   const nx = townPlayer.x + dx, ny = townPlayer.y + dy;
   const kp = interior.keeperPos;
   if (nx === kp.x && ny === kp.y) { void talkKeeper(); return; }
+  const a = interiorActorAt(interior.actors, nx, ny);
+  if (a) { if (a.role === "keeper") void talkKeeper(a.kind); else void talkCrowd(a); return; }
   const t = interior.tiles[ny]?.[nx];
   if (t === "exit") { leaveBuilding(); return; }
+  if (t === "bldg") { const f = interior.furniture.find((f) => f.x === nx && f.y === ny); if (f?.line) log(f.line, "dim"); return; }
   if (t !== "floor" && t !== "rug") return;
   townPlayer = { x: nx, y: ny };
   drawInterior();
