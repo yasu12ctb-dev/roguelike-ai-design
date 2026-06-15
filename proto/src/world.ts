@@ -1,8 +1,9 @@
 // 世界の生成・化石化・干渉・年代記・永続化（prototype-spec.md §2 / §5）
 
 import type {
-  Character, ChronicleEntry, DeathManner, FinalAct, Fossil, Lineage, World,
+  Character, ChronicleEntry, DeathManner, FinalAct, Fossil, Lineage, SealKey, World,
 } from "./types.ts";
+import { SEAL_KEYS, SEAL_LABEL } from "./types.ts";
 import { resolveTonePole } from "./variation.ts";
 import { BASE_STATS, STASH_INHERIT } from "./progression.ts";
 
@@ -30,6 +31,8 @@ export function migrateWorld(w: World): World {
   if (!Array.isArray(w.quests)) w.quests = []; // v8：依頼（回収業 4-10G）
   if (!Array.isArray(w.stash)) w.stash = [];       // 自宅の保管庫・消耗品（持ち物 Phase3）：欠落は空で補完
   if (!Array.isArray(w.stashGear)) w.stashGear = []; // 自宅の保管庫・装備：欠落は空で補完
+  if (!Array.isArray(w.seals)) w.seals = [];       // 奉献の試練・集めた印（4-13A）：欠落は空で補完
+  if (typeof w.ascended !== "number") w.ascended = 0; // 奉献の試練・クリア回数（4-13D）
   if (w.town) { // 歩ける街（4-4B）：旧セーブに欠落するサブシーン状態を補完
     if (w.town.scene !== "town" && w.town.scene !== "interior") w.town.scene = "town";
     if (w.town.interiorKind === undefined) w.town.interiorKind = null;
@@ -55,6 +58,8 @@ export function newWorld(seed: number): World {
     quests: [],
     stash: [],
     stashGear: [],
+    seals: [],
+    ascended: 0,
   };
   // シード化石①：老兵の亡骸（喪失・浅層）
   world.fossils.push({
@@ -159,6 +164,8 @@ export function intervene(world: World, fossilId: string, type: "requiem" | "inh
   chronicle(world, "intervention",
     `${world.current?.name ?? "誰か"}が${fossilOriginName(world, fossilId)}を${label}。${bondNote}`,
     [fossilId]);
+  // 奉献の試練・印②：因縁（怨念極の化石）を鎮魂（4-13A）。鎮魂の全経路（慰霊堂/戦闘/遭遇）を捕捉。
+  if (type === "requiem" && fossil.tonePole === "grudge") awardSeal(world, "requiem", [fossilId]);
 }
 
 export function recordRediscovery(world: World, fossilId: string): void {
@@ -175,6 +182,27 @@ export function recordRediscovery(world: World, fossilId: string): void {
 
 export function chronicle(world: World, kind: ChronicleEntry["kind"], text: string, refs: string[]): void {
   world.chronicle.push({ generation: world.generation, kind, text, refs });
+}
+
+// ---- 奉献の試練：印（4-13A） ----
+/** 印を1つ授与（冪等：既に持つ印は何もしない）。新規に得た時だけ true＋年代記に刻む。 */
+export function awardSeal(world: World, key: SealKey, refs: string[] = []): boolean {
+  if (!Array.isArray(world.seals)) world.seals = [];
+  if (world.seals.includes(key)) return false;
+  world.seals.push(key);
+  const got = world.seals.length;
+  chronicle(world, "legend",
+    `${world.current?.name ?? "誰か"}が「${SEAL_LABEL[key]}」の印を得た。（奉献の試練 ${got}/${SEAL_KEYS.length}）`,
+    refs);
+  if (got === SEAL_KEYS.length) {
+    chronicle(world, "legend",
+      "五つの印が揃った。封じられた深淵帯への道が、街の門の奥に口を開ける。", []);
+  }
+  return true;
+}
+/** 印が5種揃い、深淵帯が解錠されているか。 */
+export function abyssUnlocked(world: World): boolean {
+  return (world.seals?.length ?? 0) >= SEAL_KEYS.length;
 }
 
 // ---- 表示用ヘルパ ----

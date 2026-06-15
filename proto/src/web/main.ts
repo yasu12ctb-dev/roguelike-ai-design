@@ -7,13 +7,14 @@ import { makeContentDb } from "../content.ts";
 import { makeRng, type Rng } from "../rng.ts";
 import {
   newWorld, createCharacter, fossilizeCurrent, intervene, recordRediscovery,
-  chronicle, poleLabel, finalActLabel, migrateWorld,
+  chronicle, poleLabel, finalActLabel, migrateWorld, awardSeal, abyssUnlocked,
 } from "../world.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
 import {
   maxHp, meleeDmg, heartFactor, xpToNext, xpForKill, statsLine,
   STAT_KEYS, STAT_LABEL, HP_PER, carryCapacity, STASH_CAP, STASH_INHERIT,
   armorReduce, effectiveReason, xpMul, equipExposure,
+  DEPTH_SEAL_AT, ABYSS_DEPTH, RELIC_EXPOSURE_PER_TURN, RELIC_PURSUER_EVERY, RELIC_PURSUER_CAP,
 } from "../progression.ts";
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
 import { rollItem, itemByName, itemPower, itemLabel, itemValue, SLOT_LABEL, CONSUMABLES, consumableByKey } from "../items.ts";
@@ -37,10 +38,11 @@ import {
 } from "../townscene.ts";
 import { ensureAudio, sfx, setAmbient, setMuted, isMuted, loadMutePref } from "./audio.ts";
 import {
-  genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx,
+  genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx, spawnPursuer,
   VIEW_W, VIEW_H, type Floor, type Pos, type Chest, type Monster,
 } from "../dungeon.ts";
 import type { Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, SetPiece, Storylet, World } from "../types.ts";
+import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
@@ -919,6 +921,8 @@ async function legendApprove() {
   chronicle(world, "legend", `${f.origin.name}が街の伝説として承認された。その名は英雄譜に刻まれ、深みで巡り会う者を導くだろう。`, [f.id]);
   sfx("intervene");
   log(`${f.origin.name} を伝説として承認した。英雄譜に名が刻まれる。`, "warn");
+  // 奉献の試練・印④：旧キャラを伝説化（4-13A）
+  if (awardSeal(world, "legend", [f.id])) log("◆ 「伝説の承認」の印を得た。", "warn");
   save();
 }
 // 書記 act2「系譜をたどる」：現キャラの系譜（先代→現キャラ）と継いだものを表示。
@@ -1037,8 +1041,28 @@ async function talkGuard(g: GuardDef) {
 async function promptDescend() {
   if (busy) return;
   busy = true;
-  const r = await sheet({ text: "迷宮の口に立った。潜行するか？", meta: "街 ── 迷宮の口", options: ["潜行する（迷宮へ降りる）", "とどまる"] });
+  const unlocked = abyssUnlocked(world);
+  const opts = unlocked
+    ? ["潜行する（迷宮へ降りる）", "奉献の試練へ潜る（深淵帯・聖遺物を持ち帰る）", "とどまる"]
+    : ["潜行する（迷宮へ降りる）", "とどまる"];
+  const r = await sheet({
+    text: unlocked
+      ? "迷宮の口に立った。\n五つの印が揃い、門の奥に封じられた道――深淵帯への階が、ほの暗く口を開けている。"
+      : "迷宮の口に立った。潜行するか？",
+    meta: "街 ── 迷宮の口", options: opts,
+  });
   busy = false;
+  if (unlocked && r.pick === 2) {
+    busy = true;
+    const c = await sheet({
+      text: `深淵帯へは、深度${ABYSS_DEPTH}の封印層へ直に降りる。\n最奥の主が聖遺物を守り、奪えば深みが覚醒する――蝕みが急速に進み、怨霊が地上まで追う。\n聖遺物を抱いて上り階段（‹）から生還できれば、奉献は成る。`,
+      meta: "奉献の試練 ── 覚悟", options: ["深淵帯へ降りる", "やめる"],
+    });
+    busy = false;
+    if (c.pick === 1) { abyssDivePending = true; leaveTownToDive(); }
+    else drawTown();
+    return;
+  }
   if (r.pick === 1) leaveTownToDive();
   else drawTown();
 }
@@ -1128,8 +1152,9 @@ function townLoop(): Promise<void> {
 }
 
 // ---------- 潜行 ----------
-function enterFloor(depth: number, fromAbove: boolean) {
-  floor = genFloor(world, depth);
+function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
+  floor = genFloor(world, depth, abyss ? { abyss: true } : undefined);
+  pursuerCount = 0; turnsSinceFloor = 0;
   const ch = world.current!;
   ch.depth = depth;
   player = { ...(fromAbove ? floor.stairsUp : floor.stairsDown) };
@@ -1145,9 +1170,19 @@ function enterFloor(depth: number, fromAbove: boolean) {
   draw();
   log(`── 深度${depth} ──`, "dim");
   for (const l of onReachDepth(world, depth)) { log(l, "cue"); save(); } // 到達系の依頼達成
+  // 奉献の試練・印⑤：深淵手前の高深度に到達（4-13A）
+  if (depth >= DEPTH_SEAL_AT && !abyss && awardSeal(world, "depth", [ch.id])) {
+    log("◆ 「深淵への到達」の印を得た。", "warn"); save();
+  }
+  if (abyss) log("封じられていた層――空気が、軋むほど濃い。最奥で何かが、聖遺物を抱いている。", "warn");
 }
 
 let seenThisDive: string[] = [];
+// 帰還の試練（4-13C）：聖遺物携行中の追手カウンタ（フロアごとにリセット）
+let pursuerCount = 0;
+let turnsSinceFloor = 0;
+
+let abyssDivePending = false; // 次の潜行が「奉献の試練」（深淵帯への直下降）か
 
 async function startDive() {
   stopWander(); // 街の群衆ループを止める
@@ -1157,8 +1192,14 @@ async function startDive() {
   // 街/屋内の paintCell が残したインライン背景・文字色・グローを引き継がないよう、
   // ダンジョン用ビュー(VIEW)でグリッドを組み直してから描く（他遷移と同じ規約）。
   buildGridDom(VIEW_W, VIEW_H);
-  enterFloor(1, true);
-  log("迷宮に降りた。冷えた空気が頬を撫でる。");
+  if (abyssDivePending) {
+    abyssDivePending = false;
+    enterFloor(ABYSS_DEPTH, true, true); // 深淵帯へ直下降（4-13B）
+    log("奉献の試練――深淵帯へ降りた。", "warn");
+  } else {
+    enterFloor(1, true);
+    log("迷宮に降りた。冷えた空気が頬を撫でる。");
+  }
 }
 
 // ---------- 1ターンの処理 ----------
@@ -1183,6 +1224,16 @@ async function endTurn() {
 
   // 深蝕（4-10C）。心・遺物で染み込みが遅く、異物装備でじわり増える（progression）。
   ch.exposure += exposureGain(floor.depth) * heartFactor(ch) + equipExposure(ch);
+
+  // 帰還の試練（4-13C）：聖遺物携行中は深みが覚醒＝毎手 深蝕が急騰し、追手の怨霊が湧く。
+  if (ch.carryingRelic) {
+    ch.exposure += RELIC_EXPOSURE_PER_TURN;
+    turnsSinceFloor++;
+    if (turnsSinceFloor % RELIC_PURSUER_EVERY === 0 && pursuerCount < RELIC_PURSUER_CAP) {
+      const m = spawnPursuer(floor, rng, player, floor.depth, pursuerCount);
+      if (m) { pursuerCount++; sfx("hurt"); log("背後の闇から、追い縋る怨霊が湧き出した。", "warn"); }
+    }
+  }
   const quirkCount = QUIRK_THRESHOLDS.filter((th) => ch.exposure >= th).length;
   while (ch.traits.filter((t) => t.startsWith("奇癖:")).length < quirkCount) {
     const pool = filterByTags(db, "exposure_quirk", {});
@@ -1487,6 +1538,10 @@ function rewardKill(mon: Monster, killLine?: string) {
     chronicle(world, "legend", `${ch.name}が深度${floor!.depth}で${mon.kind.name}を打ち倒した。`, [ch.id]);
     // ボスドロップ：エリアは確定、エリートは高確率（手番末の装備プロンプトへ）
     if (mon.boss === "area" || rng.next() < 0.7) pendingDrops.push(rollItem(floor!.depth, rng, { boss: true }));
+    // 奉献の試練・印①：エリアボス（成れの果て）を撃破（4-13A）
+    if (mon.boss === "area" && awardSeal(world, "abyss_boss", [ch.id])) {
+      log("◆ 「成れの果ての討伐」の印を得た。", "warn");
+    }
   } else {
     log(killLine ?? `${mon.kind.name}を倒した。`);
   }
@@ -1527,6 +1582,15 @@ async function stairsPrompt(dir: "down" | "up") {
   if (busy) return;
   busy = true;
   const f = floor!;
+  // 帰還の試練（4-13C）：聖遺物を抱いて上り階段に立てば、生還＝奉献成立（深度を問わず脱出）。
+  if (dir === "up" && world.current?.carryingRelic) {
+    const r = await sheet({
+      text: "上り階段だ。聖遺物を抱いたまま、ここを駆け上がれば――地上へ、生きて還れる。",
+      meta: "奉献の試練 ── 生還", options: ["聖遺物を抱いて生還する", "とどまる"],
+    });
+    if (r.pick === 1) { busy = false; await ascendWithRelic(); return; }
+    busy = false; draw(); return;
+  }
   if (dir === "down") {
     const r = await sheet({ text: `下り階段がある。深度${f.depth + 1}へ降りるか？`, options: ["降りる", "とどまる"] });
     if (r.pick === 1) { sfx("stairs"); enterFloor(f.depth + 1, true); await maybeDungeonEvent(floor!.depth); }
@@ -1544,6 +1608,47 @@ async function stairsPrompt(dir: "down" | "up") {
   }
   busy = false;
   draw();
+}
+
+/** 帰還の試練の生還＝奉献成立（4-13D）。達成→英雄譜入り→聖遺物の処遇（奉納/佩用）→街へ。
+ *  印はリセットしない＝深淵帯は開いたまま、試練を反復できる（H&S 継続）。 */
+async function ascendWithRelic() {
+  busy = true;
+  const ch = world.current!;
+  ch.carryingRelic = undefined;
+  world.ascended = (world.ascended ?? 0) + 1;
+  sfx("intervene"); flashFx("warp");
+  log("★★ 地上の光――聖遺物を抱いて、生きて還った。奉献は成った。", "warn");
+  chronicle(world, "legend",
+    `${ch.name}が深淵帯より聖遺物を持ち帰った。奉献の試練を成し遂げた者として、英雄譜に名が刻まれる。（${world.ascended}度目の奉献）`,
+    [ch.id]);
+  // 生還した英雄を英雄譜へ（存命のまま伝説に列なる：4-4）
+  if (!world.tracked.some((t) => t.id === `ascended_${ch.id}`)) {
+    world.tracked.push({
+      id: `ascended_${ch.id}`, name: ch.name, source: "player_legend",
+      arcType: "retire", beat: 0, lastObservedGeneration: world.generation,
+    });
+  }
+  // 聖遺物の処遇（4-13D）
+  const r = await sheet({
+    text: "聖遺物を、どうする。\n奉納すれば街に恒久の加護が宿り、佩用すれば伝説級の遺物として己の力になる。",
+    meta: "奉献の試練 ── 聖遺物の処遇", options: ["街へ奉納する（街の加護）", "佩用する（伝説級の遺物）"],
+  });
+  if (r.pick === 2) {
+    const relic: Item = { id: `relic_ascend_${world.ascended}`, slot: "relic", name: "奉献の聖遺物", relic: "calm" };
+    if (ch.equipment.relic) (world.stashGear ??= []).push(ch.equipment.relic); // 旧遺物は武具庫へ退避
+    ch.equipment.relic = relic;
+    log("聖遺物を佩用した。深みの蝕みが、目に見えて和らぐ（遺物：静寂）。", "warn");
+  } else {
+    if (!world.flags?.includes("relic_offered")) (world.flags ??= []).push("relic_offered");
+    world.town.safety = Math.min(5, (world.town.safety ?? 3) + 1);
+    log("聖遺物を街に奉納した。慰霊堂の奥に祀られ、街にひそやかな加護が満ちる。", "warn");
+    chronicle(world, "legend", `${ch.name}が聖遺物を街へ奉納した。その加護は、後の世代までも見守るだろう。`, [ch.id]);
+  }
+  // 生還処理（通常の街帰還と同じ：傷は癒え、深みは残る）
+  hp = maxHp(ch); ch.depth = 0; save();
+  busy = false;
+  await townLoop(); await startDive();
 }
 
 /** 階移動時のダンジョン環境イベント（context=dungeon・4-12 F）。深度2以上で時々発火。 */
@@ -1627,6 +1732,8 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       chronicle(world, "legend", `${ch.name}は${fossil.origin.name}の導きを受けた。`, [fossil.id, ch.id]);
       log(`${fossil.origin.name}の光が、行く道を照らした。形質『導きの印』を得た。`);
       if (ch.exposure < before) log(`深みに削られた芯が、人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
+      // 奉献の試練・印③：山場（legend_return）を決着（4-13A）
+      if (awardSeal(world, "setpiece", [fossil.id])) log("◆ 「山場の決着」の印を得た。", "warn");
       save();
       break;
     }
@@ -1638,6 +1745,8 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       chronicle(world, "intervention", `${ch.name}は${fossil.origin.name}の怨みに向き合い、詫びた。`, [fossil.id]);
       log(`果たさなかった責めを認めた。${fossil.origin.name}の震えが、ゆっくりと収まっていく。`);
       if (ch.exposure < before) log(`深みに削られた芯が、少し人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
+      // 奉献の試練・印③：山場（grudge_hunt）を決着（4-13A）
+      if (awardSeal(world, "setpiece", [fossil.id])) log("◆ 「山場の決着」の印を得た。", "warn");
       save();
       break;
     }
@@ -1692,6 +1801,21 @@ async function chestScene(ce: Chest) {
   busy = true;
   const depth = floor!.depth;
   const ch = world.current!;
+  // 聖遺物（奉献の試練・4-13C）：拾うと深みが覚醒し、帰還の試練が始まる
+  if (ce.relic) {
+    const r = await sheet({
+      text: "祭壇の上に、脈打つ聖遺物がある。\n手にした刹那、深淵がざわめくだろう――これを抱いて、上り階段から生還せよ。",
+      meta: `深度${depth} ── 聖遺物`, options: ["聖遺物を奪う", "まだやめておく"],
+    });
+    if (r.pick === 1) {
+      sfx("intervene"); flashFx("warp");
+      const i = floor!.chests.indexOf(ce); if (i >= 0) floor!.chests.splice(i, 1);
+      ch.carryingRelic = "深淵の聖遺物";
+      log("★ 聖遺物を奪った。深みが、いっせいに覚醒する――急げ、上り階段へ！", "warn");
+      chronicle(world, "legend", `${ch.name}が深淵帯で聖遺物を手にした。帰還の試練が始まる。`, [ch.id]);
+    }
+    save(); busy = false; draw(); return;
+  }
   const r = await sheet({ text: "古びた宝箱がある。開けてみるか？", meta: `深度${depth} ── 宝箱`, options: ["開ける", "見送る"] });
   if (r.pick === 1) {
     sfx("chest");
@@ -1727,8 +1851,19 @@ async function deathFlow() {
   });
   const choice: FinalActChoice = (["guard_relic", "curse_dungeon", "leave_will", "accept"] as const)[r.pick - 1];
   const note = r.text.trim() || undefined;
-  const manner = depth >= 20 ? "grievous" : "anonymous";
+  const hadRelic = !!ch.carryingRelic;
+  // 帰還の試練の途上で斃れる＝聖遺物は深みへ還る＝壮絶な末路（強い怨念化）。
+  const manner = hadRelic || depth >= 20 ? "grievous" : "anonymous";
+  if (hadRelic) ch.carryingRelic = undefined;
   const fossil = fossilizeCurrent(world, manner, { choice, note });
+  if (hadRelic) {
+    // 聖遺物を化石へ刻む（後世が奪還しうる痕跡：4-13C・モデルC 還流）
+    fossil.origin.gearTags.unshift("深淵の聖遺物");
+    chronicle(world, "legend",
+      `${fossil.origin.name}は聖遺物を抱いたまま深淵に呑まれた。聖遺物は再び深みへ還り、いつか後世の手が奪い返すのを待つ。`,
+      [fossil.id]);
+    log("聖遺物は、深みへと還っていった……。", "warn");
+  }
   save();
 
   await sheet({
@@ -1741,6 +1876,16 @@ async function deathFlow() {
   await characterCreation(); // 新キャラ作成時に hp は最大HPへ
   await townLoop();
   await startDive();
+}
+
+/** 奉献の試練・印の進捗（4-13A）。獲得済みは印名、未取得は「？」。 */
+function sealProgressLine(): string {
+  const got = world.seals ?? [];
+  const marks = SEAL_KEYS.map((k) => (got.includes(k) ? `◆${SEAL_LABEL[k]}` : "◇？")).join(" ");
+  const head = `奉献の印 ${got.length}/${SEAL_KEYS.length}`;
+  const tail = abyssUnlocked(world) ? "（深淵帯・解錠！門の奥へ）" : "";
+  const asc = (world.ascended ?? 0) > 0 ? ` ／ 奉献${world.ascended}回` : "";
+  return `${head}${asc}${tail}\n  ${marks}`;
 }
 
 // ---------- メニュー（≡：今後拡張のフック） ----------
@@ -1756,8 +1901,9 @@ $("menuBtn").onclick = async () => {
   const invLine = ch
     ? `\n持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)}: ${(ch.inventory ?? []).length ? (ch.inventory ?? []).map((s) => `${consumableByKey(s.key)?.name ?? s.key}×${s.qty}`).join("、") : "なし"}`
     : "";
+  const sealLine = sealProgressLine();
   const sheetHead = ch
-    ? `《${ch.name}》Lv${ch.level} ── ${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のレベルまで残り${Math.max(0, xpToNext(ch.level) - ch.xp)}${eqLine}${invLine}\n深蝕 ${ch.exposure.toFixed(2)}${spellNames ? `\n術: ${spellNames}` : ""}${ch.traits.length ? `\n形質: ${ch.traits.join("、")}` : ""}\n\n`
+    ? `《${ch.name}》Lv${ch.level} ── ${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のレベルまで残り${Math.max(0, xpToNext(ch.level) - ch.xp)}${eqLine}${invLine}\n深蝕 ${ch.exposure.toFixed(2)}${ch.carryingRelic ? `\n★聖遺物を携行中（生還せよ）` : ""}${spellNames ? `\n術: ${spellNames}` : ""}${ch.traits.length ? `\n形質: ${ch.traits.join("、")}` : ""}\n${sealLine}\n\n`
     : "";
   const mark = { birth: "生", death: "死", rediscovery: "再", intervention: "干", legend: "伝", rumor: "噂" } as const;
   const tail = world.chronicle.slice(-10).map((e) => `世代${e.generation} [${mark[e.kind]}] ${e.text}`).join("\n");

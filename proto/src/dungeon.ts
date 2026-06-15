@@ -46,6 +46,7 @@ export interface FossilEntity extends Pos {
 }
 export interface Chest extends Pos {
   id: string; opened: boolean;   // 宝箱（開けると中身を抽選：4-12 chest）
+  relic?: boolean;               // 聖遺物（奉献の試練・深淵帯の主が守る：4-13B）
 }
 
 export interface Floor {
@@ -68,8 +69,8 @@ export const tileAt = (f: Floor, x: number, y: number): Tile => (inBounds(f, x, 
 interface Room { x: number; y: number; w: number; h: number; }
 const center = (r: Room): Pos => ({ x: r.x + (r.w >> 1), y: r.y + (r.h >> 1) });
 
-export function genFloor(world: World, depth: number): Floor {
-  const rng = makeRng((world.seed ^ (depth * 2654435761) ^ (world.generation * 97)) >>> 0);
+export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }): Floor {
+  const rng = makeRng((world.seed ^ (depth * 2654435761) ^ (world.generation * 97) ^ (opts?.abyss ? 0x5eed : 0)) >>> 0);
   // マップ寸法：深いほど広い（毎回ランダムな形）。常に VIEW より大きく、カメラがスクロールする。
   const W = 24 + Math.min(depth, 26);
   const H = 28 + Math.min(depth, 26);
@@ -186,7 +187,36 @@ export function genFloor(world: World, depth: number): Floor {
     const p = randomFloorAway(floor, rng, stairsUp, 6);
     if (p) floor.chests.push({ id: `c${depth}_${i}`, x: p.x, y: p.y, opened: false });
   }
+
+  // ---------- 深淵帯（奉献の試練・4-13B）：最奥の主が聖遺物を守る ----------
+  if (opts?.abyss) {
+    const { kind, fossilId } = makeAreaBoss(world, depth, rng);
+    const lord: MonsterKind = {
+      ...kind, key: `abyss${depth}`,
+      name: fossilId ? kind.name.replace("成れの果て", "成れの果て――深淵の主") : "深淵の主",
+      hp: Math.round(kind.hp * 1.8) + 20, dmg: kind.dmg + 3, tier: 5,
+    };
+    const bp = freeFloorNear(floor, stairsDown) ?? stairsDown;
+    floor.monsters.push({ id: "abyss_lord", kind: lord, hp: lord.hp, x: bp.x, y: bp.y, awake: true, intent: null, boss: "area", fossilId });
+    // 聖遺物：主のかたわら（下り階段側＝上り階段＝脱出路から最も遠い）
+    const rp = freeFloorNear(floor, bp) ?? bp;
+    floor.chests.push({ id: "relic", x: rp.x, y: rp.y, opened: false, relic: true });
+  }
   return floor;
+}
+
+/** 帰還の試練（4-13C）：聖遺物を奪った者を追う怨霊を1体、プレイヤー近くに湧かせる。 */
+export function spawnPursuer(f: Floor, rng: Rng, player: Pos, depth: number, n: number): Monster | null {
+  const p = randomFloorAway(f, rng, player, 4);
+  if (!p) return null;
+  const base = MONSTER_KINDS[MONSTER_KINDS.length - 1]; // 石鬼＝最上位
+  const kind: MonsterKind = {
+    ...base, key: `pursuer${depth}_${n}`, glyph: "W", name: "追い縋る怨霊",
+    hp: 8 + depth, dmg: 3 + (depth >> 4), erratic: 0.1, tier: 4,
+  };
+  const m: Monster = { id: `pursuer_${depth}_${n}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: true, intent: null };
+  f.monsters.push(m);
+  return m;
 }
 
 /** エリアボスの種別＋出自。可能なら過去の探索者化石の名を冠する（敵性化＝⑤鎮め筋の対象）。 */

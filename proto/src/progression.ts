@@ -36,6 +36,17 @@ export const xpToNext = (level: number) => 6 + level * 6;
 /** 敵1体の撃破XP（堅いほど多い） */
 export const xpForKill = (monsterHp: number) => Math.max(1, monsterHp);
 
+// ---- 奉献の試練（4-13） ----
+/** 第5の印「深淵への到達」を得る深度（深い帯・到達は実力の証）。 */
+export const DEPTH_SEAL_AT = 16;
+/** 深淵帯（封印フロア）の深度。通常到達域より深い＝儀でのみ降りられる神話極の層。 */
+export const ABYSS_DEPTH = 28;
+/** 帰還の試練・聖遺物携行中の毎手 追加深蝕（深みが覚醒し、留まるほど蝕む）。 */
+export const RELIC_EXPOSURE_PER_TURN = 0.12;
+/** 帰還の試練・追手（怨霊）が湧く手間隔／1フロアの上限。 */
+export const RELIC_PURSUER_EVERY = 3;
+export const RELIC_PURSUER_CAP = 6;
+
 export const STAT_KEYS = ["body", "power", "reason", "heart"] as const;
 export type StatKey = typeof STAT_KEYS[number];
 export const STAT_LABEL: Record<StatKey, string> = { body: "体", power: "力", reason: "理", heart: "心" };
