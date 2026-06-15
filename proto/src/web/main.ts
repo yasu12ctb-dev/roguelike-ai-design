@@ -877,7 +877,9 @@ async function playerAct(dx: number, dy: number) {
   await endTurn();
 }
 
-/** 1手ぶんの後処理：深蝕→奇癖→敵の手番→予告更新→描画→昇級→死。移動も詠唱もここに合流する。 */
+/** 深蝕の即時の牙（4-10C）：この深蝕を超えると歩くだけで蝕まれる（＝2番目の変質閾値・怨念寄りライン）。 */
+const CORRUPTION_DRAIN_FROM = 1.2;
+/** 1手ぶんの後処理：深蝕→奇癖→蝕み→敵の手番→予告更新→描画→昇級→死。移動も詠唱もここに合流する。 */
 async function endTurn() {
   if (!floor || !world.current) return;
   const ch = world.current;
@@ -893,6 +895,16 @@ async function endTurn() {
     const q = rng.pick(cand);
     ch.traits.push(`奇癖:${q.text}`);
     log(`深みが染みてくる……奇癖を得た──「${q.text}」`, "warn");
+  }
+
+  // 深蝕の即時の牙：深く染まると歩くだけで深みに蝕まれる。閾値1.2以上で逐増（深蝕+1.0ごとに+1）。
+  // これで深蝕は「後世（死亡時の怨念化）」だけでなく在りし日の生存圧にもなる。HP0は手番末の通常死＝
+  // 高い exposureAtDeath で強い怨念化。街は endTurn を通らない＝安全地帯。
+  if (ch.exposure >= CORRUPTION_DRAIN_FROM) {
+    const bite = 1 + Math.floor(ch.exposure - CORRUPTION_DRAIN_FROM);
+    hp -= bite;
+    sfx("hurt");
+    log(`深みに蝕まれる……（HP -${bite}）`, "warn");
   }
 
   // 敵の手番：予告した一手を実行（退いた予告は空振り＝見切り。静止中はwait）
@@ -1218,7 +1230,7 @@ async function stairsPrompt(dir: "down" | "up") {
 /** 階移動時のダンジョン環境イベント（context=dungeon・4-12 F）。深度2以上で時々発火。 */
 async function maybeDungeonEvent(depth: number) {
   if (depth < 2 || rng.next() >= 0.55) return;
-  const ev = selectDungeonStorylet(db, depth, rng);
+  const ev = selectDungeonStorylet(db, depth, rng, world.current?.exposure ?? 0);
   if (!ev || !ev.choices || ev.choices.length === 0) return;
   sfx("open");
   const wasBusy = busy; busy = true;
