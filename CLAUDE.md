@@ -41,13 +41,13 @@ v0 公開済み＋以下まで実装・公開。**M0/M1 完了・M2 ほぼ完了
 
 M2 の機能系は一通り完成。残りは以下。**店の他動詞は設計判断を含むため、着手前に必ず方針確認すること**（上記ルール）。
 
-1. **店・施設の他動詞の肉付け（要・小設計）**：慰霊堂（鎮魂・供養）／教団（深蝕と引き換えの恩恵）／**道具屋＝消耗品（持ち物システム Phase1）＝実装済み**。残り＝書記＝伝説化承認(4-4)／ギルド＝等級・英雄譜。**持ち物システムは3段階で完了**（snapshot 4-10C 末尾）：Phase1（消耗品＋持ち物＋容量＝レベル＋道具屋）・Phase2（鞄＝4つ目の装備スロット `bag`・容量+）・**Phase3＝自宅保管＝武具庫（1軒を `kind:"home"` 自宅化／消耗品 `World.stash`＋装備 `World.stashGear`＝世代越え／総容量 `STASH_CAP=60`〔H&Sリサーチで決定〕・継承 `STASH_INHERIT=4` 枠ずつで `fossilizeCurrent` 切詰め／装備は預け・引き出して即装備スワップ）実装済み**。現状まだ stub の動詞は `web/main.ts talkKeeper`（書記/ギルドの一部）。
+1. **店・施設の他動詞の肉付け＝完了**：慰霊堂（鎮魂・供養）／教団（深蝕と恩恵）／道具屋＝消耗品（持ち物 Phase1-3）／**書記＝伝説化承認(4-4)・ギルド＝等級・英雄譜(4-4)＝実装済み**。**全店の主要動詞が結線済み（stub なし）。** 持ち物は3段階完了（snapshot 4-10C 末尾）：Phase1（消耗品＋容量＝レベル＋道具屋）・Phase2（鞄＝装備スロット `bag`・容量+）・Phase3（自宅＝武具庫：消耗品 `World.stash`＋装備 `World.stashGear`＝世代越え／`STASH_CAP=60`・継承 `STASH_INHERIT=4` 枠ずつ）。伝説化＝`legendApprove`（神話極 myth の旧キャラを `TrackedEntity(player_legend)` 昇格→後世 `legend_return` の祝福＋英雄譜）。
 2. **クリア／長期目標（snapshot 4-13 候補）の設計確定**：ROADMAP が「M3前に確定」とする宿題（帰還型／モデルC型エンディング／節目連鎖）。
 3. **イベント拡充の継続**（横断A・節目ごと）：遭遇/ダンジョンの storylet 増量。「出来るだけ多く・ランダムに近い」がユーザー方針。
 4. **M3＝世界の動態**：運命の弧(4-6)・街の差分(4-4/4-6C)・残響召喚(4-10I・echo_summon)・ペーシング(4-10H)。
 
 **実装の要所（街/経済/依頼/山場）：**
-- 街シーン：`src/townscene.ts`（純粋・ブラウザセーフ）＋`src/web/main.ts` の `drawTown/drawInterior/townAct/interiorAct/questBoard/talkKeeper/smithBuy/healerTreat`。データ＝`content/town.json`（建物追加=配列1行／区画解禁=`guards[].locked` を外す）。
+- 街シーン：`src/townscene.ts`（純粋・ブラウザセーフ）＋`src/web/main.ts` の `drawTown/drawInterior/townAct/interiorAct/questBoard/talkKeeper/smithBuy/healerTreat/legendApprove/heroRoll/lineageScene/lineageBoon`。データ＝`content/town.json`（建物追加=配列1行／区画解禁=`guards[].locked` を外す）。伝説化＝`legendApprove`（神話極の旧キャラ→`world.tracked` player_legend）。
 - 持ち物：`items.ts CONSUMABLES`／`progression.ts carryCapacity・STASH_CAP(60)/STASH_INHERIT(4)`／`types.ts InventorySlot・World.stash(消耗品)・World.stashGear(装備)`＋`web/main.ts` の `storeBuy/storeSell/storeManage`（道具屋）・`homeDeposit/homeWithdraw/homeView`（自宅＝武具庫＝`kind:"home"`／消耗品＋装備を世代越え保管・`fossilizeCurrent` で各4枠に切詰め・装備は引き出して即装備スワップ）・`bagBtn`（潜行中に使用＝一手消費）・`addConsumable/applyConsumable/consumeOne`。消耗品追加＝`CONSUMABLES` に1行。
 - 依頼：`src/quests.ts`（純粋：`generateOffers/onReachDepth/onRediscoverFossil/claimQuest`）＋`World.quests`。達成フックは `enterFloor`(到達)・`fossilScene`(回収)。
 - 山場：`src/render.ts matchSetPiece`（型を返す）＋`fossilScene` の山場動詞。
