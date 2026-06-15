@@ -12,11 +12,11 @@ import {
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
 import {
   maxHp, meleeDmg, heartFactor, xpToNext, xpForKill, statsLine,
-  STAT_KEYS, STAT_LABEL, HP_PER,
+  STAT_KEYS, STAT_LABEL, HP_PER, carryCapacity,
   armorReduce, effectiveReason, xpMul, equipExposure,
 } from "../progression.ts";
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
-import { rollItem, itemByName, itemPower, itemLabel, itemValue, SLOT_LABEL } from "../items.ts";
+import { rollItem, itemByName, itemPower, itemLabel, itemValue, SLOT_LABEL, CONSUMABLES, consumableByKey } from "../items.ts";
 import {
   renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, matchSetPiece, fillStoryletText, fillDungeonText, fillActorText,
   requiemLine, leaveLine, inheritLine, REQUIEM_RELIEF,
@@ -673,6 +673,112 @@ async function cultLore(which: "gospel" | "rite") {
   await sheet({ text, meta: which === "gospel" ? "教団 ── 深淵の福音" : "教団 ── 儀式", options: ["耳を傾ける"] });
   busy = false;
 }
+// ---------- 持ち物（4-10G／Phase1：消耗品＋容量＝レベル。道具屋で購入・潜行中に使用） ----------
+/** 使用中の枠数（容量＝carryCapacity と比較）。同種はスタックするので枠は増えない。 */
+function invSlotsUsed(ch: Character): number { return ch.inventory?.length ?? 0; }
+/** 消耗品を1つ持ち物へ。同種はスタック、空き枠が無ければ false。 */
+function addConsumable(ch: Character, key: string): boolean {
+  ch.inventory ??= [];
+  const slot = ch.inventory.find((s) => s.key === key);
+  if (slot) { slot.qty += 1; return true; }
+  if (ch.inventory.length >= carryCapacity(ch)) return false; // 枠が一杯
+  ch.inventory.push({ key, qty: 1 });
+  return true;
+}
+/** 1枠から1つ消費（0になった枠は外す）。 */
+function consumeOne(ch: Character, key: string) {
+  const slot = ch.inventory?.find((s) => s.key === key);
+  if (!slot) return;
+  slot.qty -= 1;
+  if (slot.qty <= 0) ch.inventory = (ch.inventory ?? []).filter((s) => s !== slot);
+}
+/** 消耗品の効果を適用（深蝕−／HP回復。hp はモジュール変数＝潜行中の現在HP）。戻り＝表示用。 */
+function applyConsumable(ch: Character, key: string): string {
+  const def = consumableByKey(key);
+  if (!def) return "";
+  const parts: string[] = [];
+  if (def.use.exposure) {
+    const before = ch.exposure;
+    ch.exposure = Math.max(0, ch.exposure + def.use.exposure);
+    parts.push(`深蝕 -${(before - ch.exposure).toFixed(2)}`);
+  }
+  if (def.use.healFrac) {
+    const before = hp;
+    hp = Math.min(maxHp(ch), hp + Math.round(maxHp(ch) * def.use.healFrac));
+    parts.push(`HP +${hp - before}`);
+  }
+  return parts.join("・");
+}
+const sellValue = (key: string) => Math.max(1, Math.round((consumableByKey(key)?.price ?? 2) / 2));
+
+// 道具屋ハル act0「消耗品を買う」：金貨で消耗品を購入し持ち物へ（容量に注意）。
+async function storeBuy() {
+  busy = true;
+  const ch = world.current!;
+  for (;;) {
+    const r = await sheet({
+      text: `道具屋ハル。所持 金${ch.gold}。\n持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)} 枠（同じ品は重ねて持てる）。`,
+      meta: "道具屋 ── 消耗品を買う",
+      options: [...CONSUMABLES.map((c) => `${c.name}（${c.desc}）${c.price}金貨`), "やめる"],
+    });
+    const i = r.pick - 1;
+    if (i < 0 || i >= CONSUMABLES.length) break;
+    const c = CONSUMABLES[i];
+    if (ch.gold < c.price) { await sheet({ text: "金貨が足りない。", options: ["うなずく"] }); continue; }
+    if (!addConsumable(ch, c.key)) { await sheet({ text: "持ち物が一杯だ。レベルが上がれば、持てる量も増える。", options: ["うなずく"] }); continue; }
+    ch.gold -= c.price; sfx("open");
+    log(`${c.name} を買った（−${c.price}金貨／所持 ${ch.gold}）。`);
+    save();
+  }
+  busy = false;
+}
+// 道具屋ハル act1「異物・拾い物を売る」：持ち物の消耗品を半値で手放す。
+async function storeSell() {
+  busy = true;
+  const ch = world.current!;
+  for (;;) {
+    const inv = ch.inventory ?? [];
+    if (!inv.length) { await sheet({ text: "売れる持ち物がない。", options: ["うなずく"] }); break; }
+    const r = await sheet({
+      text: `道具屋ハル。所持 金${ch.gold}。\n手放す品を選ぶ（半値）。`,
+      meta: "道具屋 ── 売る",
+      options: [...inv.map((s) => `${consumableByKey(s.key)?.name ?? s.key} ×${s.qty}（＋${sellValue(s.key)}金貨）`), "やめる"],
+    });
+    const i = r.pick - 1;
+    if (i < 0 || i >= inv.length) break;
+    const s = inv[i], val = sellValue(s.key);
+    ch.gold += val; consumeOne(ch, s.key); sfx("open");
+    log(`${consumableByKey(s.key)?.name ?? s.key} を手放した（＋${val}金貨／所持 ${ch.gold}）。`, "dim");
+    save();
+  }
+  busy = false;
+}
+// 道具屋ハル act2「携行品を整える」：持ち物を確認し、使う／捨てる（街では HP は満ちている＝治癒は無意味）。
+async function storeManage() {
+  busy = true;
+  const ch = world.current!;
+  for (;;) {
+    const inv = ch.inventory ?? [];
+    if (!inv.length) { await sheet({ text: "持ち物は空だ。", options: ["うなずく"] }); break; }
+    const r = await sheet({
+      text: `持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)} 枠。\n品を選ぶ。`,
+      meta: "道具屋 ── 携行品を整える",
+      options: [...inv.map((s) => `${consumableByKey(s.key)?.name ?? s.key} ×${s.qty}`), "戻る"],
+    });
+    const i = r.pick - 1;
+    if (i < 0 || i >= inv.length) break;
+    const s = inv[i], def = consumableByKey(s.key);
+    const a = await sheet({ text: `${def?.name}（${def?.desc}）`, options: ["使う", "捨てる", "戻る"] });
+    if (a.pick === 1) {
+      if (def?.use.healFrac && !def.use.exposure) { await sheet({ text: "ここでは傷はない。潜ってから使うものだ。", options: ["うなずく"] }); continue; }
+      const msg = applyConsumable(ch, s.key); consumeOne(ch, s.key);
+      log(`${def?.name} を使った（${msg}）。`, "dim"); updateStatus(); save();
+    } else if (a.pick === 2) {
+      consumeOne(ch, s.key); log(`${def?.name} を捨てた。`, "dim"); save();
+    }
+  }
+  busy = false;
+}
 async function talkKeeper() {
   if (busy || !interior) return;
   const kind = interior.kind;
@@ -698,6 +804,9 @@ async function talkKeeper() {
   if (kind === "cult" && actIdx === 0) return void cultLore("gospel");  // 深淵の福音を聞く
   if (kind === "cult" && actIdx === 1) return void cultOffering();      // 深蝕を捧げる（危険な恩恵）
   if (kind === "cult" && actIdx === 2) return void cultLore("rite");    // 儀式について尋ねる
+  if (kind === "store" && actIdx === 0) return void storeBuy();         // 消耗品を買う
+  if (kind === "store" && actIdx === 1) return void storeSell();        // 異物・拾い物を売る
+  if (kind === "store" && actIdx === 2) return void storeManage();      // 携行品を整える（使う/捨てる）
   busy = true;
   await sheet({
     text: `${d.name}：「${d.acts[actIdx]}」\n\n……その商いは、まだ整っていない。`,
@@ -920,6 +1029,7 @@ async function endTurn() {
   planMonsters(floor, player, rng);
 
   draw();
+  updateStatus(); // HP/深蝕の即時反映（蝕み・被弾・持ち物使用が毎手バーに出る）
   await handleBossResolve();
   await handleLevelUps();
   await handleDrops();
@@ -1018,6 +1128,27 @@ $("spellBtn").onclick = async () => {
   busy = false;
   const spell = known[r.pick - 1];
   if (spell) await castSpell(spell.key);
+};
+// 持ち物ボタン（潜行中）：消耗品を使う。使うと一手かかる＝敵が動く（戦術的判断）。
+$("bagBtn").onclick = async () => {
+  if (busy || mode !== "dive" || !floor || !world.current) return;
+  const ch = world.current;
+  const inv = ch.inventory ?? [];
+  if (!inv.length) { log("持ち物は空だ。街の道具屋ハルで消耗品を仕入れられる。", "dim"); return; }
+  busy = true;
+  const r = await sheet({
+    text: `持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)} 枠。使うと一手かかる（敵が動く）。\nHP ${hp}/${maxHp(ch)}・深蝕 ${ch.exposure.toFixed(2)}`,
+    meta: "持ち物 ── 使う",
+    options: [...inv.map((s) => `${consumableByKey(s.key)?.name ?? s.key} ×${s.qty} ── ${consumableByKey(s.key)?.desc ?? ""}`), "やめる"],
+  });
+  busy = false;
+  const i = r.pick - 1;
+  if (i < 0 || i >= inv.length) return;
+  const s = inv[i], def = consumableByKey(s.key);
+  const msg = applyConsumable(ch, s.key); consumeOne(ch, s.key);
+  sfx("open");
+  log(`${def?.name} を使った（${msg}）。`, "warn");
+  await endTurn(); // 一手経過＝敵の手番
 };
 
 async function castSpell(key: string) {
@@ -1434,8 +1565,11 @@ $("menuBtn").onclick = async () => {
   const eqLine = eq
     ? `\n装備: 武器=${eq.weapon ? itemLabel(eq.weapon) : "なし"} / 防具=${eq.armor ? itemLabel(eq.armor) : "なし"} / 遺物=${eq.relic ? itemLabel(eq.relic) : "なし"}`
     : "";
+  const invLine = ch
+    ? `\n持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)}: ${(ch.inventory ?? []).length ? (ch.inventory ?? []).map((s) => `${consumableByKey(s.key)?.name ?? s.key}×${s.qty}`).join("、") : "なし"}`
+    : "";
   const sheetHead = ch
-    ? `《${ch.name}》Lv${ch.level} ── ${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のレベルまで残り${Math.max(0, xpToNext(ch.level) - ch.xp)}${eqLine}\n深蝕 ${ch.exposure.toFixed(2)}${spellNames ? `\n術: ${spellNames}` : ""}${ch.traits.length ? `\n形質: ${ch.traits.join("、")}` : ""}\n\n`
+    ? `《${ch.name}》Lv${ch.level} ── ${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のレベルまで残り${Math.max(0, xpToNext(ch.level) - ch.xp)}${eqLine}${invLine}\n深蝕 ${ch.exposure.toFixed(2)}${spellNames ? `\n術: ${spellNames}` : ""}${ch.traits.length ? `\n形質: ${ch.traits.join("、")}` : ""}\n\n`
     : "";
   const mark = { birth: "生", death: "死", rediscovery: "再", intervention: "干", legend: "伝", rumor: "噂" } as const;
   const tail = world.chronicle.slice(-10).map((e) => `世代${e.generation} [${mark[e.kind]}] ${e.text}`).join("\n");

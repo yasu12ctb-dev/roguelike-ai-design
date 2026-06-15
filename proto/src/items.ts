@@ -65,6 +65,18 @@ export function rollItem(depth: number, rng: Rng, opts: { boss?: boolean } = {})
 
 export const SLOT_LABEL: Record<ItemSlot, string> = { weapon: "武器", armor: "防具", relic: "遺物" };
 
+// 消耗品（4-10G／持ち物システム Phase1）。装備とは別系統＝持ち物に入り、使うと消える。
+// 効果：exposure＝深蝕を退ける（持続するので街でも有効）／healFrac＝最大HPの割合を回復（潜行中専用）。
+export interface ConsumableDef {
+  key: string; name: string; desc: string; price: number;
+  use: { exposure?: number; healFrac?: number };
+}
+export const CONSUMABLES: ConsumableDef[] = [
+  { key: "soothe", name: "鎮静の薬",   desc: "深蝕を 0.6 退ける（携行できる薬師）", price: 16, use: { exposure: -0.6 } },
+  { key: "salve",  name: "治癒の膏薬", desc: "最大HPの半分を癒す（潜行中に）",     price: 12, use: { healFrac: 0.5 } },
+];
+export const consumableByKey = (key: string): ConsumableDef | undefined => CONSUMABLES.find((c) => c.key === key);
+
 /** 効果の説明（鑑定済み前提）。 */
 export function itemPower(it: Item): string {
   let s: string;

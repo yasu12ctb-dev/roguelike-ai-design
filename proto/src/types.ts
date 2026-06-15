@@ -35,6 +35,9 @@ export interface Item {
 }
 export interface Equipment { weapon: Item | null; armor: Item | null; relic: Item | null; }
 
+/** 持ち物の1枠（消耗品をキー参照でスタック。容量＝枠数で数える＝Phase1）。 */
+export interface InventorySlot { key: string; qty: number; }
+
 export interface Character {
   id: string;
   name: string;
@@ -51,6 +54,7 @@ export interface Character {
   spells: string[];             // 習得した深蝕魔法のキー（4-11F③・SpellKey）
   equipment: Equipment;         // 装備スロット（4-11F④）
   gold: number;                 // 金貨（4-10G 経済。拾得物の売却・依頼報酬で増え、店で減る）
+  inventory?: InventorySlot[];  // 持ち物（消耗品。容量はレベルで増える＝progression.carryCapacity）。任意＝旧セーブ非破壊。
   prayedAtShrineGen?: number;   // 慰霊堂「深蝕を清める祈り」を捧げた世代（1世代1回ガード）。任意＝旧セーブ非破壊。
   cultBoonsThisGen?: number;    // 教団「深蝕を捧げる」を今世代に受けた回数（対価の逓増に使う）。任意＝旧セーブ非破壊。
 }
