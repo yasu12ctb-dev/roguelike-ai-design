@@ -8,9 +8,10 @@ export const BASE_STATS: Stats = { body: 2, power: 2, reason: 2, heart: 2 };
 export const HP_BASE = 6, HP_PER = 3;
 /** 最大HP＝体（body2 で 12＝従来値） */
 export const maxHp = (ch: Character) => HP_BASE + ch.stats.body * HP_PER;
-/** 持ち物の容量（枠数。レベルで増える：Lv1→6, Lv4→8, Lv10→11。Phase2で鞄＝装備で+）。 */
+/** 持ち物の容量（枠数）。レベル（Lv1→6, Lv4→8, Lv10→11）＋鞄（装備）で増える。 */
 export const CARRY_BASE = 6;
-export const carryCapacity = (ch: Character) => CARRY_BASE + Math.floor(ch.level / 2);
+export const carryCapacity = (ch: Character) =>
+  CARRY_BASE + Math.floor(ch.level / 2) + (ch.equipment?.bag?.capacity ?? 0);
 /** 近接ダメージ＝力＋武器（power2・素手 で 3＝従来値。4-11F④） */
 export const meleeDmg = (ch: Character) => ch.stats.power + 1 + (ch.equipment?.weapon?.dmg ?? 0);
 /** 被ダメージ軽減＝防具（B案・下限は呼び出し側で min1） */

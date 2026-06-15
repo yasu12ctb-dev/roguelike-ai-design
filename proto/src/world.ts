@@ -84,7 +84,7 @@ export function createCharacter(world: World, name: string, archetype: string, l
     id: newId("ch"), name, archetype, lineage,
     traits: [], exposure: 0, depth: 0, bonds: [], alive: true,
     stats: { ...BASE_STATS }, level: 1, xp: 0, spells: [],
-    equipment: { weapon: null, armor: null, relic: null },
+    equipment: { weapon: null, armor: null, relic: null, bag: null },
     gold: 0,
   };
   // 系譜（4-10D）：先代から因縁と薄い形質を継ぐ

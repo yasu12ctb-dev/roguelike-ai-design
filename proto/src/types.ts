@@ -23,17 +23,19 @@ export interface World {
 export interface Stats { body: number; power: number; reason: number; heart: number; }
 
 /** 装備（4-11F④・4-11E）。武器=攻撃+ / 防具=被ダメ- / 遺物=パッシブ。異物=未鑑定。 */
-export type ItemSlot = "weapon" | "armor" | "relic";
+export type ItemSlot = "weapon" | "armor" | "relic" | "bag";
 export type RelicKind = "calm" | "reason" | "greed"; // 深蝕レート減 / 理+1 / 撃破XP増
 export interface Item {
   id: string; slot: ItemSlot; name: string;
   dmg?: number;             // 武器：近接ダメージ+
   reduce?: number;          // 防具：被ダメージ-
   relic?: RelicKind;        // 遺物：パッシブ種
+  capacity?: number;        // 鞄：持ち物の枠+（持ち物システム Phase2）
   exposurePerTurn?: number; // 異物の副作用：装備中の毎ターン深蝕+
   unidentified?: boolean;   // 未鑑定（装備すると判明）
 }
-export interface Equipment { weapon: Item | null; armor: Item | null; relic: Item | null; }
+// bag は任意＝旧セーブ非破壊（migrate 不要・version 据え置き）。
+export interface Equipment { weapon: Item | null; armor: Item | null; relic: Item | null; bag?: Item | null; }
 
 /** 持ち物の1枠（消耗品をキー参照でスタック。容量＝枠数で数える＝Phase1）。 */
 export interface InventorySlot { key: string; qty: number; }

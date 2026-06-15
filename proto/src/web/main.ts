@@ -1563,7 +1563,7 @@ $("menuBtn").onclick = async () => {
   const spellNames = ch ? ch.spells.map((k) => spellByKey(k)?.name).filter(Boolean).join("、") : "";
   const eq = ch?.equipment;
   const eqLine = eq
-    ? `\n装備: 武器=${eq.weapon ? itemLabel(eq.weapon) : "なし"} / 防具=${eq.armor ? itemLabel(eq.armor) : "なし"} / 遺物=${eq.relic ? itemLabel(eq.relic) : "なし"}`
+    ? `\n装備: 武器=${eq.weapon ? itemLabel(eq.weapon) : "なし"} / 防具=${eq.armor ? itemLabel(eq.armor) : "なし"} / 遺物=${eq.relic ? itemLabel(eq.relic) : "なし"} / 鞄=${eq.bag ? itemLabel(eq.bag) : "なし"}`
     : "";
   const invLine = ch
     ? `\n持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)}: ${(ch.inventory ?? []).length ? (ch.inventory ?? []).map((s) => `${consumableByKey(s.key)?.name ?? s.key}×${s.qty}`).join("、") : "なし"}`

@@ -6,7 +6,7 @@ import type { Item, ItemSlot } from "./types.ts";
 
 interface Template {
   slot: ItemSlot; name: string; minDepth: number;
-  dmg?: number; reduce?: number; relic?: Item["relic"]; exposurePerTurn?: number;
+  dmg?: number; reduce?: number; relic?: Item["relic"]; capacity?: number; exposurePerTurn?: number;
   oddity?: boolean; // 異物（必ず未鑑定）
 }
 
@@ -26,6 +26,10 @@ const TEMPLATES: Template[] = [
   { slot: "relic",  name: "理脈の指輪", minDepth: 4,  relic: "reason" },
   { slot: "relic",  name: "貪欲の徽章", minDepth: 7,  relic: "greed" },
   { slot: "relic",  name: "昏き護符",   minDepth: 12, relic: "reason", exposurePerTurn: 0.03, oddity: true },
+  // 鞄（持ち物の枠+。持ち物システム Phase2）
+  { slot: "bag",    name: "革袋",         minDepth: 1,  capacity: 3 },
+  { slot: "bag",    name: "探索者の背嚢", minDepth: 6,  capacity: 5 },
+  { slot: "bag",    name: "深淵の嚢",     minDepth: 14, capacity: 8 },
 ];
 
 let n = 0;
@@ -36,6 +40,7 @@ function fromTemplate(t: Template): Item {
   if (t.dmg) item.dmg = t.dmg;
   if (t.reduce) item.reduce = t.reduce;
   if (t.relic) item.relic = t.relic;
+  if (t.capacity) item.capacity = t.capacity;
   if (t.exposurePerTurn) item.exposurePerTurn = t.exposurePerTurn;
   return item;
 }
@@ -63,7 +68,7 @@ export function rollItem(depth: number, rng: Rng, opts: { boss?: boolean } = {})
   return item;
 }
 
-export const SLOT_LABEL: Record<ItemSlot, string> = { weapon: "武器", armor: "防具", relic: "遺物" };
+export const SLOT_LABEL: Record<ItemSlot, string> = { weapon: "武器", armor: "防具", relic: "遺物", bag: "鞄" };
 
 // 消耗品（4-10G／持ち物システム Phase1）。装備とは別系統＝持ち物に入り、使うと消える。
 // 効果：exposure＝深蝕を退ける（持続するので街でも有効）／healFrac＝最大HPの割合を回復（潜行中専用）。
@@ -82,6 +87,7 @@ export function itemPower(it: Item): string {
   let s: string;
   if (it.slot === "weapon") s = `攻＋${it.dmg}`;
   else if (it.slot === "armor") s = `被ダメ−${it.reduce}`;
+  else if (it.slot === "bag") s = `持てる量＋${it.capacity}`;
   else s = it.relic === "calm" ? "深蝕レート減" : it.relic === "reason" ? "理＋1" : "撃破XP増";
   if (it.exposurePerTurn) s += "・装備中わずかに深蝕＋";
   return s;
@@ -97,6 +103,7 @@ export function itemValue(it: Item): number {
   let v: number;
   if (it.slot === "weapon") v = 6 + (it.dmg ?? 0) * 8;
   else if (it.slot === "armor") v = 6 + (it.reduce ?? 0) * 8;
+  else if (it.slot === "bag") v = 8 + (it.capacity ?? 0) * 4; // 鞄
   else v = 14; // 遺物
   if (it.exposurePerTurn) v += 10;          // 異物は世界唯一の輸出品＝高値（4-3③）
   if (it.unidentified) v = Math.round(v * 0.7); // 未鑑定は買い叩かれる
