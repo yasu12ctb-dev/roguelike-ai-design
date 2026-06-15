@@ -549,6 +549,84 @@ async function shrineRequiem() {
   if (ch.exposure < before) log(`祈りのあいだ、胸の澱がわずかに晴れた（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
   save();
 }
+// 慰霊堂 動詞②「先人を悼む」（供養）：歴代キャラ化石を悼む＝記憶の堆積（4-4 パリンプセスト）。
+// 鎮魂(動詞①)が「絆ある相手の因縁を閉じる」のに対し、供養は戦力でなく記憶。機械的強化は持たせない。
+// 街に名を残し（town.memorials）年代記に刻む。系譜の先祖を悼むと後継への反応（4-4「旧キャラが後継に反応」）。
+const MOURN_OFFERING = 5; // 供物（少額）
+async function shrineMourn() {
+  busy = true;
+  const ch = world.current!;
+  const ancId = ch.lineage.ancestorFossilId;
+  // 歴代の「キャラ化石」が対象。自分の系譜（血/教え）に連なる先祖を先頭に。
+  const targets = world.fossils
+    .filter((f) => f.kind === "character")
+    .sort((a, b) => (a.id === ancId ? -1 : b.id === ancId ? 1 : 0))
+    .slice(0, 8);
+  if (!targets.length) {
+    await sheet({ text: "まだ悼むべき先人はいない。\nいずれ、お前自身もここに名を連ねる。", meta: "慰霊堂 ── 供養", options: ["うなずく"] });
+    busy = false; return;
+  }
+  const r = await sheet({
+    text: `弔いの巫女。所持 金${ch.gold}。\n先人に香を手向ける（供物 ${MOURN_OFFERING}金貨）。その名は街の記憶に残る。`,
+    meta: "慰霊堂 ── 供養（先人を悼む）",
+    options: [
+      ...targets.map((f) => `${f.origin.name}を悼む${f.id === ancId ? "（系譜の先祖）" : ""}`),
+      "やめる",
+    ],
+  });
+  busy = false;
+  const i = r.pick - 1;
+  if (i < 0 || i >= targets.length) return;
+  const f = targets[i];
+  if (ch.gold < MOURN_OFFERING) {
+    busy = true; await sheet({ text: "供物の金貨が足りない。", options: ["うなずく"] }); busy = false; return;
+  }
+  ch.gold -= MOURN_OFFERING;
+  if (!world.town.memorials.includes(f.origin.name)) world.town.memorials.push(f.origin.name);
+  chronicle(world, "legend", `${ch.name}が先人${f.origin.name}を悼み、その名を街の記憶に手向けた。`, [f.id, ch.id]);
+  sfx("intervene");
+  log(`${f.origin.name}に香を手向けた（−${MOURN_OFFERING}金貨／所持 ${ch.gold}）。その名は慰霊堂に刻まれた。`, "dim");
+  busy = true;
+  if (f.id === ancId) {
+    // 系譜の先祖を悼む＝最も輝かしい情緒ペイオフ（4-4）。
+    await sheet({
+      text: `香煙のむこう、${f.origin.name}の面影がこちらを見た気がした。\n──血は、絶えていない。`,
+      meta: "慰霊堂 ── 供養", options: ["頭を垂れる"],
+    });
+  } else {
+    await sheet({ text: `${f.origin.name}よ、安らかに。\n街は、お前を覚えている。`, meta: "慰霊堂 ── 供養", options: ["頭を垂れる"] });
+  }
+  busy = false;
+  save();
+}
+// 慰霊堂 動詞③「深蝕を清める祈り」：自分の深蝕を浄める。薬師（金貨・−0.6）と差別化＝無料だが小幅・1世代1回。
+// バランス（ユーザー承認）：無料の深蝕回復弁を増やしすぎないためのガード。深蝕プレッシャー（堆積）を守る。
+const PRAY_RELIEF = 0.2;
+async function shrinePray() {
+  busy = true;
+  const ch = world.current!;
+  if (ch.prayedAtShrineGen === world.generation) {
+    await sheet({ text: "今日はもう祈りを捧げた。\n澱は、また歩むうちに溜まる。", meta: "慰霊堂 ── 祈り", options: ["うなずく"] });
+    busy = false; return;
+  }
+  if (ch.exposure <= 0) {
+    await sheet({ text: "深蝕は、今は無い。祈るまでもない。", meta: "慰霊堂 ── 祈り", options: ["うなずく"] });
+    busy = false; return;
+  }
+  const r = await sheet({
+    text: `弔いの巫女とともに、静かに祈る。\n胸の澱がわずかに退く（深蝕 -${PRAY_RELIEF.toFixed(2)}・無料・この世代に一度）。\n今の深蝕 ${ch.exposure.toFixed(2)}。`,
+    meta: "慰霊堂 ── 深蝕を清める祈り",
+    options: ["祈りを捧げる", "やめる"],
+  });
+  busy = false;
+  if (r.pick !== 1) return;
+  const before = ch.exposure;
+  ch.exposure = Math.max(0, ch.exposure - PRAY_RELIEF);
+  ch.prayedAtShrineGen = world.generation;
+  sfx("intervene");
+  log(`祈りのあいだ、胸の澱がわずかに晴れた（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
+  save();
+}
 async function talkKeeper() {
   if (busy || !interior) return;
   const kind = interior.kind;
@@ -569,6 +647,8 @@ async function talkKeeper() {
   if (kind === "healer" && actIdx === 1) return void healerTreat();     // 深蝕の進行を診てもらう
   if (kind === "guild" && actIdx === 0) return void questBoard();       // 依頼を受ける（回収業）
   if (kind === "shrine" && actIdx === 0) return void shrineRequiem();   // 化石を鎮魂する（末路を閉じる）
+  if (kind === "shrine" && actIdx === 1) return void shrineMourn();     // 先人を悼む（供養）
+  if (kind === "shrine" && actIdx === 2) return void shrinePray();      // 深蝕を清める祈り
   busy = true;
   await sheet({
     text: `${d.name}：「${d.acts[actIdx]}」\n\n……その商いは、まだ整っていない。`,
