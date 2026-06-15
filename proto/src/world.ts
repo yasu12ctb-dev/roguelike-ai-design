@@ -25,6 +25,7 @@ export function migrateWorld(w: World): World {
     if (!Array.isArray(ch.spells)) ch.spells = [];
     if (!ch.equipment) ch.equipment = { weapon: null, armor: null, relic: null };
     if (typeof ch.gold !== "number") ch.gold = 0; // v7：金貨
+    if (!Array.isArray(ch.gearBag)) ch.gearBag = []; // 持ち物 Phase4：拾った装備の袋（非破壊バックフィル）
   }
   if (!Array.isArray(w.actors)) w.actors = []; // 生者NPC（4-12(G)）：欠落は常に補完
   if (!Array.isArray(w.flags)) w.flags = [];
@@ -95,6 +96,8 @@ export function createCharacter(world: World, name: string, archetype: string, l
     stats: { ...BASE_STATS }, level: 1, xp: 0, spells: [],
     equipment: { weapon: null, armor: null, relic: null, bag: null },
     gold: 0,
+    inventory: [],
+    gearBag: [],
   };
   // 系譜（4-10D）：先代から因縁と薄い形質を継ぐ
   if (lineage.relation !== "none" && lineage.ancestorFossilId) {

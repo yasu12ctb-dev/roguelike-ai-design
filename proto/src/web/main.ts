@@ -13,7 +13,7 @@ import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.t
 import {
   maxHp, meleeDmg, heartFactor, xpToNext, xpForKill, statsLine,
   STAT_KEYS, STAT_LABEL, HP_PER, carryCapacity, STASH_CAP, STASH_INHERIT,
-  armorReduce, effectiveReason, xpMul, equipExposure,
+  armorReduce, effectiveReason, xpMul, equipExposure, gearCapacity,
   DEPTH_SEAL_AT, ABYSS_DEPTH, RELIC_EXPOSURE_PER_TURN, RELIC_PURSUER_EVERY, RELIC_PURSUER_CAP,
 } from "../progression.ts";
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
@@ -461,6 +461,40 @@ async function questBoard() {
   if (i >= 0 && i < actions.length) { actions[i].run(); save(); }
 }
 // 武具屋：金貨で装備を購入（在庫は来訪ごとにロール・鑑定済み）。インベントリ無しのため即装備。
+// 武具屋ハブ：買う／売る（拾った装備の袋を確実・高値で買い取る）。
+async function smithShop() {
+  busy = true;
+  const ch = world.current!;
+  const bag = ch.gearBag ?? [];
+  const r = await sheet({
+    text: `鍛冶ヴァロの店。所持 金${ch.gold}。\n袋の拾い物 ${bag.length} 点。どうする？`,
+    meta: "武具屋 ── 売買", options: ["買う", `売る（袋の装備を買い取る）`, "やめる"],
+  });
+  busy = false;
+  if (r.pick === 1) return void smithBuy();
+  if (r.pick === 2) return void smithSell();
+}
+// 武具屋 売る：袋の未装備装備を確実・高値（itemValue×0.6）で買い取る。
+async function smithSell() {
+  const ch = world.current!;
+  for (;;) {
+    const bag = ch.gearBag ?? [];
+    if (!bag.length) { busy = true; await sheet({ text: "袋に売れる拾い物がない。迷宮で集めておいで。", options: ["うなずく"] }); busy = false; break; }
+    busy = true;
+    const r = await sheet({
+      text: `鍛冶ヴァロは目利きする。所持 金${ch.gold}。\n袋 ${bag.length} 点。何を売る？`,
+      meta: "武具屋 ── 売る（高値）",
+      options: [...bag.map((it) => `${itemLabel(it)}／${SLOT_LABEL[it.slot]}（＋${sellGear(it, SMITH_SELL_MUL)}金貨）`), "やめる"],
+    });
+    busy = false;
+    const i = r.pick - 1;
+    if (i < 0 || i >= bag.length) break;
+    const it = bag.splice(i, 1)[0], val = sellGear(it, SMITH_SELL_MUL);
+    ch.gold += val; sfx("open");
+    log(`${it.name} を武具屋に売った（＋${val}金貨／所持 ${ch.gold}）。`, "dim");
+    save();
+  }
+}
 async function smithBuy() {
   busy = true;
   const ch = world.current!;
@@ -982,7 +1016,7 @@ async function talkKeeper() {
   if (kind === "archive" && actIdx === 0) return void chronicleScene(); // 年代記を読む
   if (kind === "archive" && actIdx === 1) return void legendApprove();  // 旧キャラを伝説として承認する（4-4）
   if (kind === "archive" && actIdx === 2) return void lineageScene();   // 系譜をたどる
-  if (kind === "smith" && actIdx === 0) return void smithBuy();         // 装備を売買／修理する
+  if (kind === "smith" && actIdx === 0) return void smithShop();        // 装備を売買する（買う／売る）
   if (kind === "healer" && actIdx === 1) return void healerTreat();     // 深蝕の進行を診てもらう
   if (kind === "guild" && actIdx === 0) return void questBoard();       // 依頼を受ける（回収業）
   if (kind === "guild" && actIdx === 1) return void heroRoll();         // 等級・英雄譜を見る（4-4）
@@ -1339,11 +1373,11 @@ async function equipPrompt(item: Item) {
   const head = item.unidentified
     ? `見知らぬ${SLOT_LABEL[item.slot]}を手にした。（未鑑定：装備すれば正体が分かる）`
     : `${item.name} を手にした。（${itemPower(item)}）`;
-  const val = itemValue(item);
+  const bagUsed = (ch.gearBag ?? []).length, bagCap = gearCapacity(ch);
   const r = await sheet({
     text: head + (cur ? `\n今の${SLOT_LABEL[item.slot]}：${itemLabel(cur)}` : ""),
-    meta: `${SLOT_LABEL[item.slot]} ── 装備（金 ${ch.gold}）`,
-    options: ["装備する", `売る（＋${val}金貨）`, "見送る"],
+    meta: `${SLOT_LABEL[item.slot]} ── 拾い物（袋 ${bagUsed}/${bagCap}）`,
+    options: ["装備する", "袋にしまう（街/行商人で売る）", "見送る（置いていく）"],
   });
   if (r.pick === 1) {
     item.unidentified = false; // 装備で鑑定
@@ -1352,12 +1386,37 @@ async function equipPrompt(item: Item) {
     log(`${item.name} を装備した（${itemPower(item)}）。`);
     if (item.exposurePerTurn) log("……身につけた途端、深みがじわりと滲む。", "warn");
   } else if (r.pick === 2) {
-    ch.gold += val;
-    sfx("open");
-    log(`持ち帰らず、その場で金に換えた（＋${val}金貨／所持 ${ch.gold}）。`, "dim");
+    await gearBagPush(item);
   }
   save();
 }
+
+/** 拾った装備を袋へ。満杯なら入れ替え（古いものを置いていく）か見送りを選ばせる。 */
+async function gearBagPush(item: Item): Promise<void> {
+  const ch = world.current!;
+  ch.gearBag ??= [];
+  const cap = gearCapacity(ch);
+  if (ch.gearBag.length >= cap) {
+    const r = await sheet({
+      text: `袋がいっぱいだ（${ch.gearBag.length}/${cap}）。\n何かを置いて、これを入れるか？`,
+      meta: "拾い物の袋 ── 満杯",
+      options: [...ch.gearBag.map((g) => `「${itemLabel(g)}」を置いて入れ替える`), "これを見送る"],
+    });
+    const i = r.pick - 1;
+    if (i < 0 || i >= ch.gearBag.length) { log(`${item.name} は置いていった。`, "dim"); return; }
+    const dropped = ch.gearBag.splice(i, 1)[0];
+    ch.gearBag.push(item);
+    log(`「${itemLabel(dropped)}」を置き、${item.name} を袋に入れた。`, "dim");
+    return;
+  }
+  ch.gearBag.push(item);
+  sfx("open");
+  log(`${item.name} を袋にしまった（${ch.gearBag.length}/${cap}）。街の武具屋か、迷宮の行商人に売れる。`, "dim");
+}
+
+/** 装備の売値（武具屋＝確実・高値／行商人＝便利・安値）。 */
+const SMITH_SELL_MUL = 0.6, MERCHANT_SELL_MUL = 0.45;
+const sellGear = (it: Item, mul: number) => Math.max(1, Math.round(itemValue(it) * mul));
 
 // ---------- 深蝕魔法（4-11F③）。燃料＝深蝕。詠唱＝そのターンの行動。自動対象で最小UX ----------
 $("spellBtn").onclick = async () => {
@@ -1600,7 +1659,7 @@ async function stairsPrompt(dir: "down" | "up") {
   }
   if (dir === "down") {
     const r = await sheet({ text: `下り階段がある。深度${f.depth + 1}へ降りるか？`, options: ["降りる", "とどまる"] });
-    if (r.pick === 1) { sfx("stairs"); enterFloor(f.depth + 1, true); await maybeDungeonEvent(floor!.depth); }
+    if (r.pick === 1) { sfx("stairs"); enterFloor(f.depth + 1, true); await maybeDungeonEvent(floor!.depth); await maybeMerchantEncounter(); }
   } else if (f.depth === 1) {
     const r = await sheet({ text: "地上への階段だ。街へ戻るか？\n（傷は癒えるが、浴びた深みは消えない）", options: ["街へ戻る", "とどまる"] });
     if (r.pick === 1) {
@@ -1611,7 +1670,7 @@ async function stairsPrompt(dir: "down" | "up") {
     }
   } else {
     const r = await sheet({ text: `上り階段がある。深度${f.depth - 1}へ戻るか？`, options: ["戻る", "とどまる"] });
-    if (r.pick === 1) { enterFloor(f.depth - 1, false); await maybeDungeonEvent(floor!.depth); }
+    if (r.pick === 1) { enterFloor(f.depth - 1, false); await maybeDungeonEvent(floor!.depth); await maybeMerchantEncounter(); }
   }
   busy = false;
   draw();
@@ -1676,6 +1735,38 @@ async function maybeDungeonEvent(depth: number) {
   save();
   busy = wasBusy;
   if (!wasBusy) draw();
+}
+
+/** 迷宮の行商人との出会い（4-10G）：袋の拾い物を安値（itemValue×0.45）でその場買い取り。
+ *  売る物があるときだけ稀に出る。帰還の試練中は出ない（追われている最中なので）。 */
+async function maybeMerchantEncounter() {
+  const ch = world.current;
+  if (!ch || !floor || ch.carryingRelic) return;
+  const bag = ch.gearBag ?? [];
+  if (!bag.length || rng.next() >= 0.3) return;
+  busy = true;
+  sfx("open");
+  let first = true;
+  for (;;) {
+    const b = ch.gearBag ?? [];
+    if (!b.length) { await sheet({ text: "「もう袋は空かい。また会おう、旅の人」。\n行商人は燭を揺らして去っていった。", options: ["うなずく"] }); break; }
+    const r = await sheet({
+      text: (first
+        ? "通路の角で、燭を提げた行商人とすれ違った。\n「やあ旅の人、迷宮で拾った得物はないかね。…言っておくが、街の鍛冶ほどの値は出せんよ」\n"
+        : "「ほかには？」\n") + `所持 金${ch.gold}／袋 ${b.length} 点。`,
+      meta: "迷宮 ── 行商人との出会い",
+      options: [...b.map((it) => `${itemLabel(it)}／${SLOT_LABEL[it.slot]}（＋${sellGear(it, MERCHANT_SELL_MUL)}金貨）`), "売らずに別れる"],
+    });
+    first = false;
+    const i = r.pick - 1;
+    if (i < 0 || i >= b.length) { log("行商人とすれ違い、また闇に分かれた。", "dim"); break; }
+    const it = b.splice(i, 1)[0], val = sellGear(it, MERCHANT_SELL_MUL);
+    ch.gold += val; sfx("open");
+    log(`${it.name} を行商人に売った（＋${val}金貨／所持 ${ch.gold}）。`, "dim");
+    save();
+  }
+  busy = false;
+  draw();
 }
 
 // ---------- 化石との対面（再発見 → 干渉） ----------
@@ -1908,9 +1999,12 @@ $("menuBtn").onclick = async () => {
   const invLine = ch
     ? `\n持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)}: ${(ch.inventory ?? []).length ? (ch.inventory ?? []).map((s) => `${consumableByKey(s.key)?.name ?? s.key}×${s.qty}`).join("、") : "なし"}`
     : "";
+  const gearLine = ch && (ch.gearBag ?? []).length
+    ? `\n拾い物の袋 ${(ch.gearBag ?? []).length}/${gearCapacity(ch)}: ${(ch.gearBag ?? []).map((it) => itemLabel(it)).join("、")}（武具屋/行商人で売る）`
+    : "";
   const sealLine = sealProgressLine();
   const sheetHead = ch
-    ? `《${ch.name}》Lv${ch.level} ── ${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のレベルまで残り${Math.max(0, xpToNext(ch.level) - ch.xp)}${eqLine}${invLine}\n深蝕 ${ch.exposure.toFixed(2)}${ch.carryingRelic ? `\n★聖遺物を携行中（生還せよ）` : ""}${spellNames ? `\n術: ${spellNames}` : ""}${ch.traits.length ? `\n形質: ${ch.traits.join("、")}` : ""}\n${sealLine}\n\n`
+    ? `《${ch.name}》Lv${ch.level} ── ${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のレベルまで残り${Math.max(0, xpToNext(ch.level) - ch.xp)}${eqLine}${invLine}${gearLine}\n深蝕 ${ch.exposure.toFixed(2)}${ch.carryingRelic ? `\n★聖遺物を携行中（生還せよ）` : ""}${spellNames ? `\n術: ${spellNames}` : ""}${ch.traits.length ? `\n形質: ${ch.traits.join("、")}` : ""}\n${sealLine}\n\n`
     : "";
   const mark = { birth: "生", death: "死", rediscovery: "再", intervention: "干", legend: "伝", rumor: "噂" } as const;
   const tail = world.chronicle.slice(-10).map((e) => `世代${e.generation} [${mark[e.kind]}] ${e.text}`).join("\n");
