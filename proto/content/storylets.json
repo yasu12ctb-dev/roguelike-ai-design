@@ -1081,6 +1081,149 @@
         { "label": "光の下に立つ", "text": "落ちてくる光を浴びると、忘れかけていた地上の輪郭が胸に戻り、深みの引力がわずかに緩んだ。", "effects": [ { "exposure": -0.6 }, { "trait": "見たもの:地の底に落ちた陽" }, { "chronicle": "深度#depth#で地の底に落ちる陽を浴び、深蝕を退けた。" } ] },
         { "label": "見上げただけで進む", "text": "光は美しいが、足は止められない。一瞥をくれて、また闇へ降りていった。", "effects": [ { "chronicle": "深度#depth#の岩盤の裂け目から落ちる陽を、見上げただけで過ぎた。" } ] }
       ]
+    },
+    {
+      "id": "tv_first_round",
+      "context": "tavern",
+      "prerequisites": { "notFlag": "spoke" },
+      "weight": 3,
+      "text": "#origin_epithet##origin_name# が、#origin_gear# を卓の脇に立てかけ、空の杯を回している。「次の一杯、奢ってくれるなら——とっておきの話がある」と笑った。",
+      "choices": [
+        { "label": "一杯奢る", "text": "安酒が二人分。代わりに深部の段差と、そこで何人沈んだかを聞かせてくれた。喉の奥の強張りが、酒と一緒にほどけていく。", "effects": [ { "exposure": -0.06 }, { "plant": "spoke" }, { "chronicle": "酒場で#origin_name# に一杯奢り、深部の噂を仕入れた。" } ] },
+        { "label": "自分の杯だけ頼む", "text": "「つれないね」と肩をすくめられた。それでも隣り合って飲む沈黙は、悪くなかった。", "effects": [ { "exposure": -0.02 }, { "chronicle": "酒場で#origin_name# と隣り合い、黙って飲んだ。" } ] }
+      ]
+    },
+    {
+      "id": "tv_war_story",
+      "context": "tavern",
+      "prerequisites": {},
+      "weight": 2,
+      "text": "卓を囲む冒険者たちが、#origin_name# の武勇伝をせがんでいる。「あの晩、#origin_gear# 一本で朝まで持ちこたえた」——眉唾だが、語り口は堂に入っている。",
+      "choices": [
+        { "label": "身を乗り出して聞く", "text": "嘘か真か、語りの熱が場を温める。生きて還った者の話は、それだけで薬になる。", "effects": [ { "exposure": -0.04 }, { "chronicle": "酒場で#origin_name# の武勇伝に聞き入った。" } ] },
+        { "label": "作り話だと茶々を入れる", "text": "どっと笑いが起きた。#origin_name# も「半分はな」と杯を掲げた。", "effects": [ { "chronicle": "酒場で#origin_name# の武勇伝に茶々を入れ、場が沸いた。" } ] }
+      ]
+    },
+    {
+      "id": "tv_toast_fallen",
+      "context": "tavern",
+      "prerequisites": {},
+      "weight": 2,
+      "text": "#origin_name# が不意に杯を上げた。「先に逝った奴らに」。卓の喧噪が、一瞬だけ凪ぐ。",
+      "choices": [
+        { "label": "黙って杯を合わせる", "text": "名も知らぬ死者たちへ、二人で献杯する。いつか自分も、こうして誰かに名を呼ばれるのだろうか。", "effects": [ { "exposure": -0.03 }, { "bond": 1 }, { "chronicle": "酒場で#origin_name# と、斃れた者たちへ献杯した。" } ] },
+        { "label": "そっと席を外す", "text": "湿っぽいのは性に合わない。杯を置いて、夜気の中へ出た。", "effects": [ { "chronicle": "酒場で#origin_name# の献杯を背に、静かに席を立った。" } ] }
+      ]
+    },
+    {
+      "id": "tv_loose_tongue",
+      "context": "tavern",
+      "prerequisites": { "minExposure": 0.6 },
+      "weight": 2,
+      "text": "酔いが回った#origin_name# が、声を落とす。「お前、目の奥が——深みに片足、突っ込んでるな。おれにも覚えがある」。",
+      "choices": [
+        { "label": "打ち明ける", "text": "抱えていた澱を、酒の力で少しだけ吐き出した。誰かに聞かれただけで、肩が軽い。", "effects": [ { "exposure": -0.05 }, { "chronicle": "酒場で#origin_name# に深蝕の兆しを打ち明け、少し楽になった。" } ] },
+        { "label": "はぐらかす", "text": "「酔いすぎだ」と笑って流す。だが見透かされた感触は、杯の底に残った。", "effects": [ { "chronicle": "酒場で#origin_name# に深みの兆しを見抜かれたが、はぐらかした。" } ] }
+      ]
+    },
+    {
+      "id": "tv_song",
+      "context": "tavern",
+      "prerequisites": { "flag": "spoke" },
+      "weight": 2,
+      "text": "#origin_name# が古い坑道歌を口ずさみ始めた。「ほら、お前も知ってるだろ」と肘でつついてくる。",
+      "choices": [
+        { "label": "声を合わせる", "text": "調子っぱずれの合唱が、酒場の隅から広がっていく。馬鹿げているのに、なぜか目の奥が熱い。", "effects": [ { "bond": 1 }, { "exposure": -0.04 }, { "chronicle": "酒場で#origin_name# と坑道歌を歌い、絆を深めた。" } ] },
+        { "label": "聞き役に回る", "text": "下手に交ざるより、と聞き役に徹した。#origin_name# の歌は、存外うまかった。", "effects": [ { "chronicle": "酒場で#origin_name# の坑道歌に耳を傾けた。" } ] }
+      ]
+    },
+    {
+      "id": "gl_posting_board",
+      "context": "guild",
+      "prerequisites": { "notFlag": "guild_seen" },
+      "weight": 3,
+      "text": "掲示板の前で、#origin_name# が貼り紙を吟味している。「割のいい口は、貼られた端から消える」と、#origin_gear# で板の隅を指した。",
+      "choices": [
+        { "label": "並んで貼り紙を読む", "text": "到達・回収・討伐——依頼の相場を一通り教わった。ギルドの動かし方が、少し見えてくる。", "effects": [ { "plant": "guild_seen" }, { "chronicle": "ギルドで#origin_name# に、貼り紙の読み方を教わった。" } ] },
+        { "label": "会釈だけして通る", "text": "今日は受ける気がない。#origin_name# は「気が向いたらな」と板に向き直った。", "effects": [ { "chronicle": "ギルドで#origin_name# と掲示板の前ですれ違った。" } ] }
+      ]
+    },
+    {
+      "id": "gl_depth_intel",
+      "context": "guild",
+      "prerequisites": {},
+      "weight": 2,
+      "text": "受付の長椅子で、#origin_name# が地図の切れ端を広げている。「この帯は、灯りが効かん。覚えとけ」と低く言った。",
+      "choices": [
+        { "label": "書き写させてもらう", "text": "深部の一帯の癖を頭に刻んだ。生きた者の手記は、どんな噂より確かだ。", "effects": [ { "trait": "見たもの:#origin_name#の深部図" }, { "chronicle": "ギルドで#origin_name# から深部の地勢を教わった。" } ] },
+        { "label": "礼を言って辞す", "text": "「ただより高いものはないぞ」と#origin_name# は笑った。冗談か、前金の催促か。", "effects": [ { "chronicle": "ギルドで#origin_name# に深部の助言をもらった。" } ] }
+      ]
+    },
+    {
+      "id": "gl_rank_talk",
+      "context": "guild",
+      "prerequisites": {},
+      "weight": 2,
+      "text": "#origin_name# が、壁に並ぶ等級の銘板を見上げている。「銀から金は、生きてるだけじゃ上がれん。偉業がいる」とひとりごちた。",
+      "choices": [
+        { "label": "昇級の条件を尋ねる", "text": "何を成せば名が上の段へ移るのか、噛んで含めるように教わった。遠い段の名が、急に現実味を帯びる。", "effects": [ { "chronicle": "ギルドで#origin_name# に、等級の上がり方を聞いた。" } ] },
+        { "label": "自分には縁遠いと返す", "text": "「最初はみんなそう言う」と#origin_name# は肩をすくめた。", "effects": [ { "chronicle": "ギルドで#origin_name# と等級の話をした。" } ] }
+      ]
+    },
+    {
+      "id": "gl_veteran_nod",
+      "context": "guild",
+      "prerequisites": { "minBond": 2 },
+      "weight": 2,
+      "text": "受付に現れた#origin_name# が、こちらを認めて短く頷いた。「お前の名、奥でも挙がってたぞ」。",
+      "choices": [
+        { "label": "その評判を聞き返す", "text": "どんな噂が回っているのか、#origin_name# が面白そうに教えてくれた。顔見知りが一人、確かに増えていく。", "effects": [ { "bond": 1 }, { "chronicle": "ギルドで#origin_name# に、自分の評判が立っていると知らされた。" } ] },
+        { "label": "謙遜して受け流す", "text": "「謙遜も度が過ぎると嫌味だ」と#origin_name# は笑い、奥へ消えた。", "effects": [ { "chronicle": "ギルドで#origin_name# に名を挙げられ、照れ隠しに受け流した。" } ] }
+      ]
+    },
+    {
+      "id": "sp_browse",
+      "context": "shop",
+      "prerequisites": { "notFlag": "shop_seen" },
+      "weight": 3,
+      "text": "棚の前で、#origin_name# が品を吟味している。「掘り出し物は、目利き次第だ」と、こちらの手元の品に目をやった。",
+      "choices": [
+        { "label": "見立てを乞う", "text": "良し悪しの勘どころを、いくつか指南してもらった。同じ棚が、急に違って見えてくる。", "effects": [ { "plant": "shop_seen" }, { "chronicle": "店で#origin_name# に、品の見立てを教わった。" } ] },
+        { "label": "自分で選ぶと断る", "text": "「結構なことだ」と#origin_name# は手を引いた。値踏みは、各々の流儀がある。", "effects": [ { "chronicle": "店で#origin_name# と棚の前で言葉を交わした。" } ] }
+      ]
+    },
+    {
+      "id": "sp_haggle_tip",
+      "context": "shop",
+      "prerequisites": {},
+      "weight": 2,
+      "text": "会計を終えた#origin_name# が、すれ違いざまに耳打ちする。「ここの主は、二度目から負ける。粘ってみな」。",
+      "choices": [
+        { "label": "礼を言う", "text": "値切りの呼吸を、ひとつ覚えた。財布の紐は、こうして少しずつ賢くなる。", "effects": [ { "chronicle": "店で#origin_name# から値切りの勘どころを教わった。" } ] },
+        { "label": "正直に買うと返す", "text": "「律儀だな」と#origin_name# は笑って出ていった。", "effects": [ { "chronicle": "店で#origin_name# に値切りを勧められたが、定価で買った。" } ] }
+      ]
+    },
+    {
+      "id": "sp_gear_envy",
+      "context": "shop",
+      "prerequisites": { "minBond": 1 },
+      "weight": 2,
+      "text": "#origin_name# が、こちらの#origin_gear# にちらと目を留めた。「いい得物だ。どこで手に入れた」と、職人の顔になる。",
+      "choices": [
+        { "label": "来歴を語る", "text": "得物の由来を語り合ううち、互いの戦い方まで見えてくる。道具の話は、人柄の話だ。", "effects": [ { "bond": 1 }, { "chronicle": "店で#origin_name# と得物の来歴を語り合い、打ち解けた。" } ] },
+        { "label": "企業秘密だとぼかす", "text": "「商売敵にはな」と笑って濁す。#origin_name# も「違いない」と引き下がった。", "effects": [ { "chronicle": "店で#origin_name# に得物を褒められ、来歴はぼかした。" } ] }
+      ]
+    },
+    {
+      "id": "sp_relic_gossip",
+      "context": "shop",
+      "prerequisites": {},
+      "weight": 2,
+      "text": "異物の並ぶ一角で、#origin_name# が声を潜める。「あれに手を出した奴が、先月ひとり——いや、よそう。縁起でもない」。",
+      "choices": [
+        { "label": "続きをせがむ", "text": "鑑定されぬまま深みを宿す品の、剣呑な噂を聞かされた。背筋を、冷たいものが撫でていく。", "effects": [ { "exposure": 0.04 }, { "chronicle": "店で#origin_name# から、異物にまつわる剣呑な噂を聞いた。" } ] },
+        { "label": "そこで止める", "text": "「賢明だ」と#origin_name# は棚から離れた。知らぬが仏、ということもある。", "effects": [ { "chronicle": "店で#origin_name# の異物話を、途中で切り上げた。" } ] }
+      ]
     }
   ]
 }
