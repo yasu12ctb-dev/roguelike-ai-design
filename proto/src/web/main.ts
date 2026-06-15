@@ -501,6 +501,54 @@ async function healerTreat() {
   log(`薬と祈りで、深蝕がわずかに退いた（−0.6／所持 ${ch.gold}）。`, "dim");
   save();
 }
+// 慰霊堂〈鎮魂の堂〉：縁ある化石を鎮魂＝変質クロックを巻き戻し因縁を閉じる（4-2）。
+// バランス（ユーザー承認）：対象は「絆を持つ化石」のみ＋金貨コスト（深度/死亡時深蝕に比例）。
+// 街から全化石を無料リセットできないようにし「放置→怨念」の堆積テンソンを守る。
+// 鎮魂は自分の深蝕も少し浄める（人間性の回復弁＝戦闘版鎮め筋と対）。
+function requiemCost(f: Fossil): number {
+  return 8 + f.laidDepth * 2 + Math.round(f.exposureAtDeath * 8);
+}
+async function shrineRequiem() {
+  busy = true;
+  const ch = world.current!;
+  // 絆のある（=迷宮で出会った）化石だけが対象。今世代で既に手をかけた相手は除く（時計は今リセット済み）。
+  const bonded = new Set(ch.bonds.map((b) => b.entityRef));
+  const targets = world.fossils.filter(
+    (f) => bonded.has(f.id) && f.lastTouchedGeneration !== world.generation,
+  );
+  if (!targets.length) {
+    await sheet({
+      text: "鎮めるべき相手と、まだ縁が結ばれていない。\n迷宮で出会った者だけが、ここで弔える。",
+      meta: "慰霊堂 ── 鎮魂", options: ["うなずく"],
+    });
+    busy = false; return;
+  }
+  const r = await sheet({
+    text: `弔いの巫女。所持 金${ch.gold}。\n縁ある者を鎮める──末路を閉じ、変質の時計を巻き戻す。`,
+    meta: "慰霊堂 ── 鎮魂（絆のある化石）",
+    options: [
+      ...targets.map((f) => `${f.origin.name}を鎮める（${poleLabel(f.tonePole)}・深度${f.laidDepth}／${requiemCost(f)}金貨）`),
+      "やめる",
+    ],
+  });
+  busy = false;
+  const i = r.pick - 1;
+  if (i < 0 || i >= targets.length) return;
+  const f = targets[i], price = requiemCost(f);
+  if (ch.gold < price) {
+    busy = true;
+    await sheet({ text: "金貨が足りない。", options: ["うなずく"] });
+    busy = false; return;
+  }
+  ch.gold -= price;
+  intervene(world, f.id, "requiem"); // 変質クロック巻き戻し＋因縁を閉じる（4-2）
+  const before = ch.exposure;
+  ch.exposure = Math.max(0, ch.exposure - REQUIEM_RELIEF); // 鎮魂は自分の深蝕も少し浄める
+  sfx("intervene");
+  log(`弔いの巫女とともに、${f.origin.name}を鎮めた（−${price}金貨／所持 ${ch.gold}）。`);
+  if (ch.exposure < before) log(`祈りのあいだ、胸の澱がわずかに晴れた（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
+  save();
+}
 async function talkKeeper() {
   if (busy || !interior) return;
   const kind = interior.kind;
@@ -520,6 +568,7 @@ async function talkKeeper() {
   if (kind === "smith" && actIdx === 0) return void smithBuy();         // 装備を売買／修理する
   if (kind === "healer" && actIdx === 1) return void healerTreat();     // 深蝕の進行を診てもらう
   if (kind === "guild" && actIdx === 0) return void questBoard();       // 依頼を受ける（回収業）
+  if (kind === "shrine" && actIdx === 0) return void shrineRequiem();   // 化石を鎮魂する（末路を閉じる）
   busy = true;
   await sheet({
     text: `${d.name}：「${d.acts[actIdx]}」\n\n……その商いは、まだ整っていない。`,
