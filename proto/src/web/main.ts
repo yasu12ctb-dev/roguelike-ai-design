@@ -381,7 +381,7 @@ function startWander() {
     if (mode !== "town" || busy || overlayEl.classList.contains("show")) return;
     wanderCrowd(townGrid, rng, crowd, townPlayer);
     drawTown();
-  }, 650);
+  }, 1100);
 }
 function stopWander() { if (wanderTimer) { clearInterval(wanderTimer); wanderTimer = null; } }
 
@@ -1010,13 +1010,16 @@ async function talkCrowd(a: CrowdActor) {
   if (busy) return;
   busy = true;
   const ch = world.current;
-  // 一定確率で生者NPC（アクター記述子）との出会い＝旧「旅の者と語らう」（4-12G）を保存
-  if (ch && rng.next() < 0.5) {
-    const la = meetActor(world, db, rng);
+  // 同じ通行人には同じ素性で応じる：初回に「生者NPC／純背景」を確定してキャッシュ。
+  // （2回目で別人になるバグの修正。CrowdActor は街滞在中だけ生きる ephemeral）
+  if (a.npc === undefined) a.npc = (ch && rng.next() < 0.5) ? meetActor(world, db, rng) : null;
+  // 生者NPC（アクター記述子）との出会い＝旧「旅の者と語らう」（4-12G）
+  if (ch && a.npc) {
+    const la = a.npc;
+    const head = `${la.actor.epithet ?? ""}${la.actor.name}（${la.actor.archetype}）`;
     const sl = selectTownStorylet(db, world, ch, la, rng);
     if (sl && sl.choices) {
-      const head = `${la.actor.epithet ?? ""}${la.actor.name}（${la.actor.archetype}）\n\n${fillActorText(la.actor, sl.text ?? "")}`;
-      const c = await sheet({ text: head, options: sl.choices.map((o) => o.label) });
+      const c = await sheet({ text: `${head}\n\n${fillActorText(la.actor, sl.text ?? "")}`, options: sl.choices.map((o) => o.label) });
       const choice = sl.choices[c.pick - 1];
       const lines = applyActorEffects(world, ch, la, choice.effects);
       await sheet({
@@ -1024,12 +1027,16 @@ async function talkCrowd(a: CrowdActor) {
         options: ["席を立つ"],
       });
       save();
-      busy = false;
-      return;
+    } else {
+      await sheet({ text: `${head}\n\n「……」と、ことば少なに会釈を返された。`, meta: "街路の出会い", options: ["うなずいて別れる"] });
     }
+    busy = false;
+    return;
   }
+  // 純背景の通行人：初回に引いたセリフを固定（同じ人は同じことを言う）
   const k = townGrid.data.crowd.kinds[a.kind];
-  await sheet({ text: `${k.label}\n\n「${rng.pick(k.lines)}」`, meta: "街路の群衆（背景）", options: ["うなずいて別れる"] });
+  if (a.bgLine === undefined) a.bgLine = rng.pick(k.lines);
+  await sheet({ text: `${k.label}\n\n「${a.bgLine}」`, meta: "街路の群衆（背景）", options: ["うなずいて別れる"] });
   busy = false;
 }
 async function talkGuard(g: GuardDef) {
