@@ -134,8 +134,8 @@ export function buildInterior(kind: string): Interior {
   tiles[2][5] = "floor";
   tiles[4][5] = "rug";
   let keeperPos: Pos = { x: 5, y: 1 };
-  if (kind === "house") {
-    for (let i = 4; i <= 6; i++) tiles[2][i] = "floor"; // 民家はカウンターなし
+  if (kind === "house" || kind === "home") {
+    for (let i = 4; i <= 6; i++) tiles[2][i] = "floor"; // 民家・自宅はカウンターなし
     keeperPos = { x: 5, y: 2 };
   }
   const exitPos: Pos = { x: 5, y: IH - 2 };

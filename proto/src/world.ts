@@ -4,7 +4,7 @@ import type {
   Character, ChronicleEntry, DeathManner, FinalAct, Fossil, Lineage, World,
 } from "./types.ts";
 import { resolveTonePole } from "./variation.ts";
-import { BASE_STATS } from "./progression.ts";
+import { BASE_STATS, STASH_INHERIT } from "./progression.ts";
 
 let idCounter = 0;
 const newId = (prefix: string) => `${prefix}_${(++idCounter).toString(36)}`;
@@ -28,6 +28,8 @@ export function migrateWorld(w: World): World {
   if (!Array.isArray(w.actors)) w.actors = []; // 生者NPC（4-12(G)）：欠落は常に補完
   if (!Array.isArray(w.flags)) w.flags = [];
   if (!Array.isArray(w.quests)) w.quests = []; // v8：依頼（回収業 4-10G）
+  if (!Array.isArray(w.stash)) w.stash = [];       // 自宅の保管庫・消耗品（持ち物 Phase3）：欠落は空で補完
+  if (!Array.isArray(w.stashGear)) w.stashGear = []; // 自宅の保管庫・装備：欠落は空で補完
   if (w.town) { // 歩ける街（4-4B）：旧セーブに欠落するサブシーン状態を補完
     if (w.town.scene !== "town" && w.town.scene !== "interior") w.town.scene = "town";
     if (w.town.interiorKind === undefined) w.town.interiorKind = null;
@@ -51,6 +53,8 @@ export function newWorld(seed: number): World {
     flags: [],
     actors: [],
     quests: [],
+    stash: [],
+    stashGear: [],
   };
   // シード化石①：老兵の亡骸（喪失・浅層）
   world.fossils.push({
@@ -130,6 +134,9 @@ export function fossilizeCurrent(world: World, manner: DeathManner, finalAct: Fi
     [fossil.id]);
   world.generation += 1;
   world.current = null;
+  // 自宅の保管庫は世代を越えて残るが、遺せるのは消耗品・装備それぞれ STASH_INHERIT 枠まで（残りは歳月とともに失われる）。
+  if (Array.isArray(world.stash) && world.stash.length > STASH_INHERIT) world.stash = world.stash.slice(0, STASH_INHERIT);
+  if (Array.isArray(world.stashGear) && world.stashGear.length > STASH_INHERIT) world.stashGear = world.stashGear.slice(0, STASH_INHERIT);
   return fossil;
 }
 

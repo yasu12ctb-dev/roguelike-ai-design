@@ -12,6 +12,10 @@ export const maxHp = (ch: Character) => HP_BASE + ch.stats.body * HP_PER;
 export const CARRY_BASE = 6;
 export const carryCapacity = (ch: Character) =>
   CARRY_BASE + Math.floor(ch.level / 2) + (ch.equipment?.bag?.capacity ?? 0);
+/** 自宅の保管庫（持ち物 Phase3）。総容量＝消耗品スタック＋装備の合計枠（H&Sの収集＝現代H&Sの1タブ相当60）。
+ *  世代交代で次代へ残るのは消耗品・装備それぞれ STASH_INHERIT 枠まで（残りは失われる）。 */
+export const STASH_CAP = 60;
+export const STASH_INHERIT = 4;
 /** 近接ダメージ＝力＋武器（power2・素手 で 3＝従来値。4-11F④） */
 export const meleeDmg = (ch: Character) => ch.stats.power + 1 + (ch.equipment?.weapon?.dmg ?? 0);
 /** 被ダメージ軽減＝防具（B案・下限は呼び出し側で min1） */
