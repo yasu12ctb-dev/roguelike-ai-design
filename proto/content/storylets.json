@@ -1048,6 +1048,39 @@
         { "label": "手を合わせる", "text": "同じ深蝕を負う者どうし、言葉以上のものが通じた。孤独が、ほんの少し薄れる。", "effects": [ { "bond": 1 }, { "exposure": -0.03 }, { "chronicle": "街で#origin_name# と、深蝕を分かち合う者の絆を結んだ。" } ] },
         { "label": "目をそらす", "text": "自分の手の染みを袖で隠し、何も言わずに離れた。", "effects": [ { "chronicle": "街で#origin_name# の深蝕を見て、目をそらした。" } ] }
       ]
+    },
+    {
+      "id": "dg_mid_springwater",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "mid", "minExposure": 0.6 },
+      "weight": 2,
+      "text": "岩間から細く湧く水。深みの澱みとは無縁の、奇妙なほど澄んだ流れだ。",
+      "choices": [
+        { "label": "掬って顔を洗う", "text": "冷たさが額を伝うと、胸の奥に溜まっていた濁りが、いくらか退いていくのを感じた。", "effects": [ { "exposure": -0.4 }, { "chronicle": "深度#depth#の澄んだ湧き水で、深蝕がいくらか退いた。" } ] },
+        { "label": "触れずに進む", "text": "うまい話には裏がある。喉の渇きを噛み殺し、水には手を触れずに通り過ぎた。", "effects": [ { "chronicle": "深度#depth#の湧き水を、警戒して見送った。" } ] }
+      ]
+    },
+    {
+      "id": "dg_deep_breath",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "deep", "minExposure": 1.0 },
+      "weight": 2,
+      "text": "空気がふいに澄む一角。ここだけ、深みの囁きが届かない。なぜか、地上の朝を思い出す。",
+      "choices": [
+        { "label": "立ち止まって深く息をする", "text": "肺の底まで澄んだ空気を入れると、染みついた深みが、ほんの少しだけ剥がれていった。", "effects": [ { "exposure": -0.5 }, { "chronicle": "深度#depth#の澄んだ一角で息をつき、深蝕を和らげた。" } ] },
+        { "label": "気を緩めず通る", "text": "こんな所で気を抜けば命取りだ。息を詰めたまま、足早に抜けた。", "effects": [ { "chronicle": "深度#depth#の澄んだ一角を、警戒したまま通り抜けた。" } ] }
+      ]
+    },
+    {
+      "id": "dg_deep_skylight",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "deep", "minExposure": 1.2 },
+      "weight": 1,
+      "text": "遥か頭上、岩盤の裂け目から細い光が落ちている。地の底にあるはずのない、白い陽の名残。",
+      "choices": [
+        { "label": "光の下に立つ", "text": "落ちてくる光を浴びると、忘れかけていた地上の輪郭が胸に戻り、深みの引力がわずかに緩んだ。", "effects": [ { "exposure": -0.6 }, { "trait": "見たもの:地の底に落ちた陽" }, { "chronicle": "深度#depth#で地の底に落ちる陽を浴び、深蝕を退けた。" } ] },
+        { "label": "見上げただけで進む", "text": "光は美しいが、足は止められない。一瞥をくれて、また闇へ降りていった。", "effects": [ { "chronicle": "深度#depth#の岩盤の裂け目から落ちる陽を、見上げただけで過ぎた。" } ] }
+      ]
     }
   ]
 }

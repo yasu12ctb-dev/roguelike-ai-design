@@ -193,7 +193,7 @@ export async function runGame(
 
   /** ダンジョン環境イベント（context=dungeon・4-12 F）。発火したら true。 */
   async function dungeonEvent(ch: Character): Promise<boolean> {
-    const ev = selectDungeonStorylet(db, ch.depth, rng);
+    const ev = selectDungeonStorylet(db, ch.depth, rng, ch.exposure);
     if (!ev || !ev.choices || ev.choices.length === 0) return false;
     say("");
     say(`  ${fillDungeonText(ch.depth, ev.text ?? "")}`);
