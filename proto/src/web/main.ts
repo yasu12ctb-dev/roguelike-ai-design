@@ -12,7 +12,7 @@ import {
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
 import {
   maxHp, meleeDmg, heartFactor, xpToNext, xpForKill, statsLine,
-  STAT_KEYS, STAT_LABEL, HP_PER, carryCapacity,
+  STAT_KEYS, STAT_LABEL, HP_PER, carryCapacity, STASH_CAP, STASH_INHERIT,
   armorReduce, effectiveReason, xpMul, equipExposure,
 } from "../progression.ts";
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
@@ -779,6 +779,76 @@ async function storeManage() {
   }
   busy = false;
 }
+// ---------- 自宅の保管庫（持ち物 Phase3）。World.stash に置く＝世代を越えて残る（遺せるのは STASH_INHERIT 枠まで＝world.ts で切詰め） ----------
+function stashAdd(key: string): boolean {
+  world.stash ??= [];
+  const s = world.stash.find((x) => x.key === key);
+  if (s) { s.qty += 1; return true; }
+  if (world.stash.length >= STASH_CAP) return false; // 保管庫が一杯
+  world.stash.push({ key, qty: 1 });
+  return true;
+}
+function stashTake(key: string) {
+  const s = world.stash?.find((x) => x.key === key);
+  if (!s) return;
+  s.qty -= 1;
+  if (s.qty <= 0) world.stash = (world.stash ?? []).filter((x) => x !== s);
+}
+// 自宅 act0「保管庫に預ける」：持ち物の消耗品を保管庫へ（世代を越えて残る）。
+async function homeDeposit() {
+  busy = true;
+  const ch = world.current!;
+  for (;;) {
+    const inv = ch.inventory ?? [];
+    if (!inv.length) { await sheet({ text: "預けられる持ち物がない。", options: ["うなずく"] }); break; }
+    const r = await sheet({
+      text: `わが家の物入れ。保管庫 ${world.stash?.length ?? 0}/${STASH_CAP} 枠（世代を越えて残るのは ${STASH_INHERIT} 枠まで）。\n何を預ける？`,
+      meta: "自宅 ── 預ける",
+      options: [...inv.map((s) => `${consumableByKey(s.key)?.name ?? s.key} ×${s.qty}`), "やめる"],
+    });
+    const i = r.pick - 1;
+    if (i < 0 || i >= inv.length) break;
+    const s = inv[i];
+    if (!stashAdd(s.key)) { await sheet({ text: "保管庫がもう一杯だ。", options: ["うなずく"] }); continue; }
+    consumeOne(ch, s.key); sfx("open");
+    log(`${consumableByKey(s.key)?.name ?? s.key} を保管庫に預けた。`, "dim"); save();
+  }
+  busy = false;
+}
+// 自宅 act1「保管庫から引き出す」：保管庫→持ち物（持ち物の容量を尊重）。
+async function homeWithdraw() {
+  busy = true;
+  const ch = world.current!;
+  for (;;) {
+    const st = world.stash ?? [];
+    if (!st.length) { await sheet({ text: "保管庫は空だ。", options: ["うなずく"] }); break; }
+    const r = await sheet({
+      text: `保管庫 ${st.length}/${STASH_CAP} 枠。持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)} 枠。\n何を引き出す？`,
+      meta: "自宅 ── 引き出す",
+      options: [...st.map((s) => `${consumableByKey(s.key)?.name ?? s.key} ×${s.qty}`), "やめる"],
+    });
+    const i = r.pick - 1;
+    if (i < 0 || i >= st.length) break;
+    const s = st[i];
+    if (!addConsumable(ch, s.key)) { await sheet({ text: "持ち物が一杯だ。", options: ["うなずく"] }); continue; }
+    stashTake(s.key); sfx("open");
+    log(`${consumableByKey(s.key)?.name ?? s.key} を持ち物に移した。`, "dim"); save();
+  }
+  busy = false;
+}
+// 自宅 act2「物入れを検める」：保管庫の中身を眺める（世代越えの確認＋フレーバー）。
+async function homeView() {
+  busy = true;
+  const st = world.stash ?? [];
+  const body = st.length
+    ? st.map((s) => `・${consumableByKey(s.key)?.name ?? s.key} ×${s.qty}`).join("\n")
+    : "物入れは空だ。";
+  await sheet({
+    text: `代々の物入れ。世代を越えて遺せるのは ${STASH_INHERIT} 枠まで。\n\n${body}`,
+    meta: `自宅 ── 保管庫 ${st.length}/${STASH_CAP}`, options: ["閉じる"],
+  });
+  busy = false;
+}
 async function talkKeeper() {
   if (busy || !interior) return;
   const kind = interior.kind;
@@ -807,6 +877,9 @@ async function talkKeeper() {
   if (kind === "store" && actIdx === 0) return void storeBuy();         // 消耗品を買う
   if (kind === "store" && actIdx === 1) return void storeSell();        // 異物・拾い物を売る
   if (kind === "store" && actIdx === 2) return void storeManage();      // 携行品を整える（使う/捨てる）
+  if (kind === "home" && actIdx === 0) return void homeDeposit();       // 保管庫に預ける
+  if (kind === "home" && actIdx === 1) return void homeWithdraw();      // 保管庫から引き出す
+  if (kind === "home" && actIdx === 2) return void homeView();          // 物入れを検める
   busy = true;
   await sheet({
     text: `${d.name}：「${d.acts[actIdx]}」\n\n……その商いは、まだ整っていない。`,

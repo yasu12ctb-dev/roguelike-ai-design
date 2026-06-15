@@ -38,7 +38,10 @@
       "acts": ["傷を癒す", "深蝕の進行を診てもらう", "薬を買う"] },
     "house":    { "sign": "戸", "color": "#6a6048", "place": "民家", "name": "住人", "title": "町の住人", "actorId": null,
       "line": "おや、潜る人かい。足下に気をつけて、古い床なんだ。",
-      "acts": [] }
+      "acts": [] },
+    "home":     { "sign": "宅", "color": "#c0a35e", "place": "わが家", "name": "わが家", "title": "代々の住処", "actorId": null,
+      "line": "見慣れた我が家。隅の物入れは、先代から代々この家に遺されてきたものだ。",
+      "acts": ["保管庫に預ける", "保管庫から引き出す", "物入れを検める"] }
   },
   "buildings": [
     { "kind": "smith",    "x": 16, "y": 23, "w": 8, "h": 5, "door": [23, 25], "zone": "commerce" },
@@ -50,7 +53,7 @@
     { "kind": "shrine",   "x": 6,  "y": 18, "w": 6, "h": 4, "door": [8, 21],  "zone": "fringe" },
     { "kind": "oddments", "x": 44, "y": 11, "w": 8, "h": 5, "door": [47, 15], "zone": "fringe" },
     { "kind": "healer",   "x": 44, "y": 17, "w": 7, "h": 4, "door": [47, 20], "zone": "fringe" },
-    { "kind": "house",    "x": 18, "y": 11, "w": 5, "h": 4, "door": [20, 14], "zone": "resid" },
+    { "kind": "home",     "x": 18, "y": 11, "w": 5, "h": 4, "door": [20, 14], "zone": "resid" },
     { "kind": "house",    "x": 24, "y": 11, "w": 5, "h": 4, "door": [26, 14], "zone": "resid" },
     { "kind": "house",    "x": 30, "y": 11, "w": 5, "h": 4, "door": [32, 14], "zone": "resid" },
     { "kind": "house",    "x": 36, "y": 11, "w": 5, "h": 4, "door": [38, 14], "zone": "resid" },
