@@ -19,7 +19,25 @@ export interface World {
   quests?: Quest[];             // 受注中/達成済の依頼（回収業 4-10G）
   stash?: InventorySlot[];      // 自宅の保管庫：消耗品（世代を越えて残る＝持ち物システム Phase3）。任意＝旧セーブ非破壊。
   stashGear?: Item[];           // 自宅の保管庫：装備（武器/防具/遺物/鞄の収集。世代越え）。任意＝旧セーブ非破壊。
+  seals?: string[];             // 奉献の試練：集めた印（SealKey。World に蓄積＝世代越え。5種で深淵帯解錠：4-13A）。任意＝旧セーブ非破壊。
+  ascended?: number;            // 奉献の試練：聖遺物を地上へ生還させてクリアした回数（4-13D）。任意＝旧セーブ非破壊。
 }
+
+/** 奉献の試練の印（4-13A）。多様な源から1種ずつ。5種揃うと深淵帯が解錠。 */
+export type SealKey =
+  | "abyss_boss"    // エリアボス（成れの果て）を撃破
+  | "requiem"       // 因縁（grudge 化石）を鎮魂
+  | "setpiece"      // 山場（grudge_hunt/legend_return）を決着
+  | "legend"        // 旧キャラを伝説化（player_legend）
+  | "depth";        // 深淵帯手前の高深度に到達
+export const SEAL_KEYS: SealKey[] = ["abyss_boss", "requiem", "setpiece", "legend", "depth"];
+export const SEAL_LABEL: Record<SealKey, string> = {
+  abyss_boss: "成れの果ての討伐",
+  requiem: "因縁の鎮魂",
+  setpiece: "山場の決着",
+  legend: "伝説の承認",
+  depth: "深淵への到達",
+};
 
 /** ステ4種（4-11F②）。体=最大HP / 力=近接ダメージ / 理=深蝕魔法の素養(③) / 心=深蝕耐性 */
 export interface Stats { body: number; power: number; reason: number; heart: number; }
@@ -61,6 +79,7 @@ export interface Character {
   inventory?: InventorySlot[];  // 持ち物（消耗品。容量はレベルで増える＝progression.carryCapacity）。任意＝旧セーブ非破壊。
   prayedAtShrineGen?: number;   // 慰霊堂「深蝕を清める祈り」を捧げた世代（1世代1回ガード）。任意＝旧セーブ非破壊。
   cultBoonsThisGen?: number;    // 教団「深蝕を捧げる」を今世代に受けた回数（対価の逓増に使う）。任意＝旧セーブ非破壊。
+  carryingRelic?: string;       // 奉献の試練：携行中の聖遺物の名（4-13C）。設定中は深蝕急騰＋追手。生還でクリア。任意＝旧セーブ非破壊。
 }
 
 export interface Lineage {
