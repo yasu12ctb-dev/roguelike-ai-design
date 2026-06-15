@@ -919,13 +919,13 @@ async function homeView() {
 // ---------- 書記＝伝説化承認／系譜（4-4）・ギルド＝等級・英雄譜（4-4） ----------
 const TRACK_SOURCE_LABEL: Record<string, string> = { seeded: "街の古い伝説", player_legend: "あなたが遺した伝説", nemesis: "因縁の相手" };
 const ARC_LABEL: Record<string, string> = { retire: "静かなる昇華", doom: "破滅の弧", fall: "堕ちゆく弧", lore_drift: "伝承の漂い" };
-/** 現キャラの等級＝レベル帯（4-4 ギルド）。 */
+/** 現キャラの等級＝レベル帯（4-4 ギルド）。金属6等級のうち生者はプラチナまで。ミスリル（秘銀・神話）は原則死後称号＝legendApprove で授かる。 */
 function rankLabel(level: number): string {
-  if (level >= 12) return "英雄";
-  if (level >= 8) return "練達";
-  if (level >= 5) return "熟練";
-  if (level >= 3) return "一人前";
-  return "見習い";
+  if (level >= 12) return "プラチナ（英傑）";
+  if (level >= 8) return "ゴールド（精鋭）";
+  if (level >= 5) return "シルバー（一人前）";
+  if (level >= 3) return "ブロンズ（駆け出し）";
+  return "アイアン（新参）";
 }
 // 書記 act1「旧キャラを伝説として承認する」：神話極の旧キャラを player_legend へ昇格（4-4）。
 // 昇格すると後世で legend_return（祝福の山場）として戻れ、英雄譜に名が刻まれる。無料・各化石1回。
@@ -940,7 +940,7 @@ async function legendApprove() {
     busy = false; return;
   }
   const r = await sheet({
-    text: "「誰の名を、街の伝説として刻もうか」。\n神話の極で逝った旧き者だけが、英雄譜に昇る。",
+    text: "「誰の名を、街の伝説として刻もうか」。\n神話の極で逝った旧き者だけが、秘銀（ミスリル）の名と共に英雄譜に昇る。",
     meta: "書記 ── 伝説化の承認（4-4）",
     options: [...elig.map((f) => `${f.origin.name}（深度${f.death.depth}・${poleLabel(f.tonePole)}の極）`), "やめる"],
   });
