@@ -246,8 +246,19 @@ export interface StoryletChoice {
   effects: Effect[];
 }
 
-/** イベントの発生場所＝コンテキスト（4-12(F)。混合せず、コンテキスト内で大量×重み）。 */
-export type StoryletContext = "encounter" | "dungeon" | "town" | "quest" | "chest";
+/** イベントの発生場所＝コンテキスト（4-12(F)・4-14：場所で別の顔を出す。混合せず、コンテキスト内で大量×重み）。 */
+export type StoryletContext =
+  | "encounter"  // 化石/アクターとの出会い（迷宮）
+  | "dungeon"    // 迷宮の環境イベント（アクター無し）
+  | "street"     // 街路の生者（旧 "town"）
+  | "tavern"     // 酒場の生者
+  | "guild"      // ギルドの生者
+  | "shop"       // 店内の生者
+  | "quest"      // 依頼
+  | "chest";     // 宝箱の中身
+
+/** 街で生者と会いうる場所（4-14：street を基盤に、tavern/guild/shop が固有の顔を上乗せ）。 */
+export type TownContext = "street" | "tavern" | "guild" | "shop";
 
 /** 状況。encounter は investigate/search、dungeon は text+choices、chest は result を使う（4-12 F）。 */
 export interface Storylet {
