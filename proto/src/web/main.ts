@@ -879,6 +879,87 @@ async function homeView() {
   });
   busy = false;
 }
+
+// ---------- 書記＝伝説化承認／系譜（4-4）・ギルド＝等級・英雄譜（4-4） ----------
+const TRACK_SOURCE_LABEL: Record<string, string> = { seeded: "街の古い伝説", player_legend: "あなたが遺した伝説", nemesis: "因縁の相手" };
+const ARC_LABEL: Record<string, string> = { retire: "静かなる昇華", doom: "破滅の弧", fall: "堕ちゆく弧", lore_drift: "伝承の漂い" };
+/** 現キャラの等級＝レベル帯（4-4 ギルド）。 */
+function rankLabel(level: number): string {
+  if (level >= 12) return "英雄";
+  if (level >= 8) return "練達";
+  if (level >= 5) return "熟練";
+  if (level >= 3) return "一人前";
+  return "見習い";
+}
+// 書記 act1「旧キャラを伝説として承認する」：神話極の旧キャラを player_legend へ昇格（4-4）。
+// 昇格すると後世で legend_return（祝福の山場）として戻れ、英雄譜に名が刻まれる。無料・各化石1回。
+async function legendApprove() {
+  busy = true;
+  const elig = world.fossils.filter(
+    (f) => f.tonePole === "myth" && f.death.generationCreated >= 1 &&
+      !world.tracked.some((t) => t.originRef === f.id),
+  );
+  if (!elig.length) {
+    await sheet({ text: "老書記イェンは目を伏せた。\n「まだ、伝説に値する旧き者はいない。神話の極で逝った者だけが、ここに名を刻める」。", meta: "書記 ── 伝説化の承認", options: ["うなずく"] });
+    busy = false; return;
+  }
+  const r = await sheet({
+    text: "「誰の名を、街の伝説として刻もうか」。\n神話の極で逝った旧き者だけが、英雄譜に昇る。",
+    meta: "書記 ── 伝説化の承認（4-4）",
+    options: [...elig.map((f) => `${f.origin.name}（深度${f.death.depth}・${poleLabel(f.tonePole)}の極）`), "やめる"],
+  });
+  busy = false;
+  const i = r.pick - 1;
+  if (i < 0 || i >= elig.length) return;
+  const f = elig[i];
+  world.tracked.push({
+    id: `legend_${f.id}`, name: f.origin.name, source: "player_legend",
+    arcType: "retire", beat: 0, lastObservedGeneration: world.generation, originRef: f.id,
+  });
+  chronicle(world, "legend", `${f.origin.name}が街の伝説として承認された。その名は英雄譜に刻まれ、深みで巡り会う者を導くだろう。`, [f.id]);
+  sfx("intervene");
+  log(`${f.origin.name} を伝説として承認した。英雄譜に名が刻まれる。`, "warn");
+  save();
+}
+// 書記 act2「系譜をたどる」：現キャラの系譜（先代→現キャラ）と継いだものを表示。
+async function lineageScene() {
+  busy = true;
+  const ch = world.current!;
+  const lin = ch.lineage;
+  const anc = lin.ancestorFossilId ? world.fossils.find((f) => f.id === lin.ancestorFossilId) : undefined;
+  const rel = lin.relation === "blood" ? "血を継ぐ者" : lin.relation === "pupil" ? "教えを継ぐ者" : "誰の系譜にも連ならぬ者";
+  const body = anc
+    ? `先代＝${anc.origin.name}（深度${anc.death.depth}・${poleLabel(anc.tonePole)}の極）。\nあなたは その${rel}。\n継いだもの：${ch.traits.filter((t) => t.includes(anc.origin.name)).join("、") || "（薄き面影のみ）"}`
+    : `あなたは ${rel}。先代の記録は、まだ街にない。`;
+  await sheet({ text: `老書記イェンは系譜の綴りを開いた。\n\n${body}`, meta: "書記 ── 系譜をたどる", options: ["閉じる"] });
+  busy = false;
+}
+// ギルド act1「等級・英雄譜を見る」：現キャラの等級＋world.tracked の英雄譜を一覧（4-4）。
+async function heroRoll() {
+  busy = true;
+  const ch = world.current!;
+  const legends = world.tracked.filter((t) => t.source === "player_legend").length;
+  const roll = world.tracked.length
+    ? world.tracked.map((t) => `・${t.name}（${TRACK_SOURCE_LABEL[t.source] ?? t.source}／${ARC_LABEL[t.arcType] ?? t.arcType}）`).join("\n")
+    : "・（まだ誰の名もない）";
+  await sheet({
+    text: `ギルド長は台帳を繰る。\n「あなたの等級は ── 《${rankLabel(ch.level)}》。あなたが遺した伝説は ${legends} 柱」。\n\n〔英雄譜〕\n${roll}`,
+    meta: "ギルド ── 等級・英雄譜（4-4）", options: ["閉じる"],
+  });
+  busy = false;
+}
+// ギルド act2「系譜の恩寵を確かめる」：先代から継いだ恩寵（絆・形質）を確認。
+async function lineageBoon() {
+  busy = true;
+  const ch = world.current!;
+  const anc = ch.lineage.ancestorFossilId ? world.fossils.find((f) => f.id === ch.lineage.ancestorFossilId) : undefined;
+  const inherited = ch.traits.filter((t) => anc && t.includes(anc.origin.name));
+  const body = anc
+    ? `「その血筋、覚えがある」。\n先代＝${anc.origin.name} の恩寵：\n・${inherited.length ? inherited.join("\n・") : "薄き面影"}\n・先代の未完を継ぐ縁（絆）`
+    : "「君は、誰の後ろ盾もなく潜る者だな」。系譜の恩寵は、まだない。";
+  await sheet({ text: body, meta: "ギルド ── 系譜の恩寵", options: ["うなずく"] });
+  busy = false;
+}
 async function talkKeeper() {
   if (busy || !interior) return;
   const kind = interior.kind;
@@ -895,9 +976,13 @@ async function talkKeeper() {
   // 既存機能の結線（機能後退させない）。他の動詞は後続 content 拡充で実装。
   if (kind === "tavern" && actIdx === 0) return void rumorScene();      // 噂を聞く
   if (kind === "archive" && actIdx === 0) return void chronicleScene(); // 年代記を読む
+  if (kind === "archive" && actIdx === 1) return void legendApprove();  // 旧キャラを伝説として承認する（4-4）
+  if (kind === "archive" && actIdx === 2) return void lineageScene();   // 系譜をたどる
   if (kind === "smith" && actIdx === 0) return void smithBuy();         // 装備を売買／修理する
   if (kind === "healer" && actIdx === 1) return void healerTreat();     // 深蝕の進行を診てもらう
   if (kind === "guild" && actIdx === 0) return void questBoard();       // 依頼を受ける（回収業）
+  if (kind === "guild" && actIdx === 1) return void heroRoll();         // 等級・英雄譜を見る（4-4）
+  if (kind === "guild" && actIdx === 2) return void lineageBoon();      // 系譜の恩寵を確かめる
   if (kind === "shrine" && actIdx === 0) return void shrineRequiem();   // 化石を鎮魂する（末路を閉じる）
   if (kind === "shrine" && actIdx === 1) return void shrineMourn();     // 先人を悼む（供養）
   if (kind === "shrine" && actIdx === 2) return void shrinePray();      // 深蝕を清める祈り
