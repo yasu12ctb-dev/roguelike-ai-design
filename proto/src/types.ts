@@ -21,6 +21,18 @@ export interface World {
   stashGear?: Item[];           // 自宅の保管庫：装備（武器/防具/遺物/鞄の収集。世代越え）。任意＝旧セーブ非破壊。
   seals?: string[];             // 奉献の試練：集めた印（SealKey。World に蓄積＝世代越え。5種で深淵帯解錠：4-13A）。任意＝旧セーブ非破壊。
   ascended?: number;            // 奉献の試練：聖遺物を地上へ生還させてクリアした回数（4-13D）。任意＝旧セーブ非破壊。
+  companion?: Companion;        // 同行（相棒）の永続状態（4-14C）。生かし続ければセーブ全体を貫く反復キャラ。任意＝旧セーブ非破壊。
+}
+
+/** 同行（相棒）の永続状態（4-14C）。潜行開始時にグリッドの相棒エンティティへ展開される。 */
+export interface Companion {
+  actorRef: string;             // World.actors の id にアンカー（系譜記憶・永続）
+  actor: Actor;                 // 表示・テキスト用のスナップショット（アクター記述子 4-12G）
+  bond: number;                 // 絆（生還で深まる）
+  exposure: number;             // 連帯深蝕（潜行で上がる。閾値で奇癖→C：Phase B）
+  alive: boolean;               // false＝化石化済み（後世で再会）
+  maxHp: number;
+  recruitedGeneration: number;  // 勧誘した世代（系譜記憶の起点）
 }
 
 /** 奉献の試練の印（4-13A）。多様な源から1種ずつ。5種揃うと深淵帯が解錠。 */

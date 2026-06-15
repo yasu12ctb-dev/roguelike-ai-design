@@ -1,7 +1,7 @@
 // 世界の生成・化石化・干渉・年代記・永続化（prototype-spec.md §2 / §5）
 
 import type {
-  Character, ChronicleEntry, DeathManner, FinalAct, Fossil, Lineage, SealKey, World,
+  Actor, Character, ChronicleEntry, DeathManner, FinalAct, Fossil, Lineage, SealKey, World,
 } from "./types.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "./types.ts";
 import { resolveTonePole } from "./variation.ts";
@@ -10,8 +10,8 @@ import { BASE_STATS, STASH_INHERIT } from "./progression.ts";
 let idCounter = 0;
 const newId = (prefix: string) => `${prefix}_${(++idCounter).toString(36)}`;
 
-/** セーブ版数（v2=②ステ／v3=③ spells／v4=④ equipment／v6=歩ける街シーン／v7=金貨／v8=依頼。横断D）。 */
-export const SAVE_VERSION = 8;
+/** セーブ版数（v2=②ステ／v3=③ spells／v4=④ equipment／v6=歩ける街シーン／v7=金貨／v8=依頼／v9=同行。横断D）。 */
+export const SAVE_VERSION = 9;
 
 /** 旧セーブを現行スキーマへ補完（破壊しない）。
  *  欠落フィールドは版数に関わらず常に補う（版数判定だけに頼ると、追加フィールドの
@@ -145,6 +145,36 @@ export function fossilizeCurrent(world: World, manner: DeathManner, finalAct: Fi
   // 自宅の保管庫は世代を越えて残るが、遺せるのは消耗品・装備それぞれ STASH_INHERIT 枠まで（残りは歳月とともに失われる）。
   if (Array.isArray(world.stash) && world.stash.length > STASH_INHERIT) world.stash = world.stash.slice(0, STASH_INHERIT);
   if (Array.isArray(world.stashGear) && world.stashGear.length > STASH_INHERIT) world.stashGear = world.stashGear.slice(0, STASH_INHERIT);
+  return fossil;
+}
+
+/** 相棒の化石化（4-14C）：戦死した相棒を、その絆を刻んだ化石として世界に遺す。
+ *  プレイヤー死とは別経路＝世代は進めず world.current も触らない。後世で亡霊/宿敵/伝説として再会する。 */
+export function fossilizeCompanion(
+  world: World, actor: Actor, opts: { depth: number; exposure: number; bond: number },
+): Fossil {
+  const manner: DeathManner = "grievous";
+  const finalAct: FinalAct = { choice: "accept" };
+  const fossil: Fossil = {
+    id: newId("fossil"),
+    kind: "character",
+    origin: {
+      name: actor.name, archetype: actor.archetype,
+      gearTags: actor.gearTags.length ? actor.gearTags : [defaultGearFor(actor.archetype)],
+      catchphrase: actor.catchphrase,
+    },
+    death: { manner, finalAct, depth: opts.depth, generationCreated: world.generation },
+    exposureAtDeath: opts.exposure,
+    bondAtDeath: Math.min(5, 1 + opts.bond), // 連れ歩いた相棒＝高関与
+    tonePole: resolveTonePole(finalAct.choice, manner, opts.bond),
+    interventions: [],
+    lastTouchedGeneration: world.generation,
+    laidDepth: opts.depth,
+  };
+  world.fossils.push(fossil);
+  chronicle(world, "death",
+    `相棒 ${actor.name}、深度${opts.depth}で斃れる。その亡骸に、共に歩いた日々が刻まれた。`,
+    [fossil.id]);
   return fossil;
 }
 
