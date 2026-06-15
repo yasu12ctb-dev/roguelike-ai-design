@@ -853,7 +853,7 @@
 
     {
       "id": "tw_greeting",
-      "context": "town",
+      "context": "street",
       "prerequisites": { "notFlag": "spoke" },
       "weight": 2,
       "text": "#origin_epithet##origin_name# が、#origin_gear# を傍らに置いて卓に着いている。「あんたも、潜る口かい」と話しかけてきた。",
@@ -864,7 +864,7 @@
     },
     {
       "id": "tw_again",
-      "context": "town",
+      "context": "street",
       "prerequisites": { "flag": "spoke" },
       "weight": 3,
       "text": "また#origin_name# だ。#origin_gear# 越しにこちらを認めると、「よう、まだ生きてたか」と片手を挙げた。覚えていてくれたらしい。",
@@ -875,7 +875,7 @@
     },
     {
       "id": "tw_trade",
-      "context": "town",
+      "context": "street",
       "prerequisites": { "notFlag": "traded" },
       "weight": 1,
       "text": "#origin_name# が #origin_gear# の中身を広げて見せた。「掘り出し物だぜ。なんなら、交換といこう」。",
@@ -886,7 +886,7 @@
     },
     {
       "id": "tw_warn_depth",
-      "context": "town",
+      "context": "street",
       "prerequisites": {},
       "weight": 2,
       "text": "#origin_name# が #origin_gear# を磨きながら、声を落とした。「深いとこは、もう人の理が効かねえ。無理に潜るんじゃねえぞ」。",
@@ -897,7 +897,7 @@
     },
     {
       "id": "tw_corruption_notice",
-      "context": "town",
+      "context": "street",
       "prerequisites": { "minExposure": 0.6 },
       "weight": 3,
       "text": "#origin_name# がこちらの顔をじっと見て、眉を寄せた。「あんた……深蝕、だいぶ来てるな。鏡、見たか？」。",
@@ -908,7 +908,7 @@
     },
     {
       "id": "tw_fallen_talk",
-      "context": "town",
+      "context": "street",
       "prerequisites": {},
       "weight": 2,
       "text": "#origin_name# が、誰にともなく呟いた。「先月、また一人帰らなかった。……名前くらいは、覚えておいてやりたいもんだ」。",
@@ -919,7 +919,7 @@
     },
     {
       "id": "tw_noble_gate",
-      "context": "town",
+      "context": "street",
       "prerequisites": {},
       "weight": 1,
       "text": "#origin_name# が北の門のほうへ顎をしゃくった。「あの先は貴族の庭だ。おれたちが稼いだ異物で肥えてるくせに、門は開かねえ」。",
@@ -930,7 +930,7 @@
     },
     {
       "id": "tw_drink_offer",
-      "context": "town",
+      "context": "street",
       "prerequisites": {},
       "weight": 2,
       "text": "#origin_name# が杯をふたつ持ってきた。「景気づけだ。生きて帰った祝いに、一杯どうだ」。",
@@ -941,7 +941,7 @@
     },
     {
       "id": "tw_lineage_sense",
-      "context": "town",
+      "context": "street",
       "prerequisites": { "unfinished": true },
       "weight": 3,
       "text": "#origin_name# がこちらの所作を見て、ふと真顔になった。「あんた……誰かの遺したもんを、背負ってるな。目で分かる」。",
@@ -952,7 +952,7 @@
     },
     {
       "id": "tw_cult_whisper",
-      "context": "town",
+      "context": "street",
       "prerequisites": { "notFlag": "cult_curious" },
       "weight": 1,
       "text": "#origin_epithet##origin_name# が、声をひそめて身を寄せた。「深蝕は呪いじゃない。祝福だ。……教えに来てみないか。北の路地の、あの堂へ」。",
@@ -963,7 +963,7 @@
     },
     {
       "id": "tw_cult_followup",
-      "context": "town",
+      "context": "street",
       "prerequisites": { "flag": "cult_curious" },
       "weight": 2,
       "text": "また#origin_name# だ。「考えてくれたか？　深く潜るほど、深淵はお前を選ぶ。逆らうな、委ねろ」。前より、目の光が濃い。",
@@ -974,7 +974,7 @@
     },
     {
       "id": "tw_price_grumble",
-      "context": "town",
+      "context": "street",
       "prerequisites": {},
       "weight": 2,
       "text": "#origin_name# がパンを片手にぼやいた。「また値上がりだ。異物の相場が動くと、すぐこれだ。地下が荒れてる証拠さ」。",
@@ -985,7 +985,7 @@
     },
     {
       "id": "tw_veteran_advice",
-      "context": "town",
+      "context": "street",
       "prerequisites": { "minBond": 2 },
       "weight": 2,
       "text": "顔なじみの#origin_name# が、隣に腰を下ろした。「お前もずいぶん潜ったな。……一つだけ言わせろ。欲をかいた奴から、帰らなくなる」。",
@@ -996,7 +996,7 @@
     },
     {
       "id": "tw_keepsake",
-      "context": "town",
+      "context": "street",
       "prerequisites": { "notFlag": "got_charm", "minBond": 1 },
       "weight": 1,
       "text": "#origin_name# が、#origin_gear# の隙間から小さなお守りを取り出した。「持っていけ。気休めだが……無いよりはマシだろう」。",
@@ -1007,7 +1007,7 @@
     },
     {
       "id": "tw_rumor_relic",
-      "context": "town",
+      "context": "street",
       "prerequisites": {},
       "weight": 2,
       "text": "#origin_name# が地図の切れ端を指で叩いた。「深層に、誰も持ち帰れなかった聖遺物があるって話だ。……眉唾だがな」。",
@@ -1018,7 +1018,7 @@
     },
     {
       "id": "tw_quiet_moment",
-      "context": "town",
+      "context": "street",
       "prerequisites": {},
       "weight": 1,
       "text": "#origin_name# が窓の外、迷宮の口を眺めていた。「……不思議だな。あんなに恐いのに、明日もまた、潜るんだ」。誰へともなく、そう言った。",
@@ -1029,7 +1029,7 @@
     },
     {
       "id": "tw_guild_tip",
-      "context": "town",
+      "context": "street",
       "prerequisites": {},
       "weight": 2,
       "text": "#origin_name# が肘で小突いてきた。「ギルドで依頼、受けたか？　ただ潜るより実入りがいい。回収業は、街の血だぜ」。",
@@ -1040,7 +1040,7 @@
     },
     {
       "id": "tw_deep_kinship",
-      "context": "town",
+      "context": "street",
       "prerequisites": { "minExposure": 1.2 },
       "weight": 2,
       "text": "#origin_name# が、自分の手の甲を見せた。そこには、見覚えのある黒い染みが滲んでいる。「お互い、もう後戻りはできねえな」。静かな声だった。",

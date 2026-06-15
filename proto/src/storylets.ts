@@ -3,7 +3,7 @@
 // 選択の結果を世界状態へ書き戻す。実行時LLMは使わない（条件照合＋テンプレ充填のみ）。
 
 import type { ContentDb } from "./content.ts";
-import type { Character, Effect, Fossil, LivingActor, Prereq, Storylet, VariationResult, World } from "./types.ts";
+import type { Character, Effect, Fossil, LivingActor, Prereq, Storylet, TownContext, VariationResult, World } from "./types.ts";
 import type { Rng } from "./rng.ts";
 import { chronicle } from "./world.ts";
 import { fillStoryletText, fillDungeonText, fillActorText } from "./render.ts";
@@ -139,7 +139,10 @@ export function applyDungeonEffects(world: World, ch: Character, depth: number, 
   return logs;
 }
 
-// ---------- 街イベント（context=town。アクター記述子にアンカー：4-12(F)(G)） ----------
+// ---------- 街イベント（context=street/tavern/guild/shop。アクター記述子にアンカー：4-12(F)(G)・4-14） ----------
+
+/** 街で生者と会いうる全コンテキスト（現在地未指定時の既定＝場所を問わず街の生者プール全体）。 */
+const TOWN_CONTEXTS: readonly TownContext[] = ["street", "tavern", "guild", "shop"];
 
 /** 街ストーリーレットの前提照合（生者アクターにアンカー。flag/notFlag/bond/exposure を actor.id でスコープ）。 */
 function townMatches(p: Prereq, world: World, ch: Character, la: LivingActor): boolean {
@@ -153,11 +156,16 @@ function townMatches(p: Prereq, world: World, ch: Character, la: LivingActor): b
   return true;
 }
 
-/** 生者アクターに合う街ストーリーレットを重み付きで1つ選ぶ（無ければ null）。 */
+/**
+ * 生者アクターに合う街ストーリーレットを重み付きで1つ選ぶ（無ければ null）。
+ * `contexts` ＝現在地が許す場所（4-14：例 酒場なら ["tavern","street"]）。省略時は街の全場所。
+ */
 export function selectTownStorylet(
   db: ContentDb, world: World, ch: Character, la: LivingActor, rng: Rng,
+  contexts: readonly TownContext[] = TOWN_CONTEXTS,
 ): Storylet | null {
-  const pool = db.storylets.filter((s) => s.context === "town" && townMatches(s.prerequisites, world, ch, la));
+  const allow = new Set<string>(contexts);
+  const pool = db.storylets.filter((s) => allow.has(s.context ?? "") && townMatches(s.prerequisites, world, ch, la));
   if (pool.length === 0) return null;
   if (pool.length === 1) return pool[0];
   const total = pool.reduce((a, s) => a + Math.max(0, s.weight), 0);

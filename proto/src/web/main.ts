@@ -41,7 +41,7 @@ import {
   genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx, spawnPursuer,
   VIEW_W, VIEW_H, type Floor, type Pos, type Chest, type Monster,
 } from "../dungeon.ts";
-import type { Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, SetPiece, Storylet, World } from "../types.ts";
+import type { Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, SetPiece, Storylet, TownContext, World } from "../types.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
@@ -1053,6 +1053,17 @@ function resolveMeetActor() {
   sceneActorKeys.add(actorKey(la));
   return la;
 }
+// 現在地が許す街イベントのコンテキスト（4-14：場所で別の顔。street を基盤に酒場/ギルド/店が上乗せ）。
+const SHOP_INTERIORS = new Set(["smith", "smith_armor", "store", "oddments", "healer"]);
+function townContextsHere(): TownContext[] {
+  if (mode === "interior" && interior) {
+    if (interior.kind === "tavern") return ["tavern", "street"];
+    if (interior.kind === "guild") return ["guild", "street"];
+    if (SHOP_INTERIORS.has(interior.kind)) return ["shop", "street"];
+    return ["street"]; // 書記/教団/慰霊堂/民家など：街路の一般プールのみ
+  }
+  return ["street"];
+}
 async function talkCrowd(a: CrowdActor) {
   if (busy) return;
   busy = true;
@@ -1064,7 +1075,7 @@ async function talkCrowd(a: CrowdActor) {
   if (ch && a.npc) {
     const la = a.npc;
     const head = `${la.actor.epithet ?? ""}${la.actor.name}（${la.actor.archetype}）`;
-    const sl = selectTownStorylet(db, world, ch, la, rng);
+    const sl = selectTownStorylet(db, world, ch, la, rng, townContextsHere());
     if (sl && sl.choices) {
       const c = await sheet({ text: `${head}\n\n${fillActorText(la.actor, sl.text ?? "")}`, options: sl.choices.map((o) => o.label) });
       const choice = sl.choices[c.pick - 1];
