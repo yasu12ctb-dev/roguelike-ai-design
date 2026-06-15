@@ -479,7 +479,7 @@ async function smithSell() {
   const ch = world.current!;
   for (;;) {
     const bag = ch.gearBag ?? [];
-    if (!bag.length) { busy = true; await sheet({ text: "袋に売れる拾い物がない。迷宮で集めておいで。", options: ["うなずく"] }); busy = false; break; }
+    if (!bag.length) { busy = true; await sheet({ text: "袋に売れる拾い物がない。迷宮で集めておいで。", options: ["わかった"] }); busy = false; break; }
     busy = true;
     const r = await sheet({
       text: `鍛冶ヴァロは目利きする。所持 金${ch.gold}。\n袋 ${bag.length} 点。何を売る？`,
@@ -511,7 +511,7 @@ async function smithBuy() {
   const i = r.pick - 1;
   if (i < 0 || i >= stock.length) return;
   const it = stock[i], price = prices[i];
-  if (ch.gold < price) { busy = true; await sheet({ text: "金貨が足りない。", options: ["うなずく"] }); busy = false; return; }
+  if (ch.gold < price) { busy = true; await sheet({ text: "金貨が足りない。", options: ["出直す"] }); busy = false; return; }
   ch.gold -= price; ch.equipment[it.slot] = it;
   sfx("open");
   log(`${it.name} を買って装備した（−${price}金貨／所持 ${ch.gold}）。`);
@@ -522,7 +522,7 @@ async function smithBuy() {
 async function healerTreat() {
   busy = true;
   const ch = world.current!;
-  if (ch.exposure <= 0.05) { await sheet({ text: "深蝕は、今は薄い。施療の要はない。", options: ["うなずく"] }); busy = false; return; }
+  if (ch.exposure <= 0.05) { await sheet({ text: "深蝕は、今は薄い。施療の要はない。", options: ["わかった"] }); busy = false; return; }
   const cost = 12 + Math.round(ch.exposure * 10);
   const r = await sheet({
     text: `老薬師トウ。お前の深蝕は ${ch.exposure.toFixed(2)}。\n薬と祈りで少し退かせる（−0.6・${cost}金貨）。所持 金${ch.gold}。`,
@@ -531,7 +531,7 @@ async function healerTreat() {
   });
   busy = false;
   if (r.pick !== 1) return;
-  if (ch.gold < cost) { busy = true; await sheet({ text: "金貨が足りない。", options: ["うなずく"] }); busy = false; return; }
+  if (ch.gold < cost) { busy = true; await sheet({ text: "金貨が足りない。", options: ["出直す"] }); busy = false; return; }
   ch.gold -= cost; ch.exposure = Math.max(0, ch.exposure - 0.6);
   sfx("open");
   log(`薬と祈りで、深蝕がわずかに退いた（−0.6／所持 ${ch.gold}）。`, "dim");
@@ -555,7 +555,7 @@ async function shrineRequiem() {
   if (!targets.length) {
     await sheet({
       text: "鎮めるべき相手と、まだ縁が結ばれていない。\n迷宮で出会った者だけが、ここで弔える。",
-      meta: "慰霊堂 ── 鎮魂", options: ["うなずく"],
+      meta: "慰霊堂 ── 鎮魂", options: ["わかった"],
     });
     busy = false; return;
   }
@@ -573,7 +573,7 @@ async function shrineRequiem() {
   const f = targets[i], price = requiemCost(f);
   if (ch.gold < price) {
     busy = true;
-    await sheet({ text: "金貨が足りない。", options: ["うなずく"] });
+    await sheet({ text: "金貨が足りない。", options: ["出直す"] });
     busy = false; return;
   }
   ch.gold -= price;
@@ -599,7 +599,7 @@ async function shrineMourn() {
     .sort((a, b) => (a.id === ancId ? -1 : b.id === ancId ? 1 : 0))
     .slice(0, 8);
   if (!targets.length) {
-    await sheet({ text: "まだ悼むべき先人はいない。\nいずれ、お前自身もここに名を連ねる。", meta: "慰霊堂 ── 供養", options: ["うなずく"] });
+    await sheet({ text: "まだ悼むべき先人はいない。\nいずれ、お前自身もここに名を連ねる。", meta: "慰霊堂 ── 供養", options: ["黙礼する"] });
     busy = false; return;
   }
   const r = await sheet({
@@ -615,7 +615,7 @@ async function shrineMourn() {
   if (i < 0 || i >= targets.length) return;
   const f = targets[i];
   if (ch.gold < MOURN_OFFERING) {
-    busy = true; await sheet({ text: "供物の金貨が足りない。", options: ["うなずく"] }); busy = false; return;
+    busy = true; await sheet({ text: "供物の金貨が足りない。", options: ["引き下がる"] }); busy = false; return;
   }
   ch.gold -= MOURN_OFFERING;
   if (!world.town.memorials.includes(f.origin.name)) world.town.memorials.push(f.origin.name);
@@ -642,11 +642,11 @@ async function shrinePray() {
   busy = true;
   const ch = world.current!;
   if (ch.prayedAtShrineGen === world.generation) {
-    await sheet({ text: "今日はもう祈りを捧げた。\n澱は、また歩むうちに溜まる。", meta: "慰霊堂 ── 祈り", options: ["うなずく"] });
+    await sheet({ text: "今日はもう祈りを捧げた。\n澱は、また歩むうちに溜まる。", meta: "慰霊堂 ── 祈り", options: ["手を合わせる"] });
     busy = false; return;
   }
   if (ch.exposure <= 0) {
-    await sheet({ text: "深蝕は、今は無い。祈るまでもない。", meta: "慰霊堂 ── 祈り", options: ["うなずく"] });
+    await sheet({ text: "深蝕は、今は無い。祈るまでもない。", meta: "慰霊堂 ── 祈り", options: ["手を合わせる"] });
     busy = false; return;
   }
   const r = await sheet({
@@ -760,8 +760,8 @@ async function storeBuy() {
     const i = r.pick - 1;
     if (i < 0 || i >= CONSUMABLES.length) break;
     const c = CONSUMABLES[i];
-    if (ch.gold < c.price) { await sheet({ text: "金貨が足りない。", options: ["うなずく"] }); continue; }
-    if (!addConsumable(ch, c.key)) { await sheet({ text: "持ち物が一杯だ。レベルが上がれば、持てる量も増える。", options: ["うなずく"] }); continue; }
+    if (ch.gold < c.price) { await sheet({ text: "金貨が足りない。", options: ["出直す"] }); continue; }
+    if (!addConsumable(ch, c.key)) { await sheet({ text: "持ち物が一杯だ。レベルが上がれば、持てる量も増える。", options: ["わかった"] }); continue; }
     ch.gold -= c.price; sfx("open");
     log(`${c.name} を買った（−${c.price}金貨／所持 ${ch.gold}）。`);
     save();
@@ -774,7 +774,7 @@ async function storeSell() {
   const ch = world.current!;
   for (;;) {
     const inv = ch.inventory ?? [];
-    if (!inv.length) { await sheet({ text: "売れる持ち物がない。", options: ["うなずく"] }); break; }
+    if (!inv.length) { await sheet({ text: "売れる持ち物がない。", options: ["戻る"] }); break; }
     const r = await sheet({
       text: `道具屋ハル。所持 金${ch.gold}。\n手放す品を選ぶ（半値）。`,
       meta: "道具屋 ── 売る",
@@ -795,7 +795,7 @@ async function storeManage() {
   const ch = world.current!;
   for (;;) {
     const inv = ch.inventory ?? [];
-    if (!inv.length) { await sheet({ text: "持ち物は空だ。", options: ["うなずく"] }); break; }
+    if (!inv.length) { await sheet({ text: "持ち物は空だ。", options: ["閉じる"] }); break; }
     const r = await sheet({
       text: `持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)} 枠。\n品を選ぶ。`,
       meta: "道具屋 ── 携行品を整える",
@@ -806,7 +806,7 @@ async function storeManage() {
     const s = inv[i], def = consumableByKey(s.key);
     const a = await sheet({ text: `${def?.name}（${def?.desc}）`, options: ["使う", "捨てる", "戻る"] });
     if (a.pick === 1) {
-      if (def?.use.healFrac && !def.use.exposure) { await sheet({ text: "ここでは傷はない。潜ってから使うものだ。", options: ["うなずく"] }); continue; }
+      if (def?.use.healFrac && !def.use.exposure) { await sheet({ text: "ここでは傷はない。潜ってから使うものだ。", options: ["わかった"] }); continue; }
       const msg = applyConsumable(ch, s.key); consumeOne(ch, s.key);
       log(`${def?.name} を使った（${msg}）。`, "dim"); updateStatus(); save();
     } else if (a.pick === 2) {
@@ -845,7 +845,7 @@ async function homeDeposit() {
       ...inv.map((s) => `消耗品：${consumableByKey(s.key)?.name ?? s.key} ×${s.qty}`),
       ...equipped.map((sl) => `装備：${SLOT_LABEL[sl]} ${itemLabel(ch.equipment[sl]!)}`),
     ];
-    if (!opts.length) { await sheet({ text: "預けられる持ち物も装備もない。", options: ["うなずく"] }); break; }
+    if (!opts.length) { await sheet({ text: "預けられる持ち物も装備もない。", options: ["閉じる"] }); break; }
     const r = await sheet({
       text: `わが家の物入れ＝代々の武具庫。保管 ${homeUsed()}/${STASH_CAP} 枠（世代を越えて遺せるのは消耗品${STASH_INHERIT}・装備${STASH_INHERIT}枠まで）。\n何を預ける？`,
       meta: "自宅 ── 預ける",
@@ -855,11 +855,11 @@ async function homeDeposit() {
     if (i < 0 || i >= opts.length) break;
     if (i < inv.length) { // 消耗品
       const s = inv[i];
-      if (!stashAdd(s.key)) { await sheet({ text: "保管庫がもう一杯だ。", options: ["うなずく"] }); continue; }
+      if (!stashAdd(s.key)) { await sheet({ text: "保管庫がもう一杯だ。", options: ["戻る"] }); continue; }
       consumeOne(ch, s.key); sfx("open");
       log(`${consumableByKey(s.key)?.name ?? s.key} を保管庫に預けた。`, "dim"); save();
     } else { // 装備（外して武具庫へ）
-      if (homeFull()) { await sheet({ text: "武具庫がもう一杯だ。", options: ["うなずく"] }); continue; }
+      if (homeFull()) { await sheet({ text: "武具庫がもう一杯だ。", options: ["戻る"] }); continue; }
       const sl = equipped[i - inv.length];
       const it = ch.equipment[sl]!;
       world.stashGear ??= []; world.stashGear.push(it); ch.equipment[sl] = null;
@@ -878,7 +878,7 @@ async function homeWithdraw() {
       ...st.map((s) => `消耗品：${consumableByKey(s.key)?.name ?? s.key} ×${s.qty}`),
       ...gear.map((it) => `装備：${SLOT_LABEL[it.slot]} ${itemLabel(it)}`),
     ];
-    if (!opts.length) { await sheet({ text: "保管庫は空だ。", options: ["うなずく"] }); break; }
+    if (!opts.length) { await sheet({ text: "保管庫は空だ。", options: ["閉じる"] }); break; }
     const r = await sheet({
       text: `保管 ${homeUsed()}/${STASH_CAP} 枠。持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)} 枠。\n何を引き出す？`,
       meta: "自宅 ── 引き出す",
@@ -888,7 +888,7 @@ async function homeWithdraw() {
     if (i < 0 || i >= opts.length) break;
     if (i < st.length) { // 消耗品→持ち物
       const s = st[i];
-      if (!addConsumable(ch, s.key)) { await sheet({ text: "持ち物が一杯だ。", options: ["うなずく"] }); continue; }
+      if (!addConsumable(ch, s.key)) { await sheet({ text: "持ち物が一杯だ。", options: ["戻る"] }); continue; }
       stashTake(s.key); sfx("open");
       log(`${consumableByKey(s.key)?.name ?? s.key} を持ち物に移した。`, "dim"); save();
     } else { // 装備→その場で装備（今の装備は武具庫に戻す＝スワップ）
@@ -936,7 +936,7 @@ async function legendApprove() {
       !world.tracked.some((t) => t.originRef === f.id),
   );
   if (!elig.length) {
-    await sheet({ text: "老書記イェンは目を伏せた。\n「まだ、伝説に値する旧き者はいない。神話の極で逝った者だけが、ここに名を刻める」。", meta: "書記 ── 伝説化の承認", options: ["うなずく"] });
+    await sheet({ text: "老書記イェンは目を伏せた。\n「まだ、伝説に値する旧き者はいない。神話の極で逝った者だけが、ここに名を刻める」。", meta: "書記 ── 伝説化の承認", options: ["引き下がる"] });
     busy = false; return;
   }
   const r = await sheet({
@@ -995,7 +995,7 @@ async function lineageBoon() {
   const body = anc
     ? `「その血筋、覚えがある」。\n先代＝${anc.origin.name} の恩寵：\n・${inherited.length ? inherited.join("\n・") : "薄き面影"}\n・先代の未完を継ぐ縁（絆）`
     : "「君は、誰の後ろ盾もなく潜る者だな」。系譜の恩寵は、まだない。";
-  await sheet({ text: body, meta: "ギルド ── 系譜の恩寵", options: ["うなずく"] });
+  await sheet({ text: body, meta: "ギルド ── 系譜の恩寵", options: ["わかった"] });
   busy = false;
 }
 async function talkKeeper() {
@@ -1036,7 +1036,7 @@ async function talkKeeper() {
   busy = true;
   await sheet({
     text: `${d.name}：「${d.acts[actIdx]}」\n\n……その商いは、まだ整っていない。`,
-    meta: "（後日の content 拡充で結線）", options: ["うなずく"],
+    meta: "（後日の content 拡充で結線）", options: ["戻る"],
   });
   busy = false;
 }
@@ -1749,7 +1749,7 @@ async function maybeMerchantEncounter() {
   let first = true;
   for (;;) {
     const b = ch.gearBag ?? [];
-    if (!b.length) { await sheet({ text: "「もう袋は空かい。また会おう、旅の人」。\n行商人は燭を揺らして去っていった。", options: ["うなずく"] }); break; }
+    if (!b.length) { await sheet({ text: "「もう袋は空かい。また会おう、旅の人」。\n行商人は燭を揺らして去っていった。", options: ["見送る"] }); break; }
     const r = await sheet({
       text: (first
         ? "通路の角で、燭を提げた行商人とすれ違った。\n「やあ旅の人、迷宮で拾った得物はないかね。…言っておくが、街の鍛冶ほどの値は出せんよ」\n"
