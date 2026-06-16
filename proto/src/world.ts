@@ -41,6 +41,7 @@ export function migrateWorld(w: World): World {
   if (!Array.isArray(w.arcs)) w.arcs = [];         // 長尺アーク（4-12(I)）：欠落は空で補完
   if (typeof w.raidCooldown !== "number") w.raidCooldown = 0; // 街襲撃の冷却：欠落は0で補完
   if (typeof w.memorialCooldown !== "number") w.memorialCooldown = 0; // 追悼の日の冷却：欠落は0で補完
+  if (typeof w.plagueCooldown !== "number") w.plagueCooldown = 0; // 疫病の冷却：欠落は0で補完
   if (!Array.isArray(w.seals)) w.seals = [];       // 奉献の試練・集めた印（4-13A）：欠落は空で補完
   if (typeof w.ascended !== "number") w.ascended = 0; // 奉献の試練・クリア回数（4-13D）
   if (w.town) { // 歩ける街（4-4B）：旧セーブに欠落するサブシーン状態を補完

@@ -1292,10 +1292,12 @@ async function maybeTownEvent(): Promise<void> {
   // 各型の冷却を1帰還ぶん減らす（型を増やすときはここに1行）
   if ((world.raidCooldown ?? 0) > 0) world.raidCooldown = (world.raidCooldown ?? 0) - 1;
   if ((world.memorialCooldown ?? 0) > 0) world.memorialCooldown = (world.memorialCooldown ?? 0) - 1;
+  if ((world.plagueCooldown ?? 0) > 0) world.plagueCooldown = (world.plagueCooldown ?? 0) - 1;
   // 発火可能（冷却0＋固有条件）な型を集める
   const pool: { w: number; run: () => Promise<void> }[] = [];
   if (ch.level >= 2 && (world.raidCooldown ?? 0) === 0) pool.push({ w: 2, run: townRaidScene });           // 脅威（稀）
   if ((world.memorialCooldown ?? 0) === 0 && world.fossils.some((f) => f.kind === "character")) pool.push({ w: 3, run: townMemorialScene }); // 好機（定期）
+  if (ch.level >= 2 && (world.plagueCooldown ?? 0) === 0) pool.push({ w: 2, run: townPlagueScene });       // 災厄（稀）
   if (pool.length === 0 || rng.next() >= 0.4) return; // 毎帰還は起きない（多くは静穏）
   const total = pool.reduce((a, b) => a + b.w, 0);
   let r = rng.next() * total;
@@ -1378,6 +1380,37 @@ async function townMemorialScene(): Promise<void> {
   await sheet({
     text: `${line}${exposure < 0 ? `\n\n浴びた深みが、わずかに退いた（深蝕 ${exposure.toFixed(2)}）。` : ""}${got ? `\n${got} を受け取った。` : ""}`,
     meta: "追悼の日 ── 手向け", options: ["街へ"],
+  });
+  updateStatus(); save(); busy = false;
+}
+
+// ② 深蝕の瘴気（疫病）＝街の災厄（4-12 J）。深みが地表へ滲み、街の者が病む。助ければ深蝕を浴びる＝核テーマの対価。
+async function townPlagueScene(): Promise<void> {
+  busy = true;
+  const ch = world.current!;
+  world.plagueCooldown = 16 + Math.floor(rng.next() * 8); // 次の疫病まで最短16〜23帰還（災厄は稀）
+  sfx("hurt");
+  const r = await sheet({
+    text: "街に戻ると、いつもの喧騒がない。幾人もが戸を閉ざし、隙間から譫言のような呟きが漏れている。深みの瘴気が、地の底から街へ滲み出したのだ。眼を濁らせ、深部の名を呟きながら、人々が病んでいく。",
+    meta: "深蝕の瘴気 ── 街の災厄", options: ["病者を看病する（深蝕を浴びる）", "隔離を進言する（街を守る）", "関わらず宿へ退く"],
+  });
+  let line = "", exposure = 0, gold = 0, item: string | null = null;
+  if (r.pick === 1) { // 看病：心が高いほど己を蝕まれずに看られる
+    if (ch.stats.heart >= 4) { line = "お前は瘴気の中、病者の額を冷やし、譫言に耳を傾けた。深みに半ば呑まれた者を、幾人も此岸へ繋ぎ留める。"; gold = 10; item = "soothe"; ch.traits.push(`癒し手:第${world.generation}世代の瘴気`); exposure = 0.06; }
+    else { line = "看病のかいあって持ち直す者もいた。だが、瘴気はお前の芯にも染み込み、譫言が他人事に聞こえなくなる。"; gold = 6; exposure = 0.14; }
+  } else if (r.pick === 2) { // 隔離：街は救うが、見捨てる者が出る
+    line = "お前は病者の隔離を進言し、強引に押し通した。広がりは止まった。街は救われた——だが、戸の外へ締め出された者の、すがる目が、瞼に残る。"; gold = 14; ch.traits.push(`断行:第${world.generation}世代の隔離`); exposure = 0.04;
+  } else {
+    line = "深みの病は、深みに関わる者の業だ。そう言い聞かせ、宿の戸を固く閉ざした。";
+  }
+  if (exposure > 0) ch.exposure += exposure;
+  if (gold) ch.gold += gold;
+  const got = item && addConsumable(ch, item) ? consumableByKey(item)?.name : null;
+  chronicle(world, "rediscovery", `第${world.generation}世代、街を深蝕の瘴気が襲い、${ch.name}は${r.pick === 1 ? "病者を看病した" : r.pick === 2 ? "隔離を断行した" : "関わらなかった"}。`, [ch.id]);
+  sfx("intervene");
+  await sheet({
+    text: `${line}${gold ? `\n\n〔報酬〕金貨 ＋${gold}${got ? `／${got}` : ""}` : ""}${exposure > 0 ? `\n浴びた瘴気（深蝕 ＋${exposure.toFixed(2)}）` : ""}`,
+    meta: "深蝕の瘴気 ── 鎮静", options: ["街へ"],
   });
   updateStatus(); save(); busy = false;
 }
