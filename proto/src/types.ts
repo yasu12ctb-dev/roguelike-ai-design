@@ -33,6 +33,7 @@ export interface Companion {
   alive: boolean;               // false＝化石化済み（後世で再会）
   maxHp: number;
   recruitedGeneration: number;  // 勧誘した世代（系譜記憶の起点）
+  grade: number;                // 金属等級（4-4E）0=アイアン..4=プラチナ。初期は設定ファイル由来・生還で⤴昇格（プラチナ頭打ち／ミスリルは死後）。
 }
 
 /** 奉献の試練の印（4-13A）。多様な源から1種ずつ。5種揃うと深淵帯が解錠。 */
@@ -114,6 +115,7 @@ export interface Actor {
   catchphrase?: string;
   epithet?: string;
   alive?: boolean;          // 生者NPC=true（痕跡保証ASSERT 4-2 は化石のみ対象）
+  grade?: number;           // 金属等級（4-4E）の素材index 0=アイアン..4=プラチナ。設定ファイル(actor_grade)由来・相棒の初期等級と強さを決める。
 }
 
 /** 化石の出自。Actor の別名（後方互換）。 */

@@ -1,7 +1,7 @@
 // 世界の生成・化石化・干渉・年代記・永続化（prototype-spec.md §2 / §5）
 
 import type {
-  Actor, Character, ChronicleEntry, DeathManner, FinalAct, Fossil, Lineage, SealKey, World,
+  Actor, Character, ChronicleEntry, Companion, DeathManner, FinalAct, Fossil, Lineage, SealKey, World,
 } from "./types.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "./types.ts";
 import { resolveTonePole } from "./variation.ts";
@@ -28,6 +28,9 @@ export function migrateWorld(w: World): World {
     if (!Array.isArray(ch.gearBag)) ch.gearBag = []; // 持ち物 Phase4：拾った装備の袋（非破壊バックフィル）
   }
   if (!Array.isArray(w.actors)) w.actors = []; // 生者NPC（4-12(G)）：欠落は常に補完
+  if (w.companion && typeof (w.companion as Partial<Companion>).grade !== "number") {
+    (w.companion as Companion).grade = w.companion.actor?.grade ?? 0; // 4-4E：旧セーブの相棒に等級を補完（設定→なければアイアン）
+  }
   if (!Array.isArray(w.flags)) w.flags = [];
   if (!Array.isArray(w.quests)) w.quests = []; // v8：依頼（回収業 4-10G）
   if (!Array.isArray(w.stash)) w.stash = [];       // 自宅の保管庫・消耗品（持ち物 Phase3）：欠落は空で補完
@@ -174,6 +177,37 @@ export function fossilizeCompanion(
   world.fossils.push(fossil);
   chronicle(world, "death",
     `相棒 ${actor.name}、深度${opts.depth}で斃れる。その亡骸に、共に歩いた日々が刻まれた。`,
+    [fossil.id]);
+  return fossil;
+}
+
+/** 見捨て＝怨念を執筆（4-14C・B 救助の裏）：手負いを見殺しにすると、その冒険者は
+ *  怨念極（grudge）の化石として遺り、後世で grudge_hunt の宿敵として確実に還る（「宿敵を自分で書く」）。
+ *  manner=betrayed / curse_dungeon で tonePole は grudge 固定。bondAtDeath=3 で山場条件（minBond3）を満たす。 */
+export function fossilizeAbandoned(
+  world: World, actor: Actor, opts: { depth: number },
+): Fossil {
+  const manner: DeathManner = "betrayed";
+  const finalAct: FinalAct = { choice: "curse_dungeon" };
+  const fossil: Fossil = {
+    id: newId("fossil"),
+    kind: "character",
+    origin: {
+      name: actor.name, archetype: actor.archetype,
+      gearTags: actor.gearTags.length ? actor.gearTags : [defaultGearFor(actor.archetype)],
+      catchphrase: actor.catchphrase,
+    },
+    death: { manner, finalAct, depth: opts.depth, generationCreated: world.generation },
+    exposureAtDeath: 1.4,                                  // 見捨てられた末の深蝕＝怨念へ
+    bondAtDeath: 3,                                        // 裏切りの因縁＝山場（宿敵狩り）を確実に呼ぶ
+    tonePole: resolveTonePole(finalAct.choice, manner, 0), // → grudge
+    interventions: [],
+    lastTouchedGeneration: world.generation,
+    laidDepth: opts.depth,
+  };
+  world.fossils.push(fossil);
+  chronicle(world, "death",
+    `${actor.name}を深度${opts.depth}に見捨てた。その怨みは、いつか宿敵となって還るだろう。`,
     [fossil.id]);
   return fossil;
 }

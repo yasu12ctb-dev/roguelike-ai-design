@@ -6,7 +6,7 @@ import setpiecesJson from "../../content/setpieces.json";
 import { makeContentDb } from "../content.ts";
 import { makeRng, type Rng } from "../rng.ts";
 import {
-  newWorld, createCharacter, fossilizeCurrent, fossilizeCompanion, intervene, recordRediscovery,
+  newWorld, createCharacter, fossilizeCurrent, fossilizeCompanion, fossilizeAbandoned, intervene, recordRediscovery,
   chronicle, poleLabel, finalActLabel, migrateWorld, awardSeal, abyssUnlocked,
 } from "../world.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
@@ -39,7 +39,7 @@ import {
 import { ensureAudio, sfx, setAmbient, setMuted, isMuted, loadMutePref } from "./audio.ts";
 import {
   genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx, spawnPursuer,
-  planCompanion, resolveCompanion, randomFloorAway, inBounds,
+  planCompanion, resolveCompanion, randomFloorAway, inBounds, companionMaxHp, companionDmg,
   VIEW_W, VIEW_H, type Floor, type Pos, type Chest, type Monster, type CompanionEntity, type DownedActor,
 } from "../dungeon.ts";
 import type { Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, LivingActor, SetPiece, Storylet, TownContext, World } from "../types.ts";
@@ -930,13 +930,36 @@ async function homeView() {
 // ---------- 書記＝伝説化承認／系譜（4-4）・ギルド＝等級・英雄譜（4-4） ----------
 const TRACK_SOURCE_LABEL: Record<string, string> = { seeded: "街の古い伝説", player_legend: "あなたが遺した伝説", nemesis: "因縁の相手" };
 const ARC_LABEL: Record<string, string> = { retire: "静かなる昇華", doom: "破滅の弧", fall: "堕ちゆく弧", lore_drift: "伝承の漂い" };
-/** 現キャラの等級＝レベル帯（4-4 ギルド）。金属6等級のうち生者はプラチナまで。ミスリル（秘銀・神話）は原則死後称号＝legendApprove で授かる。 */
-function rankLabel(level: number): string {
-  if (level >= 12) return "プラチナ（英傑）";
-  if (level >= 8) return "ゴールド（精鋭）";
-  if (level >= 5) return "シルバー（一人前）";
-  if (level >= 3) return "ブロンズ（駆け出し）";
-  return "アイアン（新参）";
+/** 金属6等級のラベル（4-4E）。index 0..4=生者の段／5=ミスリル（秘銀・死後の称号）。プレイヤー・相棒で共有。 */
+const GRADE_LABELS = [
+  "アイアン（新参）", "ブロンズ（駆け出し）", "シルバー（一人前）",
+  "ゴールド（精鋭）", "プラチナ（英傑）", "ミスリル（秘銀・神話）",
+] as const;
+export const LIVING_GRADE_CAP = 4; // 生者はプラチナ止まり。ミスリルは死後＝legendApprove で授かる。
+/** 現キャラの等級＝レベル帯→金属index（4-4 ギルド・4-4E）。 */
+function levelGrade(level: number): number {
+  if (level >= 12) return 4;
+  if (level >= 8) return 3;
+  if (level >= 5) return 2;
+  if (level >= 3) return 1;
+  return 0;
+}
+function rankLabel(level: number): string { return GRADE_LABELS[levelGrade(level)]; }
+/** 相棒の等級：bond の蓄積を閾値で段に写す（生還＝偉業の積み上げ）。設定由来の初期等級を下回らない。 */
+function companionGradeFor(bond: number, currentGrade: number): number {
+  const fromBond = bond >= 11 ? 4 : bond >= 7 ? 3 : bond >= 4 ? 2 : bond >= 2 ? 1 : 0;
+  return Math.min(LIVING_GRADE_CAP, Math.max(currentGrade, fromBond));
+}
+/** 生還で相棒を昇格（⤴ 4-4E）。bond を更新した後に呼ぶ。段が上がったらログと盤上エンティティへ反映。 */
+function promoteCompanionOnSurvival(): void {
+  const c = world.companion;
+  if (!c?.alive) return;
+  const next = companionGradeFor(c.bond, c.grade);
+  if (next > c.grade) {
+    c.grade = next;
+    c.maxHp = companionMaxHp(next); // 等級が上がれば頼もしさ（HP/攻撃）も上がる
+    log(`⤴ ${companionName()}が${GRADE_LABELS[next]}に昇格した。`, "cue");
+  }
 }
 // 書記 act1「旧キャラを伝説として承認する」：神話極の旧キャラを player_legend へ昇格（4-4）。
 // 昇格すると後世で legend_return（祝福の山場）として戻れ、英雄譜に名が刻まれる。無料・各化石1回。
@@ -991,8 +1014,12 @@ async function heroRoll() {
   const roll = world.tracked.length
     ? world.tracked.map((t) => `・${t.name}（${TRACK_SOURCE_LABEL[t.source] ?? t.source}／${ARC_LABEL[t.arcType] ?? t.arcType}）`).join("\n")
     : "・（まだ誰の名もない）";
+  // 相棒の等級（4-4E ⤴）：存命の相棒がいれば、その金属等級を併記する。
+  const comp = world.companion?.alive
+    ? `\n相棒《${world.companion.actor.name}》の等級は ${GRADE_LABELS[world.companion.grade]}（絆${world.companion.bond}）。`
+    : "";
   await sheet({
-    text: `ギルド長は台帳を繰る。\n「あなたの等級は ── 《${rankLabel(ch.level)}》。あなたが遺した伝説は ${legends} 柱」。\n\n〔英雄譜〕\n${roll}`,
+    text: `ギルド長は台帳を繰る。\n「あなたの等級は ── 《${rankLabel(ch.level)}》。あなたが遺した伝説は ${legends} 柱」。${comp}\n\n〔英雄譜〕\n${roll}`,
     meta: "ギルド ── 等級・英雄譜（4-4）", options: ["閉じる"],
   });
   busy = false;
@@ -1298,6 +1325,7 @@ function spawnCompanionNear(at: Pos): void {
         companion = {
           x, y, hp: world.companion.maxHp, maxHp: world.companion.maxHp, intent: null,
           erratic: companionErraticRate(world.companion.exposure),
+          dmg: companionDmg(world.companion.grade), // 等級で攻撃力が変動（4-4E）
           // crisisShown は各フロアで再武装（危険域のまま降りれば、その都度 C を再び迫る）
         };
         return;
@@ -1354,6 +1382,7 @@ async function companionCrisis(): Promise<void> {
       if (companion) { companion.erratic = 0; companion.crisisShown = false; }
       sfx("intervene");
       log(`${name}を鎮めた。深みが退き、昏さが薄れていく。絆が深まった。`, "cue");
+      promoteCompanionOnSurvival();
       chronicle(world, "intervention", `${world.current.name}が${name}の深みを鎮め、正気に引き戻した。`, []);
     } else {
       // 失敗罰：相棒が我を失い、自他のどちらかを傷つける（再挑戦は次手で再提示）。
@@ -1376,16 +1405,17 @@ async function companionCrisis(): Promise<void> {
   busy = false;
   draw();
 }
-const COMPANION_MAX_HP = 12; // v1＝固定。最終調整は横断E。
-/** 生者を相棒として迎える（世代越えは world.companion／系譜記憶のため la も永続化）。 */
+/** 生者を相棒として迎える（世代越えは world.companion／系譜記憶のため la も永続化）。
+ *  初期等級は設定ファイル由来（actor.grade・4-4E）。強さ（最大HP/攻撃）もその等級で決まる。 */
 function recruitCompanion(la: LivingActor): void {
   rememberActor(world, la);
   const bond = world.current?.bonds.find((b) => b.entityRef === la.id)?.value ?? 0;
+  const grade = Math.min(LIVING_GRADE_CAP, la.actor.grade ?? 0);
   world.companion = {
     actorRef: la.id, actor: la.actor, bond, exposure: 0,
-    alive: true, maxHp: COMPANION_MAX_HP, recruitedGeneration: world.generation,
+    alive: true, maxHp: companionMaxHp(grade), recruitedGeneration: world.generation, grade,
   };
-  chronicle(world, "rediscovery", `${la.actor.name}と同行することになった。`, [la.id]);
+  chronicle(world, "rediscovery", `${GRADE_LABELS[grade]}の${la.actor.name}と同行することになった。`, [la.id]);
   save();
 }
 /** 街での勧誘の確認＝相棒に迎える（盤上展開は次の潜行開始時）。 */
@@ -1414,7 +1444,8 @@ async function rescueScene(d: DownedActor): Promise<void> {
     sfx("intervene");
     log(`${d.actor.name}を救い出した。これより、共に往く。`, "cue");
   } else {
-    // 見捨てる：怨念化→後世の宿敵（grudge_hunt）は Phase B/C で結線。今は含みだけ残す。
+    // 見捨てる：その場で怨念極の化石を執筆＝後世で grudge_hunt の宿敵として確実に還る（4-14C・B／「宿敵を自分で書く」）。
+    if (downed) fossilizeAbandoned(world, downed.actor, { depth: floor?.depth ?? 1 });
     log(`${d.actor.name}を残して先へ進んだ。背に張りつく沈黙が、いつまでも追ってくる。`, "warn");
   }
   save();
@@ -1912,6 +1943,7 @@ async function stairsPrompt(dir: "down" | "up") {
       if (companion && world.companion?.alive) {
         world.companion.bond += 1;
         log(`${companionName()}と共に生還した。絆が深まる。`, "cue");
+        promoteCompanionOnSurvival();
       }
       companion = null;
       save();
@@ -1934,7 +1966,7 @@ async function ascendWithRelic() {
   const ch = world.current!;
   ch.carryingRelic = undefined;
   // 同行（4-14C）：相棒と共に奉献を成した＝絆が深まり街へ残存。
-  if (companion && world.companion?.alive) { world.companion.bond += 1; log(`${companionName()}と共に、奉献を成し遂げた。`, "cue"); }
+  if (companion && world.companion?.alive) { world.companion.bond += 1; log(`${companionName()}と共に、奉献を成し遂げた。`, "cue"); promoteCompanionOnSurvival(); }
   companion = null;
   world.ascended = (world.ascended ?? 0) + 1;
   sfx("intervene"); flashFx("warp");
