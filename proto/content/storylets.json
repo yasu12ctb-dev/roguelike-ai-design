@@ -1971,6 +1971,39 @@
         { "label": "結晶を掴む", "text": "掌に収めた刹那、見たことのない深部の地図が、痛みと共に頭へ流れ込んだ。力には、必ず代償がある。", "effects": [ { "arc": {"key": "silentdoor", "step": 4, "done": true} }, { "exposure": 0.08 }, { "trait": "深淵の結晶:沈黙の扉の核" }, { "chronicle": "深度#depth#で、沈黙の扉が守っていた黒い結晶を手にした。" } ] },
         { "label": "見届けるだけで去る", "text": "手は伸ばさなかった。知ることと、奪うことは違う。聖堂の静けさだけを胸に、扉を後にした。", "effects": [ { "arc": {"key": "silentdoor", "step": 4, "done": true} }, { "exposure": -0.03 }, { "trait": "見届けた真実:扉の奥の聖堂" }, { "chronicle": "深度#depth#で、沈黙の扉の奥を見届け、何も奪わずに去った。" } ] }
       ]
+    },
+    {
+      "id": "kp_request",
+      "context": "street",
+      "prerequisites": { "notArc": "keepsake" },
+      "weight": 2,
+      "text": "#origin_name# が思い詰めた顔で近づいてきた。「頼みがある。相棒が、深層で還らなかった。せめて、あいつの形見だけでも連れ帰ってやりたい。深みへ降りるお前に、託せないか」。",
+      "choices": [
+        { "label": "引き受ける", "text": "「恩に着る」。#origin_name# は深く頭を下げた。深層のどこかに、まだ誰かの帰りを待つ形見がある。", "effects": [ { "arc": {"key": "keepsake", "step": 1, "anchor": true} }, { "trait": "負った頼み:#origin_name#の相棒の形見" }, { "chronicle": "街で#origin_name# から、深層に眠る相棒の形見を持ち帰る頼みを引き受けた。" } ] },
+        { "label": "今は引き受けられないと断る", "text": "「……そうか。すまない、忘れてくれ」。#origin_name# は力なく背を向けた。", "effects": [ { "chronicle": "街で#origin_name# の、形見を捜す頼みを断った。" } ] }
+      ]
+    },
+    {
+      "id": "kp_find",
+      "context": "dungeon",
+      "prerequisites": { "arc": "keepsake", "arcStep": 1, "depthBand": "deep" },
+      "weight": 4,
+      "text": "深層の壁際に、朽ちかけた亡骸が横たわっている。傍らに、誰かが大切に握っていたらしい小さな護符。これが——あの人の待つ、相棒の形見か。",
+      "choices": [
+        { "label": "形見を拾い上げる", "text": "護符を布に包み、懐へ。冷たい深層で、それだけが確かな温もりを帯びている気がした。", "effects": [ { "arc": {"key": "keepsake", "step": 2} }, { "trait": "預かりもの:相棒の形見" }, { "chronicle": "深度#depth#で、託された相棒の形見を見つけた。" } ] },
+        { "label": "今は手をつけずに進む", "text": "死者の持ち物に触れるには、まだ覚悟が足りない。形見は、その場に残した。", "effects": [ { "chronicle": "深度#depth#で相棒の形見を見つけたが、まだ手をつけられなかった。" } ] }
+      ]
+    },
+    {
+      "id": "kp_return",
+      "context": "street",
+      "prerequisites": { "arc": "keepsake", "arcStep": 2, "arcActor": true },
+      "weight": 3,
+      "text": "#origin_name# が、こちらの手元の護符に気づいて息を呑んだ。「それは……ああ、間違いない。あいつのだ」。差し出せば、長く塞がれていた何かが、ようやく閉じる。",
+      "choices": [
+        { "label": "形見を手渡す", "text": "#origin_name# は護符を両手で受け取り、声を殺して泣いた。「これで、あいつを送ってやれる。……礼だ。受け取ってくれ」。差し出されたのは、いくらかの金貨と、相棒が遺したという膏薬だった。", "effects": [ { "arc": {"key": "keepsake", "step": 3, "done": true} }, { "bond": 2 }, { "gold": 35 }, { "item": "salve" }, { "chronicle": "街で#origin_name# に相棒の形見を届けた。深い感謝とともに、礼を受け取った。" } ] },
+        { "label": "自分のものにする", "text": "護符を懐へ深くしまい、「見つからなかった」と告げた。#origin_name# の落胆した顔から、目を逸らす。胸の奥で、何かが冷たく固まった。", "effects": [ { "arc": {"key": "keepsake", "step": 3, "pick": "betray", "done": true} }, { "exposure": 0.08 }, { "trait": "裏切り:届けなかった形見" }, { "chronicle": "街で#origin_name# を欺き、相棒の形見を自分のものにした。" } ] }
+      ]
     }
   ]
 }

@@ -245,6 +245,7 @@ export interface Prereq {
   arc?: string;            // この弧が進行中（未完）であること
   arcStep?: number;        // かつ現在ステップがこの値（段の発火位置）
   arcPick?: string;        // かつ分岐の選択がこの値（早い選択が後段を変える）
+  arcActor?: boolean;      // かつ「今会っている生者＝この弧のアンカーNPC」（特定NPCに戻る弧／街）
   notArc?: string;         // この弧が未開始であること（開幕の重複発火を防ぐ）
 }
 
@@ -257,13 +258,15 @@ export interface Effect {
   chronicle?: string;      // 年代記に一行残す（スロット可）
   plant?: string;          // 伏線フラグを立てる（この化石にスコープ。後続の prereq.flag が拾う）
   arc?: ArcEffect;         // 長尺アークを開始/前進/分岐記録/完了（4-12(I)）
+  gold?: number;           // 報酬：金貨の増減（4-10G 経済）
+  item?: string;           // 報酬：消耗品キーを1つ持ち物へ（容量超過なら持ちきれず破棄）
 }
 
-/** 長尺アークの進行操作（Effect.arc）。step を設定し、pick で分岐を記録、done で弧を閉じる。 */
-export interface ArcEffect { key: string; step: number; pick?: string; done?: boolean }
+/** 長尺アークの進行操作（Effect.arc）。step を設定し、pick で分岐を記録、done で弧を閉じる。anchor で今の生者をアンカー。 */
+export interface ArcEffect { key: string; step: number; pick?: string; done?: boolean; anchor?: boolean; actorRef?: string }
 
-/** 長尺アークの状態（World.arcs：進行度クオリティ＝多段の弧を数える。4-12(I)）。 */
-export interface ArcState { key: string; step: number; pick?: string; done?: boolean }
+/** 長尺アークの状態（World.arcs：進行度クオリティ＝多段の弧を数える。4-12(I)）。actorRef＝特定NPCに戻る弧の相手。 */
+export interface ArcState { key: string; step: number; pick?: string; done?: boolean; actorRef?: string }
 
 /** 遭遇ノードの動詞ぶんの本文と還流（〈調べる〉〈捜索〉が各々持つ）。 */
 export interface StoryletBranch {

@@ -9,6 +9,20 @@ import { chronicle, getArc, setArc } from "./world.ts";
 import { fillStoryletText, fillDungeonText, fillActorText } from "./render.ts";
 import { rememberActor } from "./actors.ts";
 import { depthBand } from "./variation.ts";
+import { grantConsumable, consumableByKey } from "./items.ts";
+import { carryCapacity } from "./progression.ts";
+
+/** 報酬（金貨/消耗品）を適用しログ行を返す。全 context 共通（4-12(I)：イベント＝報酬セット）。 */
+function applyReward(ch: Character, e: Effect, logs: string[]): void {
+  if (e.gold !== undefined && e.gold !== 0) {
+    ch.gold = Math.max(0, (ch.gold ?? 0) + e.gold);
+    logs.push(e.gold > 0 ? `礼金を受け取った（＋${e.gold}金貨／所持 ${ch.gold}）。` : `金貨を手放した（${e.gold}）。`);
+  }
+  if (e.item !== undefined) {
+    const name = consumableByKey(e.item)?.name ?? e.item;
+    logs.push(grantConsumable(ch, e.item, carryCapacity(ch)) ? `${name} を手に入れた。` : `${name} を受け取ったが、持ちきれず手放した。`);
+  }
+}
 
 /** 長尺アークの前提照合（4-12(I)：世界スコープ）。arc=進行中かつ step/pick が一致／notArc=未開始（done含む）。 */
 function arcMatches(p: Prereq, world: World): boolean {
@@ -105,6 +119,7 @@ export function applyEffects(
       if (!world.flags.includes(key)) { world.flags.push(key); logs.push("……これは、伏線になる。"); }
     }
     if (e.arc !== undefined) setArc(world, e.arc); // 長尺アーク（4-12(I)）
+    applyReward(ch, e, logs); // 報酬（金貨/消耗品）
   }
   return logs;
 }
@@ -150,6 +165,7 @@ export function applyDungeonEffects(world: World, ch: Character, depth: number, 
       chronicle(world, "rediscovery", fillDungeonText(depth, e.chronicle), []);
     }
     if (e.arc !== undefined) setArc(world, e.arc); // 長尺アークの開始/前進/分岐/完了（4-12(I)）
+    applyReward(ch, e, logs); // 報酬（金貨/消耗品）
   }
   return logs;
 }
@@ -168,6 +184,11 @@ function townMatches(p: Prereq, world: World, ch: Character, la: LivingActor): b
   const flags = world.flags ?? [];
   if (p.flag !== undefined && !flags.includes(scopedFlag(p.flag, la.id))) return false;
   if (p.notFlag !== undefined && flags.includes(scopedFlag(p.notFlag, la.id))) return false;
+  // 特定NPCに戻る弧：今会っている生者が、この弧のアンカーNPC本人であること
+  if (p.arcActor && p.arc !== undefined) {
+    const a = getArc(world, p.arc);
+    if (!a || a.actorRef !== la.id) return false;
+  }
   return arcMatches(p, world);
 }
 
@@ -217,7 +238,12 @@ export function applyActorEffects(world: World, ch: Character, la: LivingActor, 
       if (!world.flags.includes(key)) { world.flags.push(key); logs.push("……また会えそうな気がする。"); }
       referenced = true;
     }
-    if (e.arc !== undefined) setArc(world, e.arc); // 長尺アーク（4-12(I)）
+    if (e.arc !== undefined) {
+      // anchor 指定なら「今会っている生者」を弧のアンカーに（特定NPCに戻る弧）。生者は永続化。
+      setArc(world, e.arc.anchor ? { ...e.arc, actorRef: la.id } : e.arc);
+      if (e.arc.anchor) referenced = true;
+    }
+    applyReward(ch, e, logs); // 報酬（金貨/消耗品）
   }
   if (referenced) rememberActor(world, la); // 参照された生者だけ永続（lazy：4-12C/4-6）
   return logs;
