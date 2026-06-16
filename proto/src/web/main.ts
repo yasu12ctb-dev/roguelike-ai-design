@@ -978,6 +978,12 @@ function recordCompanionFeat(): void {
   c.feats = (c.feats ?? 0) + 1;
   tryPromoteCompanion();
 }
+/** 永続同行のランクゲート（4-14C・2026-06-16 ユーザー承認）：恒久相棒にできるのは「設定等級 ≤ プレイヤーの等級」まで。
+ *  上位冒険者は滅多に同行しない＝プレイヤーが相応の高みに達して初めて誘える（格上のスポット同行は次段）。 */
+function playerGrade(): number { return levelGrade(world.current?.level ?? 1); }
+function outranksPlayer(actor: { grade?: number }): boolean {
+  return Math.min(LIVING_GRADE_CAP, actor.grade ?? 0) > playerGrade();
+}
 // 書記 act1「旧キャラを伝説として承認する」：神話極の旧キャラを player_legend へ昇格（4-4）。
 // 昇格すると後世で legend_return（祝福の山場）として戻れ、英雄譜に名が刻まれる。無料・各化石1回。
 async function legendApprove() {
@@ -1437,6 +1443,13 @@ function recruitCompanion(la: LivingActor): void {
 }
 /** 街での勧誘の確認＝相棒に迎える（盤上展開は次の潜行開始時）。 */
 async function offerCompanion(la: LivingActor): Promise<void> {
+  if (outranksPlayer(la.actor)) { // 格上は永続同行を断る＝プレイヤーが名を上げて初めて誘える（4-14C ランクゲート）
+    await sheet({
+      text: `${la.actor.name}に、共に潜らないかと持ちかける。\nだが相手は静かに首を振った。\n「お前の名は、まだ俺と肩を並べるには軽い。──《${GRADE_LABELS[playerGrade()]}》のお前ではな。\nもっと高みへ来い。その時は、背中を預けよう」。`,
+      meta: "同行 ── まだ格が足りない", options: ["引き下がる"],
+    });
+    return;
+  }
   const r = await sheet({
     text: `${la.actor.name}に、共に潜らないかと持ちかける。\n「――いいだろう。背中は預ける」。次に迷宮へ降りるとき、隣を歩くことになる。`,
     meta: "同行 ── 相棒を得る", options: ["頼む（同行する）", "やめておく"],
@@ -1455,11 +1468,16 @@ async function rescueScene(d: DownedActor): Promise<void> {
   const downed = floor?.downed;
   if (floor) floor.downed = null;
   if (r.pick === 1 && downed) {
-    const la: LivingActor = { id: `npc_${world.generation}_${downed.id}`, actor: downed.actor, metGeneration: world.generation };
-    recruitCompanion(la);
-    spawnCompanionNear(player);
     sfx("intervene");
-    log(`${d.actor.name}を救い出した。これより、共に往く。`, "cue");
+    if (outranksPlayer(downed.actor)) { // 格上を救えても恒久相棒にはならず去る（救った＝怨念化はしない・4-14C ランクゲート）
+      log(`${d.actor.name}を救い出した。だが「お前とはまだ格が違う」と、礼だけを残して去っていった。`, "cue");
+      chronicle(world, "rediscovery", `${d.actor.name}を深度${floor?.depth ?? 1}で救った。格上ゆえ同道はせず、相応の高みでの再会を約した。`, []);
+    } else {
+      const la: LivingActor = { id: `npc_${world.generation}_${downed.id}`, actor: downed.actor, metGeneration: world.generation };
+      recruitCompanion(la);
+      spawnCompanionNear(player);
+      log(`${d.actor.name}を救い出した。これより、共に往く。`, "cue");
+    }
   } else {
     // 見捨てる：その場で怨念極の化石を執筆＝後世で grudge_hunt の宿敵として確実に還る（4-14C・B／「宿敵を自分で書く」）。
     if (downed) fossilizeAbandoned(world, downed.actor, { depth: floor?.depth ?? 1 });
