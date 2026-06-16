@@ -157,6 +157,21 @@
     { "id": "agear_18", "slotType": "actor_gear", "tags": {}, "text": "泥だらけの長靴" },
     { "id": "agear_19", "slotType": "actor_gear", "tags": {}, "text": "ひしゃげた水筒" },
     { "id": "agear_20", "slotType": "actor_gear", "tags": {}, "text": "護符だらけの帯" },
-    { "id": "agear_21", "slotType": "actor_gear", "tags": {}, "text": "ささくれた木札" }
+    { "id": "agear_21", "slotType": "actor_gear", "tags": {}, "text": "ささくれた木札" },
+    { "id": "agrade_iron_1", "slotType": "actor_grade", "tags": {}, "text": "iron" },
+    { "id": "agrade_iron_2", "slotType": "actor_grade", "tags": {}, "text": "iron" },
+    { "id": "agrade_iron_3", "slotType": "actor_grade", "tags": {}, "text": "iron" },
+    { "id": "agrade_iron_4", "slotType": "actor_grade", "tags": {}, "text": "iron" },
+    { "id": "agrade_iron_5", "slotType": "actor_grade", "tags": {}, "text": "iron" },
+    { "id": "agrade_bronze_1", "slotType": "actor_grade", "tags": {}, "text": "bronze" },
+    { "id": "agrade_bronze_2", "slotType": "actor_grade", "tags": {}, "text": "bronze" },
+    { "id": "agrade_bronze_3", "slotType": "actor_grade", "tags": {}, "text": "bronze" },
+    { "id": "agrade_bronze_4", "slotType": "actor_grade", "tags": {}, "text": "bronze" },
+    { "id": "agrade_silver_1", "slotType": "actor_grade", "tags": {}, "text": "silver" },
+    { "id": "agrade_silver_2", "slotType": "actor_grade", "tags": {}, "text": "silver" },
+    { "id": "agrade_silver_3", "slotType": "actor_grade", "tags": {}, "text": "silver" },
+    { "id": "agrade_gold_1", "slotType": "actor_grade", "tags": {}, "text": "gold" },
+    { "id": "agrade_gold_2", "slotType": "actor_grade", "tags": {}, "text": "gold" },
+    { "id": "agrade_platinum_1", "slotType": "actor_grade", "tags": {}, "text": "platinum" }
   ]
 }

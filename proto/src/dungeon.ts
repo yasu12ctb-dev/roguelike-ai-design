@@ -55,6 +55,7 @@ export interface CompanionEntity extends Pos {
   stunned?: number;
   erratic?: number;              // 連帯深蝕で生じる挙動のぶれ率（Phase B：奇癖→逸脱。0=正気）
   crisisShown?: boolean;         // 危険化（C）の決断を今のエピソードで提示済みか（Phase B）
+  dmg?: number;                  // 攻撃力（4-4E：等級で変動。未設定なら COMPANION_DMG）
 }
 // フロアに横たわる手負いの冒険者（4-14C 入口B：救助＝相棒化／見捨て＝後世の宿敵）。
 export interface DownedActor extends Pos {
@@ -317,8 +318,17 @@ export interface Resolution { hits: MonsterHit[]; dodges: Monster[]; }
 export interface CompanionResolution { hit: Monster | null; dmg: number; }
 
 const monsterDmg = (m: Monster, f: Floor) => m.kind.dmg + (f.depth >= 20 ? 1 : 0);
-/** 相棒の攻撃力（v1＝控えめの固定値＋深部で微増。最終調整は横断E）。 */
+/** 相棒の攻撃力（等級なし時のフォールバック＝控えめの固定値。最終調整は横断E）。 */
 export const COMPANION_DMG = 2;
+
+/** 相棒の強さ＝金属等級で変動（4-4E）。設定ランクが上の相棒ほど頼れる。
+ *  HP: アイアン10 → プラチナ22／攻撃: アイアン2 → プラチナ6。 */
+export function companionMaxHp(grade: number): number {
+  return 10 + Math.max(0, Math.min(5, grade)) * 3;
+}
+export function companionDmg(grade: number): number {
+  return 2 + Math.max(0, Math.min(5, grade));
+}
 
 // 移動先が他者で塞がっているか（モンスター同士・化石・相棒・手負いと重ならない）。
 const occupiedBy = (f: Floor, x: number, y: number, self: Monster | null, comp?: Pos | null) =>
@@ -424,7 +434,8 @@ export function resolveCompanion(f: Floor, player: Pos, comp: CompanionEntity): 
   if (comp.intent.type === "attack") {
     const { x, y } = comp.intent;
     const m = f.monsters.find((mm) => mm.hp > 0 && mm.x === x && mm.y === y);
-    if (m) { m.hp -= COMPANION_DMG; res = { hit: m, dmg: COMPANION_DMG }; }
+    const dmg = comp.dmg ?? COMPANION_DMG;
+    if (m) { m.hp -= dmg; res = { hit: m, dmg }; }
   } else if (comp.intent.type === "move") {
     const { x, y } = comp.intent;
     if (tileAt(f, x, y) === 1 && !(x === player.x && y === player.y) && !occupiedBy(f, x, y, null, null)) { comp.x = x; comp.y = y; }

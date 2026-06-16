@@ -2,9 +2,20 @@
 // 生者は lazy：遭遇時に mint し、選択の effects が参照した時だけ World へ永続化（4-12C/4-6）。
 
 import type { ContentDb } from "./content.ts";
-import { pickByTags } from "./content.ts";
+import { filterByTags, pickByTags } from "./content.ts";
 import type { Actor, FragmentTags, LivingActor, World } from "./types.ts";
 import type { Rng } from "./rng.ts";
+
+/** 金属等級（4-4E）の素材key→index。設定ファイル(actor_grade)はこのkeyで等級を綴る。 */
+const GRADE_INDEX: Record<string, number> = { iron: 0, bronze: 1, silver: 2, gold: 3, platinum: 4 };
+
+/** 設定ファイル（actor_grade スロット）から初期等級を引く。未設定なら 0（アイアン＝新参）。
+ *  断片の重み付け（下ほど多い行数）で 4-4E のピラミッドを procedural に再現する。 */
+function pickGrade(db: ContentDb, rng: Rng, tags: FragmentTags): number {
+  const pool = filterByTags(db, "actor_grade", tags);
+  if (pool.length === 0) return 0;
+  return GRADE_INDEX[rng.pick(pool).text] ?? 0;
+}
 
 /** 鋳造所断片からアクター記述子を生成（化石に origin を与えるのと同じ機構の procedural 版）。 */
 export function mintActor(db: ContentDb, rng: Rng, tags: FragmentTags = {}): Actor {
@@ -12,7 +23,8 @@ export function mintActor(db: ContentDb, rng: Rng, tags: FragmentTags = {}): Act
   const name = pickByTags(db, rng, "actor_name", tags).text;
   const gear = pickByTags(db, rng, "actor_gear", tags).text;
   const epithet = pickByTags(db, rng, "actor_epithet", tags).text;
-  return { name, archetype, gearTags: [gear], epithet, alive: true };
+  const grade = pickGrade(db, rng, tags);                           // 金属等級（4-4E）＝設定ファイル由来
+  return { name, archetype, gearTags: [gear], epithet, alive: true, grade };
 }
 
 /** 街などで生者と出会う。既知の生者がいれば一定確率で再会（伏線の follow-up を可能に）、なければ新規 mint。 */

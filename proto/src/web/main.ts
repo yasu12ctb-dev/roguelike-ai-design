@@ -6,7 +6,7 @@ import setpiecesJson from "../../content/setpieces.json";
 import { makeContentDb } from "../content.ts";
 import { makeRng, type Rng } from "../rng.ts";
 import {
-  newWorld, createCharacter, fossilizeCurrent, fossilizeCompanion, intervene, recordRediscovery,
+  newWorld, createCharacter, fossilizeCurrent, fossilizeCompanion, fossilizeAbandoned, intervene, recordRediscovery,
   chronicle, poleLabel, finalActLabel, migrateWorld, awardSeal, abyssUnlocked,
 } from "../world.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
@@ -39,7 +39,7 @@ import {
 import { ensureAudio, sfx, setAmbient, setMuted, isMuted, loadMutePref } from "./audio.ts";
 import {
   genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx, spawnPursuer,
-  planCompanion, resolveCompanion, randomFloorAway, inBounds,
+  planCompanion, resolveCompanion, randomFloorAway, inBounds, companionMaxHp, companionDmg,
   VIEW_W, VIEW_H, type Floor, type Pos, type Chest, type Monster, type CompanionEntity, type DownedActor,
 } from "../dungeon.ts";
 import type { Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, LivingActor, SetPiece, Storylet, TownContext, World } from "../types.ts";
@@ -465,8 +465,10 @@ async function questBoard() {
   for (const q of done) actions.push({
     label: `報酬を受け取る：${q.title}（＋${q.rewardGold}金貨）`,
     run: () => {
-      const g = claimQuest(world, ch, q.id);
-      log(`ギルド長から報酬を受け取った（＋${g}金貨／所持 ${ch.gold}）。`);
+      const gross = claimQuest(world, ch, q.id); // claimQuest が満額を加算済み
+      const cut = world.companion?.alive ? Math.floor(gross / 2) : 0; // 同行中は依頼報酬も折半（4-14C）
+      if (cut > 0) { ch.gold -= cut; log(`${companionName()}が取り分として ${cut}金貨を受け取った（折半）。`, "dim"); }
+      log(`ギルド長から報酬を受け取った（＋${gross - cut}金貨／所持 ${ch.gold}）。`);
       chronicle(world, "legend", `${ch.name}が依頼「${q.title}」を果たした。`, [ch.id]);
     },
   });
@@ -498,7 +500,7 @@ async function smithSell() {
     busy = false;
     const i = r.pick - 1;
     if (i < 0 || i >= bag.length) break;
-    const it = bag.splice(i, 1)[0], val = sellGear(it, SMITH_SELL_MUL);
+    const it = bag.splice(i, 1)[0], val = splitGold(sellGear(it, SMITH_SELL_MUL)); // 同行中は売却益も折半（4-14C）
     ch.gold += val; sfx("open");
     log(`${it.name} を武具屋に売った（＋${val}金貨／所持 ${ch.gold}）。`, "dim");
     save();
@@ -930,13 +932,85 @@ async function homeView() {
 // ---------- 書記＝伝説化承認／系譜（4-4）・ギルド＝等級・英雄譜（4-4） ----------
 const TRACK_SOURCE_LABEL: Record<string, string> = { seeded: "街の古い伝説", player_legend: "あなたが遺した伝説", nemesis: "因縁の相手" };
 const ARC_LABEL: Record<string, string> = { retire: "静かなる昇華", doom: "破滅の弧", fall: "堕ちゆく弧", lore_drift: "伝承の漂い" };
-/** 現キャラの等級＝レベル帯（4-4 ギルド）。金属6等級のうち生者はプラチナまで。ミスリル（秘銀・神話）は原則死後称号＝legendApprove で授かる。 */
-function rankLabel(level: number): string {
-  if (level >= 12) return "プラチナ（英傑）";
-  if (level >= 8) return "ゴールド（精鋭）";
-  if (level >= 5) return "シルバー（一人前）";
-  if (level >= 3) return "ブロンズ（駆け出し）";
-  return "アイアン（新参）";
+/** 金属6等級のラベル（4-4E）。index 0..4=生者の段／5=ミスリル（秘銀・死後の称号）。プレイヤー・相棒で共有。 */
+const GRADE_LABELS = [
+  "アイアン（新参）", "ブロンズ（駆け出し）", "シルバー（一人前）",
+  "ゴールド（精鋭）", "プラチナ（英傑）", "ミスリル（秘銀・神話）",
+] as const;
+export const LIVING_GRADE_CAP = 4; // 生者はプラチナ止まり。ミスリルは死後＝legendApprove で授かる。
+/** 現キャラの等級＝レベル帯→金属index（4-4 ギルド・4-4E）。 */
+function levelGrade(level: number): number {
+  if (level >= 12) return 4;
+  if (level >= 8) return 3;
+  if (level >= 5) return 2;
+  if (level >= 3) return 1;
+  return 0;
+}
+function rankLabel(level: number): string { return GRADE_LABELS[levelGrade(level)]; }
+// 相棒の昇格ゲート（4-4E「生存と偉業で1段ずつ」・2026-06-16 ユーザー承認）。
+// 段kへ上がるには bond（生還の蓄積）と feats（偉業＝ボス撃破・山場決着）の両方が必要＝滅多に上がらない。
+// 通算でブロンズ:生還3+偉業1／シルバー:7+2／ゴールド:12+4／プラチナ:18+6（プラチナ＝生者上限）。
+const COMP_SURVIVAL_GATE = [0, 3, 7, 12, 18];
+const COMP_FEAT_GATE = [0, 1, 2, 4, 6];
+/** 相棒の等級：bond（生還）と feats（偉業）の両ゲートで段を決める。設定由来の初期等級は下回らない。 */
+function companionGradeFor(bond: number, feats: number, currentGrade: number): number {
+  let g = currentGrade;
+  for (let k = currentGrade + 1; k <= LIVING_GRADE_CAP; k++) {
+    if (bond >= COMP_SURVIVAL_GATE[k] && feats >= COMP_FEAT_GATE[k]) g = k;
+    else break; // 段は順に＝下の段の条件を満たさなければ上は開かない
+  }
+  return g;
+}
+/** 相棒の昇格判定（⤴ 4-4E）。生還(bond)・偉業(feats)を更新した後に呼ぶ。段が上がればログと盤上へ反映。 */
+function tryPromoteCompanion(): void {
+  const c = world.companion;
+  if (!c?.alive) return;
+  const next = companionGradeFor(c.bond, c.feats ?? 0, c.grade);
+  if (next > c.grade) {
+    c.grade = next;
+    c.maxHp = companionMaxHp(next); // 等級が上がれば頼もしさ（HP/攻撃）も上がる
+    if (companion) { companion.maxHp = c.maxHp; companion.dmg = companionDmg(next); } // 潜行中なら盤上にも即反映（HPは据置）
+    log(`⤴ ${companionName()}が${GRADE_LABELS[next]}に昇格した。`, "cue");
+  }
+}
+/** 偉業を記録（ボス撃破・山場決着）。相棒が今ここで共に在る時だけ＝共有した偉業のみ数える。 */
+function recordCompanionFeat(): void {
+  const c = world.companion;
+  if (!c?.alive || !companion || companion.hp <= 0) return;
+  c.feats = (c.feats ?? 0) + 1;
+  tryPromoteCompanion();
+}
+/** 永続同行のランクゲート（4-14C・2026-06-16 ユーザー承認）：恒久相棒にできるのは「設定等級 ≤ プレイヤーの等級」まで。
+ *  上位冒険者は滅多に同行しない＝プレイヤーが相応の高みに達して初めて誘える（格上のスポット同行は次段）。 */
+function playerGrade(): number { return levelGrade(world.current?.level ?? 1); }
+// ---- 同行＝契約パーティ（4-14C・2026-06-16 改訂）：雇用/折半/解散/再雇用 ----
+const HIRE_FEE_BASE = 12; // 前金の基礎。実額＝HIRE_FEE_BASE×(等級+1)＝アイアン12…プラチナ60。
+/** 生者NPC（world.actors）に蓄積した雇用記録（昇格はここに残り再雇用で再開）。 */
+function storedRecord(actorRef: string): { grade: number; bond: number; feats: number } | undefined {
+  const a = world.actors?.find((x) => x.id === actorRef);
+  if (!a || typeof a.grade !== "number") return undefined;
+  return { grade: a.grade, bond: a.bond ?? 0, feats: a.feats ?? 0 };
+}
+/** 雇用時の実効等級＝設定等級と蓄積等級の高い方（再雇用ほど精鋭）。 */
+function hireGradeOf(la: LivingActor): number {
+  return Math.min(LIVING_GRADE_CAP, Math.max(la.actor.grade ?? 0, storedRecord(la.id)?.grade ?? 0));
+}
+function hireFee(grade: number): number { return HIRE_FEE_BASE * (grade + 1); }
+/** 実効等級がプレイヤーの等級を超える＝まだ雇えない（ランクゲート）。 */
+function outranksPlayer(la: LivingActor): boolean { return hireGradeOf(la) > playerGrade(); }
+/** 契約終了（解散/プレイヤー死）時、相棒の等級/絆/偉業を生者NPCへ書き戻す＝再雇用で再開。 */
+function persistCompanionRecord(): void {
+  const c = world.companion;
+  if (!c) return;
+  const a = world.actors?.find((x) => x.id === c.actorRef);
+  if (a) { a.grade = c.grade; a.bond = c.bond; a.feats = c.feats ?? 0; }
+}
+/** 同行中の金貨獲得は相棒と折半（契約：金貨のみ）。プレイヤーの実入りを返す。 */
+function splitGold(amount: number): number {
+  if (!world.companion?.alive || amount <= 0) return amount;
+  const cut = Math.floor(amount / 2);
+  if (cut > 0) log(`${companionName()}が取り分として ${cut}金貨を受け取った（折半）。`, "dim");
+  return amount - cut;
 }
 // 書記 act1「旧キャラを伝説として承認する」：神話極の旧キャラを player_legend へ昇格（4-4）。
 // 昇格すると後世で legend_return（祝福の山場）として戻れ、英雄譜に名が刻まれる。無料・各化石1回。
@@ -991,11 +1065,24 @@ async function heroRoll() {
   const roll = world.tracked.length
     ? world.tracked.map((t) => `・${t.name}（${TRACK_SOURCE_LABEL[t.source] ?? t.source}／${ARC_LABEL[t.arcType] ?? t.arcType}）`).join("\n")
     : "・（まだ誰の名もない）";
-  await sheet({
-    text: `ギルド長は台帳を繰る。\n「あなたの等級は ── 《${rankLabel(ch.level)}》。あなたが遺した伝説は ${legends} 柱」。\n\n〔英雄譜〕\n${roll}`,
-    meta: "ギルド ── 等級・英雄譜（4-4）", options: ["閉じる"],
+  // 相棒の等級（4-4E ⤴）：雇用中の相棒がいれば等級を併記し、ここから解散もできる（4-14C 契約）。
+  const hired = world.companion?.alive ? world.companion : null;
+  const comp = hired
+    ? `\n雇用中の相棒《${hired.actor.name}》── ${GRADE_LABELS[hired.grade]}（生還${hired.bond}・偉業${hired.feats ?? 0}）。道中の金貨は折半。`
+    : "";
+  const opts = hired ? ["相棒と別れる（解散）", "閉じる"] : ["閉じる"];
+  const r = await sheet({
+    text: `ギルド長は台帳を繰る。\n「あなたの等級は ── 《${rankLabel(ch.level)}》。あなたが遺した伝説は ${legends} 柱」。${comp}\n\n〔英雄譜〕\n${roll}`,
+    meta: "ギルド ── 等級・英雄譜（4-4）", options: opts,
   });
   busy = false;
+  if (hired && r.pick === 1) { // 解散＝無料。等級/絆/偉業を生者NPCへ残し、相棒は街へ（再雇用可）。
+    const name = companionName();
+    persistCompanionRecord();
+    world.companion = undefined;
+    log(`${name}と別れた。「また入用があれば、声をかけな」。`, "cue");
+    save();
+  }
 }
 // ギルド act2「系譜の恩寵を確かめる」：先代から継いだ恩寵（絆・形質）を確認。
 async function lineageBoon() {
@@ -1298,6 +1385,7 @@ function spawnCompanionNear(at: Pos): void {
         companion = {
           x, y, hp: world.companion.maxHp, maxHp: world.companion.maxHp, intent: null,
           erratic: companionErraticRate(world.companion.exposure),
+          dmg: companionDmg(world.companion.grade), // 等級で攻撃力が変動（4-4E）
           // crisisShown は各フロアで再武装（危険域のまま降りれば、その都度 C を再び迫る）
         };
         return;
@@ -1354,6 +1442,7 @@ async function companionCrisis(): Promise<void> {
       if (companion) { companion.erratic = 0; companion.crisisShown = false; }
       sfx("intervene");
       log(`${name}を鎮めた。深みが退き、昏さが薄れていく。絆が深まった。`, "cue");
+      tryPromoteCompanion();
       chronicle(world, "intervention", `${world.current.name}が${name}の深みを鎮め、正気に引き戻した。`, []);
     } else {
       // 失敗罰：相棒が我を失い、自他のどちらかを傷つける（再挑戦は次手で再提示）。
@@ -1376,25 +1465,49 @@ async function companionCrisis(): Promise<void> {
   busy = false;
   draw();
 }
-const COMPANION_MAX_HP = 12; // v1＝固定。最終調整は横断E。
-/** 生者を相棒として迎える（世代越えは world.companion／系譜記憶のため la も永続化）。 */
+/** 生者を相棒として雇う（契約＝world.companion）。等級/絆/偉業は生者NPCの蓄積記録があれば再開（再雇用で精鋭に）。
+ *  初期等級は設定ファイル由来（actor.grade・4-4E）。強さ（最大HP/攻撃）もその等級で決まる。 */
 function recruitCompanion(la: LivingActor): void {
   rememberActor(world, la);
-  const bond = world.current?.bonds.find((b) => b.entityRef === la.id)?.value ?? 0;
+  const rec = storedRecord(la.id); // 過去に雇ったことがあれば蓄積を再開
+  const grade = hireGradeOf(la);
+  const bond = rec?.bond ?? (world.current?.bonds.find((b) => b.entityRef === la.id)?.value ?? 0);
+  const feats = rec?.feats ?? 0;
   world.companion = {
     actorRef: la.id, actor: la.actor, bond, exposure: 0,
-    alive: true, maxHp: COMPANION_MAX_HP, recruitedGeneration: world.generation,
+    alive: true, maxHp: companionMaxHp(grade), recruitedGeneration: world.generation, grade, feats,
   };
-  chronicle(world, "rediscovery", `${la.actor.name}と同行することになった。`, [la.id]);
+  chronicle(world, "rediscovery", `${GRADE_LABELS[grade]}の${la.actor.name}を雇い、同行することになった。`, [la.id]);
   save();
 }
-/** 街での勧誘の確認＝相棒に迎える（盤上展開は次の潜行開始時）。 */
+/** 街での勧誘＝誘う（プレイヤー発）：前金（同行費用）を払って雇う。道中の金貨は折半（4-14C 契約）。 */
 async function offerCompanion(la: LivingActor): Promise<void> {
+  if (outranksPlayer(la)) { // 格上は雇えない＝プレイヤーが名を上げて初めて誘える（4-14C ランクゲート）
+    await sheet({
+      text: `${la.actor.name}に、共に潜らないかと持ちかける。\nだが相手は静かに首を振った。\n「お前の名は、まだ俺と肩を並べるには軽い。──《${GRADE_LABELS[playerGrade()]}》のお前ではな。\nもっと高みへ来い。その時は、背中を預けよう」。`,
+      meta: "同行 ── まだ格が足りない", options: ["引き下がる"],
+    });
+    return;
+  }
+  const ch = world.current!;
+  const grade = hireGradeOf(la);
+  const fee = hireFee(grade);
+  if (ch.gold < fee) {
+    await sheet({
+      text: `${la.actor.name}に同行を持ちかける。\n「いいだろう。だが先立つものは前金で ── ${fee}金貨だ」。\n……今の持ち金（${ch.gold}）では足りない。`,
+      meta: "同行 ── 前金が足りない", options: ["引き下がる"],
+    });
+    return;
+  }
   const r = await sheet({
-    text: `${la.actor.name}に、共に潜らないかと持ちかける。\n「――いいだろう。背中は預ける」。次に迷宮へ降りるとき、隣を歩くことになる。`,
-    meta: "同行 ── 相棒を得る", options: ["頼む（同行する）", "やめておく"],
+    text: `${GRADE_LABELS[grade]}の${la.actor.name}に、共に潜らないかと持ちかける。\n「いいだろう。前金は ${fee}金貨。道中で得た金貨は、山分けだ」。\n（雇えば次の潜行から隣を歩く。街でいつでも解散できる）`,
+    meta: "同行 ── 雇う（前金＋折半）", options: [`頼む（前金${fee}金貨を払う）`, "やめておく"],
   });
-  if (r.pick === 1) { recruitCompanion(la); log(`${la.actor.name}が同行者になった。次の潜行から隣を歩く。`, "cue"); }
+  if (r.pick === 1) {
+    ch.gold -= fee;
+    recruitCompanion(la);
+    log(`前金${fee}金貨を払い、${la.actor.name}を雇った（道中の金貨は折半／所持 ${ch.gold}）。`, "cue");
+  }
 }
 /** フロアの手負いを救助（→相棒化）／見捨てる（4-14C 入口B）。 */
 async function rescueScene(d: DownedActor): Promise<void> {
@@ -1408,13 +1521,20 @@ async function rescueScene(d: DownedActor): Promise<void> {
   const downed = floor?.downed;
   if (floor) floor.downed = null;
   if (r.pick === 1 && downed) {
-    const la: LivingActor = { id: `npc_${world.generation}_${downed.id}`, actor: downed.actor, metGeneration: world.generation };
-    recruitCompanion(la);
-    spawnCompanionNear(player);
     sfx("intervene");
-    log(`${d.actor.name}を救い出した。これより、共に往く。`, "cue");
+    const la: LivingActor = { id: `npc_${world.generation}_${downed.id}`, actor: downed.actor, metGeneration: world.generation };
+    if (outranksPlayer(la)) { // 格上を救えても雇えず去る（救った＝怨念化はしない・4-14C ランクゲート）
+      log(`${d.actor.name}を救い出した。だが「お前とはまだ格が違う」と、礼だけを残して去っていった。`, "cue");
+      chronicle(world, "rediscovery", `${d.actor.name}を深度${floor?.depth ?? 1}で救った。格上ゆえ同道はせず、相応の高みでの再会を約した。`, []);
+    } else {
+      // 誘われる（救助の申し出）＝前金なし・道中の金貨は折半（4-14C 契約）。
+      recruitCompanion(la);
+      spawnCompanionNear(player);
+      log(`${d.actor.name}を救い出した。「この恩は、戦って返す。── 稼ぎは山分けでな」。これより共に往く。`, "cue");
+    }
   } else {
-    // 見捨てる：怨念化→後世の宿敵（grudge_hunt）は Phase B/C で結線。今は含みだけ残す。
+    // 見捨てる：その場で怨念極の化石を執筆＝後世で grudge_hunt の宿敵として確実に還る（4-14C・B／「宿敵を自分で書く」）。
+    if (downed) fossilizeAbandoned(world, downed.actor, { depth: floor?.depth ?? 1 });
     log(`${d.actor.name}を残して先へ進んだ。背に張りつく沈黙が、いつまでも追ってくる。`, "warn");
   }
   save();
@@ -1581,6 +1701,7 @@ async function handleBossResolve() {
       ch.xp += Math.round(xpForKill(boss.kind.hp) * 0.5 * xpMul(ch)); // 鎮めは報酬控えめ＝慈悲の代償
       log(`★ ${ch.name}は${boss.kind.name}を鎮めた。深みの底で、何かが静かになった。`, "warn");
       chronicle(world, "intervention", `${ch.name}が深度${floor!.depth}で${boss.kind.name}を鎮めた。`, [ch.id, boss.fossilId]);
+      recordCompanionFeat(); // 相棒と共にボスを鎮めた＝偉業（4-4E 昇格ゲート）
     } else {
       rewardKill(boss); // 討つ＝通常撃破（XP満額＋ドロップ＋legend）
     }
@@ -1841,6 +1962,7 @@ function rewardKill(mon: Monster, killLine?: string) {
     if (mon.boss === "area" && awardSeal(world, "abyss_boss", [ch.id])) {
       log("◆ 「成れの果ての討伐」の印を得た。", "warn");
     }
+    recordCompanionFeat(); // 相棒と共にボスを討った＝偉業（4-4E 昇格ゲート）
   } else {
     log(killLine ?? `${mon.kind.name}を倒した。`);
   }
@@ -1912,6 +2034,7 @@ async function stairsPrompt(dir: "down" | "up") {
       if (companion && world.companion?.alive) {
         world.companion.bond += 1;
         log(`${companionName()}と共に生還した。絆が深まる。`, "cue");
+        tryPromoteCompanion();
       }
       companion = null;
       save();
@@ -1934,7 +2057,7 @@ async function ascendWithRelic() {
   const ch = world.current!;
   ch.carryingRelic = undefined;
   // 同行（4-14C）：相棒と共に奉献を成した＝絆が深まり街へ残存。
-  if (companion && world.companion?.alive) { world.companion.bond += 1; log(`${companionName()}と共に、奉献を成し遂げた。`, "cue"); }
+  if (companion && world.companion?.alive) { world.companion.bond += 1; log(`${companionName()}と共に、奉献を成し遂げた。`, "cue"); tryPromoteCompanion(); }
   companion = null;
   world.ascended = (world.ascended ?? 0) + 1;
   sfx("intervene"); flashFx("warp");
@@ -2014,7 +2137,7 @@ async function maybeMerchantEncounter() {
     first = false;
     const i = r.pick - 1;
     if (i < 0 || i >= b.length) { log("行商人とすれ違い、また闇に分かれた。", "dim"); break; }
-    const it = b.splice(i, 1)[0], val = sellGear(it, MERCHANT_SELL_MUL);
+    const it = b.splice(i, 1)[0], val = splitGold(sellGear(it, MERCHANT_SELL_MUL)); // 同行中は売却益も折半（4-14C）
     ch.gold += val; sfx("open");
     log(`${it.name} を行商人に売った（＋${val}金貨／所持 ${ch.gold}）。`, "dim");
     save();
@@ -2086,6 +2209,7 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       if (ch.exposure < before) log(`深みに削られた芯が、人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
       // 奉献の試練・印③：山場（legend_return）を決着（4-13A）
       if (awardSeal(world, "setpiece", [fossil.id])) log("◆ 「山場の決着」の印を得た。", "warn");
+      recordCompanionFeat(); // 相棒と共に山場を決着＝偉業（4-4E 昇格ゲート）
       save();
       break;
     }
@@ -2099,6 +2223,7 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       if (ch.exposure < before) log(`深みに削られた芯が、少し人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
       // 奉献の試練・印③：山場（grudge_hunt）を決着（4-13A）
       if (awardSeal(world, "setpiece", [fossil.id])) log("◆ 「山場の決着」の印を得た。", "warn");
+      recordCompanionFeat(); // 相棒と共に山場を決着＝偉業（4-4E 昇格ゲート）
       save();
       break;
     }
@@ -2194,7 +2319,12 @@ async function chestScene(ce: Chest) {
 async function deathFlow() {
   busy = true;
   sfx("death"); setAmbient(false);
-  companion = null; // 盤上の相棒は ephemeral。world.companion は生存のまま＝後世も隣を歩く（系譜記憶）。
+  companion = null; // 盤上の相棒は ephemeral。
+  if (world.companion?.alive) { // 契約モデル（4-14C）：プレイヤー死＝契約終了。相棒は生き延びて街へ（再雇用可）。
+    persistCompanionRecord();   // 等級/絆/偉業を生者NPCへ書き戻し＝次代が雇い直せる
+    log(`${companionName()}との契約は、ここで切れた。相棒は地上へ生き延び、また街で会えるだろう。`, "dim");
+    world.companion = undefined;
+  }
   const ch = world.current!;
   const depth = floor!.depth;
   const r = await sheet({
