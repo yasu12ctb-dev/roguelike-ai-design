@@ -53,6 +53,8 @@ export interface CompanionEntity extends Pos {
   hp: number; maxHp: number;
   intent: MonsterIntent | null;  // 次手の予告（モンスターと同じ語彙＝決定論・読める盤面）
   stunned?: number;
+  erratic?: number;              // 連帯深蝕で生じる挙動のぶれ率（Phase B：奇癖→逸脱。0=正気）
+  crisisShown?: boolean;         // 危険化（C）の決断を今のエピソードで提示済みか（Phase B）
 }
 // フロアに横たわる手負いの冒険者（4-14C 入口B：救助＝相棒化／見捨て＝後世の宿敵）。
 export interface DownedActor extends Pos {
@@ -387,10 +389,19 @@ export function resolveMonsters(f: Floor, player: Pos, companion?: CompanionEnti
   return { hits, dodges };
 }
 
-/** 相棒の次手を予告（@に追従し、隣接した覚醒敵を討つ）。決定論：rng を消費しない単純AI。 */
-export function planCompanion(f: Floor, player: Pos, comp: CompanionEntity): void {
+/** 相棒の次手を予告（@に追従し、隣接した覚醒敵を討つ）。
+ *  通常は決定論で rng を消費しないが、連帯深蝕で erratic>0 になると rng でぶれる（Phase B・テレグラフされる）。 */
+export function planCompanion(f: Floor, player: Pos, comp: CompanionEntity, rng?: Rng): void {
   if (comp.hp <= 0) { comp.intent = null; return; }
   if (comp.stunned && comp.stunned > 0) { comp.stunned--; comp.intent = { type: "wait" }; return; }
+  // 連帯深蝕の逸脱：奇癖が出ると、追従も攻撃も投げ出して当て所なく彷徨う（読める＝テレグラフ）。
+  if (rng && comp.erratic && comp.erratic > 0 && rng.next() < comp.erratic) {
+    const dx = rng.int(3) - 1, dy = rng.int(3) - 1;
+    const x = comp.x + dx, y = comp.y + dy;
+    const ok = tileAt(f, x, y) === 1 && !(x === player.x && y === player.y) && !occupiedBy(f, x, y, null, null);
+    comp.intent = ok ? { type: "move", x, y } : { type: "wait" };
+    return;
+  }
   // 隣接する生きた敵がいれば討つ（最も近い＝最小添字で安定選択）
   const foe = f.monsters.find((m) => m.hp > 0 && Math.max(Math.abs(m.x - comp.x), Math.abs(m.y - comp.y)) <= 1);
   if (foe) { comp.intent = { type: "attack", x: foe.x, y: foe.y }; return; }
