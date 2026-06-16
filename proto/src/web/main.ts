@@ -6,7 +6,7 @@ import setpiecesJson from "../../content/setpieces.json";
 import { makeContentDb } from "../content.ts";
 import { makeRng, type Rng } from "../rng.ts";
 import {
-  newWorld, createCharacter, fossilizeCurrent, intervene, recordRediscovery,
+  newWorld, createCharacter, fossilizeCurrent, fossilizeCompanion, intervene, recordRediscovery,
   chronicle, poleLabel, finalActLabel, migrateWorld, awardSeal, abyssUnlocked,
 } from "../world.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
@@ -25,7 +25,7 @@ import {
 import { rollEncounter } from "../weights.ts";
 import { filterByTags } from "../content.ts";
 import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, selectTownStorylet, applyActorEffects } from "../storylets.ts";
-import { meetActor } from "../actors.ts";
+import { meetActor, mintActor, rememberActor } from "../actors.ts";
 import {
   generateOffers, acceptQuest, activeQuests, doneQuests, claimQuest,
   onReachDepth, onRediscoverFossil,
@@ -39,9 +39,10 @@ import {
 import { ensureAudio, sfx, setAmbient, setMuted, isMuted, loadMutePref } from "./audio.ts";
 import {
   genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx, spawnPursuer,
-  VIEW_W, VIEW_H, type Floor, type Pos, type Chest, type Monster,
+  planCompanion, resolveCompanion, randomFloorAway, inBounds,
+  VIEW_W, VIEW_H, type Floor, type Pos, type Chest, type Monster, type CompanionEntity, type DownedActor,
 } from "../dungeon.ts";
-import type { Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, SetPiece, Storylet, TownContext, World } from "../types.ts";
+import type { Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, LivingActor, SetPiece, Storylet, TownContext, World } from "../types.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
@@ -150,6 +151,7 @@ let hp = world.current ? maxHp(world.current) : 12;
 let mode: "town" | "dive" | "interior" = "town";
 let floor: Floor | null = null;
 let player: Pos = { x: 0, y: 0 };
+let companion: CompanionEntity | null = null; // 同行の盤上エンティティ（潜行中のみ。世代越えは world.companion：4-14C）
 let busy = false; // シート表示中の入力ロック
 let mapMode = false; // 地図表示（踏破範囲の俯瞰）
 let cellSize = 0;
@@ -213,10 +215,12 @@ function draw() {
   // 討たれる→ @ が赤く明滅。抽象的な枠・点はやめ「敵がどこへ来るか」「自分が危ない」を直接見せる。
   const teleMove = new Set<number>();        // 敵が踏み込む先の床マス（背景ハイライト）
   let playerThreatened = false;              // 自分のマスが攻撃予告されている
+  let companionThreatened = false;           // 相棒のマスが攻撃予告されている（4-14C）
   for (const m of floor.monsters) {
     if (m.hp <= 0 || !m.intent || !vis.has(mapIdx(floor, m.x, m.y))) continue;
     if (m.intent.type === "attack") {
       if (m.intent.x === player.x && m.intent.y === player.y) playerThreatened = true;
+      else if (companion && m.intent.x === companion.x && m.intent.y === companion.y) companionThreatened = true;
     } else if (m.intent.type === "move") {
       teleMove.add(mapIdx(floor, m.intent.x, m.intent.y));
     }
@@ -240,6 +244,7 @@ function draw() {
       if (fe) { glyph = "†"; cls = fe.resolved ? "g-fossil-quiet" : "g-fossil"; }
       const ce = floor.chests.find((c) => c.x === x && c.y === y);
       if (ce) { glyph = "▭"; cls = ce.opened ? "g-chest-open" : "g-chest"; }
+      if (floor.downed && floor.downed.x === x && floor.downed.y === y) { glyph = "&"; cls = "g-downed"; } // 手負いの冒険者（4-14C）
       const m = floor.monsters.find((m) => m.hp > 0 && m.x === x && m.y === y);
       if (m) {
         glyph = m.kind.glyph;
@@ -249,9 +254,15 @@ function draw() {
     }
     // 移動予告：敵が踏み込む先の「何も無い床マス」を背景色でハイライト（グリフは出さない）
     c.classList.toggle("tele-move", visible && cls === "g-floor" && teleMove.has(mi));
+    // 相棒（4-14C）：青系の @。攻撃予告中は明滅、被攻撃予告中は危険色。
+    const isCompanion = !!companion && x === companion.x && y === companion.y;
+    if (isCompanion && visible) {
+      glyph = "@";
+      cls = companionThreatened ? "g-companion-danger" : `g-companion${companion!.intent?.type === "attack" ? " g-mon-atk" : ""}`;
+    }
     const isPlayer = x === player.x && y === player.y;
     if (isPlayer) { glyph = "@"; cls = playerThreatened ? "g-player-danger" : "g-player"; }
-    c.classList.toggle("tele-atk", isPlayer && playerThreatened); // 攻撃予告の赤枠は自分のマスだけ
+    c.classList.toggle("tele-atk", (isPlayer && playerThreatened) || (isCompanion && companionThreatened)); // 攻撃予告の赤枠
     span.textContent = glyph;
     span.className = cls;
     const d = Math.hypot(x - player.x, y - player.y);
@@ -1076,19 +1087,27 @@ async function talkCrowd(a: CrowdActor) {
     const la = a.npc;
     const head = `${la.actor.epithet ?? ""}${la.actor.name}（${la.actor.archetype}）`;
     const sl = selectTownStorylet(db, world, ch, la, rng, townContextsHere());
+    // 同行の勧誘（4-14C 入口）：相棒が居らず、迷宮の話が通じる相手なら「同行を頼む」を添える。
+    const canRecruit = !world.companion?.alive;
+    const recruitOpt = "同行を頼む";
     if (sl && sl.choices) {
       const c = await sheet({ text: `${head}\n\n${fillActorText(la.actor, sl.text ?? "")}`, options: sl.choices.map((o) => o.label) });
       const choice = sl.choices[c.pick - 1];
       const lines = applyActorEffects(world, ch, la, choice.effects);
       // 閉じる語は場面に合わせる（酒場の屋内なら「席を立つ」、それ以外＝立ち話なら「話を切り上げる」）。
       const leave = mode === "interior" && interior?.kind === "tavern" ? "席を立つ" : "話を切り上げる";
-      await sheet({
+      const r = await sheet({
         text: [choice.text ? fillActorText(la.actor, choice.text) : "", ...lines].filter(Boolean).join("\n"),
-        options: [leave],
+        options: canRecruit ? [leave, recruitOpt] : [leave],
       });
+      if (canRecruit && r.pick === 2) await offerCompanion(la);
       save();
     } else {
-      await sheet({ text: `${head}\n\n「……」と、ことば少なに会釈を返された。`, meta: "街路の出会い", options: ["うなずいて別れる"] });
+      const r = await sheet({
+        text: `${head}\n\n「……」と、ことば少なに会釈を返された。`,
+        meta: "街路の出会い", options: canRecruit ? ["うなずいて別れる", recruitOpt] : ["うなずいて別れる"],
+      });
+      if (canRecruit && r.pick === 2) await offerCompanion(la);
     }
     busy = false;
     return;
@@ -1236,7 +1255,17 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
     if (!fossil) break;
     if (Math.abs(fossil.laidDepth - depth) <= 4 && placeFossil(floor, rng, player, fossil)) exclude.add(fossil.id);
   }
-  planMonsters(floor, player, rng); // 入った瞬間に見えている敵は予告を出す
+  // 同行（4-14C）：相棒がいれば @ の隣に展開（階段は隣接で同行降下）。
+  companion = null;
+  if (world.companion?.alive) spawnCompanionNear(player);
+  // 入口B：手負いの冒険者を稀に配置（相棒不在時のみ＝1体限定。深度2以降）。
+  floor.downed = null;
+  if (!world.companion?.alive && depth >= 2 && rng.next() < 0.14) {
+    const at = randomFloorAway(floor, rng, player, 5);
+    if (at) floor.downed = { id: `downed_${depth}_${world.generation}`, actor: mintActor(db, rng), x: at.x, y: at.y };
+  }
+  planMonsters(floor, player, rng, companion); // 入った瞬間に見えている敵は予告を出す
+  if (companion) planCompanion(floor, player, companion);
   setAmbient(true, depth); // 環境ドローン（深いほど低い）
   draw();
   log(`── 深度${depth} ──`, "dim");
@@ -1246,6 +1275,85 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
     log("◆ 「深淵への到達」の印を得た。", "warn"); save();
   }
   if (abyss) log("封じられていた層――空気が、軋むほど濃い。最奥で何かが、聖遺物を抱いている。", "warn");
+}
+
+// ---------- 同行（相棒）：4-14C。盤上は ephemeral、世代越えは world.companion。 ----------
+const companionName = () => world.companion?.actor.name ?? "相棒";
+/** 相棒エンティティを @ の隣の空きマスへ展開（無ければ近傍を順に探す）。 */
+function spawnCompanionNear(at: Pos): void {
+  if (!floor || !world.companion?.alive) return;
+  const occupied = (x: number, y: number) =>
+    (x === at.x && y === at.y) || floor!.monsters.some((m) => m.hp > 0 && m.x === x && m.y === y) ||
+    floor!.fossils.some((e) => e.x === x && e.y === y) || floor!.chests.some((c) => c.x === x && c.y === y) ||
+    (!!floor!.downed && floor!.downed.x === x && floor!.downed.y === y);
+  for (let r = 1; r <= 4; r++) {
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      const x = at.x + dx, y = at.y + dy;
+      if (inBounds(floor, x, y) && tileAt(floor, x, y) === 1 && !occupied(x, y)) {
+        companion = { x, y, hp: world.companion.maxHp, maxHp: world.companion.maxHp, intent: null };
+        return;
+      }
+    }
+  }
+}
+/** 相棒の戦死＝その床に絆つき化石をドロップ（後世で再会）。world.companion を死亡に。 */
+function companionDies(): void {
+  if (!floor || !companion || !world.companion) return;
+  const name = companionName();
+  const fossil = fossilizeCompanion(world, world.companion.actor, {
+    depth: floor.depth, exposure: world.companion.exposure, bond: world.companion.bond,
+  });
+  floor.fossils.push({ id: `fe_${fossil.id}`, fossilId: fossil.id, x: companion.x, y: companion.y, resolved: false });
+  world.companion.alive = false;
+  companion = null;
+  sfx("hurt");
+  log(`${name}が斃れた。その亡骸に、共に歩いた日々が刻まれていく……（†）`, "warn");
+  save();
+}
+const COMPANION_MAX_HP = 12; // v1＝固定。最終調整は横断E。
+/** 生者を相棒として迎える（世代越えは world.companion／系譜記憶のため la も永続化）。 */
+function recruitCompanion(la: LivingActor): void {
+  rememberActor(world, la);
+  const bond = world.current?.bonds.find((b) => b.entityRef === la.id)?.value ?? 0;
+  world.companion = {
+    actorRef: la.id, actor: la.actor, bond, exposure: 0,
+    alive: true, maxHp: COMPANION_MAX_HP, recruitedGeneration: world.generation,
+  };
+  chronicle(world, "rediscovery", `${la.actor.name}と同行することになった。`, [la.id]);
+  save();
+}
+/** 街での勧誘の確認＝相棒に迎える（盤上展開は次の潜行開始時）。 */
+async function offerCompanion(la: LivingActor): Promise<void> {
+  const r = await sheet({
+    text: `${la.actor.name}に、共に潜らないかと持ちかける。\n「――いいだろう。背中は預ける」。次に迷宮へ降りるとき、隣を歩くことになる。`,
+    meta: "同行 ── 相棒を得る", options: ["頼む（同行する）", "やめておく"],
+  });
+  if (r.pick === 1) { recruitCompanion(la); log(`${la.actor.name}が同行者になった。次の潜行から隣を歩く。`, "cue"); }
+}
+/** フロアの手負いを救助（→相棒化）／見捨てる（4-14C 入口B）。 */
+async function rescueScene(d: DownedActor): Promise<void> {
+  if (busy) return;
+  busy = true;
+  const head = `${d.actor.epithet ?? ""}${d.actor.name}（${d.actor.archetype}）`;
+  const r = await sheet({
+    text: `${head}が、壁にもたれて荒い息をしている。深手だ。\n手を貸せば、共に往ける――見捨てれば、ここで終わる。`,
+    meta: "手負いの冒険者 ── 救助か、見殺しか", options: ["救助する（同行する）", "見捨てて先へ"],
+  });
+  const downed = floor?.downed;
+  if (floor) floor.downed = null;
+  if (r.pick === 1 && downed) {
+    const la: LivingActor = { id: `npc_${world.generation}_${downed.id}`, actor: downed.actor, metGeneration: world.generation };
+    recruitCompanion(la);
+    spawnCompanionNear(player);
+    sfx("intervene");
+    log(`${d.actor.name}を救い出した。これより、共に往く。`, "cue");
+  } else {
+    // 見捨てる：怨念化→後世の宿敵（grudge_hunt）は Phase B/C で結線。今は含みだけ残す。
+    log(`${d.actor.name}を残して先へ進んだ。背に張りつく沈黙が、いつまでも追ってくる。`, "warn");
+  }
+  save();
+  busy = false;
+  draw();
 }
 
 let seenThisDive: string[] = [];
@@ -1326,17 +1434,35 @@ async function endTurn() {
     log(`深みに蝕まれる……（HP -${bite}）`, "warn");
   }
 
-  // 敵の手番：予告した一手を実行（退いた予告は空振り＝見切り。静止中はwait）
-  const res = resolveMonsters(floor, player);
+  // 相棒の手番（4-14C）：予告した一手を実行（@に追従し隣接敵を討つ）。連帯深蝕も上がる。
+  if (companion && companion.hp > 0 && world.companion) {
+    const cr = resolveCompanion(floor, player, companion);
+    if (cr.hit) {
+      sfx("hit");
+      if (cr.hit.hp <= 0) { log(`${companionName()}が${cr.hit.kind.name}を討ち取った。`); downOrKill(cr.hit); }
+      else log(`${companionName()}が${cr.hit.kind.name}に${cr.dmg}の一撃。`, "dim");
+    }
+    world.companion.exposure += exposureGain(floor.depth) * 0.5; // 連帯深蝕（Phase B で奇癖→Cに使う）
+  }
+
+  // 敵の手番：予告した一手を実行（退いた予告は空振り＝見切り。静止中はwait）。標的は @ or 相棒。
+  const res = resolveMonsters(floor, player, companion);
   if (res.hits.length) sfx("hurt");
   for (const h of res.hits) {
-    const dmg = Math.max(1, h.dmg - armorReduce(ch)); // 防具で軽減（下限1）
-    hp -= dmg;
-    log(`${h.monster.kind.name}の一撃！ ${dmg}の傷。`, "warn");
+    if (h.target === "companion" && companion) {
+      companion.hp -= h.dmg; // 相棒は防具軽減なし（v1）
+      log(`${h.monster.kind.name}の一撃が${companionName()}を襲う！ ${h.dmg}の傷。`, "warn");
+    } else {
+      const dmg = Math.max(1, h.dmg - armorReduce(ch)); // 防具で軽減（下限1）
+      hp -= dmg;
+      log(`${h.monster.kind.name}の一撃！ ${dmg}の傷。`, "warn");
+    }
   }
   for (const m of res.dodges) log(`${m.kind.name}の一撃を見切った。`, "dim");
+  if (companion && companion.hp <= 0) companionDies(); // 相棒の戦死＝化石化
   // 次の一手を予告する（プレイヤーが見て動けるように）
-  planMonsters(floor, player, rng);
+  planMonsters(floor, player, rng, companion);
+  if (companion) planCompanion(floor, player, companion);
 
   draw();
   updateStatus(); // HP/深蝕の即時反映（蝕み・被弾・持ち物使用が毎手バーに出る）
@@ -1665,6 +1791,17 @@ function moveOrInteract(nx: number, ny: number): boolean {
   const ce = f.chests.find((c) => c.x === nx && c.y === ny);
   if (ce && !ce.opened) { void chestScene(ce); return true; }
 
+  // 手負いの冒険者（4-14C 入口B）：救助＝相棒化／見捨てる
+  if (f.downed && f.downed.x === nx && f.downed.y === ny) { void rescueScene(f.downed); return true; }
+
+  // 相棒のマスへ踏み込む＝位置を入れ替える（相棒が @ の元いたマスへ）。手番は消費。
+  if (companion && companion.x === nx && companion.y === ny) {
+    companion.x = player.x; companion.y = player.y;
+    player = { x: nx, y: ny };
+    sfx("move");
+    return true;
+  }
+
   player = { x: nx, y: ny };
   sfx("move");
 
@@ -1693,7 +1830,14 @@ async function stairsPrompt(dir: "down" | "up") {
   } else if (f.depth === 1) {
     const r = await sheet({ text: "地上への階段だ。街へ戻るか？\n（傷は癒えるが、浴びた深みは消えない）", options: ["街へ戻る", "とどまる"] });
     if (r.pick === 1) {
-      hp = maxHp(world.current!); world.current!.depth = 0; save();
+      hp = maxHp(world.current!); world.current!.depth = 0;
+      // 同行（4-14C）：二人で生還＝絆が深まり、相棒は街に残存（次の潜行も隣を歩く）。
+      if (companion && world.companion?.alive) {
+        world.companion.bond += 1;
+        log(`${companionName()}と共に生還した。絆が深まる。`, "cue");
+      }
+      companion = null;
+      save();
       log("地上の光がまぶしい。生きて、帰った。");
       busy = false;
       await townLoop(); await startDive(); return;
@@ -1712,6 +1856,9 @@ async function ascendWithRelic() {
   busy = true;
   const ch = world.current!;
   ch.carryingRelic = undefined;
+  // 同行（4-14C）：相棒と共に奉献を成した＝絆が深まり街へ残存。
+  if (companion && world.companion?.alive) { world.companion.bond += 1; log(`${companionName()}と共に、奉献を成し遂げた。`, "cue"); }
+  companion = null;
   world.ascended = (world.ascended ?? 0) + 1;
   sfx("intervene"); flashFx("warp");
   log("★★ 地上の光――聖遺物を抱いて、生きて還った。奉献は成った。", "warn");
@@ -1970,6 +2117,7 @@ async function chestScene(ce: Chest) {
 async function deathFlow() {
   busy = true;
   sfx("death"); setAmbient(false);
+  companion = null; // 盤上の相棒は ephemeral。world.companion は生存のまま＝後世も隣を歩く（系譜記憶）。
   const ch = world.current!;
   const depth = floor!.depth;
   const r = await sheet({

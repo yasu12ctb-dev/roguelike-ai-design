@@ -2,7 +2,7 @@
 // フロアは world.seed × 世代 × 深度 から決定論的に生成される。
 
 import { makeRng, type Rng } from "./rng.ts";
-import type { World, Fossil } from "./types.ts";
+import type { World, Fossil, Actor } from "./types.ts";
 
 // 表示ビューポート（DOMグリッド）のサイズ。マップ自体はこれより大きく、カメラが @ を追う。
 export const VIEW_W = 21;
@@ -48,6 +48,16 @@ export interface Chest extends Pos {
   id: string; opened: boolean;   // 宝箱（開けると中身を抽選：4-12 chest）
   relic?: boolean;               // 聖遺物（奉献の試練・深淵帯の主が守る：4-13B）
 }
+// 同行（相棒）の盤上エンティティ（4-14C）。潜行中だけ生きる ephemeral。@に追従し隣接攻撃、テレグラフを出す。
+export interface CompanionEntity extends Pos {
+  hp: number; maxHp: number;
+  intent: MonsterIntent | null;  // 次手の予告（モンスターと同じ語彙＝決定論・読める盤面）
+  stunned?: number;
+}
+// フロアに横たわる手負いの冒険者（4-14C 入口B：救助＝相棒化／見捨て＝後世の宿敵）。
+export interface DownedActor extends Pos {
+  id: string; actor: Actor;
+}
 
 export interface Floor {
   depth: number;
@@ -58,6 +68,7 @@ export interface Floor {
   fossils: FossilEntity[];
   chests: Chest[];
   explored: boolean[];           // 既踏破（記憶表示用）
+  downed?: DownedActor | null;   // 手負いの冒険者（任意。enterFloor が稀に配置：4-14C）
 }
 
 /** マップ座標 → tiles/explored の添字（フロアの幅で決まる） */
@@ -298,31 +309,48 @@ export function computeFov(f: Floor, p: Pos): Set<number> {
 }
 
 // ---------- モンスターのターン（テレグラフ＝予告 → 実行の2段：4-11A） ----------
-export interface MonsterHit { monster: Monster; dmg: number; }
+export interface MonsterHit { monster: Monster; dmg: number; target: "player" | "companion"; }
 export interface Resolution { hits: MonsterHit[]; dodges: Monster[]; }
+/** 相棒の一手の結果（プレイヤー手番末に解決）。 */
+export interface CompanionResolution { hit: Monster | null; dmg: number; }
 
 const monsterDmg = (m: Monster, f: Floor) => m.kind.dmg + (f.depth >= 20 ? 1 : 0);
+/** 相棒の攻撃力（v1＝控えめの固定値＋深部で微増。最終調整は横断E）。 */
+export const COMPANION_DMG = 2;
 
-const occupiedBy = (f: Floor, x: number, y: number, self: Monster) =>
+// 移動先が他者で塞がっているか（モンスター同士・化石・相棒・手負いと重ならない）。
+const occupiedBy = (f: Floor, x: number, y: number, self: Monster | null, comp?: Pos | null) =>
   f.monsters.some((m) => m !== self && m.hp > 0 && m.x === x && m.y === y) ||
-  f.fossils.some((e) => e.x === x && e.y === y);
+  f.fossils.some((e) => e.x === x && e.y === y) ||
+  (!!comp && comp.x === x && comp.y === y) ||
+  (!!f.downed && f.downed.x === x && f.downed.y === y);
 
 /** 各モンスターの次手を決め、intent に予告として書く（プレイヤーが見て動ける）。
- *  覚醒判定もここで行う：新たに気づいた敵はまず予告し、実行は次ターン（理不尽な不意打ちを排す）。 */
-export function planMonsters(f: Floor, player: Pos, rng: Rng): void {
+ *  覚醒判定もここで行う：新たに気づいた敵はまず予告し、実行は次ターン（理不尽な不意打ちを排す）。
+ *  相棒がいる場合は @ と相棒のうち近い方を標的にする（4-14C）。 */
+export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: CompanionEntity | null): void {
+  const comp = companion && companion.hp > 0 ? companion : null;
   for (const m of f.monsters) {
     if (m.hp <= 0) { m.intent = null; continue; }
     if (m.stunned && m.stunned > 0) { m.stunned--; m.intent = { type: "wait" }; continue; } // 静止の眼
-    const d = Math.hypot(m.x - player.x, m.y - player.y);
-    if (!m.awake && d <= FOV_RADIUS && losClear(f, m.x, m.y, player.x, player.y)) m.awake = true;
+    const dPlayer = Math.hypot(m.x - player.x, m.y - player.y);
+    const dComp = comp ? Math.hypot(m.x - comp.x, m.y - comp.y) : Infinity;
+    // 覚醒：プレイヤー or 相棒のいずれかを視認したら起きる
+    if (!m.awake) {
+      if (dPlayer <= FOV_RADIUS && losClear(f, m.x, m.y, player.x, player.y)) m.awake = true;
+      else if (comp && dComp <= FOV_RADIUS && losClear(f, m.x, m.y, comp.x, comp.y)) m.awake = true;
+    }
     if (!m.awake) { m.intent = null; continue; }
 
-    if (d < 1.5) { // 隣接 → プレイヤーの現在マスを討つと予告（退けば空振り＝見切り）
-      m.intent = { type: "attack", x: player.x, y: player.y };
+    // 標的＝近い方（同距離はプレイヤー優先）
+    const target = comp && dComp < dPlayer ? comp : player;
+    const d = comp && dComp < dPlayer ? dComp : dPlayer;
+    if (d < 1.5) { // 隣接 → 標的の現在マスを討つと予告（退けば空振り＝見切り）
+      m.intent = { type: "attack", x: target.x, y: target.y };
       continue;
     }
     // 追跡。erratic 率でぶれるが、ぶれた結果も予告に出るので盤面は読める
-    let dx = Math.sign(player.x - m.x), dy = Math.sign(player.y - m.y);
+    let dx = Math.sign(target.x - m.x), dy = Math.sign(target.y - m.y);
     if (rng.next() < m.kind.erratic) { dx = rng.int(3) - 1; dy = rng.int(3) - 1; }
     const cand: Pos[] = [
       { x: m.x + dx, y: m.y + dy },
@@ -331,27 +359,65 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng): void {
     ];
     let dest: Pos | null = null;
     for (const c of cand) {
-      if (tileAt(f, c.x, c.y) === 1 && !(c.x === player.x && c.y === player.y) && !occupiedBy(f, c.x, c.y, m)) { dest = c; break; }
+      if (tileAt(f, c.x, c.y) === 1 && !(c.x === player.x && c.y === player.y) && !occupiedBy(f, c.x, c.y, m, comp)) { dest = c; break; }
     }
     m.intent = dest ? { type: "move", x: dest.x, y: dest.y } : { type: "wait" };
   }
 }
 
 /** 予告した intent を実行する。攻撃は確定命中・確定ダメージ（miss無し）だが、
- *  予告マスから退いていれば空振り（見切り）＝負けは読み違えとして納得できる（4-11A）。 */
-export function resolveMonsters(f: Floor, player: Pos): Resolution {
+ *  予告マスから退いていれば空振り（見切り）＝負けは読み違えとして納得できる（4-11A）。
+ *  攻撃の標的は予告マスに居る者＝@ なら player ヒット、相棒なら companion ヒット。 */
+export function resolveMonsters(f: Floor, player: Pos, companion?: CompanionEntity | null): Resolution {
+  const comp = companion && companion.hp > 0 ? companion : null;
   const hits: MonsterHit[] = [];
   const dodges: Monster[] = [];
   for (const m of f.monsters) {
     if (m.hp <= 0 || !m.intent) continue;
     if (m.intent.type === "attack") {
-      if (player.x === m.intent.x && player.y === m.intent.y) hits.push({ monster: m, dmg: monsterDmg(m, f) });
+      if (player.x === m.intent.x && player.y === m.intent.y) hits.push({ monster: m, dmg: monsterDmg(m, f), target: "player" });
+      else if (comp && comp.x === m.intent.x && comp.y === m.intent.y) hits.push({ monster: m, dmg: monsterDmg(m, f), target: "companion" });
       else dodges.push(m); // 予告マスから退いた＝見切り
     } else if (m.intent.type === "move") {
       const { x, y } = m.intent;
-      if (tileAt(f, x, y) === 1 && !(x === player.x && y === player.y) && !occupiedBy(f, x, y, m)) { m.x = x; m.y = y; }
+      if (tileAt(f, x, y) === 1 && !(x === player.x && y === player.y) && !occupiedBy(f, x, y, m, comp)) { m.x = x; m.y = y; }
     }
     m.intent = null;
   }
   return { hits, dodges };
+}
+
+/** 相棒の次手を予告（@に追従し、隣接した覚醒敵を討つ）。決定論：rng を消費しない単純AI。 */
+export function planCompanion(f: Floor, player: Pos, comp: CompanionEntity): void {
+  if (comp.hp <= 0) { comp.intent = null; return; }
+  if (comp.stunned && comp.stunned > 0) { comp.stunned--; comp.intent = { type: "wait" }; return; }
+  // 隣接する生きた敵がいれば討つ（最も近い＝最小添字で安定選択）
+  const foe = f.monsters.find((m) => m.hp > 0 && Math.max(Math.abs(m.x - comp.x), Math.abs(m.y - comp.y)) <= 1);
+  if (foe) { comp.intent = { type: "attack", x: foe.x, y: foe.y }; return; }
+  // さもなくば @ に追従（隣接なら待機）
+  const dp = Math.max(Math.abs(player.x - comp.x), Math.abs(player.y - comp.y));
+  if (dp <= 1) { comp.intent = { type: "wait" }; return; }
+  const dx = Math.sign(player.x - comp.x), dy = Math.sign(player.y - comp.y);
+  const cand: Pos[] = [{ x: comp.x + dx, y: comp.y + dy }, { x: comp.x + dx, y: comp.y }, { x: comp.x, y: comp.y + dy }];
+  for (const c of cand) {
+    const blocked = (c.x === player.x && c.y === player.y) || occupiedBy(f, c.x, c.y, null, null);
+    if (tileAt(f, c.x, c.y) === 1 && !blocked) { comp.intent = { type: "move", x: c.x, y: c.y }; return; }
+  }
+  comp.intent = { type: "wait" };
+}
+
+/** 相棒の予告を実行（攻撃＝予告マスの敵に確定ダメージ／移動＝空きへ一歩）。撃破した敵を返す。 */
+export function resolveCompanion(f: Floor, player: Pos, comp: CompanionEntity): CompanionResolution {
+  if (comp.hp <= 0 || !comp.intent) return { hit: null, dmg: 0 };
+  let res: CompanionResolution = { hit: null, dmg: 0 };
+  if (comp.intent.type === "attack") {
+    const { x, y } = comp.intent;
+    const m = f.monsters.find((mm) => mm.hp > 0 && mm.x === x && mm.y === y);
+    if (m) { m.hp -= COMPANION_DMG; res = { hit: m, dmg: COMPANION_DMG }; }
+  } else if (comp.intent.type === "move") {
+    const { x, y } = comp.intent;
+    if (tileAt(f, x, y) === 1 && !(x === player.x && y === player.y) && !occupiedBy(f, x, y, null, null)) { comp.x = x; comp.y = y; }
+  }
+  comp.intent = null;
+  return res;
 }
