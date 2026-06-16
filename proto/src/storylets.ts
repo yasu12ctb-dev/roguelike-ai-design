@@ -63,6 +63,7 @@ function matches(p: Prereq, world: World, ch: Character, fossil: Fossil, v: Vari
   if (p.minBond !== undefined && (bond?.value ?? 0) < p.minBond) return false;
   if (p.unfinished !== undefined && (bond?.unfinished ?? false) !== p.unfinished) return false;
   if (p.minExposure !== undefined && ch.exposure < p.minExposure) return false;
+  if (p.minLevel !== undefined && ch.level < p.minLevel) return false;
   if (p.hasCatchphrase !== undefined && !!fossil.origin.catchphrase !== p.hasCatchphrase) return false;
   const flags = world.flags ?? [];
   if (p.flag !== undefined && !flags.includes(flagKey(p.flag, fossil))) return false;
@@ -181,6 +182,7 @@ function townMatches(p: Prereq, world: World, ch: Character, la: LivingActor): b
   if (p.minBond !== undefined && (bond?.value ?? 0) < p.minBond) return false;
   if (p.unfinished !== undefined && (bond?.unfinished ?? false) !== p.unfinished) return false;
   if (p.minExposure !== undefined && ch.exposure < p.minExposure) return false;
+  if (p.minLevel !== undefined && ch.level < p.minLevel) return false;
   const flags = world.flags ?? [];
   if (p.flag !== undefined && !flags.includes(scopedFlag(p.flag, la.id))) return false;
   if (p.notFlag !== undefined && flags.includes(scopedFlag(p.notFlag, la.id))) return false;

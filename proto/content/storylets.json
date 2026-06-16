@@ -2004,6 +2004,50 @@
         { "label": "形見を手渡す", "text": "#origin_name# は護符を両手で受け取り、声を殺して泣いた。「これで、あいつを送ってやれる。……礼だ。受け取ってくれ」。差し出されたのは、いくらかの金貨と、相棒が遺したという膏薬だった。", "effects": [ { "arc": {"key": "keepsake", "step": 3, "done": true} }, { "bond": 2 }, { "gold": 35 }, { "item": "salve" }, { "chronicle": "街で#origin_name# に相棒の形見を届けた。深い感謝とともに、礼を受け取った。" } ] },
         { "label": "自分のものにする", "text": "護符を懐へ深くしまい、「見つからなかった」と告げた。#origin_name# の落胆した顔から、目を逸らす。胸の奥で、何かが冷たく固まった。", "effects": [ { "arc": {"key": "keepsake", "step": 3, "pick": "betray", "done": true} }, { "exposure": 0.08 }, { "trait": "裏切り:届けなかった形見" }, { "chronicle": "街で#origin_name# を欺き、相棒の形見を自分のものにした。" } ] }
       ]
+    },
+    {
+      "id": "noble_rumor",
+      "context": "street",
+      "prerequisites": { "minLevel": 5, "notFlag": "noble_seen" },
+      "weight": 2,
+      "text": "#origin_name# が声を潜めた。「聞いたか。封鎖された貴族街——あそこの門番が、近頃あんたの名を口にしていたとか。あんたほどの等級になれば、いずれ向こうから声が掛かるかもしれんぜ」。",
+      "choices": [
+        { "label": "興味を引かれる", "text": "高い塀の向こう、堅く閉ざされた門。あそこにも、まだ見ぬ依頼と物語が眠っているのか。", "effects": [ { "plant": "noble_seen" }, { "trait": "聞いた噂:貴族街の関心" }, { "chronicle": "街で、封鎖された貴族街があなたの名に関心を寄せているという噂を聞いた。" } ] },
+        { "label": "与太話だと流す", "text": "「貴族の道楽に付き合う気はない」。そう返したが、塀の影が妙に頭に残った。", "effects": [ { "chronicle": "街で、貴族街の噂を与太と聞き流した。" } ] }
+      ]
+    },
+    {
+      "id": "cw_request",
+      "context": "street",
+      "prerequisites": { "notArc": "cursedwork" },
+      "weight": 2,
+      "text": "#origin_name# が、妙に据わった目で頼んできた。「深層に、我が家に伝わる遺物が眠っている。黒い小函だ。持ち帰ってくれれば、礼は弾む」。#origin_gear# を撫でる手が、どこか急いていた。",
+      "choices": [
+        { "label": "引き受ける", "text": "「恩に着る」と#origin_name# は笑った。その笑みの、どこか作り物めいた感触だけが、後に残った。", "effects": [ { "arc": {"key": "cursedwork", "step": 1, "anchor": true} }, { "trait": "負った依頼:#origin_name#の黒い小函" }, { "chronicle": "街で#origin_name# から、深層の『黒い小函』を持ち帰る依頼を引き受けた。" } ] },
+        { "label": "胡散臭いと断る", "text": "虫が知らせた。丁重に断ると、#origin_name# の目が、一瞬だけ昏く光った気がした。", "effects": [ { "chronicle": "街で#origin_name# の、黒い小函を巡る依頼を断った。" } ] }
+      ]
+    },
+    {
+      "id": "cw_find",
+      "context": "dungeon",
+      "prerequisites": { "arc": "cursedwork", "arcStep": 1, "depthBand": "deep" },
+      "weight": 4,
+      "text": "祭壇のような岩棚に、黒い小函が据えられている。手をかざすと、掌から這い上がる悪寒。中で、何かが——飢えている。これを、あの男は欲しがっている。",
+      "choices": [
+        { "label": "小函を持ち帰る", "text": "蓋には触れず、布で厳重にくるんで懐へ。重さ以上の何かが、ずっしりと背を押してくる。", "effects": [ { "arc": {"key": "cursedwork", "step": 2} }, { "exposure": 0.08 }, { "trait": "預かりもの:飢えた黒い小函" }, { "chronicle": "深度#depth#で、依頼の『黒い小函』を見つけた。中の飢えが、肌を粟立たせる。" } ] },
+        { "label": "蓋を検め、中を覗く", "text": "薄く開いた隙間の奥で、無数の眼がいっせいにこちらを向いた。慌てて閉じる。あの男は——これを、知っていて欲しがったのか。", "effects": [ { "arc": {"key": "cursedwork", "step": 2, "pick": "peeked"} }, { "exposure": 0.12 }, { "trait": "視たもの:小函の中の飢え" }, { "chronicle": "深度#depth#で黒い小函の中を覗き、依頼の正体に薄ら寒いものを感じた。" } ] }
+      ]
+    },
+    {
+      "id": "cw_return",
+      "context": "street",
+      "prerequisites": { "arc": "cursedwork", "arcStep": 2, "arcActor": true },
+      "weight": 3,
+      "text": "#origin_name# が小函を見るなり、別人のように相好を崩した。「ああ……これだ。これでようやく、『あれ』に応えられる」。その声は、もう人のものではない響きを帯びていた。",
+      "choices": [
+        { "label": "言われた通り手渡す", "text": "#origin_name# は小函を押し頂き、雑踏へ消えた。礼金はずしりと重い。だが、自分が今、何に手を貸したのか——それを思うと、背筋が冷えた。", "effects": [ { "arc": {"key": "cursedwork", "step": 3, "done": true} }, { "gold": 25 }, { "exposure": 0.1 }, { "trait": "渡した忌物:#origin_name#へ" }, { "chronicle": "#origin_name# に黒い小函を渡した。礼金は弾んだが、男が何に仕えていたのかは、知る由もない。" } ] },
+        { "label": "渡さず、正体を問い質す", "text": "「これは、お前のものじゃない」。低く告げると、#origin_name# は獣のように歯を剥き、舌打ちして雑踏へ紛れた。小函は——封じておくしかない。", "effects": [ { "arc": {"key": "cursedwork", "step": 3, "pick": "refuse", "done": true} }, { "exposure": -0.02 }, { "trait": "見破った真相:飢えた小函" }, { "item": "soothe" }, { "chronicle": "#origin_name# の正体を見破り、黒い小函を渡さなかった。男は雑踏に消えた。" } ] }
+      ]
     }
   ]
 }

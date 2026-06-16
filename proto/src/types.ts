@@ -24,6 +24,7 @@ export interface World {
   companion?: Companion;        // 同行（相棒）の永続状態（4-14C）。生かし続ければセーブ全体を貫く反復キャラ。任意＝旧セーブ非破壊。
   arcs?: ArcState[];            // 長尺アークの進行状態（4-12(I)：多段の弧。世代越え）。任意＝旧セーブ非破壊。
   raidCooldown?: number;        // 街の防衛（襲撃）の冷却＝帰還ごとに減り、0で再抽選（定期的だが間隔は長い）。任意＝旧セーブ非破壊。
+  memorialCooldown?: number;    // 追悼の日（祭礼）の冷却＝アンビエント街イベント（4-12 J）。任意＝旧セーブ非破壊。
 }
 
 /** 同行（相棒）の永続状態（4-14C）。潜行開始時にグリッドの相棒エンティティへ展開される。 */
@@ -238,6 +239,7 @@ export interface Prereq {
   minBond?: number;        // この化石との絆 value がこれ以上
   unfinished?: boolean;    // この化石との未完の因縁の有無
   minExposure?: number;    // プレイヤーの深蝕がこれ以上
+  minLevel?: number;       // プレイヤーのレベルがこれ以上（高名さのゲート＝貴族の関心など）
   hasCatchphrase?: boolean;// 化石が口癖を持つ/持たない（#origin_catchphrase# を使う本文の安全ガード）
   depthBand?: "shallow" | "mid" | "deep"; // 深度帯（ダンジョン文脈の発火条件）
   flag?: string;           // この化石に立った伏線フラグが有る（遭-②：伏線→後続）
