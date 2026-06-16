@@ -127,6 +127,10 @@ export interface LivingActor {
   id: string;
   actor: Actor;
   metGeneration: number;
+  // 同行の契約モデル（4-14C・2026-06-16）：雇用の蓄積を生者NPCに保存し、再雇用で再開する。
+  grade?: number;   // 蓄積した金属等級（昇格はここに残る＝何度も雇うと精鋭に）
+  bond?: number;    // 蓄積した絆
+  feats?: number;   // 蓄積した偉業
 }
 
 export interface FinalAct {
