@@ -577,4 +577,15 @@ matchSetPiece/同行 の実装進捗に合わせて追加。
 
 ## 依頼の仕方
 「キャラID（例 G6 ダン）＋似合う型（例 C）＋どの場面か」を指定。その分だけ生成。一括生成はしない。
+
+## 実装の次の一手（別タスク・コード側）
+コンテンツ生成と並行して、以下の実装が必要（未着手なら先にこちらを進める）：
+1. context 場所分け … storylet の context を encounter/dungeon/street/tavern/guild/shop
+   に拡張。selectTownStorylet に現在地パラメータを追加・呼び出し側で現在地を渡す・
+   既存 town を street へ移行（先に「器」を作るとイベント投入が楽）。
+2. 同行 4-14C … 1体限定のグリッド相棒（@追従・隣接攻撃・テレグラフ・決定論）。
+   連帯深蝕／死＝絆つき化石ドロップ／救助で相棒化／生還で街に残存・等級↑。
+   再利用＝meetActor・LivingActor・exposure/奇癖・FossilEntity＋再発見・dungeon.ts。
+   新規＝相棒エンティティ＋手番AI＋テレグラフ描画＋死亡時の化石ドロップ。
+※詳細は design-snapshot 4-14。実装着手は Web版が対象（CLI/demo は据え置き）。
 ```
