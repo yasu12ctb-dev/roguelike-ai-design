@@ -31,6 +31,9 @@ export function migrateWorld(w: World): World {
   if (w.companion && typeof (w.companion as Partial<Companion>).grade !== "number") {
     (w.companion as Companion).grade = w.companion.actor?.grade ?? 0; // 4-4E：旧セーブの相棒に等級を補完（設定→なければアイアン）
   }
+  if (w.companion && typeof (w.companion as Partial<Companion>).feats !== "number") {
+    (w.companion as Companion).feats = 0; // 4-4E：偉業カウンタを補完（昇格の偉業ゲート）
+  }
   if (!Array.isArray(w.flags)) w.flags = [];
   if (!Array.isArray(w.quests)) w.quests = []; // v8：依頼（回収業 4-10G）
   if (!Array.isArray(w.stash)) w.stash = [];       // 自宅の保管庫・消耗品（持ち物 Phase3）：欠落は空で補完

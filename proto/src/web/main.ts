@@ -945,21 +945,38 @@ function levelGrade(level: number): number {
   return 0;
 }
 function rankLabel(level: number): string { return GRADE_LABELS[levelGrade(level)]; }
-/** 相棒の等級：bond の蓄積を閾値で段に写す（生還＝偉業の積み上げ）。設定由来の初期等級を下回らない。 */
-function companionGradeFor(bond: number, currentGrade: number): number {
-  const fromBond = bond >= 11 ? 4 : bond >= 7 ? 3 : bond >= 4 ? 2 : bond >= 2 ? 1 : 0;
-  return Math.min(LIVING_GRADE_CAP, Math.max(currentGrade, fromBond));
+// 相棒の昇格ゲート（4-4E「生存と偉業で1段ずつ」・2026-06-16 ユーザー承認）。
+// 段kへ上がるには bond（生還の蓄積）と feats（偉業＝ボス撃破・山場決着）の両方が必要＝滅多に上がらない。
+// 通算でブロンズ:生還3+偉業1／シルバー:7+2／ゴールド:12+4／プラチナ:18+6（プラチナ＝生者上限）。
+const COMP_SURVIVAL_GATE = [0, 3, 7, 12, 18];
+const COMP_FEAT_GATE = [0, 1, 2, 4, 6];
+/** 相棒の等級：bond（生還）と feats（偉業）の両ゲートで段を決める。設定由来の初期等級は下回らない。 */
+function companionGradeFor(bond: number, feats: number, currentGrade: number): number {
+  let g = currentGrade;
+  for (let k = currentGrade + 1; k <= LIVING_GRADE_CAP; k++) {
+    if (bond >= COMP_SURVIVAL_GATE[k] && feats >= COMP_FEAT_GATE[k]) g = k;
+    else break; // 段は順に＝下の段の条件を満たさなければ上は開かない
+  }
+  return g;
 }
-/** 生還で相棒を昇格（⤴ 4-4E）。bond を更新した後に呼ぶ。段が上がったらログと盤上エンティティへ反映。 */
-function promoteCompanionOnSurvival(): void {
+/** 相棒の昇格判定（⤴ 4-4E）。生還(bond)・偉業(feats)を更新した後に呼ぶ。段が上がればログと盤上へ反映。 */
+function tryPromoteCompanion(): void {
   const c = world.companion;
   if (!c?.alive) return;
-  const next = companionGradeFor(c.bond, c.grade);
+  const next = companionGradeFor(c.bond, c.feats ?? 0, c.grade);
   if (next > c.grade) {
     c.grade = next;
     c.maxHp = companionMaxHp(next); // 等級が上がれば頼もしさ（HP/攻撃）も上がる
+    if (companion) { companion.maxHp = c.maxHp; companion.dmg = companionDmg(next); } // 潜行中なら盤上にも即反映（HPは据置）
     log(`⤴ ${companionName()}が${GRADE_LABELS[next]}に昇格した。`, "cue");
   }
+}
+/** 偉業を記録（ボス撃破・山場決着）。相棒が今ここで共に在る時だけ＝共有した偉業のみ数える。 */
+function recordCompanionFeat(): void {
+  const c = world.companion;
+  if (!c?.alive || !companion || companion.hp <= 0) return;
+  c.feats = (c.feats ?? 0) + 1;
+  tryPromoteCompanion();
 }
 // 書記 act1「旧キャラを伝説として承認する」：神話極の旧キャラを player_legend へ昇格（4-4）。
 // 昇格すると後世で legend_return（祝福の山場）として戻れ、英雄譜に名が刻まれる。無料・各化石1回。
@@ -1016,7 +1033,7 @@ async function heroRoll() {
     : "・（まだ誰の名もない）";
   // 相棒の等級（4-4E ⤴）：存命の相棒がいれば、その金属等級を併記する。
   const comp = world.companion?.alive
-    ? `\n相棒《${world.companion.actor.name}》の等級は ${GRADE_LABELS[world.companion.grade]}（絆${world.companion.bond}）。`
+    ? `\n相棒《${world.companion.actor.name}》の等級は ${GRADE_LABELS[world.companion.grade]}（生還${world.companion.bond}・偉業${world.companion.feats ?? 0}）。`
     : "";
   await sheet({
     text: `ギルド長は台帳を繰る。\n「あなたの等級は ── 《${rankLabel(ch.level)}》。あなたが遺した伝説は ${legends} 柱」。${comp}\n\n〔英雄譜〕\n${roll}`,
@@ -1382,7 +1399,7 @@ async function companionCrisis(): Promise<void> {
       if (companion) { companion.erratic = 0; companion.crisisShown = false; }
       sfx("intervene");
       log(`${name}を鎮めた。深みが退き、昏さが薄れていく。絆が深まった。`, "cue");
-      promoteCompanionOnSurvival();
+      tryPromoteCompanion();
       chronicle(world, "intervention", `${world.current.name}が${name}の深みを鎮め、正気に引き戻した。`, []);
     } else {
       // 失敗罰：相棒が我を失い、自他のどちらかを傷つける（再挑戦は次手で再提示）。
@@ -1413,7 +1430,7 @@ function recruitCompanion(la: LivingActor): void {
   const grade = Math.min(LIVING_GRADE_CAP, la.actor.grade ?? 0);
   world.companion = {
     actorRef: la.id, actor: la.actor, bond, exposure: 0,
-    alive: true, maxHp: companionMaxHp(grade), recruitedGeneration: world.generation, grade,
+    alive: true, maxHp: companionMaxHp(grade), recruitedGeneration: world.generation, grade, feats: 0,
   };
   chronicle(world, "rediscovery", `${GRADE_LABELS[grade]}の${la.actor.name}と同行することになった。`, [la.id]);
   save();
@@ -1612,6 +1629,7 @@ async function handleBossResolve() {
       ch.xp += Math.round(xpForKill(boss.kind.hp) * 0.5 * xpMul(ch)); // 鎮めは報酬控えめ＝慈悲の代償
       log(`★ ${ch.name}は${boss.kind.name}を鎮めた。深みの底で、何かが静かになった。`, "warn");
       chronicle(world, "intervention", `${ch.name}が深度${floor!.depth}で${boss.kind.name}を鎮めた。`, [ch.id, boss.fossilId]);
+      recordCompanionFeat(); // 相棒と共にボスを鎮めた＝偉業（4-4E 昇格ゲート）
     } else {
       rewardKill(boss); // 討つ＝通常撃破（XP満額＋ドロップ＋legend）
     }
@@ -1872,6 +1890,7 @@ function rewardKill(mon: Monster, killLine?: string) {
     if (mon.boss === "area" && awardSeal(world, "abyss_boss", [ch.id])) {
       log("◆ 「成れの果ての討伐」の印を得た。", "warn");
     }
+    recordCompanionFeat(); // 相棒と共にボスを討った＝偉業（4-4E 昇格ゲート）
   } else {
     log(killLine ?? `${mon.kind.name}を倒した。`);
   }
@@ -1943,7 +1962,7 @@ async function stairsPrompt(dir: "down" | "up") {
       if (companion && world.companion?.alive) {
         world.companion.bond += 1;
         log(`${companionName()}と共に生還した。絆が深まる。`, "cue");
-        promoteCompanionOnSurvival();
+        tryPromoteCompanion();
       }
       companion = null;
       save();
@@ -1966,7 +1985,7 @@ async function ascendWithRelic() {
   const ch = world.current!;
   ch.carryingRelic = undefined;
   // 同行（4-14C）：相棒と共に奉献を成した＝絆が深まり街へ残存。
-  if (companion && world.companion?.alive) { world.companion.bond += 1; log(`${companionName()}と共に、奉献を成し遂げた。`, "cue"); promoteCompanionOnSurvival(); }
+  if (companion && world.companion?.alive) { world.companion.bond += 1; log(`${companionName()}と共に、奉献を成し遂げた。`, "cue"); tryPromoteCompanion(); }
   companion = null;
   world.ascended = (world.ascended ?? 0) + 1;
   sfx("intervene"); flashFx("warp");
@@ -2118,6 +2137,7 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       if (ch.exposure < before) log(`深みに削られた芯が、人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
       // 奉献の試練・印③：山場（legend_return）を決着（4-13A）
       if (awardSeal(world, "setpiece", [fossil.id])) log("◆ 「山場の決着」の印を得た。", "warn");
+      recordCompanionFeat(); // 相棒と共に山場を決着＝偉業（4-4E 昇格ゲート）
       save();
       break;
     }
@@ -2131,6 +2151,7 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       if (ch.exposure < before) log(`深みに削られた芯が、少し人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
       // 奉献の試練・印③：山場（grudge_hunt）を決着（4-13A）
       if (awardSeal(world, "setpiece", [fossil.id])) log("◆ 「山場の決着」の印を得た。", "warn");
+      recordCompanionFeat(); // 相棒と共に山場を決着＝偉業（4-4E 昇格ゲート）
       save();
       break;
     }
