@@ -466,7 +466,7 @@ async function questBoard() {
     label: `報酬を受け取る：${q.title}（＋${q.rewardGold}金貨）`,
     run: () => {
       const gross = claimQuest(world, ch, q.id); // claimQuest が満額を加算済み
-      const cut = world.companion?.alive ? Math.floor(gross / 2) : 0; // 同行中は依頼報酬も折半（4-14C）
+      const cut = world.companion?.alive ? companionCut(gross) : 0; // 同行中は依頼報酬も折半（4-14C）
       if (cut > 0) { ch.gold -= cut; log(`${companionName()}が取り分として ${cut}金貨を受け取った（折半）。`, "dim"); }
       log(`ギルド長から報酬を受け取った（＋${gross - cut}金貨／所持 ${ch.gold}）。`);
       chronicle(world, "legend", `${ch.name}が依頼「${q.title}」を果たした。`, [ch.id]);
@@ -932,35 +932,11 @@ async function homeView() {
 // ---------- 書記＝伝説化承認／系譜（4-4）・ギルド＝等級・英雄譜（4-4） ----------
 const TRACK_SOURCE_LABEL: Record<string, string> = { seeded: "街の古い伝説", player_legend: "あなたが遺した伝説", nemesis: "因縁の相手" };
 const ARC_LABEL: Record<string, string> = { retire: "静かなる昇華", doom: "破滅の弧", fall: "堕ちゆく弧", lore_drift: "伝承の漂い" };
-/** 金属6等級のラベル（4-4E）。index 0..4=生者の段／5=ミスリル（秘銀・死後の称号）。プレイヤー・相棒で共有。 */
-const GRADE_LABELS = [
-  "アイアン（新参）", "ブロンズ（駆け出し）", "シルバー（一人前）",
-  "ゴールド（精鋭）", "プラチナ（英傑）", "ミスリル（秘銀・神話）",
-] as const;
-export const LIVING_GRADE_CAP = 4; // 生者はプラチナ止まり。ミスリルは死後＝legendApprove で授かる。
-/** 現キャラの等級＝レベル帯→金属index（4-4 ギルド・4-4E）。 */
-function levelGrade(level: number): number {
-  if (level >= 12) return 4;
-  if (level >= 8) return 3;
-  if (level >= 5) return 2;
-  if (level >= 3) return 1;
-  return 0;
-}
-function rankLabel(level: number): string { return GRADE_LABELS[levelGrade(level)]; }
-// 相棒の昇格ゲート（4-4E「生存と偉業で1段ずつ」・2026-06-16 ユーザー承認）。
-// 段kへ上がるには bond（生還の蓄積）と feats（偉業＝ボス撃破・山場決着）の両方が必要＝滅多に上がらない。
-// 通算でブロンズ:生還3+偉業1／シルバー:7+2／ゴールド:12+4／プラチナ:18+6（プラチナ＝生者上限）。
-const COMP_SURVIVAL_GATE = [0, 3, 7, 12, 18];
-const COMP_FEAT_GATE = [0, 1, 2, 4, 6];
-/** 相棒の等級：bond（生還）と feats（偉業）の両ゲートで段を決める。設定由来の初期等級は下回らない。 */
-function companionGradeFor(bond: number, feats: number, currentGrade: number): number {
-  let g = currentGrade;
-  for (let k = currentGrade + 1; k <= LIVING_GRADE_CAP; k++) {
-    if (bond >= COMP_SURVIVAL_GATE[k] && feats >= COMP_FEAT_GATE[k]) g = k;
-    else break; // 段は順に＝下の段の条件を満たさなければ上は開かない
-  }
-  return g;
-}
+/** 金属6等級のラベルと契約ロジックは companion.ts（ブラウザセーフ・純粋）に集約（式のドリフト防止）。 */
+import {
+  GRADE_LABELS, LIVING_GRADE_CAP, levelGrade, rankLabel, companionGradeFor,
+  hireFee, effectiveHireGrade, companionCut,
+} from "../companion.ts";
 /** 相棒の昇格判定（⤴ 4-4E）。生還(bond)・偉業(feats)を更新した後に呼ぶ。段が上がればログと盤上へ反映。 */
 function tryPromoteCompanion(): void {
   const c = world.companion;
@@ -980,11 +956,9 @@ function recordCompanionFeat(): void {
   c.feats = (c.feats ?? 0) + 1;
   tryPromoteCompanion();
 }
-/** 永続同行のランクゲート（4-14C・2026-06-16 ユーザー承認）：恒久相棒にできるのは「設定等級 ≤ プレイヤーの等級」まで。
- *  上位冒険者は滅多に同行しない＝プレイヤーが相応の高みに達して初めて誘える（格上のスポット同行は次段）。 */
+/** 永続同行のランクゲート（4-14C）：恒久相棒にできるのは「実効等級 ≤ プレイヤーの等級」まで。 */
 function playerGrade(): number { return levelGrade(world.current?.level ?? 1); }
 // ---- 同行＝契約パーティ（4-14C・2026-06-16 改訂）：雇用/折半/解散/再雇用 ----
-const HIRE_FEE_BASE = 12; // 前金の基礎。実額＝HIRE_FEE_BASE×(等級+1)＝アイアン12…プラチナ60。
 /** 生者NPC（world.actors）に蓄積した雇用記録（昇格はここに残り再雇用で再開）。 */
 function storedRecord(actorRef: string): { grade: number; bond: number; feats: number } | undefined {
   const a = world.actors?.find((x) => x.id === actorRef);
@@ -993,9 +967,8 @@ function storedRecord(actorRef: string): { grade: number; bond: number; feats: n
 }
 /** 雇用時の実効等級＝設定等級と蓄積等級の高い方（再雇用ほど精鋭）。 */
 function hireGradeOf(la: LivingActor): number {
-  return Math.min(LIVING_GRADE_CAP, Math.max(la.actor.grade ?? 0, storedRecord(la.id)?.grade ?? 0));
+  return effectiveHireGrade(la.actor.grade, storedRecord(la.id)?.grade);
 }
-function hireFee(grade: number): number { return HIRE_FEE_BASE * (grade + 1); }
 /** 実効等級がプレイヤーの等級を超える＝まだ雇えない（ランクゲート）。 */
 function outranksPlayer(la: LivingActor): boolean { return hireGradeOf(la) > playerGrade(); }
 /** 契約終了（解散/プレイヤー死）時、相棒の等級/絆/偉業を生者NPCへ書き戻す＝再雇用で再開。 */
@@ -1008,7 +981,7 @@ function persistCompanionRecord(): void {
 /** 同行中の金貨獲得は相棒と折半（契約：金貨のみ）。プレイヤーの実入りを返す。 */
 function splitGold(amount: number): number {
   if (!world.companion?.alive || amount <= 0) return amount;
-  const cut = Math.floor(amount / 2);
+  const cut = companionCut(amount);
   if (cut > 0) log(`${companionName()}が取り分として ${cut}金貨を受け取った（折半）。`, "dim");
   return amount - cut;
 }
