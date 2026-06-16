@@ -1284,23 +1284,28 @@ async function characterCreation() {
 }
 
 // ---------- 街（歩ける固定マップ。門 ">" で潜行＝この Promise を解決） ----------
-// ---------- 街の危機：大量モンスター襲撃（4-12(I) 新イベント型「街の防衛」） ----------
-// 潜行帰還時に稀に発火。会話/潜行とは異なる"街規模の危機"＝ステ影響の判断＋集団からの報酬。
-/** 発火ゲート：Lv2以上。一度起きたら「かなりの帰還回数」を空ける冷却制（定期的だが間隔は長い）。
- *  冷却は帰還ごとに1減り、0で 40% 抽選→発火したら次の最短間隔（12〜18帰還）を再装填。世代を越えて持続。 */
-function raidGate(): boolean {
-  if (!world.current || world.current.level < 2) return false;
-  if ((world.raidCooldown ?? 0) > 0) { world.raidCooldown = (world.raidCooldown ?? 0) - 1; return false; }
-  if (rng.next() >= 0.4) return false;
-  world.raidCooldown = 12 + Math.floor(rng.next() * 7); // 次の襲撃まで最短12〜18帰還
-  return true;
+// ---------- アンビエント街イベント（4-12 J）：潜行帰還時に稀に起きる"街規模の出来事" ----------
+// 1帰還につき最大1件。各型は固有のクールダウン（型ごとに頻度を変える）＋全体の発生確率で間引く。
+async function maybeTownEvent(): Promise<void> {
+  const ch = world.current;
+  if (!ch) return;
+  // 各型の冷却を1帰還ぶん減らす（型を増やすときはここに1行）
+  if ((world.raidCooldown ?? 0) > 0) world.raidCooldown = (world.raidCooldown ?? 0) - 1;
+  if ((world.memorialCooldown ?? 0) > 0) world.memorialCooldown = (world.memorialCooldown ?? 0) - 1;
+  // 発火可能（冷却0＋固有条件）な型を集める
+  const pool: { w: number; run: () => Promise<void> }[] = [];
+  if (ch.level >= 2 && (world.raidCooldown ?? 0) === 0) pool.push({ w: 2, run: townRaidScene });           // 脅威（稀）
+  if ((world.memorialCooldown ?? 0) === 0 && world.fossils.some((f) => f.kind === "character")) pool.push({ w: 3, run: townMemorialScene }); // 好機（定期）
+  if (pool.length === 0 || rng.next() >= 0.4) return; // 毎帰還は起きない（多くは静穏）
+  const total = pool.reduce((a, b) => a + b.w, 0);
+  let r = rng.next() * total;
+  for (const a of pool) { r -= a.w; if (r <= 0) { await a.run(); return; } }
 }
-async function maybeTownRaid(): Promise<void> {
-  if (raidGate()) await townRaidScene();
-}
+
 async function townRaidScene(): Promise<void> {
   busy = true;
   const ch = world.current!;
+  world.raidCooldown = 14 + Math.floor(rng.next() * 7); // 次の襲撃まで最短14〜20帰還（一度起きたら長く空く）
   const tier = Math.min(3, 1 + Math.floor(ch.level / 5)); // 規模＝報酬/危険の係数（深く潜る者ほど深層が荒ぶる）
   let gold = 0, exposure = 0, item: string | null = null;
   sfx("hurt"); flashFx("warp");
@@ -1337,6 +1342,42 @@ async function townRaidScene(): Promise<void> {
   await sheet({
     text: `静けさが戻った。街の者たちが、口々に礼を述べる。\n\n〔報酬〕金貨 ＋${gold}${got ? `／${got}` : ""}${exposure > 0 ? `\n浴びた深み ＋${exposure.toFixed(2)}` : ""}`,
     meta: "街の防衛 ── 鎮静", options: ["街へ"],
+  });
+  updateStatus(); save(); busy = false;
+}
+
+// ④ 追悼の日（祭礼）＝襲撃の"対"になる好機の定期イベント（4-12 J）。死者を悼み、深蝕（深みの蝕み）を人の温もりで和らげる。
+async function townMemorialScene(): Promise<void> {
+  busy = true;
+  const ch = world.current!;
+  world.memorialCooldown = 9 + Math.floor(rng.next() * 5); // 次の追悼まで最短9〜13帰還
+  const chars = world.fossils.filter((f) => f.kind === "character");
+  const bonded = new Set(ch.bonds.map((b) => b.entityRef));
+  const dear = chars.find((f) => bonded.has(f.id))
+    ?? (ch.lineage.ancestorFossilId ? chars.find((f) => f.id === ch.lineage.ancestorFossilId) : undefined)
+    ?? chars[0];
+  sfx("intervene");
+  const r = await sheet({
+    text: "街に戻ると、通りに白い花が手向けられていた。今日は追悼の日――迷宮に呑まれた者たちを悼む、静かな一日だ。",
+    meta: "追悼の日 ── 祭礼", options: ["縁ある死者を悼む", "無名の死者に祈る", "そっと通り過ぎる"],
+  });
+  let line = "", exposure = 0, item: string | null = null;
+  if (r.pick === 1 && dear) {
+    exposure = -0.10; item = "soothe"; ch.traits.push(`悼んだ者:${dear.origin.name}`);
+    line = `${dear.origin.name}の名を、花とともに静かに呼んだ。深みに削られた芯が、人の側へ少し還る。街の者が、悼みの護符を一つ握らせてくれた。`;
+    chronicle(world, "intervention", `追悼の日、${ch.name}は${dear.origin.name}を悼んだ。`, [ch.id, dear.id]);
+  } else if (r.pick === 1 || r.pick === 2) {
+    exposure = -0.05; ch.traits.push(`祈り:第${world.generation}世代の追悼`);
+    line = "名も知らぬ死者たちへ、花を手向けた。誰かを悼むという行為が、強張った何かをほどいていく。";
+    chronicle(world, "intervention", `追悼の日、${ch.name}は無名の死者たちに祈った。`, [ch.id]);
+  } else {
+    line = "悼む気には、まだなれなかった。花の通りを、足早に抜けていく。";
+  }
+  if (exposure < 0) ch.exposure = Math.max(0, ch.exposure + exposure);
+  const got = item && addConsumable(ch, item) ? consumableByKey(item)?.name : null;
+  await sheet({
+    text: `${line}${exposure < 0 ? `\n\n浴びた深みが、わずかに退いた（深蝕 ${exposure.toFixed(2)}）。` : ""}${got ? `\n${got} を受け取った。` : ""}`,
+    meta: "追悼の日 ── 手向け", options: ["街へ"],
   });
   updateStatus(); save(); busy = false;
 }
@@ -2074,7 +2115,7 @@ async function stairsPrompt(dir: "down" | "up") {
       save();
       log("地上の光がまぶしい。生きて、帰った。");
       busy = false;
-      await maybeTownRaid(); // 街の防衛（新イベント型）：稀に街が襲撃を受けている
+      await maybeTownEvent(); // アンビエント街イベント（4-12 J）：襲撃/追悼など、稀に街で出来事が起きる
       await townLoop(); await startDive(); return;
     }
   } else {
