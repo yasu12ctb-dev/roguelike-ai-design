@@ -17,7 +17,7 @@ import {
   DEPTH_SEAL_AT, ABYSS_DEPTH, RELIC_EXPOSURE_PER_TURN, RELIC_PURSUER_EVERY, RELIC_PURSUER_CAP,
 } from "../progression.ts";
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
-import { rollItem, rollItemOfSlot, itemByName, itemPower, itemLabel, itemValue, SLOT_LABEL, CONSUMABLES, consumableByKey } from "../items.ts";
+import { rollItem, rollItemOfSlot, itemByName, itemPower, itemLabel, itemValue, SLOT_LABEL, CONSUMABLES, consumableByKey, grantConsumable } from "../items.ts";
 import {
   renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, matchSetPiece, fillStoryletText, fillDungeonText, fillActorText,
   requiemLine, leaveLine, inheritLine, REQUIEM_RELIEF,
@@ -725,14 +725,9 @@ async function cultLore(which: "gospel" | "rite") {
 // ---------- 持ち物（4-10G／Phase1：消耗品＋容量＝レベル。道具屋で購入・潜行中に使用） ----------
 /** 使用中の枠数（容量＝carryCapacity と比較）。同種はスタックするので枠は増えない。 */
 function invSlotsUsed(ch: Character): number { return ch.inventory?.length ?? 0; }
-/** 消耗品を1つ持ち物へ。同種はスタック、空き枠が無ければ false。 */
+/** 消耗品を1つ持ち物へ（容量はレベル依存）。同種はスタック、空き枠が無ければ false。 */
 function addConsumable(ch: Character, key: string): boolean {
-  ch.inventory ??= [];
-  const slot = ch.inventory.find((s) => s.key === key);
-  if (slot) { slot.qty += 1; return true; }
-  if (ch.inventory.length >= carryCapacity(ch)) return false; // 枠が一杯
-  ch.inventory.push({ key, qty: 1 });
-  return true;
+  return grantConsumable(ch, key, carryCapacity(ch));
 }
 /** 1枠から1つ消費（0になった枠は外す）。 */
 function consumeOne(ch: Character, key: string) {
@@ -1119,6 +1114,15 @@ let sceneActorKeys = new Set<string>();
 const actorKey = (la: { actor: { epithet?: string; name: string; archetype: string } }) =>
   `${la.actor.epithet ?? ""}|${la.actor.name}|${la.actor.archetype}`;
 function resolveMeetActor() {
+  // 進行中アークのアンカーNPC（特定NPCに戻る弧：4-12(I)）を優先的に再会させる。
+  const anchored = (world.arcs ?? [])
+    .filter((a) => !a.done && a.actorRef)
+    .map((a) => world.actors?.find((x) => x.id === a.actorRef))
+    .find((x): x is LivingActor => !!x);
+  if (anchored && !sceneActorKeys.has(actorKey(anchored)) && rng.next() < 0.5) {
+    sceneActorKeys.add(actorKey(anchored));
+    return anchored;
+  }
   let la = meetActor(world, db, rng);
   for (let i = 0; i < 8 && sceneActorKeys.has(actorKey(la)); i++) la = meetActor(world, db, rng);
   sceneActorKeys.add(actorKey(la));

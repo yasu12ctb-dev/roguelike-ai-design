@@ -536,8 +536,10 @@ NetHack の深さは戦闘の外（準備・資源・判断）にあり、戦闘
 - **段ゲート（Prereq）：** `arc`（その弧が進行中）＋`arcStep`（現在段が一致）＋`arcPick`（早い分岐の選択が一致）／`notArc`（未開始＝開幕の重複防止）。3つの選出器（encounter/dungeon/town）すべてに `arcMatches` を結線。
 - **段の前進（Effect）：** `arc:{key,step,pick?,done?}`＝開始/前進/分岐記録/完了。**アーク段は抽選で最優先**（`pickPreferArc`）＝flavor に埋もれず弧が確実に進む。
 - **長さ＝段数 × 分岐 × 蓄積ゲート：** 早い選択が後段の有無と結末を変える（branch-and-bottleneck）。深度帯・深蝕などの**蓄積状態でしか開かない段**を置ける（QBN）。
-- **見本＝「沈黙の扉」の弧（dungeon・4段・複数潜行をまたぐ）：** 唸る封印扉を見つける→死んだ探索者の手記で開け方を知る→深層で扉が自分の深蝕と同拍で脈打つ→**開ける(力＋深蝕の代償・奥の聖堂で結晶を得る)／封印を守る(深蝕が和らぐ・別の結末)** の分岐。`pick=open` のみ4段目（報酬）へ進む。実装＝`content/storylets.json ad_door_*`、機構＝`world.ts getArc/setArc`・`storylets.ts arcMatches/pickPreferArc`・`types.ts ArcState/ArcEffect/World.arcs`。
-- **今後：** 弧を量産（鋳造所＝道2）／街・化石・同行・依頼をまたぐ弧（actor アンカーした「特定NPCに戻る」弧は次段）。
+- **見本①＝「沈黙の扉」の弧（dungeon・4段・複数潜行をまたぐ）：** 唸る封印扉を見つける→死んだ探索者の手記で開け方を知る→深層で扉が自分の深蝕と同拍で脈打つ→**開ける(力＋深蝕の代償・奥の聖堂で結晶を得る)／封印を守る(深蝕が和らぐ・別の結末)** の分岐。`pick=open` のみ4段目（報酬）へ進む。実装＝`content/storylets.json ad_door_*`、機構＝`world.ts getArc/setArc`・`storylets.ts arcMatches/pickPreferArc`・`types.ts ArcState/ArcEffect/World.arcs`。
+- **報酬は全イベント共通でセット（2026-06-16 ユーザー要望・実装済み）：** `Effect.gold`（金貨）／`Effect.item`（消耗品キー＝容量超過なら持ちきれず破棄）／既存 `bond`（絆）。`applyReward` を encounter/dungeon/town の全 apply に結線。`grantConsumable`（`items.ts`・純粋）を切り出し `addConsumable` と共用。
+- **特定NPCに戻る弧＝アクターアンカー（2026-06-16・実装済み Web）：** `ArcState.actorRef`＋`ArcEffect.anchor`（開幕で「今会っている生者」をアンカー）＋`Prereq.arcActor`（同一NPC本人にだけ後段が出る・他人に漏れない）。`resolveMeetActor` が進行中アークのアンカーNPCを優先再会させ、弧を前へ。**見本②＝「片割れの形見」の弧（街→深層→街・3段）：** 冒険者が「深層で還らなかった相棒の形見」を頼む→深層で護符を見つける→**届ける（金貨+35・絆+2・膏薬＝金/物/絆の3報酬）／着服する（深蝕+・裏切りの形質）** の分岐。実装＝`kp_*`。
+- **今後：** 弧を**量産（鋳造所＝道2）＝着手前に各種ゲームをリサーチしてから**（ユーザー指示）。**同種イベントの飽きを避け種類を増やす**（街・化石・同行・依頼をまたぐ弧）。**将来構想（視野に入れる・未実装）＝① 街に大量モンスターが襲撃する防衛イベント／② 貴族・統治者エリア（未実装区画）でしか受注できない超長尺イベント。**
 
 ---
 

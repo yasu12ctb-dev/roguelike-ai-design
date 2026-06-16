@@ -226,8 +226,12 @@ export function getArc(world: World, key: string): ArcState | undefined {
 export function setArc(world: World, e: ArcEffect): void {
   (world.arcs ??= []);
   const a = world.arcs.find((x) => x.key === e.key);
-  if (a) { a.step = e.step; if (e.pick !== undefined) a.pick = e.pick; if (e.done) a.done = true; }
-  else world.arcs.push({ key: e.key, step: e.step, pick: e.pick, done: e.done });
+  if (a) {
+    a.step = e.step;
+    if (e.pick !== undefined) a.pick = e.pick;
+    if (e.actorRef !== undefined) a.actorRef = e.actorRef; // 特定NPCに戻る弧のアンカー
+    if (e.done) a.done = true;
+  } else world.arcs.push({ key: e.key, step: e.step, pick: e.pick, actorRef: e.actorRef, done: e.done });
 }
 
 /** 干渉（鎮魂/継承/供養）：変質クロックをリセットし、因縁を閉じる（4-1C / 4-2） */

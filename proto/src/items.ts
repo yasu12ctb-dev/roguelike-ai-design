@@ -2,7 +2,18 @@
 // 効果の適用は progression.ts（派生値）と web/main.ts（盤面）。ここは定義と抽選・表示のみ。
 
 import type { Rng } from "./rng.ts";
-import type { Item, ItemSlot } from "./types.ts";
+import type { Character, Item, ItemSlot } from "./types.ts";
+
+/** 消耗品を1つ持ち物へ（純粋）。同種はスタック／空き枠（capacity）が無ければ false。
+ *  web の addConsumable と同じ規則＝イベント報酬（Effect.item）から呼べるよう切り出した。 */
+export function grantConsumable(ch: Character, key: string, capacity: number): boolean {
+  ch.inventory ??= [];
+  const slot = ch.inventory.find((s) => s.key === key);
+  if (slot) { slot.qty += 1; return true; }
+  if (ch.inventory.length >= capacity) return false;
+  ch.inventory.push({ key, qty: 1 });
+  return true;
+}
 
 interface Template {
   slot: ItemSlot; name: string; minDepth: number;
