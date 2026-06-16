@@ -83,6 +83,7 @@ async function main() {
   let shots = 0, sheetsHandled = 0, moves = 0, dives = 0, maxDepth = 0;
   const milestones = new Set();
   let prevDepth = "0";
+  let heading = "ArrowDown", lastAx = -1, lastAy = -1; // 迷宮探索の慣性
 
   for (let step = 0; step < STEPS; step++) {
     const state = await page.evaluate(() => ({
@@ -97,19 +98,54 @@ async function main() {
 
     if (state.shown) {
       if (state.hasInput) await page.fill("#sheetInput", "試" + Math.floor(rnd() * 1000)).catch(() => {});
-      const n = state.nButtons;
-      if (n > 0) {
-        // 進行のため基本は先頭、EXPLORE 確率で他の選択肢＝content を広く踏む
-        const idx = rnd() < EXPLORE ? Math.floor(rnd() * n) : 0;
+      const btns = await page.$$eval("#sheetButtons button", (els) => els.map((e) => (e.textContent || "").trim()));
+      if (btns.length > 0) {
+        // 降りる/関わるを優先（深層・content を踏む）。無ければ先頭＝上り階段では「街へ戻る」で循環し再潜行。
+        const ENGAGE = /降り|潜|頼む|救助|奪|受ける|買|鎮|継ぐ|調べ|捜索|戦|供|捧|祈|診|預|取り出|整え|導き|向き合|詫/;
+        const eng = btns.findIndex((t) => ENGAGE.test(t));
+        const idx = (eng >= 0 && rnd() > EXPLORE) ? eng : (rnd() < EXPLORE ? Math.floor(rnd() * btns.length) : 0);
         await page.locator("#sheetButtons button").nth(idx).click({ timeout: 4000 }).catch(() => {});
         sheetsHandled++;
       } else {
         await page.keyboard.press("Enter").catch(() => {});
       }
     } else {
-      // 街（深度0）では門 `>` が北にあるので北寄りに歩いて潜行を起こす／迷宮ではランダムに探索・戦闘
+      // grid 解析で進む：@ を見つけ、迷宮では敵を狩り `>` 下り階段へ／街では門 `>` へ寄せる
+      const view = await page.evaluate(() => {
+        const grid = document.querySelector("#grid");
+        if (!grid) return null;
+        const cols = getComputedStyle(grid).gridTemplateColumns.split(" ").length;
+        const cells = [...grid.querySelectorAll(".cell")];
+        const rows = Math.round(cells.length / cols);
+        const MON = new Set(["r", "k", "b", "s", "g", "w", "W", "O", "Ω"]); // 敵グリフ（街の群衆 c/$/n/t/f とは非衝突）
+        let ax = -1, ay = -1, down = null; const mons = [];
+        for (let i = 0; i < cells.length; i++) {
+          const t = (cells[i].textContent || "").trim();
+          if (!t) continue;
+          const x = i % cols, y = Math.floor(i / cols);
+          if (t === "@") { ax = x; ay = y; }
+          else if (t === ">") down = { x, y };
+          else if (MON.has(t)) mons.push({ x, y });
+        }
+        return { cols, rows, ax, ay, down, mons };
+      });
+      const toward = (ax, ay, tx, ty) => Math.abs(tx - ax) >= Math.abs(ty - ay)
+        ? (tx > ax ? "ArrowRight" : "ArrowLeft") : (ty > ay ? "ArrowDown" : "ArrowUp");
       const inTown = !state.depth || state.depth === "0";
-      const key = inTown ? (rnd() < 0.6 ? "ArrowUp" : pick(ARROWS)) : pick(ARROWS);
+      let key;
+      if (view && view.ax >= 0) {
+        let nm = null, nd = 1e9;
+        if (!inTown) for (const m of view.mons) { const d = Math.abs(m.x - view.ax) + Math.abs(m.y - view.ay); if (d < nd) { nd = d; nm = m; } }
+        if (nm && nd <= 5) key = toward(view.ax, view.ay, nm.x, nm.y);           // 近い敵を狩る（XP→生存）
+        else if (view.down) key = toward(view.ax, view.ay, view.down.x, view.down.y); // 下り階段/門へ
+        else if (inTown) key = rnd() < 0.6 ? "ArrowUp" : pick(ARROWS);           // 街：門は北
+        else { // 迷宮の探索＝慣性（詰まったら向き変更）
+          if (view.ax === lastAx && view.ay === lastAy) heading = pick(ARROWS);
+          else if (rnd() < 0.25) heading = pick(ARROWS);
+          key = heading;
+        }
+        lastAx = view.ax; lastAy = view.ay;
+      } else key = inTown ? (rnd() < 0.6 ? "ArrowUp" : pick(ARROWS)) : pick(ARROWS);
       await page.keyboard.press(key).catch(() => {});
       moves++;
     }
