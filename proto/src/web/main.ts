@@ -1286,13 +1286,13 @@ async function characterCreation() {
 // ---------- 街（歩ける固定マップ。門 ">" で潜行＝この Promise を解決） ----------
 // ---------- 街の危機：大量モンスター襲撃（4-12(I) 新イベント型「街の防衛」） ----------
 // 潜行帰還時に稀に発火。会話/潜行とは異なる"街規模の危機"＝ステ影響の判断＋集団からの報酬。
-/** 発火ゲート：1世代1回・Lv2以上・確率。発火時のみフラグを立てる（再挑戦は次世代）。 */
+/** 発火ゲート：Lv2以上。一度起きたら「かなりの帰還回数」を空ける冷却制（定期的だが間隔は長い）。
+ *  冷却は帰還ごとに1減り、0で 40% 抽選→発火したら次の最短間隔（12〜18帰還）を再装填。世代を越えて持続。 */
 function raidGate(): boolean {
-  if (!world.current) return false;
-  const key = `raided_g${world.generation}`;
-  (world.flags ??= []);
-  if (world.flags.includes(key) || world.current.level < 2 || rng.next() >= 0.25) return false;
-  world.flags.push(key);
+  if (!world.current || world.current.level < 2) return false;
+  if ((world.raidCooldown ?? 0) > 0) { world.raidCooldown = (world.raidCooldown ?? 0) - 1; return false; }
+  if (rng.next() >= 0.4) return false;
+  world.raidCooldown = 12 + Math.floor(rng.next() * 7); // 次の襲撃まで最短12〜18帰還
   return true;
 }
 async function maybeTownRaid(): Promise<void> {
