@@ -1927,6 +1927,50 @@
         { "label": "薬代を足してやる", "text": "足りない分を、そっと足した。#origin_name# は目を丸くし、深く頭を下げて駆けていった。", "effects": [ { "exposure": -0.04 }, { "chronicle": "店で、薬代に迷う子ども#origin_name# に、不足を足してやった。" } ] },
         { "label": "見守るだけ", "text": "施しが、その子のためになるとは限らない。ただ、選ぶ姿を見守った。", "effects": [ { "chronicle": "店で、硬貨を握る子ども#origin_name# を、見守った。" } ] }
       ]
+    },
+    {
+      "id": "ad_door_find",
+      "context": "dungeon",
+      "prerequisites": { "depthBand": "mid", "notArc": "silentdoor" },
+      "weight": 1,
+      "text": "黒鉄の扉が、岩壁に埋め込まれている。鍵穴も取っ手もない。ただ、触れてもいないのに、低く——歌うように、唸っている。",
+      "choices": [
+        { "label": "開ける手立てを探すと心に決める", "text": "この扉は、何かを封じている。あるいは、何かを待っている。確かめずにはいられなかった。", "effects": [ { "arc": {"key": "silentdoor", "step": 1} }, { "trait": "見たもの:沈黙の扉" }, { "chronicle": "深度#depth#で、唸る黒鉄の扉を見つけた。開ける手立てを探すと決めた。" } ] },
+        { "label": "忘れて進む", "text": "触れてはいけないものの気配。扉に背を向けた。", "effects": [ { "chronicle": "深度#depth#の唸る扉を、見なかったことにした。" } ] }
+      ]
+    },
+    {
+      "id": "ad_door_notes",
+      "context": "dungeon",
+      "prerequisites": { "arc": "silentdoor", "arcStep": 1 },
+      "weight": 3,
+      "text": "壁にもたれて事切れた探索者。その手には、あの扉について書きつけた手記が握られていた。「あの扉は、『深く染まった者』にしか応えぬ。生半可な覚悟では、唸りに呑まれるだけだ」。",
+      "choices": [
+        { "label": "手記を読み解く", "text": "扉の理を、頭に刻んだ。応えるのは、深みを宿した者だけ——つまり、自分のような者に。", "effects": [ { "arc": {"key": "silentdoor", "step": 2} }, { "exposure": 0.03 }, { "trait": "継いだ手記:沈黙の扉の理" }, { "chronicle": "深度#depth#で、扉の開け方を記した手記を読み解いた。" } ] },
+        { "label": "今は読まずに進む", "text": "気が進まない。手記は、ひとまず元へ戻した。", "effects": [ { "chronicle": "深度#depth#で見つけた扉の手記を、まだ読まずにおいた。" } ] }
+      ]
+    },
+    {
+      "id": "ad_door_open",
+      "context": "dungeon",
+      "prerequisites": { "arc": "silentdoor", "arcStep": 2, "depthBand": "deep" },
+      "weight": 3,
+      "text": "再び、黒鉄の扉。今度は唸りが、自分の鼓動と——深みに澱んだこの心臓と、同じ拍で脈打っている。応えている。手をかければ、開く。",
+      "choices": [
+        { "label": "扉を開ける", "text": "唸りが歓喜に変わり、扉が音もなく内へ退いた。向こうから、冷たい光が漏れている。", "effects": [ { "arc": {"key": "silentdoor", "step": 3, "pick": "open"} }, { "exposure": 0.1 }, { "trait": "開いた扉:沈黙の向こうへ" }, { "chronicle": "深度#depth#で、沈黙の扉を自らの深みで開いた。" } ] },
+        { "label": "封印を敬い、背を向ける", "text": "開けてはならない。そう判じる理性が、まだ残っていた。扉に一礼し、その場を去る。唸りが、惜しむように尾を引いた。", "effects": [ { "arc": {"key": "silentdoor", "step": 3, "pick": "leave", "done": true} }, { "exposure": -0.05 }, { "trait": "守った沈黙:開けなかった扉" }, { "chronicle": "深度#depth#の沈黙の扉を、開けずに守り通した。" } ] }
+      ]
+    },
+    {
+      "id": "ad_door_beyond",
+      "context": "dungeon",
+      "prerequisites": { "arc": "silentdoor", "arcStep": 3, "arcPick": "open", "depthBand": "deep" },
+      "weight": 5,
+      "text": "扉の奥は、小さな円形の聖堂だった。中央の台座に、脈打つ黒い結晶。これこそ、扉が封じ——あるいは守っていたものか。近づくほど、心臓と結晶の拍が、一つに溶けていく。",
+      "choices": [
+        { "label": "結晶を掴む", "text": "掌に収めた刹那、見たことのない深部の地図が、痛みと共に頭へ流れ込んだ。力には、必ず代償がある。", "effects": [ { "arc": {"key": "silentdoor", "step": 4, "done": true} }, { "exposure": 0.08 }, { "trait": "深淵の結晶:沈黙の扉の核" }, { "chronicle": "深度#depth#で、沈黙の扉が守っていた黒い結晶を手にした。" } ] },
+        { "label": "見届けるだけで去る", "text": "手は伸ばさなかった。知ることと、奪うことは違う。聖堂の静けさだけを胸に、扉を後にした。", "effects": [ { "arc": {"key": "silentdoor", "step": 4, "done": true} }, { "exposure": -0.03 }, { "trait": "見届けた真実:扉の奥の聖堂" }, { "chronicle": "深度#depth#で、沈黙の扉の奥を見届け、何も奪わずに去った。" } ] }
+      ]
     }
   ]
 }
