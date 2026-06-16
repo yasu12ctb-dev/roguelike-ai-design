@@ -12,12 +12,25 @@
 //   STEPS=800 SEED=42 node tools/playtest.mjs     # 手数・乱択シード指定
 //
 // 環境変数：HEADED(0/1)・SLOWMO(ms)・STEPS(手数)・SEED(乱択再現)・PORT・EXPLORE(0..1 選択肢の冒険度)
-import { chromium } from "playwright";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, extname } from "node:path";
+
+// ブラウザ取得：ローカルは playwright（フルDL版）、それが無い環境（リモート等）は
+// playwright-core ＋ @sparticuz/chromium（npm レジストリ経由でバイナリ取得）にフォールバック。
+async function launchBrowser({ headless, slowMo }) {
+  try {
+    const { chromium } = await import("playwright");
+    return await chromium.launch({ headless, slowMo, args: ["--no-sandbox"] });
+  } catch {
+    const { chromium } = await import("playwright-core");
+    const sparticuz = (await import("@sparticuz/chromium")).default;
+    const executablePath = await sparticuz.executablePath();
+    return await chromium.launch({ executablePath, args: [...sparticuz.args, "--no-sandbox"], headless });
+  }
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_DIR = join(__dirname, "..", "web");
@@ -51,7 +64,7 @@ async function main() {
   const url = `http://localhost:${PORT}/`;
   console.log(`serving ${WEB_DIR} at ${url}`);
 
-  const browser = await chromium.launch({ headless: !HEADED, slowMo: SLOWMO, args: ["--no-sandbox"] });
+  const browser = await launchBrowser({ headless: !HEADED, slowMo: SLOWMO });
   const ctx = await browser.newContext({ viewport: { width: 480, height: 900 }, serviceWorkers: "block" });
   const page = await ctx.newPage();
 
@@ -67,8 +80,9 @@ async function main() {
   await page.waitForTimeout(600);
 
   const ARROWS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
-  let shots = 0, sheetsHandled = 0, moves = 0;
+  let shots = 0, sheetsHandled = 0, moves = 0, dives = 0, maxDepth = 0;
   const milestones = new Set();
+  let prevDepth = "0";
 
   for (let step = 0; step < STEPS; step++) {
     const state = await page.evaluate(() => ({
@@ -93,9 +107,16 @@ async function main() {
         await page.keyboard.press("Enter").catch(() => {});
       }
     } else {
-      await page.keyboard.press(pick(ARROWS)).catch(() => {});
+      // 街（深度0）では門 `>` が北にあるので北寄りに歩いて潜行を起こす／迷宮ではランダムに探索・戦闘
+      const inTown = !state.depth || state.depth === "0";
+      const key = inTown ? (rnd() < 0.6 ? "ArrowUp" : pick(ARROWS)) : pick(ARROWS);
+      await page.keyboard.press(key).catch(() => {});
       moves++;
     }
+    // 潜行の検知（深度が 0→正数 / 増加）
+    if (state.depth && state.depth !== "0") { maxDepth = Math.max(maxDepth, +state.depth || 0); }
+    if (prevDepth === "0" && state.depth && state.depth !== "0") dives++;
+    prevDepth = state.depth || prevDepth;
     await page.waitForTimeout(HEADED ? 60 : 25);
 
     // 節目スクショ：深度が変わった・40手ごと
@@ -109,7 +130,7 @@ async function main() {
   await page.screenshot({ path: join(SHOTS, `s${String(shots).padStart(3, "0")}_final.png`) }).catch(() => {});
 
   console.log(`\n=== 自動テストプレイ完了 ===`);
-  console.log(`手数=${STEPS} シート処理=${sheetsHandled} 移動=${moves} スクショ=${shots + 1}枚 → ${SHOTS}`);
+  console.log(`手数=${STEPS} シート処理=${sheetsHandled} 移動=${moves} 潜行回数=${dives} 最深到達=D${maxDepth} スクショ=${shots + 1}枚 → ${SHOTS}`);
   console.log(`JS例外/console.error = ${errors.length}件`);
   for (const e of [...new Set(errors)].slice(0, 30)) console.log("  ⚠ " + e);
   if (errors.length === 0) console.log("  ✅ 例外なし");

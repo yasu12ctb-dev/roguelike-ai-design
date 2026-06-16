@@ -5,11 +5,19 @@ Playwright で実ブラウザに本体（`web/`）を読み込み、街歩き／
 **JS例外（バグ）の収集**と**節目スクショ**を行う。リモート（Web版 Claude）はブラウザCDNが遮断され動かないため、**ローカルで実行**する。
 
 ### セットアップ（初回のみ）
+**ローカル（Mac/PC）＝推奨：**
 ```sh
 cd proto
 npm i -D playwright          # もしくは: npm i -g playwright
 npx playwright install chromium
 ```
+**ブラウザCDNが遮断された環境（リモート等）＝npm経由でバイナリ取得：**
+```sh
+cd proto
+npm i -D playwright-core @sparticuz/chromium
+```
+スクリプトは `playwright`（フル版）を優先し、無ければ `playwright-core`＋`@sparticuz/chromium` に自動フォールバックする。
+（これらの検証用依存は本体の依存（esbuildのみ）とは別で、`package.json` には常駐させない方針＝使う時だけ入れる）
 
 ### 実行
 ```sh
