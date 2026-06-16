@@ -22,6 +22,7 @@ export interface World {
   seals?: string[];             // 奉献の試練：集めた印（SealKey。World に蓄積＝世代越え。5種で深淵帯解錠：4-13A）。任意＝旧セーブ非破壊。
   ascended?: number;            // 奉献の試練：聖遺物を地上へ生還させてクリアした回数（4-13D）。任意＝旧セーブ非破壊。
   companion?: Companion;        // 同行（相棒）の永続状態（4-14C）。生かし続ければセーブ全体を貫く反復キャラ。任意＝旧セーブ非破壊。
+  arcs?: ArcState[];            // 長尺アークの進行状態（4-12(I)：多段の弧。世代越え）。任意＝旧セーブ非破壊。
 }
 
 /** 同行（相棒）の永続状態（4-14C）。潜行開始時にグリッドの相棒エンティティへ展開される。 */
@@ -240,6 +241,11 @@ export interface Prereq {
   depthBand?: "shallow" | "mid" | "deep"; // 深度帯（ダンジョン文脈の発火条件）
   flag?: string;           // この化石に立った伏線フラグが有る（遭-②：伏線→後続）
   notFlag?: string;        // この化石に立った伏線フラグが無い（重複発火を防ぐ）
+  // 長尺アーク（4-12(I)：進行度クオリティで多段の弧を組む。世界スコープ＝化石/アクター非依存）
+  arc?: string;            // この弧が進行中（未完）であること
+  arcStep?: number;        // かつ現在ステップがこの値（段の発火位置）
+  arcPick?: string;        // かつ分岐の選択がこの値（早い選択が後段を変える）
+  notArc?: string;         // この弧が未開始であること（開幕の重複発火を防ぐ）
 }
 
 /** 選択の結果として世界状態へ還流する変化。文字列は origin スロットを充填できる。 */
@@ -250,7 +256,14 @@ export interface Effect {
   trait?: string;          // 形質を付与（#origin_name# 等のスロット可）
   chronicle?: string;      // 年代記に一行残す（スロット可）
   plant?: string;          // 伏線フラグを立てる（この化石にスコープ。後続の prereq.flag が拾う）
+  arc?: ArcEffect;         // 長尺アークを開始/前進/分岐記録/完了（4-12(I)）
 }
+
+/** 長尺アークの進行操作（Effect.arc）。step を設定し、pick で分岐を記録、done で弧を閉じる。 */
+export interface ArcEffect { key: string; step: number; pick?: string; done?: boolean }
+
+/** 長尺アークの状態（World.arcs：進行度クオリティ＝多段の弧を数える。4-12(I)）。 */
+export interface ArcState { key: string; step: number; pick?: string; done?: boolean }
 
 /** 遭遇ノードの動詞ぶんの本文と還流（〈調べる〉〈捜索〉が各々持つ）。 */
 export interface StoryletBranch {

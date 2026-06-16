@@ -1,7 +1,7 @@
 // 世界の生成・化石化・干渉・年代記・永続化（prototype-spec.md §2 / §5）
 
 import type {
-  Actor, Character, ChronicleEntry, Companion, DeathManner, FinalAct, Fossil, Lineage, SealKey, World,
+  Actor, ArcEffect, ArcState, Character, ChronicleEntry, Companion, DeathManner, FinalAct, Fossil, Lineage, SealKey, World,
 } from "./types.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "./types.ts";
 import { resolveTonePole } from "./variation.ts";
@@ -38,6 +38,7 @@ export function migrateWorld(w: World): World {
   if (!Array.isArray(w.quests)) w.quests = []; // v8：依頼（回収業 4-10G）
   if (!Array.isArray(w.stash)) w.stash = [];       // 自宅の保管庫・消耗品（持ち物 Phase3）：欠落は空で補完
   if (!Array.isArray(w.stashGear)) w.stashGear = []; // 自宅の保管庫・装備：欠落は空で補完
+  if (!Array.isArray(w.arcs)) w.arcs = [];         // 長尺アーク（4-12(I)）：欠落は空で補完
   if (!Array.isArray(w.seals)) w.seals = [];       // 奉献の試練・集めた印（4-13A）：欠落は空で補完
   if (typeof w.ascended !== "number") w.ascended = 0; // 奉献の試練・クリア回数（4-13D）
   if (w.town) { // 歩ける街（4-4B）：旧セーブに欠落するサブシーン状態を補完
@@ -213,6 +214,20 @@ export function fossilizeAbandoned(
     `${actor.name}を深度${opts.depth}に見捨てた。その怨みは、いつか宿敵となって還るだろう。`,
     [fossil.id]);
   return fossil;
+}
+
+// ---------- 長尺アーク（4-12(I)：進行度クオリティで多段の弧を組む。世界スコープ） ----------
+/** 進行中（未完）の弧を引く。done 済みや未開始は undefined 扱い。 */
+export function getArc(world: World, key: string): ArcState | undefined {
+  const a = (world.arcs ?? []).find((x) => x.key === key);
+  return a && !a.done ? a : undefined;
+}
+/** 弧を開始/前進/分岐記録/完了する（Effect.arc から呼ぶ）。pick は上書きせず引き継ぐ。 */
+export function setArc(world: World, e: ArcEffect): void {
+  (world.arcs ??= []);
+  const a = world.arcs.find((x) => x.key === e.key);
+  if (a) { a.step = e.step; if (e.pick !== undefined) a.pick = e.pick; if (e.done) a.done = true; }
+  else world.arcs.push({ key: e.key, step: e.step, pick: e.pick, done: e.done });
 }
 
 /** 干渉（鎮魂/継承/供養）：変質クロックをリセットし、因縁を閉じる（4-1C / 4-2） */
