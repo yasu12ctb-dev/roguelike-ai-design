@@ -1265,7 +1265,7 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
     if (at) floor.downed = { id: `downed_${depth}_${world.generation}`, actor: mintActor(db, rng), x: at.x, y: at.y };
   }
   planMonsters(floor, player, rng, companion); // 入った瞬間に見えている敵は予告を出す
-  if (companion) planCompanion(floor, player, companion);
+  if (companion) planCompanion(floor, player, companion, rng);
   setAmbient(true, depth); // 環境ドローン（深いほど低い）
   draw();
   log(`── 深度${depth} ──`, "dim");
@@ -1279,7 +1279,12 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
 
 // ---------- 同行（相棒）：4-14C。盤上は ephemeral、世代越えは world.companion。 ----------
 const companionName = () => world.companion?.actor.name ?? "相棒";
-/** 相棒エンティティを @ の隣の空きマスへ展開（無ければ近傍を順に探す）。 */
+// 連帯深蝕（Phase B）：閾値で奇癖（erratic 逸脱）が始まり、危険閾値で C（討つ/鎮める）を迫る。
+const COMPANION_ERRATIC_AT = 0.6;  // この連帯深蝕から挙動がぶれ始める
+const COMPANION_DANGER_AT = 1.2;   // この連帯深蝕で危険化＝生者のうちに決断（プレイヤーの蝕み閾値と対称）
+const companionErraticRate = (exposure: number) =>
+  exposure < COMPANION_ERRATIC_AT ? 0 : Math.min(0.5, (exposure - COMPANION_ERRATIC_AT) * 0.4);
+/** 相棒エンティティを @ の隣の空きマスへ展開（無ければ近傍を順に探す）。連帯深蝕の現状を erratic に反映。 */
 function spawnCompanionNear(at: Pos): void {
   if (!floor || !world.companion?.alive) return;
   const occupied = (x: number, y: number) =>
@@ -1290,14 +1295,19 @@ function spawnCompanionNear(at: Pos): void {
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       const x = at.x + dx, y = at.y + dy;
       if (inBounds(floor, x, y) && tileAt(floor, x, y) === 1 && !occupied(x, y)) {
-        companion = { x, y, hp: world.companion.maxHp, maxHp: world.companion.maxHp, intent: null };
+        companion = {
+          x, y, hp: world.companion.maxHp, maxHp: world.companion.maxHp, intent: null,
+          erratic: companionErraticRate(world.companion.exposure),
+          // crisisShown は各フロアで再武装（危険域のまま降りれば、その都度 C を再び迫る）
+        };
         return;
       }
     }
   }
 }
-/** 相棒の戦死＝その床に絆つき化石をドロップ（後世で再会）。world.companion を死亡に。 */
-function companionDies(): void {
+/** 相棒の死＝その床に絆つき化石をドロップ（後世で再会）。world.companion を死亡に。
+ *  reason="combat"＝戦死／"mercy"＝連帯深蝕で危険化した相棒への慈悲のとどめ（Phase B・C）。 */
+function companionDies(reason: "combat" | "mercy" = "combat"): void {
   if (!floor || !companion || !world.companion) return;
   const name = companionName();
   const fossil = fossilizeCompanion(world, world.companion.actor, {
@@ -1306,9 +1316,65 @@ function companionDies(): void {
   floor.fossils.push({ id: `fe_${fossil.id}`, fossilId: fossil.id, x: companion.x, y: companion.y, resolved: false });
   world.companion.alive = false;
   companion = null;
-  sfx("hurt");
-  log(`${name}が斃れた。その亡骸に、共に歩いた日々が刻まれていく……（†）`, "warn");
+  sfx(reason === "mercy" ? "intervene" : "hurt");
+  if (reason === "mercy") {
+    log(`${name}に、慈悲のとどめを刺した。深みに呑まれる前に――その亡骸に、共に歩いた日々が刻まれていく……（†）`, "warn");
+    chronicle(world, "intervention", `${name}が深みに呑まれかけ、${world.current?.name ?? "誰か"}が慈悲のとどめを刺した。`, [fossil.id]);
+  } else {
+    log(`${name}が斃れた。その亡骸に、共に歩いた日々が刻まれていく……（†）`, "warn");
+  }
   save();
+}
+/** 「鎮める（心）」の成功率（心ステ依存。心2で 0.45・心が高いほど確実に正気へ戻せる）。 */
+function calmChance(ch: Character): number {
+  return Math.max(0.35, Math.min(0.9, 0.45 + (ch.stats.heart - 2) * 0.08));
+}
+/** 連帯深蝕が危険化した相棒への決断（Phase B・C）：討つ（慈悲）／鎮める（心）／まだ連れ歩く。 */
+async function companionCrisis(): Promise<void> {
+  if (!floor || !companion || !world.companion || !world.current) return;
+  busy = true;
+  const name = companionName();
+  const ch = world.current;
+  const chance = calmChance(ch);
+  const r = await sheet({
+    text: `${name}の様子がおかしい。眼の奥に、見覚えのある昏さ――深みが、もう半ば呑み込んでいる。\nまだ生者のうちに、決めねばならない。`,
+    meta: `${name} ── 連帯深蝕（討つ／鎮める）`,
+    options: [
+      "討つ（慈悲＝即座に化石へ）",
+      `鎮める（心で正気に戻す・成算 ${Math.round(chance * 100)}%）`,
+      "まだ連れ歩く（危険を承知で）",
+    ],
+  });
+  if (r.pick === 1) {
+    companionDies("mercy");
+  } else if (r.pick === 2) {
+    if (rng.next() < chance) {
+      world.companion.exposure = 0.2; // 正気へ＝連帯深蝕をリセット
+      world.companion.bond += 1;
+      if (companion) { companion.erratic = 0; companion.crisisShown = false; }
+      sfx("intervene");
+      log(`${name}を鎮めた。深みが退き、昏さが薄れていく。絆が深まった。`, "cue");
+      chronicle(world, "intervention", `${world.current.name}が${name}の深みを鎮め、正気に引き戻した。`, []);
+    } else {
+      // 失敗罰：相棒が我を失い、自他のどちらかを傷つける（再挑戦は次手で再提示）。
+      const hurtSelf = rng.next() < 0.5;
+      if (hurtSelf && companion) {
+        companion.hp -= 3; sfx("hurt");
+        log(`鎮めきれない。${name}が我を失い、自らを掻き毟った（相棒HP -3）。`, "warn");
+        if (companion.hp <= 0) companionDies("combat");
+      } else {
+        hp -= 3; sfx("hurt");
+        log(`鎮めきれない。${name}が我を失い、こちらに牙を剥いた！ 3の傷。`, "warn");
+      }
+      if (companion) companion.crisisShown = false; // 危険は続く＝次手で再び決断を迫る
+    }
+  } else {
+    if (companion) companion.crisisShown = true; // 連れ歩く＝このフロアでは再提示しない（暴走の risk は erratic で継続）
+    log(`${name}を、まだ手放せない。危険を承知で、共に往く。`, "warn");
+  }
+  save();
+  busy = false;
+  draw();
 }
 const COMPANION_MAX_HP = 12; // v1＝固定。最終調整は横断E。
 /** 生者を相棒として迎える（世代越えは world.companion／系譜記憶のため la も永続化）。 */
@@ -1442,7 +1508,13 @@ async function endTurn() {
       if (cr.hit.hp <= 0) { log(`${companionName()}が${cr.hit.kind.name}を討ち取った。`); downOrKill(cr.hit); }
       else log(`${companionName()}が${cr.hit.kind.name}に${cr.dmg}の一撃。`, "dim");
     }
-    world.companion.exposure += exposureGain(floor.depth) * 0.5; // 連帯深蝕（Phase B で奇癖→Cに使う）
+    // 連帯深蝕（Phase B）：潜行で相棒も深みに蝕まれる。閾値で奇癖（erratic）が始まる。
+    const before = world.companion.exposure;
+    world.companion.exposure += exposureGain(floor.depth) * 0.5;
+    if (companion) companion.erratic = companionErraticRate(world.companion.exposure);
+    if (before < COMPANION_ERRATIC_AT && world.companion.exposure >= COMPANION_ERRATIC_AT) {
+      log(`${companionName()}の足取りが、時折おかしくなる。深みが、相棒にも滲み始めた。`, "warn");
+    }
   }
 
   // 敵の手番：予告した一手を実行（退いた予告は空振り＝見切り。静止中はwait）。標的は @ or 相棒。
@@ -1460,15 +1532,20 @@ async function endTurn() {
   }
   for (const m of res.dodges) log(`${m.kind.name}の一撃を見切った。`, "dim");
   if (companion && companion.hp <= 0) companionDies(); // 相棒の戦死＝化石化
-  // 次の一手を予告する（プレイヤーが見て動けるように）
+  // 次の一手を予告する（プレイヤーが見て動けるように。相棒は連帯深蝕で erratic にぶれる）
   planMonsters(floor, player, rng, companion);
-  if (companion) planCompanion(floor, player, companion);
+  if (companion) planCompanion(floor, player, companion, rng);
 
   draw();
   updateStatus(); // HP/深蝕の即時反映（蝕み・被弾・持ち物使用が毎手バーに出る）
   await handleBossResolve();
   await handleLevelUps();
   await handleDrops();
+  // 連帯深蝕の危機（Phase B・C）：危険化した相棒を生者のうちに討つ/鎮める
+  if (hp > 0 && companion && world.companion && world.companion.exposure >= COMPANION_DANGER_AT && !companion.crisisShown) {
+    companion.crisisShown = true;
+    await companionCrisis();
+  }
   if (hp <= 0) await deathFlow();
 }
 
