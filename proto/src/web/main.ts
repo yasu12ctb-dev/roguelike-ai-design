@@ -1284,6 +1284,63 @@ async function characterCreation() {
 }
 
 // ---------- 街（歩ける固定マップ。門 ">" で潜行＝この Promise を解決） ----------
+// ---------- 街の危機：大量モンスター襲撃（4-12(I) 新イベント型「街の防衛」） ----------
+// 潜行帰還時に稀に発火。会話/潜行とは異なる"街規模の危機"＝ステ影響の判断＋集団からの報酬。
+/** 発火ゲート：1世代1回・Lv2以上・確率。発火時のみフラグを立てる（再挑戦は次世代）。 */
+function raidGate(): boolean {
+  if (!world.current) return false;
+  const key = `raided_g${world.generation}`;
+  (world.flags ??= []);
+  if (world.flags.includes(key) || world.current.level < 2 || rng.next() >= 0.25) return false;
+  world.flags.push(key);
+  return true;
+}
+async function maybeTownRaid(): Promise<void> {
+  if (raidGate()) await townRaidScene();
+}
+async function townRaidScene(): Promise<void> {
+  busy = true;
+  const ch = world.current!;
+  const tier = Math.min(3, 1 + Math.floor(ch.level / 5)); // 規模＝報酬/危険の係数（深く潜る者ほど深層が荒ぶる）
+  let gold = 0, exposure = 0, item: string | null = null;
+  sfx("hurt"); flashFx("warp");
+  log("警鐘——街が、襲われている。", "warn");
+  const r1 = await sheet({
+    text: "街へ戻ると、警鐘が鳴り渡っていた。迷宮の口から、深層の獣が雪崩を打って溢れ出している。逃げ惑う人々。お前は、どこで戦う？",
+    meta: "街の防衛 ── 大量襲撃", options: ["門で食い止める（力・体）", "避難を助ける（心）", "商店街を守る"],
+  });
+  let line = "";
+  if (r1.pick === 1) {
+    if (ch.stats.power + ch.stats.body >= 6) { line = "お前は門に立ち塞がり、溢れる獣を一手に引き受けた。屍の壁が、街への奔流をせき止める。"; gold = 16 * tier; exposure = 0.06 * tier; ch.traits.push(`守護者:第${world.generation}世代の門`); }
+    else { line = "獣の奔流は凄まじく、押し込まれながらも時間を稼いだ。何匹かは、お前の背を抜けて街へ散った。"; gold = 9 * tier; exposure = 0.10 * tier; }
+  } else if (r1.pick === 2) {
+    if (ch.stats.heart >= 4) { line = "お前は逃げ遅れた者たちを次々と物陰へ導いた。誰一人、欠けさせはしなかった。"; gold = 8 * tier; item = "salve"; ch.traits.push(`恩人:第${world.generation}世代の避難`); }
+    else { line = "幾人かは救えた。だが、腕の中からすり抜けていった手の感触が、いつまでも残る。"; gold = 6 * tier; exposure = 0.06 * tier; }
+  } else {
+    line = "立ち並ぶ店を背に、お前は獣を捌き続けた。商人たちが、震える手で礼を握らせてくる。"; gold = 13 * tier; exposure = 0.06 * tier; item = "soothe";
+  }
+  const r2 = await sheet({
+    text: `${line}\n\nやがて奔流が細り——最後に、一際大きな獣が、瓦礫を割って現れた。`,
+    meta: "街の防衛 ── 最後の一匹", options: ["討ち取る（力で）", "民を逃がし、退く（心で）"],
+  });
+  if (r2.pick === 1) {
+    if (ch.stats.power >= 3) { log("一刀のもと、最後の獣を打ち倒した。歓声が、瓦礫の街に湧く。", "cue"); gold += 10 * tier; ch.traits.push(`武勲:第${world.generation}世代の防衛`); }
+    else { log("辛うじて討ち取ったが、深い手傷を負った。", "warn"); gold += 5 * tier; exposure += 0.10; }
+  } else {
+    log("民を逃がすことを選び、獣に背を向けた。誇りより、命を。", "dim"); exposure = Math.max(0, exposure - 0.04);
+  }
+  ch.gold += gold;
+  if (exposure > 0) ch.exposure += exposure;
+  const got = item && addConsumable(ch, item) ? consumableByKey(item)?.name : null;
+  chronicle(world, "legend", `第${world.generation}世代、${ch.name}は街を襲った深層の獣を退けた。`, [ch.id]);
+  sfx("intervene");
+  await sheet({
+    text: `静けさが戻った。街の者たちが、口々に礼を述べる。\n\n〔報酬〕金貨 ＋${gold}${got ? `／${got}` : ""}${exposure > 0 ? `\n浴びた深み ＋${exposure.toFixed(2)}` : ""}`,
+    meta: "街の防衛 ── 鎮静", options: ["街へ"],
+  });
+  updateStatus(); save(); busy = false;
+}
+
 function townLoop(): Promise<void> {
   return new Promise((resolve) => {
     townDescendResolve = resolve;
@@ -2017,6 +2074,7 @@ async function stairsPrompt(dir: "down" | "up") {
       save();
       log("地上の光がまぶしい。生きて、帰った。");
       busy = false;
+      await maybeTownRaid(); // 街の防衛（新イベント型）：稀に街が襲撃を受けている
       await townLoop(); await startDive(); return;
     }
   } else {
