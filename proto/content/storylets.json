@@ -1224,6 +1224,204 @@
         { "label": "続きをせがむ", "text": "鑑定されぬまま深みを宿す品の、剣呑な噂を聞かされた。背筋を、冷たいものが撫でていく。", "effects": [ { "exposure": 0.04 }, { "chronicle": "店で#origin_name# から、異物にまつわる剣呑な噂を聞いた。" } ] },
         { "label": "そこで止める", "text": "「賢明だ」と#origin_name# は棚から離れた。知らぬが仏、ということもある。", "effects": [ { "chronicle": "店で#origin_name# の異物話を、途中で切り上げた。" } ] }
       ]
+    },
+    {
+      "id": "st_haunted_look",
+      "context": "street",
+      "prerequisites": { "minExposure": 0.9 },
+      "weight": 2,
+      "text": "すれ違いざま、#origin_name# がふと足を止めた。#origin_gear# を握る手に力がこもる。「あんた……ずいぶん深くまで行ったな。眼の色でわかる」。",
+      "choices": [
+        { "label": "曖昧に頷く", "text": "否定はしなかった。見抜かれるほどに、深みは表へ滲み出している。", "effects": [ { "exposure": -0.03 }, { "chronicle": "街で#origin_name# に、深みの影を見抜かれた。" } ] },
+        { "label": "何でもないと背を向ける", "text": "短く首を振り、足早に離れた。背に視線が刺さる。", "effects": [ { "chronicle": "街で#origin_name# の視線を、振り切って通り過ぎた。" } ] }
+      ]
+    },
+    {
+      "id": "st_newcomer",
+      "context": "street",
+      "prerequisites": { "notFlag": "st_new" },
+      "weight": 3,
+      "text": "外套の真新しい#origin_name# が、迷宮の口の方を不安げに見ている。「初めて潜るんだ。……何か、心得は」と#origin_gear# を落ち着かなく弄った。",
+      "choices": [
+        { "label": "一つだけ助言する", "text": "「予告を見てから動け」。たった一言。だが初学の命を繋ぐのは、たいていそういう一言だ。", "effects": [ { "plant": "st_new" }, { "exposure": -0.02 }, { "chronicle": "街で新参の#origin_name# に、迷宮の心得を一つ授けた。" } ] },
+        { "label": "運次第だと突き放す", "text": "「運次第さ」。嘘ではない。だが#origin_name# の顔が曇った。", "effects": [ { "chronicle": "街で新参の#origin_name# を、突き放して通り過ぎた。" } ] }
+      ]
+    },
+    {
+      "id": "st_new_follow",
+      "context": "street",
+      "prerequisites": { "flag": "st_new" },
+      "weight": 3,
+      "text": "「あんたの言葉、効いたよ」。#origin_name# が駆け寄ってきた。#origin_gear# には、確かに迷宮の土がついている。生きて還ったのだ。",
+      "choices": [
+        { "label": "無事を喜ぶ", "text": "二人で笑った。誰かが助言を頼りに還ってくる――それは、思いのほか胸を温める。", "effects": [ { "bond": 1 }, { "chronicle": "街で#origin_name# が初潜行から生還した。助言が実を結んだ。" } ] },
+        { "label": "次も気をつけろと返す", "text": "「油断するな」とだけ返した。#origin_name# は神妙に頷いた。", "effects": [ { "chronicle": "街で#origin_name# の生還を、短く労った。" } ] }
+      ]
+    },
+    {
+      "id": "st_mourner",
+      "context": "street",
+      "prerequisites": {},
+      "weight": 2,
+      "text": "路傍で、#origin_name# が誰かの名を小さく繰り返している。#origin_gear# を胸に抱くその姿は、相棒を喪った者のそれだ。",
+      "choices": [
+        { "label": "黙って隣に立つ", "text": "言葉はいらなかった。ただ、同じ迷宮を知る者として、しばし傍らに在った。", "effects": [ { "exposure": -0.03 }, { "chronicle": "街で、相棒を喪った#origin_name# の傍らに、しばし黙して立った。" } ] },
+        { "label": "そっと離れる", "text": "その悲しみに割り込む権利は、自分にはない。静かに離れた。", "effects": [ { "chronicle": "街で悼む#origin_name# を、そっとしておいた。" } ] }
+      ]
+    },
+    {
+      "id": "st_warning",
+      "context": "street",
+      "prerequisites": { "minExposure": 1.3 },
+      "weight": 2,
+      "text": "#origin_name# が行く手を塞いだ。「忠告だ。あんた、もう戻れる側じゃない。……鎮める当てはあるのか」と#origin_gear# の柄で慰霊堂の方を指した。",
+      "choices": [
+        { "label": "礼を言う", "text": "見ず知らずの忠告が、妙に胸に残った。淵は、もうそこまで来ている。", "effects": [ { "exposure": -0.02 }, { "chronicle": "街で#origin_name# に、深みの淵にいると忠告された。" } ] },
+        { "label": "余計な世話だと返す", "text": "「放っておけ」。語気が、自分でも驚くほど尖っていた。", "effects": [ { "exposure": 0.03 }, { "chronicle": "街で#origin_name# の忠告を、撥ねつけた。" } ] }
+      ]
+    },
+    {
+      "id": "st_reunion_deep",
+      "context": "street",
+      "prerequisites": { "minBond": 3 },
+      "weight": 3,
+      "text": "#origin_name# が破顔した。「何度も死地を共にした顔だ」。#origin_gear# を掲げ、まるで戦友のように肩を叩いてくる。",
+      "choices": [
+        { "label": "肩を組み返す", "text": "言葉は要らない。生き延びた者同士の、無言の祝福だけがあった。", "effects": [ { "bond": 1 }, { "exposure": -0.04 }, { "chronicle": "街で戦友#origin_name# と再会し、互いの無事を喜んだ。" } ] },
+        { "label": "照れて流す", "text": "「やめろよ」と肩をすくめた。#origin_name# は声を上げて笑った。", "effects": [ { "chronicle": "街で#origin_name# の親愛を、照れ隠しに流した。" } ] }
+      ]
+    },
+    {
+      "id": "st_share_bread",
+      "context": "street",
+      "prerequisites": {},
+      "weight": 2,
+      "text": "#origin_name# が硬いパンを半分に割って差し出した。「腹が減っては、迷宮も化けて見える。食え」。#origin_gear# の傍らで、屈託なく笑う。",
+      "choices": [
+        { "label": "ありがたく頬張る", "text": "塩気だけの硬いパン。それでも、分け合うという行為が、迷宮の冷えを少し溶かした。", "effects": [ { "exposure": -0.03 }, { "bond": 1 }, { "chronicle": "街で#origin_name# とパンを分け合い、束の間の温もりを得た。" } ] },
+        { "label": "礼を言って受け取るだけ", "text": "懐にしまった。後で、一人で齧ろう。", "effects": [ { "chronicle": "街で#origin_name# から、パンの施しを受けた。" } ] }
+      ]
+    },
+    {
+      "id": "st_lost_kin",
+      "context": "street",
+      "prerequisites": { "notFlag": "st_kin" },
+      "weight": 2,
+      "text": "痩せた子ども――#origin_name# が袖を引く。「冒険者さま、うちのきょうだい、迷宮へ行ったきり還らないの」。#origin_gear# を抱きしめ、すがる目で見上げてきた。",
+      "choices": [
+        { "label": "心当たりを探すと約束する", "text": "安請け合いかもしれない。それでも、その目に頷くしかなかった。", "effects": [ { "plant": "st_kin" }, { "chronicle": "街で、迷宮に肉親を喪った#origin_name# に、心当たりを探すと約束した。" } ] },
+        { "label": "言葉を濁す", "text": "迷宮は、約束を軽々しく許さない。曖昧に頷いて、その場を離れた。", "effects": [ { "chronicle": "街で、肉親を捜す#origin_name# に、言葉を濁した。" } ] }
+      ]
+    },
+    {
+      "id": "tv_drown",
+      "context": "tavern",
+      "prerequisites": { "minExposure": 1.0 },
+      "weight": 2,
+      "text": "#origin_name# が杯を呷っている。「飲まなきゃ、底で見た顔がちらつく」。#origin_gear# が足元に転がっていた。",
+      "choices": [
+        { "label": "付き合って飲む", "text": "二人、無言で杯を重ねた。深みを見た者にしか分からない酔いが、そこにはある。", "effects": [ { "exposure": -0.05 }, { "chronicle": "酒場で#origin_name# と、深みの記憶を酒で流した。" } ] },
+        { "label": "ほどほどにしろと諭す", "text": "「酒は深みを消さんぞ」。#origin_name# は苦く笑い、それでも杯を置いた。", "effects": [ { "chronicle": "酒場で深酒する#origin_name# を、やんわり諫めた。" } ] }
+      ]
+    },
+    {
+      "id": "tv_ballad",
+      "context": "tavern",
+      "prerequisites": {},
+      "weight": 2,
+      "text": "隅の弾き語りが、ある冒険者の最期を唄っている。#origin_name# が「俺の知り合いだ」と#origin_gear# を卓に置き、静かに耳を傾けていた。",
+      "choices": [
+        { "label": "共に聴き入る", "text": "唄の中で、名もなき死者がひととき蘇る。酒場とは、そういう弔いの場でもある。", "effects": [ { "exposure": -0.03 }, { "chronicle": "酒場で、亡き冒険者を悼む唄を#origin_name# と聴いた。" } ] },
+        { "label": "献杯する", "text": "見知らぬ死者へ、杯を掲げた。#origin_name# が黙って自分の杯を合わせてきた。", "effects": [ { "exposure": -0.02 }, { "chronicle": "酒場で、#origin_name# の友の名に献杯した。" } ] }
+      ]
+    },
+    {
+      "id": "tv_confide",
+      "context": "tavern",
+      "prerequisites": { "minBond": 3 },
+      "weight": 3,
+      "text": "酔いの回った#origin_name# が声を落とした。「お前にだけ言う。……俺は、もう一度あそこへ降りるのが怖い」。#origin_gear# を握る手が、わずかに震えていた。",
+      "choices": [
+        { "label": "恐れを受け止める", "text": "「怖くて当たり前だ」。そう返すと、#origin_name# の肩から力が抜けた。弱さを見せられる相手が、一人いる。", "effects": [ { "bond": 1 }, { "exposure": -0.03 }, { "chronicle": "酒場で#origin_name# の弱さを受け止め、絆が深まった。" } ] },
+        { "label": "誰でも怖いと笑う", "text": "「俺もだよ」。軽口で包むと、#origin_name# は救われたように笑った。", "effects": [ { "chronicle": "酒場で#origin_name# の恐れを、軽口で包んだ。" } ] }
+      ]
+    },
+    {
+      "id": "tv_dare",
+      "context": "tavern",
+      "prerequisites": { "notFlag": "tv_dare" },
+      "weight": 2,
+      "text": "#origin_name# が酒の勢いで賭けを持ちかける。「次に潜って、より深くまで行った方が奢り。どうだ」と#origin_gear# を卓に叩きつけた。",
+      "choices": [
+        { "label": "受けて立つ", "text": "くだらない賭けだ。だが、くだらない約束ほど、次の潜行の理由になる。", "effects": [ { "plant": "tv_dare" }, { "chronicle": "酒場で#origin_name# と、深度を競う賭けを交わした。" } ] },
+        { "label": "酒の上の話だと流す", "text": "「素面で言え」と笑い返した。#origin_name# も「違いない」と杯を干した。", "effects": [ { "chronicle": "酒場で#origin_name# の賭けを、笑って受け流した。" } ] }
+      ]
+    },
+    {
+      "id": "gl_overhire",
+      "context": "guild",
+      "prerequisites": {},
+      "weight": 2,
+      "text": "#origin_name# が前金の台帳を眺めている。「相棒は便利だが、稼ぎは折半だ。雇いすぎて首が回らなくなった奴を、何人も見てきた」と#origin_gear# で台帳を叩いた。",
+      "choices": [
+        { "label": "肝に銘じる", "text": "前金と折半――同行は、ただの戦力ではなく勘定だ。台帳の数字が、急に重く見えた。", "effects": [ { "chronicle": "ギルドで#origin_name# に、同行の費えについて諭された。" } ] },
+        { "label": "承知のうえだと返す", "text": "「分かって雇ってる」。#origin_name# は「ならいい」と肩をすくめた。", "effects": [ { "chronicle": "ギルドで#origin_name# の忠告に、承知のうえと返した。" } ] }
+      ]
+    },
+    {
+      "id": "gl_eyed",
+      "context": "guild",
+      "prerequisites": { "minExposure": 1.1 },
+      "weight": 2,
+      "text": "受付の#origin_name# が、こちらの様子に眉をひそめた。「等級は申し分ない。が……その深みじゃ、組みたがる者は減るぞ」と#origin_gear# 越しに値踏みしてくる。",
+      "choices": [
+        { "label": "黙って受け止める", "text": "事実だった。深く潜るほど、共に往く者は遠ざかる。それが、この稼業の業だ。", "effects": [ { "chronicle": "ギルドで#origin_name# に、深みゆえの孤立を仄めかされた。" } ] },
+        { "label": "実力で黙らせると返す", "text": "「結果を見てから言え」。語気の鋭さに、#origin_name# は黙った。", "effects": [ { "exposure": 0.02 }, { "chronicle": "ギルドで#origin_name# の値踏みを、強気で撥ねつけた。" } ] }
+      ]
+    },
+    {
+      "id": "gl_rival",
+      "context": "guild",
+      "prerequisites": { "notFlag": "gl_rival" },
+      "weight": 2,
+      "text": "同じ貼り紙に手を伸ばした#origin_name# と、指先がぶつかった。「これは譲れん」と#origin_gear# を肩に担ぎ直す。割のいい依頼を巡る、無言の睨み合い。",
+      "choices": [
+        { "label": "譲る", "text": "「今日はくれてやる」。貸しを作っておくのも、長い目で見れば悪くない。", "effects": [ { "plant": "gl_rival" }, { "chronicle": "ギルドで#origin_name# に、割のいい依頼を譲った。" } ] },
+        { "label": "競り合う", "text": "一歩も引かなかった。#origin_name# の目に、敵意とも好敵心ともつかぬ火が点った。", "effects": [ { "plant": "gl_rival" }, { "trait": "好敵手:#origin_name#" }, { "chronicle": "ギルドで#origin_name# と、依頼を巡って競り合った。" } ] }
+      ]
+    },
+    {
+      "id": "sp_cursed",
+      "context": "shop",
+      "prerequisites": {},
+      "weight": 2,
+      "text": "#origin_name# が棚の奥の品を指して声を潜めた。「あれには、手を出すな。前の持ち主は#origin_gear# だけ残して還らなかった」。",
+      "choices": [
+        { "label": "忠告に従う", "text": "棚から目を逸らした。いわくつきの品は、たいてい値札以上の代償を求める。", "effects": [ { "chronicle": "店で#origin_name# に、いわくつきの品を避けるよう忠告された。" } ] },
+        { "label": "かえって気になると返す", "text": "「還らなかった」――その一言が、奇妙に心に引っかかって離れない。", "effects": [ { "exposure": 0.02 }, { "plant": "sp_cursed" }, { "chronicle": "店で#origin_name# の警告が、かえって好奇心を煽った。" } ] }
+      ]
+    },
+    {
+      "id": "sp_cursed_follow",
+      "context": "shop",
+      "prerequisites": { "flag": "sp_cursed" },
+      "weight": 3,
+      "text": "「まだあの品が気になるのか」。#origin_name# が呆れ顔で#origin_gear# を置いた。「言っておくが、欲は深みと同じだ。底がない」。",
+      "choices": [
+        { "label": "今度こそ諦める", "text": "その通りだ。欲も深みも、覗き込めば際限がない。棚に背を向けた。", "effects": [ { "exposure": -0.02 }, { "chronicle": "店で#origin_name# に諭され、いわくつきの品を諦めた。" } ] },
+        { "label": "それでも惹かれる", "text": "分かっている。分かっていて、なお惹かれる。それが、底なしということだ。", "effects": [ { "exposure": 0.03 }, { "trait": "執着:#origin_name#の禁じた品" }, { "chronicle": "店で、いわくつきの品への執着を捨てきれなかった。" } ] }
+      ]
+    },
+    {
+      "id": "sp_gift",
+      "context": "shop",
+      "prerequisites": { "minBond": 2 },
+      "weight": 3,
+      "text": "会計のあと、#origin_name# が小さな包みをそっと押し付けてきた。「餞別だ。#origin_gear# の手入れにでも使え」。見返りを求めない顔だった。",
+      "choices": [
+        { "label": "ありがたく受け取る", "text": "包みは軽い。だが、案じてくれる者がいるという事実が、ずしりと胸に残った。", "effects": [ { "bond": 1 }, { "exposure": -0.03 }, { "chronicle": "店で#origin_name# から、餞別を受け取った。" } ] },
+        { "label": "礼だけ言って固辞する", "text": "「気持ちだけ」と押し返した。#origin_name# は「強情だな」と笑った。", "effects": [ { "chronicle": "店で#origin_name# の餞別を、礼を言って辞した。" } ] }
+      ]
     }
   ]
 }
