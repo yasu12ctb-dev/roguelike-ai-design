@@ -114,6 +114,24 @@
     #log .dim { color: #6b7480; font-size: 12px; }
     #log .warn { color: #d98c7a; }
 
+    /* ---- 方向パッド（8方向・設定でオンオフ。スワイプ移動と併用） ---- */
+    #dpad {
+      position: fixed; right: 14px; z-index: 8;
+      bottom: calc(92px + 16px + env(safe-area-inset-bottom)); /* ログ(92px)の上に浮かせる */
+      display: none; grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(3, 46px);
+      gap: 5px; opacity: .82; touch-action: manipulation;
+    }
+    #dpad.show { display: grid; }
+    #dpad.pos-left  { left: 14px; right: auto; }   /* 利き手で右下／左下を選べる */
+    #dpad.pos-right { right: 14px; left: auto; }
+    #dpad button {
+      font-size: 19px; color: #cdd6e0; background: rgba(20,24,31,.78);
+      border: 1px solid #2e3946; border-radius: 9px; line-height: 1;
+      display: flex; align-items: center; justify-content: center; padding: 0;
+    }
+    #dpad button:active { background: rgba(44,52,66,.92); color: #fff; }
+    #dpad button.center { color: #8b94a0; font-size: 13px; }
+
     /* ---- シート（場面・選択） ---- */
     #overlay {
       position: fixed; inset: 0; display: none; align-items: flex-end; z-index: 20;
@@ -165,6 +183,18 @@
   </div>
 
   <div id="log"></div>
+
+  <div id="dpad" aria-label="方向パッド">
+    <button type="button" data-dx="-1" data-dy="-1" aria-label="左上">↖</button>
+    <button type="button" data-dx="0"  data-dy="-1" aria-label="上">↑</button>
+    <button type="button" data-dx="1"  data-dy="-1" aria-label="右上">↗</button>
+    <button type="button" data-dx="-1" data-dy="0"  aria-label="左">←</button>
+    <button type="button" class="center" data-dx="0" data-dy="0" aria-label="待機">待</button>
+    <button type="button" data-dx="1"  data-dy="0"  aria-label="右">→</button>
+    <button type="button" data-dx="-1" data-dy="1"  aria-label="左下">↙</button>
+    <button type="button" data-dx="0"  data-dy="1"  aria-label="下">↓</button>
+    <button type="button" data-dx="1"  data-dy="1"  aria-label="右下">↘</button>
+  </div>
 
   <div id="overlay">
     <div id="sheet">
