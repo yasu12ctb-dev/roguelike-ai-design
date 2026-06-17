@@ -1533,8 +1533,10 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
   player = { ...(fromAbove ? floor.stairsUp : floor.stairsDown) };
   if (!cached) {
     // 化石の配置（再会重み 4-7。同一潜行で会った相手は除外）。初訪のみ＝再訪で増殖しない。
+    // 出現数は面積に追従（迷宮拡張に合わせて増やす＝イベント遭遇も拡張に比例）：d1≈2 / d50≈4。
     const exclude = new Set<string>(seenThisDive);
-    for (let i = 0; i < 2; i++) {
+    const fossilTries = 2 + Math.min(2, Math.floor((floor.w * floor.h) / 3200));
+    for (let i = 0; i < fossilTries; i++) {
       const fossil = rollEncounter(world, ch, rng, exclude);
       if (!fossil) break;
       if (Math.abs(fossil.laidDepth - depth) <= 4 && placeFossil(floor, rng, player, fossil)) exclude.add(fossil.id);

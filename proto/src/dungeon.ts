@@ -103,9 +103,10 @@ const center = (r: Room): Pos => ({ x: r.x + (r.w >> 1), y: r.y + (r.h >> 1) });
 export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }): Floor {
   const rng = makeRng((world.seed ^ (depth * 2654435761) ^ (world.generation * 97) ^ (opts?.abyss ? 0x5eed : 0)) >>> 0);
   // マップ寸法：深いほど広い（毎回ランダムな形）。常に VIEW より大きく、カメラがスクロールする。
-  // 旧 24+/28+（最大50×54）は手狭との FB を受け、面積を約2.3倍に拡張（2026-06-17）。部屋数/敵数は面積比で自動追従。
-  const W = 36 + Math.min(depth, 36);
-  const H = 42 + Math.min(depth, 36);
+  // 旧 24+/28+（最大50×54）は手狭との FB を受け拡張（2026-06-17）。深度50で頭打ち＝最大 86×92（≒7,912・約2.9倍）。
+  // 部屋数/敵数/宝箱は面積比で自動追従＝広いほど探索量・滞在ターン（＝深蝕の蓄積）が増え手応えになる。
+  const W = 36 + Math.min(depth, 50);
+  const H = 42 + Math.min(depth, 50);
   const tiles: Tile[] = new Array(W * H).fill(0);
   const gi = (x: number, y: number) => y * W + x;
   const rooms: Room[] = [];
@@ -191,7 +192,7 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }
 
   // ---------- モンスター配置（マップ面積＋深度でスケール。大マップでも密度を確保） ----------
   const pool = MONSTER_KINDS.filter((k) => k.minDepth <= depth);
-  const count = Math.min(Math.round((W * H) / 130) + Math.floor(depth / 3), 34); // 上限を拡張面積に追従（20→34）
+  const count = Math.min(Math.round((W * H) / 120) + Math.floor(depth / 3), 42); // 出現率・上限を拡張面積に追従（20→42）
   for (let i = 0; i < count; i++) {
     const kind = scaleKind(pool[rng.int(pool.length)], depth); // 深度係数を焼き込む（HP/dmg/XP連動）
     const p = randomFloorAway(floor, rng, stairsUp, 5);
@@ -214,7 +215,8 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }
   }
 
   // ---------- 宝箱配置（深いほど少し増える。入口から離して＝奥/行き止まりに置く） ----------
-  const chestCount = 1 + Math.min(depth >> 3, 3) + (rng.next() < 0.5 ? 1 : 0);
+  // 宝箱も面積に追従（拡張に合わせ増やす）。最小2＋深度の僅かな上乗せ。d1≈2-3 / d50≈7-8。
+  const chestCount = Math.max(2, Math.round((W * H) / 1300)) + Math.min(depth >> 4, 2) + (rng.next() < 0.5 ? 1 : 0);
   for (let i = 0; i < chestCount; i++) {
     const p = randomFloorAway(floor, rng, stairsUp, 6);
     if (p) floor.chests.push({ id: `c${depth}_${i}`, x: p.x, y: p.y, opened: false });
