@@ -103,8 +103,9 @@ const center = (r: Room): Pos => ({ x: r.x + (r.w >> 1), y: r.y + (r.h >> 1) });
 export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }): Floor {
   const rng = makeRng((world.seed ^ (depth * 2654435761) ^ (world.generation * 97) ^ (opts?.abyss ? 0x5eed : 0)) >>> 0);
   // マップ寸法：深いほど広い（毎回ランダムな形）。常に VIEW より大きく、カメラがスクロールする。
-  const W = 24 + Math.min(depth, 26);
-  const H = 28 + Math.min(depth, 26);
+  // 旧 24+/28+（最大50×54）は手狭との FB を受け、面積を約2.3倍に拡張（2026-06-17）。部屋数/敵数は面積比で自動追従。
+  const W = 36 + Math.min(depth, 36);
+  const H = 42 + Math.min(depth, 36);
   const tiles: Tile[] = new Array(W * H).fill(0);
   const gi = (x: number, y: number) => y * W + x;
   const rooms: Room[] = [];
@@ -190,7 +191,7 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }
 
   // ---------- モンスター配置（マップ面積＋深度でスケール。大マップでも密度を確保） ----------
   const pool = MONSTER_KINDS.filter((k) => k.minDepth <= depth);
-  const count = Math.min(Math.round((W * H) / 135) + Math.floor(depth / 3), 20);
+  const count = Math.min(Math.round((W * H) / 130) + Math.floor(depth / 3), 34); // 上限を拡張面積に追従（20→34）
   for (let i = 0; i < count; i++) {
     const kind = scaleKind(pool[rng.int(pool.length)], depth); // 深度係数を焼き込む（HP/dmg/XP連動）
     const p = randomFloorAway(floor, rng, stairsUp, 5);
