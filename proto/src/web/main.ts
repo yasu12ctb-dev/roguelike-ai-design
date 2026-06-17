@@ -2106,6 +2106,71 @@ async function castSpell(key: string) {
     for (let i = 0; i < floor.explored.length; i++) floor.explored[i] = true;
     sfx("open");
     log("地相を読む。この階の輪郭が、頭に灯った。");
+  } else if (key === "ice_tomb") { // 氷棺＝高威力＋凍結
+    if (!visMon.length) { log("討つべき敵が見えない。", "dim"); draw(); return; }
+    const t = nearestMon(visMon);
+    const dmg = Math.round(warpDamage(effectiveReason(ch)) * 1.3);
+    t.hp -= dmg; t.stunned = Math.max(t.stunned ?? 0, 2);
+    sfx("spell_warp"); flashFx("still", { x: t.x, y: t.y });
+    if (t.hp <= 0) downOrKill(t, `氷棺が${t.kind.name}を砕いた。`); else log(`氷棺（${dmg}・凍結）。`);
+  } else if (key === "wither") { // 痩身＝現在HPの割合を削る（硬い敵に効く）
+    if (!visMon.length) { log("削る相手が見えない。", "dim"); draw(); return; }
+    const t = nearestMon(visMon);
+    const cut = Math.max(1, Math.ceil(t.hp * 0.4));
+    t.hp -= cut;
+    sfx("spell_warp"); flashFx("warp", { x: t.x, y: t.y });
+    if (t.hp <= 0) downOrKill(t, `痩身が${t.kind.name}を朽ちさせた。`); else log(`痩身（HP−${cut}）。`);
+  } else if (key === "condemn") { // 断罪＝一撃必殺級（深蝕は極めて重い）
+    if (!visMon.length) { log("断ずべき敵が見えない。", "dim"); draw(); return; }
+    const t = nearestMon(visMon);
+    const dmg = Math.round(warpDamage(effectiveReason(ch)) * 3);
+    t.hp -= dmg;
+    sfx("spell_warp"); flashFx("warp", { x: t.x, y: t.y });
+    if (t.hp <= 0) downOrKill(t, `断罪。${t.kind.name}は赦されなかった。`); else log(`断罪（${dmg}）。`);
+  } else if (key === "confuse") { // 惑乱＝可視の敵をよろめかせる
+    if (!visMon.length) { log("惑わせる敵が見えない。", "dim"); draw(); return; }
+    for (const m of visMon) m.confused = 5;
+    sfx("spell_still"); flashFx("still");
+    log(`惑乱。${visMon.length}体が、よろめく。`);
+  } else if (key === "slumber") { // 微睡＝最寄りを深く眠らせる（長い停止）
+    if (!visMon.length) { log("眠らせる敵が見えない。", "dim"); draw(); return; }
+    const t = nearestMon(visMon); t.stunned = Math.max(t.stunned ?? 0, 5);
+    sfx("spell_still"); flashFx("still", { x: t.x, y: t.y });
+    log(`微睡。${t.kind.name}は深く眠った。`);
+  } else if (key === "bind") { // 縛鎖＝最寄りをその場に縫い止める
+    if (!visMon.length) { log("縫い止める敵が見えない。", "dim"); draw(); return; }
+    const t = nearestMon(visMon); t.rooted = 6;
+    sfx("spell_still"); flashFx("still", { x: t.x, y: t.y });
+    log(`縛鎖。${t.kind.name}を縫い止めた。`);
+  } else if (key === "omni_strike") { // 万象斬＝視界の敵すべてへ斬撃（近接威力）
+    if (!visMon.length) { log("斬る敵が見えない。", "dim"); draw(); return; }
+    const dmg = meleeDmg(ch);
+    for (const m of visMon) { m.hp -= dmg; flashFx("warp", { x: m.x, y: m.y }); if (m.hp <= 0) downOrKill(m, `万象斬が${m.kind.name}を断った。`); }
+    sfx("spell_warp");
+    log(`万象斬（${visMon.length}体・各${dmg}）。`);
+  } else if (key === "gravity_pull") { // 引閘＝可視の敵を自分のほうへ一斉に引き寄せる
+    if (!visMon.length) { log("引き寄せる敵が見えない。", "dim"); draw(); return; }
+    let moved = 0;
+    for (const m of visMon) {
+      const sx = Math.sign(player.x - m.x), sy = Math.sign(player.y - m.y);
+      const nx = m.x + sx, ny = m.y + sy;
+      if ((sx || sy) && tileAt(floor, nx, ny) === 1 && !(nx === player.x && ny === player.y) &&
+        !floor.monsters.some((o) => o !== m && o.hp > 0 && o.x === nx && o.y === ny)) { m.x = nx; m.y = ny; moved++; }
+    }
+    sfx("spell_warp"); flashFx("still");
+    log(`引閘。${moved}体が、ずるりと引き寄せられた。`);
+  } else if (key === "insight") { // 看破＝可視の敵のHPを読み、全敵の位置を地図に灯す
+    for (const m of floor.monsters) if (m.hp > 0) floor.explored[mapIdx(floor, m.x, m.y)] = true;
+    const census = visMon.map((m) => `${m.kind.name} ${m.hp}/${m.kind.hp}`).join("、");
+    sfx("open");
+    log(census ? `看破：${census}` : "看破：視界に敵影なし。", "warn");
+  } else if (key === "scent") { // 嗅ぎ＝宝箱・化石・下り階段の在処を地図に灯す
+    let n = 0;
+    for (const c of floor.chests) if (!c.opened) { floor.explored[mapIdx(floor, c.x, c.y)] = true; n++; }
+    for (const fo of floor.fossils) floor.explored[mapIdx(floor, fo.x, fo.y)] = true;
+    floor.explored[mapIdx(floor, floor.stairsDown.x, floor.stairsDown.y)] = true;
+    sfx("open");
+    log(`嗅ぎ：宝箱${n}・化石${floor.fossils.length}の気配を地図に灯した。`, "warn");
   }
 
   ch.exposure += def.cost;

@@ -50,6 +50,8 @@ export interface Monster extends Pos {
   stunned?: number;              // >0 の間は行動不能（静止の眼：4-11F③）
   slowed?: number;               // >0 の間は1手おきにしか動けない（鈍り：4-11F③）
   fear?: number;                 // >0 の間は標的から逃げる（畏れ：4-11F③）
+  confused?: number;             // >0 の間はランダム移動（惑乱：4-11F③）
+  rooted?: number;               // >0 の間は移動不可（隣接なら攻撃は可）（縛鎖：4-11F③）
   weak?: number;                 // >0 の間は攻撃力減（蝕み：4-11F③）。減算量は WEAK_AMT
   boss?: "elite" | "area";       // 中ボス（奥の強敵）／エリアボス（節目の山場）：4-11F
   fossilId?: string;             // 出自の化石（敵性化した探索者）。⑤鎮め筋の対象（4-11D）
@@ -372,9 +374,23 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
     }
     if (!m.awake) { m.intent = null; continue; }
 
+    if (m.confused && m.confused > 0) { // 惑乱＝ランダムによろめく（標的を見失う）
+      m.confused--;
+      const cx = rng.int(3) - 1, cy = rng.int(3) - 1;
+      const c = { x: m.x + cx, y: m.y + cy };
+      m.intent = (tileAt(f, c.x, c.y) === 1 && !(c.x === player.x && c.y === player.y) && !occupiedBy(f, c.x, c.y, m, comp))
+        ? { type: "move", x: c.x, y: c.y } : { type: "wait" };
+      continue;
+    }
+
     // 標的＝近い方（同距離はプレイヤー優先）
     const target = comp && dComp < dPlayer ? comp : player;
     const d = comp && dComp < dPlayer ? dComp : dPlayer;
+    if (m.rooted && m.rooted > 0) { // 縛鎖＝その場に縫い止める（隣接なら討てるが動けない）
+      m.rooted--;
+      m.intent = d < 1.5 ? { type: "attack", x: target.x, y: target.y } : { type: "wait" };
+      continue;
+    }
     if (m.fear && m.fear > 0) { // 畏れ＝標的から逃げる（隣接でも攻撃しない）
       m.fear--;
       let fx = Math.sign(m.x - target.x), fy = Math.sign(m.y - target.y);

@@ -5,11 +5,11 @@
 // 効果の出典：DCSS / NetHack / ToME / Diablo を翻案（名称は深蝕テイスト＝漢字熟語）。
 
 export type SpellKey =
-  | "warp_strike" | "rift_lance" | "collapse" | "thunder"   // 攻
-  | "still_eye" | "slow" | "dread"                          // 制
-  | "shadow_step" | "charge"                                // 移
+  | "warp_strike" | "rift_lance" | "collapse" | "thunder" | "ice_tomb" | "wither" | "condemn"  // 攻
+  | "still_eye" | "slow" | "dread" | "confuse" | "slumber" | "bind"                            // 制
+  | "shadow_step" | "charge" | "omni_strike" | "gravity_pull"                                   // 移
   | "heal" | "enfeeble" | "leech"                           // 援
-  | "survey";                                               // 識
+  | "survey" | "insight" | "scent";                         // 識
 
 export type SpellSchool = "攻" | "制" | "移" | "援" | "識";
 
@@ -29,19 +29,29 @@ export const SPELLS: SpellDef[] = [
   { key: "rift_lance",  name: "裂界",   school: "攻", cost: 0.20, desc: "最寄りの敵へ向け一直線を貫く（線上の敵すべてに）" },
   { key: "collapse",    name: "崩落",   school: "攻", cost: 0.25, desc: "最寄りの敵を中心に崩し落とす（周囲を巻き込む範囲）" },
   { key: "thunder",     name: "雷霆",   school: "攻", cost: 0.22, desc: "可視の敵すべてに放射状の雷（やや弱め・数で削る）" },
+  { key: "ice_tomb",    name: "氷棺",   school: "攻", cost: 0.22, desc: "最寄りの敵を高威力で討ち、2手のあいだ凍てつかせる" },
+  { key: "wither",      name: "痩身",   school: "攻", cost: 0.20, desc: "最寄りの敵の現在HPを大きく削り取る（硬い敵に効く）" },
+  { key: "condemn",     name: "断罪",   school: "攻", cost: 0.50, desc: "最寄りの敵へ一撃必殺級の断罪（深蝕は極めて重い）" },
   // ── 制 ──
   { key: "still_eye",   name: "静止の眼", school: "制", cost: 0.20, desc: "見えている敵を2手のあいだ止める" },
   { key: "slow",        name: "鈍り",   school: "制", cost: 0.15, desc: "見えている敵を数手のあいだ1手おきに鈍らせる" },
   { key: "dread",       name: "畏れ",   school: "制", cost: 0.18, desc: "見えている敵を数手のあいだ怯えさせ、退かせる" },
+  { key: "confuse",     name: "惑乱",   school: "制", cost: 0.18, desc: "見えている敵を数手のあいだ惑わせ、よろめかせる" },
+  { key: "slumber",     name: "微睡",   school: "制", cost: 0.20, desc: "最寄りの敵を深く眠らせる（長く止まる）" },
+  { key: "bind",        name: "縛鎖",   school: "制", cost: 0.18, desc: "最寄りの敵をその場に縫い止める（動けない）" },
   // ── 移 ──
   { key: "shadow_step", name: "影渡り", school: "移", cost: 0.12, desc: "敵から最も遠い視界へ瞬間移動して逃げる" },
   { key: "charge",      name: "迫り",   school: "移", cost: 0.15, desc: "最寄りの敵へ一息に踏み込み、近接の一撃を浴びせる" },
+  { key: "omni_strike", name: "万象斬", school: "移", cost: 0.25, desc: "視界の敵すべてへ転移の斬撃を浴びせる（近接威力）" },
+  { key: "gravity_pull", name: "引閘",  school: "移", cost: 0.18, desc: "見えている敵を自分のほうへ一斉に引き寄せる" },
   // ── 援 ──
   { key: "heal",        name: "癒し",   school: "援", cost: 0.30, desc: "HPを癒す（理＋体ぶん。深蝕は重い）" },
   { key: "enfeeble",    name: "蝕み",   school: "援", cost: 0.18, desc: "最寄りの敵の攻撃を数手のあいだ削ぐ" },
   { key: "leech",       name: "吸命",   school: "援", cost: 0.20, desc: "最寄りの敵を蝕み、奪ったぶんHPに変える" },
   // ── 識 ──
   { key: "survey",      name: "地相",   school: "識", cost: 0.08, desc: "このフロアの地形を感知する（地図が開ける）" },
+  { key: "insight",     name: "看破",   school: "識", cost: 0.06, desc: "可視の敵の正体とHPを見抜く（強さを測る）" },
+  { key: "scent",       name: "嗅ぎ",   school: "識", cost: 0.06, desc: "宝箱・化石の在処を嗅ぎ当てる（地図に灯す）" },
 ];
 
 export const spellByKey = (key: string): SpellDef | undefined => SPELLS.find((s) => s.key === key);
