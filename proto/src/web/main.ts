@@ -251,6 +251,8 @@ function draw() {
         cls = m.boss === "area" ? "g-boss" : m.boss === "elite" ? "g-elite"
           : `g-mon-t${m.kind.tier}${m.intent?.type === "attack" ? " g-mon-atk" : ""}`;
       }
+      const su = summons.find((s) => s.x === x && s.y === y); // 召喚＝一時味方（菫色）
+      if (su) { glyph = su.glyph; cls = "g-summon"; }
     }
     // 移動予告：敵が踏み込む先の「何も無い床マス」を背景色でハイライト（グリフは出さない）
     c.classList.toggle("tele-move", visible && cls === "g-floor" && teleMove.has(mi));
@@ -1477,6 +1479,8 @@ function townLoop(): Promise<void> {
 function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
   floor = genFloor(world, depth, abyss ? { abyss: true } : undefined);
   pursuerCount = 0; turnsSinceFloor = 0;
+  armorBuffTurns = 0; attackBuffTurns = 0; hasteTurns = 0; deathDoorTurns = 0; // 術バフはフロアを跨がない（戦闘内のみ）
+  summons = []; shadowGuard = 0; cleanseTurns = 0; // 召喚・影分け・解呪もフロアを跨がない
   const ch = world.current!;
   ch.depth = depth;
   player = { ...(fromAbove ? floor.stairsUp : floor.stairsDown) };
@@ -1691,6 +1695,18 @@ let seenThisDive: string[] = [];
 // 帰還の試練（4-13C）：聖遺物携行中の追手カウンタ（フロアごとにリセット）
 let pursuerCount = 0;
 let turnsSinceFloor = 0;
+// 術のプレイヤーバフ計時（4-11F③・援系）。各 *Turns は残り手数（毎手 endTurn で減算）。フロア内のみ・セーブ非対象。
+let armorBuffTurns = 0;  // 硬鱗：>0 の間 被ダメ −ARMOR_BUFF
+let attackBuffTurns = 0; // 焦躁：>0 の間 近接 +ATTACK_BUFF（詠唱で深蝕も増す）
+let hasteTurns = 0;      // 疾走：>0 の間、敵手番をスキップ（自分だけ余分に動く）
+let deathDoorTurns = 0;  // 死戸：>0 の間は無敵だが回復不可、明けに深みの揺り戻し（深蝕）
+const ARMOR_BUFF = 4, ATTACK_BUFF = 5; // バフ量（理で伸ばさず固定＝読みやすさ優先）
+// 召喚＝一時味方（4-11F③・召系）。盤上 ephemeral：数手で霧散。隣接敵を毎手討ち、いなければ最寄りへ寄る。
+// monsters のターゲットには乗らない（簡潔さ優先）＝味方AIは攻撃のみ。echo_summon(4-10I) とは別物（術側は割り切り）。
+interface SummonEntity extends Pos { glyph: string; name: string; dmg: number; turns: number; follow: boolean; }
+let summons: SummonEntity[] = [];
+let shadowGuard = 0; // 影分け：>0 の間、敵の一撃を影が肩代わり（被ダメを無効化し1減）
+let cleanseTurns = 0; // 解呪：>0 の間、装備（異物/刻印）由来の毎手深蝕を抑える
 
 let abyssDivePending = false; // 次の潜行が「奉献の試練」（深淵帯への直下降）か
 
@@ -1732,8 +1748,22 @@ async function endTurn() {
   if (!floor || !world.current) return;
   const ch = world.current;
 
-  // 深蝕（4-10C）。心・遺物で染み込みが遅く、異物装備でじわり増える（progression）。
-  ch.exposure += exposureGain(floor.depth) * heartFactor(ch) + equipExposure(ch);
+  // 術バフの計時（毎手減算。疾走中はこの手番の敵を飛ばす。死戸は明けに揺り戻し）。
+  if (armorBuffTurns > 0) armorBuffTurns--;
+  if (attackBuffTurns > 0) attackBuffTurns--;
+  const hasted = hasteTurns > 0; if (hasteTurns > 0) hasteTurns--;
+  if (deathDoorTurns > 0) { deathDoorTurns--; if (deathDoorTurns === 0) { ch.exposure += 0.4; log("死戸が閉じる……深みの揺り戻し（深蝕＋0.4）。", "warn"); } }
+  // 腐喰（継続ダメ・4-11F③）：毒を受けた敵は毎手 poisonDmg を失う。死亡は通常の撃破処理へ。
+  for (const m of floor.monsters) {
+    if (m.hp > 0 && m.poison && m.poison > 0) {
+      m.hp -= (m.poisonDmg ?? 1); m.poison--;
+      if (m.hp <= 0) downOrKill(m, `腐喰が${m.kind.name}を朽ち果てさせた。`);
+    }
+  }
+
+  // 深蝕（4-10C）。心・遺物で染み込みが遅く、異物装備でじわり増える（progression）。解呪中は装備由来を抑える。
+  ch.exposure += exposureGain(floor.depth) * heartFactor(ch) + (cleanseTurns > 0 ? 0 : equipExposure(ch));
+  if (cleanseTurns > 0) cleanseTurns--;
 
   // 帰還の試練（4-13C）：聖遺物携行中は深みが覚醒＝毎手 深蝕が急騰し、追手の怨霊が湧く。
   if (ch.carryingRelic) {
@@ -1765,6 +1795,9 @@ async function endTurn() {
     log(`深みに蝕まれる……（HP -${bite}）`, "warn");
   }
 
+  if (hasted) log("疾走――敵が止まって見える。もう一手。", "dim");
+  if (!hasted) {
+  resolveSummons(); // 召喚（一時味方）の手番＝隣接敵を討つ／最寄りへ寄る・寿命を消費
   // 相棒の手番（4-14C）：予告した一手を実行（@に追従し隣接敵を討つ）。連帯深蝕も上がる。
   if (companion && companion.hp > 0 && world.companion) {
     const cr = resolveCompanion(floor, player, companion);
@@ -1790,13 +1823,16 @@ async function endTurn() {
       companion.hp -= h.dmg; // 相棒は防具軽減なし（v1）
       log(`${h.monster.kind.name}の一撃が${companionName()}を襲う！ ${h.dmg}の傷。`, "warn");
     } else {
-      const dmg = Math.max(1, h.dmg - armorReduce(ch)); // 防具で軽減（下限1）
-      hp -= dmg;
-      log(`${h.monster.kind.name}の一撃！ ${dmg}の傷。`, "warn");
+      let dmg = Math.max(1, h.dmg - armorReduce(ch) - (armorBuffTurns > 0 ? ARMOR_BUFF : 0)); // 防具＋硬鱗で軽減（下限1）
+      if (deathDoorTurns > 0) dmg = 0; // 死戸＝無敵
+      if (dmg > 0 && shadowGuard > 0) { shadowGuard--; dmg = 0; log(`${h.monster.kind.name}の一撃を、影が引き受けた。`, "dim"); } // 影分け
+      else if (deathDoorTurns > 0) log(`${h.monster.kind.name}の一撃を、死戸が弾く。`, "warn");
+      else { hp -= dmg; log(`${h.monster.kind.name}の一撃！ ${dmg}の傷。`, "warn"); }
     }
   }
   for (const m of res.dodges) log(`${m.kind.name}の一撃を見切った。`, "dim");
   if (companion && companion.hp <= 0) companionDies(); // 相棒の戦死＝化石化
+  } // end if(!hasted)
   // 次の一手を予告する（プレイヤーが見て動けるように。相棒は連帯深蝕で erratic にぶれる）
   planMonsters(floor, player, rng, companion);
   if (companion) planCompanion(floor, player, companion, rng);
@@ -1975,6 +2011,52 @@ function nearestMon(list: Monster[]): Monster {
   return list.reduce((a, b) =>
     Math.hypot(a.x - player.x, a.y - player.y) <= Math.hypot(b.x - player.x, b.y - player.y) ? a : b);
 }
+/** p の近傍（半径2）で、床・無人（敵/プレイヤー/相棒/召喚なし）の空きマスを探す。なければ null。 */
+function freeFloorSpotNear(p: Pos): Pos | null {
+  if (!floor) return null;
+  for (let r = 1; r <= 2; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+    const x = p.x + dx, y = p.y + dy;
+    if (tileAt(floor, x, y) !== 1) continue;
+    if (x === player.x && y === player.y) continue;
+    if (companion && companion.x === x && companion.y === y) continue;
+    if (floor.monsters.some((m) => m.hp > 0 && m.x === x && m.y === y)) continue;
+    if (summons.some((s) => s.x === x && s.y === y)) continue;
+    return { x, y };
+  }
+  return null;
+}
+/** 一時味方を near の近傍に湧かせる（4-11F③ 召系）。 */
+function spawnSummon(near: Pos, glyph: string, name: string, dmg: number, turns: number, follow: boolean): boolean {
+  const spot = freeFloorSpotNear(near);
+  if (!spot) return false;
+  summons.push({ x: spot.x, y: spot.y, glyph, name, dmg, turns, follow });
+  return true;
+}
+/** 召喚の手番：隣接敵を討つ／いなければ最寄り敵（follow なら @）へ1歩。寿命を消費し、尽きたら霧散。 */
+function resolveSummons() {
+  if (!floor || !summons.length) return;
+  for (const s of summons) {
+    const adj = floor.monsters.find((m) => m.hp > 0 && Math.max(Math.abs(m.x - s.x), Math.abs(m.y - s.y)) <= 1);
+    if (adj) {
+      adj.hp -= s.dmg; flashFx("warp", { x: adj.x, y: adj.y });
+      if (adj.hp <= 0) downOrKill(adj, `${s.name}が${adj.kind.name}を断った。`);
+    } else {
+      const live = floor.monsters.filter((m) => m.hp > 0);
+      const goal: Pos | null = live.length
+        ? live.reduce((a, b) => Math.hypot(a.x - s.x, a.y - s.y) <= Math.hypot(b.x - s.x, b.y - s.y) ? a : b)
+        : (s.follow ? player : null);
+      if (goal) {
+        const nx = s.x + Math.sign(goal.x - s.x), ny = s.y + Math.sign(goal.y - s.y);
+        if (tileAt(floor, nx, ny) === 1 && !(nx === player.x && ny === player.y) &&
+          !floor.monsters.some((m) => m.hp > 0 && m.x === nx && m.y === ny) && !summons.some((o) => o !== s && o.x === nx && o.y === ny)) { s.x = nx; s.y = ny; }
+      }
+    }
+    s.turns--;
+  }
+  summons = summons.filter((s) => s.turns > 0);
+}
+
 /** t に隣接する空き床のうち、プレイヤーから最も近いマス（迫りの着地点）。なければ null。 */
 function adjacentSpotToward(t: Monster): Pos | null {
   if (!floor) return null;
@@ -2012,6 +2094,12 @@ async function castSpell(key: string) {
     for (const m of visMon) { m.intent = { type: "wait" }; m.stunned = 1; }
     sfx("spell_still"); flashFx("still");
     log(`静止の眼。${visMon.length}体の動きが、凍りついた。`);
+  } else if (key === "corrode") { // 腐喰＝最寄りに継続ダメ（毒）を付与
+    if (!visMon.length) { log("腐らせる敵が見えない。", "dim"); draw(); return; }
+    const t = nearestMon(visMon);
+    t.poison = 6; t.poisonDmg = Math.max(1, Math.round(effectiveReason(ch) * 0.6));
+    sfx("spell_warp"); flashFx("warp", { x: t.x, y: t.y });
+    log(`腐喰。${t.kind.name}が、内から朽ちはじめる（毎手${t.poisonDmg}・6手）。`);
   } else if (key === "shadow_step") {
     if (!visMon.length) { log("逃げる相手がいない。", "dim"); draw(); return; }
     let best: Pos | null = null, bestScore = -1;
@@ -2076,12 +2164,13 @@ async function castSpell(key: string) {
     const t = nearestMon(visMon);
     const spot = adjacentSpotToward(t); // tの隣で、プレイヤーから最も近い空きマス
     if (spot) { flashFx("blink", { x: player.x, y: player.y }); player = spot; }
-    const dmg = meleeDmg(ch);
+    const dmg = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
     t.hp -= dmg;
     sfx("spell_blink");
     if (t.hp <= 0) downOrKill(t, `迫り、${t.kind.name}を討ち砕いた。`);
     else log(`迫って斬りつける（${dmg}）。`);
-  } else if (key === "heal") { // 癒し＝HP回復（理＋体）
+  } else if (key === "heal") { // 癒し＝HP回復（理＋体）。死戸中は回復不可
+    if (deathDoorTurns > 0) { log("死戸が開いている間は、癒えない。", "dim"); draw(); return; }
     const amt = effectiveReason(ch) + ch.stats.body;
     const before = hp; hp = Math.min(maxHp(ch), hp + amt);
     sfx("open"); flashFx("still");
@@ -2098,10 +2187,49 @@ async function castSpell(key: string) {
     const dmg = Math.round(warpDamage(effectiveReason(ch)) * 0.6);
     const dealt = Math.min(dmg, t.hp);
     t.hp -= dmg;
-    const before = hp; hp = Math.min(maxHp(ch), hp + Math.ceil(dealt / 2));
+    const before = hp; if (deathDoorTurns === 0) hp = Math.min(maxHp(ch), hp + Math.ceil(dealt / 2)); // 死戸中は吸命しても癒えない
     sfx("spell_warp"); flashFx("warp", { x: t.x, y: t.y });
     if (t.hp <= 0) downOrKill(t, `吸命が${t.kind.name}を干涸びさせた。`);
     else log(`吸命（与${dmg}／HP＋${hp - before}）。`);
+  } else if (key === "ironscale") { // 硬鱗＝数手 被ダメ軽減
+    armorBuffTurns = 5;
+    sfx("open"); flashFx("still");
+    log(`硬鱗。鱗が立ち、守りが固まった（被ダメ−${ARMOR_BUFF}・5手）。`);
+  } else if (key === "haste") { // 疾走＝数手 敵手番スキップ
+    hasteTurns = 3;
+    sfx("spell_blink"); flashFx("blink", { x: player.x, y: player.y });
+    log("疾走。世界が、ゆっくりと流れ出す（3手）。");
+  } else if (key === "frenzy") { // 焦躁＝数手 近接ダメ上乗せ
+    attackBuffTurns = 5;
+    sfx("open"); flashFx("warp", { x: player.x, y: player.y });
+    log(`焦躁。手が冴え、苛立ちが募る（攻撃＋${ATTACK_BUFF}・5手）。`);
+  } else if (key === "deathdoor") { // 死戸＝数手 無敵だが癒えず、明けに反動
+    deathDoorTurns = 4;
+    sfx("open"); flashFx("still");
+    log("死戸を開く。痛みが、遠い（無敵4手・癒えず・明けに揺り戻し）。");
+  } else if (key === "miststep") { // 霞足＝近場（半径3）へ短くブリンク（敵から距離を取る）
+    let best: Pos | null = null, bestScore = -1;
+    for (const mi of vis) {
+      const x = mi % floor.w, y = Math.floor(mi / floor.w);
+      if (tileAt(floor, x, y) !== 1 || (x === player.x && y === player.y)) continue;
+      if (Math.max(Math.abs(x - player.x), Math.abs(y - player.y)) > 3) continue;
+      if (floor.monsters.some((m) => m.hp > 0 && m.x === x && m.y === y)) continue;
+      const nearest = visMon.length ? Math.min(...visMon.map((m) => Math.hypot(m.x - x, m.y - y))) : Math.hypot(x - player.x, y - player.y);
+      if (nearest > bestScore) { bestScore = nearest; best = { x, y }; }
+    }
+    if (!best) { log("霞む先がない。", "dim"); draw(); return; }
+    flashFx("blink", { x: player.x, y: player.y }); player = best; sfx("spell_blink");
+    log("霞足。すっと、間合いが空いた。");
+  } else if (key === "wayfare") { // 退き戸＝上り階段の傍へ退避
+    const up = floor.stairsUp;
+    const spot = (tileAt(floor, up.x, up.y) === 1 && !floor.monsters.some((m) => m.hp > 0 && m.x === up.x && m.y === up.y)) ? up : freeFloorSpotNear(up);
+    if (!spot) { log("退き戸が開かない。", "dim"); draw(); return; }
+    flashFx("blink", { x: player.x, y: player.y }); player = { x: spot.x, y: spot.y }; sfx("spell_blink");
+    log("退き戸を開く。上り階段の傍へ、退いた。");
+  } else if (key === "cleanse") { // 解呪＝装備（異物/刻印）の蝕みを数手抑える
+    cleanseTurns = 8;
+    sfx("open"); flashFx("still");
+    log("解呪。装備の蝕みが、しばし鎮まる（8手）。");
   } else if (key === "survey") { // 地相＝フロアの地形を感知（地図が開く）
     for (let i = 0; i < floor.explored.length; i++) floor.explored[i] = true;
     sfx("open");
@@ -2144,7 +2272,7 @@ async function castSpell(key: string) {
     log(`縛鎖。${t.kind.name}を縫い止めた。`);
   } else if (key === "omni_strike") { // 万象斬＝視界の敵すべてへ斬撃（近接威力）
     if (!visMon.length) { log("斬る敵が見えない。", "dim"); draw(); return; }
-    const dmg = meleeDmg(ch);
+    const dmg = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
     for (const m of visMon) { m.hp -= dmg; flashFx("warp", { x: m.x, y: m.y }); if (m.hp <= 0) downOrKill(m, `万象斬が${m.kind.name}を断った。`); }
     sfx("spell_warp");
     log(`万象斬（${visMon.length}体・各${dmg}）。`);
@@ -2171,6 +2299,27 @@ async function castSpell(key: string) {
     floor.explored[mapIdx(floor, floor.stairsDown.x, floor.stairsDown.y)] = true;
     sfx("open");
     log(`嗅ぎ：宝箱${n}・化石${floor.fossils.length}の気配を地図に灯した。`, "warn");
+  } else if (key === "minions") { // 蝕兵＝最寄りの敵の傍に短命の眷属2体
+    if (!visMon.length) { log("眷属を差し向ける敵が見えない。", "dim"); draw(); return; }
+    const t = nearestMon(visMon);
+    const dmg = Math.max(2, Math.round(effectiveReason(ch)));
+    let n = 0; for (let i = 0; i < 2; i++) if (spawnSummon(t, "ψ", "蝕兵", dmg, 5, false)) n++;
+    sfx("spell_warp"); flashFx("warp", { x: t.x, y: t.y });
+    log(n ? `蝕兵を${n}体起こした（各${dmg}・5手）。` : "湧かせる隙間がない。");
+  } else if (key === "orbblade") { // 廻刃＝自分の傍を回る刃（@に追従）
+    const dmg = Math.max(2, Math.round(effectiveReason(ch) * 1.2));
+    const ok = spawnSummon(player, "‡", "廻刃", dmg, 6, true);
+    sfx("spell_warp"); flashFx("warp", { x: player.x, y: player.y });
+    log(ok ? `廻刃を侍らせた（${dmg}・6手・追従）。` : "刃を置く隙間がない。");
+  } else if (key === "echo") { // 残響召喚＝在りし日の残響（強めの一時味方・@に追従）
+    const dmg = Math.max(3, Math.round(effectiveReason(ch) * 1.6));
+    const ok = spawnSummon(player, "Ψ", "残響", dmg, 6, true);
+    sfx("spell_warp"); flashFx("still", { x: player.x, y: player.y });
+    log(ok ? `在りし日の残響が、傍らに立った（${dmg}・6手）。` : "残響の立つ隙間がない。");
+  } else if (key === "shadowclone") { // 影分け＝数手 敵の一撃を肩代わり
+    shadowGuard = 3;
+    sfx("spell_blink"); flashFx("blink", { x: player.x, y: player.y });
+    log("影分け。三つの影が、身代わりに立つ（3度まで）。");
   }
 
   ch.exposure += def.cost;
@@ -2300,9 +2449,9 @@ function moveOrInteract(nx: number, ny: number): boolean {
   if (tileAt(f, nx, ny) !== 1) return false;
 
   const mon = f.monsters.find((m) => m.hp > 0 && m.x === nx && m.y === ny);
-  if (mon) { // 攻撃（確定命中・確定ダメージ＝力依存）
+  if (mon) { // 攻撃（確定命中・確定ダメージ＝力依存＋焦躁バフ）
     const ch = world.current!;
-    const dmg = meleeDmg(ch);
+    const dmg = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
     mon.hp -= dmg;
     sfx("hit");
     if (mon.hp <= 0) downOrKill(mon); // 撃破→ボスは討つ/鎮める、他は通常（手番末で処理）

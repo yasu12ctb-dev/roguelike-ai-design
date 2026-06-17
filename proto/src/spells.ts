@@ -7,11 +7,13 @@
 export type SpellKey =
   | "warp_strike" | "rift_lance" | "collapse" | "thunder" | "ice_tomb" | "wither" | "condemn"  // 攻
   | "still_eye" | "slow" | "dread" | "confuse" | "slumber" | "bind"                            // 制
-  | "shadow_step" | "charge" | "omni_strike" | "gravity_pull"                                   // 移
-  | "heal" | "enfeeble" | "leech"                           // 援
-  | "survey" | "insight" | "scent";                         // 識
+  | "corrode"                                                                                    // 攻（継続）
+  | "shadow_step" | "charge" | "omni_strike" | "gravity_pull" | "miststep" | "wayfare"            // 移
+  | "heal" | "enfeeble" | "leech" | "ironscale" | "haste" | "frenzy" | "deathdoor" | "cleanse"  // 援
+  | "survey" | "insight" | "scent"                          // 識
+  | "minions" | "orbblade" | "echo" | "shadowclone";        // 召
 
-export type SpellSchool = "攻" | "制" | "移" | "援" | "識";
+export type SpellSchool = "攻" | "制" | "移" | "援" | "識" | "召";
 
 export interface SpellDef {
   key: SpellKey;
@@ -32,6 +34,7 @@ export const SPELLS: SpellDef[] = [
   { key: "ice_tomb",    name: "氷棺",   school: "攻", cost: 0.22, desc: "最寄りの敵を高威力で討ち、2手のあいだ凍てつかせる" },
   { key: "wither",      name: "痩身",   school: "攻", cost: 0.20, desc: "最寄りの敵の現在HPを大きく削り取る（硬い敵に効く）" },
   { key: "condemn",     name: "断罪",   school: "攻", cost: 0.50, desc: "最寄りの敵へ一撃必殺級の断罪（深蝕は極めて重い）" },
+  { key: "corrode",     name: "腐喰",   school: "攻", cost: 0.18, desc: "最寄りの敵を腐らせ、数手のあいだ蝕み続ける（継続ダメ）" },
   // ── 制 ──
   { key: "still_eye",   name: "静止の眼", school: "制", cost: 0.20, desc: "見えている敵を2手のあいだ止める" },
   { key: "slow",        name: "鈍り",   school: "制", cost: 0.15, desc: "見えている敵を数手のあいだ1手おきに鈍らせる" },
@@ -44,14 +47,26 @@ export const SPELLS: SpellDef[] = [
   { key: "charge",      name: "迫り",   school: "移", cost: 0.15, desc: "最寄りの敵へ一息に踏み込み、近接の一撃を浴びせる" },
   { key: "omni_strike", name: "万象斬", school: "移", cost: 0.25, desc: "視界の敵すべてへ転移の斬撃を浴びせる（近接威力）" },
   { key: "gravity_pull", name: "引閘",  school: "移", cost: 0.18, desc: "見えている敵を自分のほうへ一斉に引き寄せる" },
+  { key: "miststep",    name: "霞足",   school: "移", cost: 0.10, desc: "近場へ霞のように短く跳ぶ（敵から距離を取る）" },
+  { key: "wayfare",     name: "退き戸", school: "移", cost: 0.16, desc: "上り階段の傍へ退く門を開く（退避）" },
   // ── 援 ──
   { key: "heal",        name: "癒し",   school: "援", cost: 0.30, desc: "HPを癒す（理＋体ぶん。深蝕は重い）" },
   { key: "enfeeble",    name: "蝕み",   school: "援", cost: 0.18, desc: "最寄りの敵の攻撃を数手のあいだ削ぐ" },
   { key: "leech",       name: "吸命",   school: "援", cost: 0.20, desc: "最寄りの敵を蝕み、奪ったぶんHPに変える" },
+  { key: "ironscale",   name: "硬鱗",   school: "援", cost: 0.18, desc: "数手のあいだ、被ダメージを和らげる（守りを固める）" },
+  { key: "haste",       name: "疾走",   school: "援", cost: 0.25, desc: "数手のあいだ、敵を置き去りに余分な一手を得る" },
+  { key: "frenzy",      name: "焦躁",   school: "援", cost: 0.20, desc: "数手のあいだ近接が冴える（深蝕も募る）" },
+  { key: "deathdoor",   name: "死戸",   school: "援", cost: 0.40, desc: "数手のあいだ無敵だが癒えず、明けに深みの揺り戻し" },
+  { key: "cleanse",     name: "解呪",   school: "援", cost: 0.12, desc: "数手のあいだ、装備（異物/刻印）の蝕みを抑える" },
   // ── 識 ──
   { key: "survey",      name: "地相",   school: "識", cost: 0.08, desc: "このフロアの地形を感知する（地図が開ける）" },
   { key: "insight",     name: "看破",   school: "識", cost: 0.06, desc: "可視の敵の正体とHPを見抜く（強さを測る）" },
   { key: "scent",       name: "嗅ぎ",   school: "識", cost: 0.06, desc: "宝箱・化石の在処を嗅ぎ当てる（地図に灯す）" },
+  // ── 召（一時味方・数手で霧散） ──
+  { key: "minions",     name: "蝕兵",   school: "召", cost: 0.30, desc: "最寄りの敵の傍に短命の眷属を2体起こす（隣接を討つ）" },
+  { key: "orbblade",    name: "廻刃",   school: "召", cost: 0.28, desc: "自分の傍を回る刃を侍らせる（隣接敵を毎手討つ）" },
+  { key: "echo",        name: "残響召喚", school: "召", cost: 0.35, desc: "在りし日の残響を1体呼ぶ（強めの一時味方）" },
+  { key: "shadowclone", name: "影分け", school: "召", cost: 0.25, desc: "影武者が数手のあいだ、敵の一撃を肩代わりする" },
 ];
 
 export const spellByKey = (key: string): SpellDef | undefined => SPELLS.find((s) => s.key === key);

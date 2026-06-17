@@ -53,6 +53,8 @@ export interface Monster extends Pos {
   confused?: number;             // >0 の間はランダム移動（惑乱：4-11F③）
   rooted?: number;               // >0 の間は移動不可（隣接なら攻撃は可）（縛鎖：4-11F③）
   weak?: number;                 // >0 の間は攻撃力減（蝕み：4-11F③）。減算量は WEAK_AMT
+  poison?: number;               // >0 の間は毎手 poisonDmg を受ける（腐喰＝継続ダメ：4-11F③）
+  poisonDmg?: number;            // 腐喰の1手あたりダメージ（詠唱時の理で決まる）
   boss?: "elite" | "area";       // 中ボス（奥の強敵）／エリアボス（節目の山場）：4-11F
   fossilId?: string;             // 出自の化石（敵性化した探索者）。⑤鎮め筋の対象（4-11D）
 }
