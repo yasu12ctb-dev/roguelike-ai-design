@@ -2941,6 +2941,8 @@ $("menuBtn").onclick = async () => {
   ];
   if (canLoadout) opts.push("術を構える（ロードアウト）");
   else if (ch && ch.spells.length > 0) opts.push("（術の構えは街・安全地帯でのみ）");
+  const resetPick = opts.length + 1; // 「閉じる」の手前に挿す（条件で位置が動くため動的に算出）
+  opts.push("⟲ 世界を最初からやり直す");
   opts.push("閉じる");
   const r = await sheet({
     text: sheetHead + (tail || "まだ何も記されていない。"),
@@ -2951,8 +2953,29 @@ $("menuBtn").onclick = async () => {
   else if (r.pick === 2) { setDpad(!dpadOn); }
   else if (r.pick === 3) { setDpadPos(dpadPos === "right" ? "left" : "right"); }
   else if (canLoadout && r.pick === 4) { await manageLoadout(ch!); }
+  else if (r.pick === resetPick) { await resetWorld(); }
   busy = false;
 };
+
+/** 世界を最初からやり直す（テスト/再挑戦用）。二段確認のうえセーブを消して再起動。
+ *  消えるのは進行（World＝全世代・化石・年代記・系譜・依頼・自宅保管）。音・D-pad の端末設定は別キーゆえ残る。 */
+async function resetWorld() {
+  const r1 = await sheet({
+    text: `世界を最初からやり直す──第${world.generation}世代までの全記録（化石・年代記・系譜・依頼・自宅の保管）が消え、元には戻せない。\n（音・方向パッドの設定は残ります）`,
+    meta: "リセット ── 取り返しがつきません",
+    options: ["いいえ、やめておく", "最初からやり直す"],
+  });
+  if (r1.pick !== 2) return;
+  const r2 = await sheet({
+    text: "本当に、この世界のすべてを消してよいですか？",
+    meta: "最終確認",
+    options: ["いいえ", "はい、消す"],
+  });
+  if (r2.pick !== 2) return;
+  try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ }
+  log("世界をまっさらに戻す……", "warn");
+  location.reload(); // 再起動＝boot() が新規 World＋キャラ作成から走る（一時状態の取りこぼし無し）
+}
 
 /** 術の構え（ロードアウト）を整える。識得済みの中から LOADOUT_CAP 個を選んで構える（安全地帯のみ）。 */
 async function manageLoadout(ch: Character) {
