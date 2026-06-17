@@ -7,7 +7,7 @@ import { makeContentDb } from "../content.ts";
 import { makeRng, type Rng } from "../rng.ts";
 import {
   newWorld, createCharacter, fossilizeCurrent, fossilizeCompanion, fossilizeAbandoned, intervene, recordRediscovery,
-  chronicle, poleLabel, finalActLabel, migrateWorld, awardSeal, abyssUnlocked,
+  chronicle, poleLabel, finalActLabel, migrateWorld, awardSeal, abyssUnlocked, setArc, getArc,
 } from "../world.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
 import {
@@ -1286,18 +1286,26 @@ async function characterCreation() {
 // ---------- 街（歩ける固定マップ。門 ">" で潜行＝この Promise を解決） ----------
 // ---------- アンビエント街イベント（4-12 J）：潜行帰還時に稀に起きる"街規模の出来事" ----------
 // 1帰還につき最大1件。各型は固有のクールダウン（型ごとに頻度を変える）＋全体の発生確率で間引く。
+// 4-12 J：イベントのレベル帯ゲート（~Lv50 スケール・2026-06-17 ユーザー承認）。
+// 早期1-10／中期11-25／後期26-40／超期45+。低レベルでまとめて着火させない。
+const BAND = { raid: 11, plague: 14, memorial: 4, noble: 45 };
 async function maybeTownEvent(): Promise<void> {
   const ch = world.current;
   if (!ch) return;
+  // 貴族の超長尺（⑦ の発展・4-12 J/I）：超期（Lv45+）になって初めて、封鎖貴族街から正式な召喚が来る。
+  if (ch.level >= BAND.noble && !(world.flags ?? []).includes("noble_summoned") && !getArc(world, "noble") && rng.next() < 0.5) {
+    await nobleSummonsScene();
+    return;
+  }
   // 各型の冷却を1帰還ぶん減らす（型を増やすときはここに1行）
   if ((world.raidCooldown ?? 0) > 0) world.raidCooldown = (world.raidCooldown ?? 0) - 1;
   if ((world.memorialCooldown ?? 0) > 0) world.memorialCooldown = (world.memorialCooldown ?? 0) - 1;
   if ((world.plagueCooldown ?? 0) > 0) world.plagueCooldown = (world.plagueCooldown ?? 0) - 1;
-  // 発火可能（冷却0＋固有条件）な型を集める
+  // 発火可能（冷却0＋レベル帯＋固有条件）な型を集める
   const pool: { w: number; run: () => Promise<void> }[] = [];
-  if (ch.level >= 2 && (world.raidCooldown ?? 0) === 0) pool.push({ w: 2, run: townRaidScene });           // 脅威（稀）
-  if ((world.memorialCooldown ?? 0) === 0 && world.fossils.some((f) => f.kind === "character")) pool.push({ w: 3, run: townMemorialScene }); // 好機（定期）
-  if (ch.level >= 2 && (world.plagueCooldown ?? 0) === 0) pool.push({ w: 2, run: townPlagueScene });       // 災厄（稀）
+  if (ch.level >= BAND.raid && (world.raidCooldown ?? 0) === 0) pool.push({ w: 2, run: townRaidScene });           // 脅威（中期〜）
+  if (ch.level >= BAND.memorial && (world.memorialCooldown ?? 0) === 0 && world.fossils.some((f) => f.kind === "character")) pool.push({ w: 3, run: townMemorialScene }); // 好機（定期）
+  if (ch.level >= BAND.plague && (world.plagueCooldown ?? 0) === 0) pool.push({ w: 2, run: townPlagueScene }); // 災厄（中期〜）
   if (pool.length === 0 || rng.next() >= 0.4) return; // 毎帰還は起きない（多くは静穏）
   const total = pool.reduce((a, b) => a + b.w, 0);
   let r = rng.next() * total;
@@ -1413,6 +1421,35 @@ async function townPlagueScene(): Promise<void> {
     meta: "深蝕の瘴気 ── 鎮静", options: ["街へ"],
   });
   updateStatus(); save(); busy = false;
+}
+
+// ⑦の発展＝貴族・統治者エリアの超長尺（4-12 J/I）。封鎖貴族街から正式な召喚→『原初の証』を巡る多段の大命。
+const NOBLE_NAMES = ["セルウィン卿", "ヴェスパー卿", "アルディス侯", "レーン伯", "コルヴィナ女伯"];
+async function nobleSummonsScene(): Promise<void> {
+  busy = true;
+  const ch = world.current!;
+  (world.flags ??= []).push("noble_summoned"); // 召喚は一度だけ
+  const name = NOBLE_NAMES[world.generation % NOBLE_NAMES.length];
+  const noble: LivingActor = {
+    id: `noble_${world.generation}_${Math.floor(rng.next() * 1e6).toString(36)}`,
+    actor: { name, archetype: "封鎖区の貴族", gearTags: ["仕立ての外套"], epithet: "封鎖区の", alive: true, grade: 4 },
+    metGeneration: world.generation,
+  };
+  rememberActor(world, noble);
+  sfx("intervene");
+  await sheet({
+    text: `街路に、場違いなほど上等な装束の使いが現れ、深々と一礼した。「${name}がお呼びです。あなたほどの名であれば、封鎖された貴族街の門も——今日だけは、開きましょう」。`,
+    meta: "貴族の召喚 ── 封鎖区へ", options: ["門をくぐる"],
+  });
+  await sheet({
+    text: `重い門の奥、薄暗い広間で、${name}は窓の外の迷宮を見つめていた。「我が家は古い。古すぎて……血の底に、深みが巣食っている。代々、当主は最後に正気を失い、深部の名を呟いて逝く。私も、もう長くはない」。\n「深層の最奥に、我が祖が封じた『原初の証』がある。あれを持ち帰れ。呪いの源か、断ち切る鍵か——確かめねば、私は安らかに逝けぬ。礼は、お前の想像を超えよう」。`,
+    meta: `${name} ── 大命`, options: ["引き受ける", "断れぬ空気だ……応じる"],
+  });
+  setArc(world, { key: "noble", step: 1, actorRef: noble.id }); // 弧を開始＝貴族をアンカー
+  if (!ch.traits.includes("負った大命:封鎖区の原初の証")) ch.traits.push("負った大命:封鎖区の原初の証");
+  chronicle(world, "legend", `${ch.name}は封鎖貴族街に招かれ、${name}から『原初の証』を持ち帰る大命を受けた。`, [ch.id, noble.id]);
+  log("封鎖区の門が、お前の前で初めて開いた。長い大命が始まる。", "cue");
+  save(); busy = false;
 }
 
 function townLoop(): Promise<void> {
