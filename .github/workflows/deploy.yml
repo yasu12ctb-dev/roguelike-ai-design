@@ -48,6 +48,10 @@ jobs:
         working-directory: proto
         run: node --experimental-strip-types src/companion-check.ts
 
+      - name: Content admission gate (4-9 鋳造所：storylets schema validation)
+        working-directory: proto
+        run: node tools/validate-content.mjs
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
