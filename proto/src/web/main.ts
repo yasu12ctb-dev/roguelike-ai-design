@@ -1286,11 +1286,14 @@ async function characterCreation() {
 // ---------- 街（歩ける固定マップ。門 ">" で潜行＝この Promise を解決） ----------
 // ---------- アンビエント街イベント（4-12 J）：潜行帰還時に稀に起きる"街規模の出来事" ----------
 // 1帰還につき最大1件。各型は固有のクールダウン（型ごとに頻度を変える）＋全体の発生確率で間引く。
+// 4-12 J：イベントのレベル帯ゲート（~Lv50 スケール・2026-06-17 ユーザー承認）。
+// 早期1-10／中期11-25／後期26-40／超期45+。低レベルでまとめて着火させない。
+const BAND = { raid: 11, plague: 14, memorial: 4, noble: 45 };
 async function maybeTownEvent(): Promise<void> {
   const ch = world.current;
   if (!ch) return;
-  // 貴族の超長尺（⑦ の発展・4-12 J/I）：高名（Lv8+）になると一度だけ、封鎖貴族街から正式な召喚が来る。
-  if (ch.level >= 8 && !(world.flags ?? []).includes("noble_summoned") && !getArc(world, "noble") && rng.next() < 0.5) {
+  // 貴族の超長尺（⑦ の発展・4-12 J/I）：超期（Lv45+）になって初めて、封鎖貴族街から正式な召喚が来る。
+  if (ch.level >= BAND.noble && !(world.flags ?? []).includes("noble_summoned") && !getArc(world, "noble") && rng.next() < 0.5) {
     await nobleSummonsScene();
     return;
   }
@@ -1298,11 +1301,11 @@ async function maybeTownEvent(): Promise<void> {
   if ((world.raidCooldown ?? 0) > 0) world.raidCooldown = (world.raidCooldown ?? 0) - 1;
   if ((world.memorialCooldown ?? 0) > 0) world.memorialCooldown = (world.memorialCooldown ?? 0) - 1;
   if ((world.plagueCooldown ?? 0) > 0) world.plagueCooldown = (world.plagueCooldown ?? 0) - 1;
-  // 発火可能（冷却0＋固有条件）な型を集める
+  // 発火可能（冷却0＋レベル帯＋固有条件）な型を集める
   const pool: { w: number; run: () => Promise<void> }[] = [];
-  if (ch.level >= 2 && (world.raidCooldown ?? 0) === 0) pool.push({ w: 2, run: townRaidScene });           // 脅威（稀）
-  if ((world.memorialCooldown ?? 0) === 0 && world.fossils.some((f) => f.kind === "character")) pool.push({ w: 3, run: townMemorialScene }); // 好機（定期）
-  if (ch.level >= 2 && (world.plagueCooldown ?? 0) === 0) pool.push({ w: 2, run: townPlagueScene });       // 災厄（稀）
+  if (ch.level >= BAND.raid && (world.raidCooldown ?? 0) === 0) pool.push({ w: 2, run: townRaidScene });           // 脅威（中期〜）
+  if (ch.level >= BAND.memorial && (world.memorialCooldown ?? 0) === 0 && world.fossils.some((f) => f.kind === "character")) pool.push({ w: 3, run: townMemorialScene }); // 好機（定期）
+  if (ch.level >= BAND.plague && (world.plagueCooldown ?? 0) === 0) pool.push({ w: 2, run: townPlagueScene }); // 災厄（中期〜）
   if (pool.length === 0 || rng.next() >= 0.4) return; // 毎帰還は起きない（多くは静穏）
   const total = pool.reduce((a, b) => a + b.w, 0);
   let r = rng.next() * total;
