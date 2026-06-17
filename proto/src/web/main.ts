@@ -1477,6 +1477,7 @@ function townLoop(): Promise<void> {
 function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
   floor = genFloor(world, depth, abyss ? { abyss: true } : undefined);
   pursuerCount = 0; turnsSinceFloor = 0;
+  armorBuffTurns = 0; attackBuffTurns = 0; hasteTurns = 0; deathDoorTurns = 0; // 術バフはフロアを跨がない（戦闘内のみ）
   const ch = world.current!;
   ch.depth = depth;
   player = { ...(fromAbove ? floor.stairsUp : floor.stairsDown) };
@@ -1691,6 +1692,12 @@ let seenThisDive: string[] = [];
 // 帰還の試練（4-13C）：聖遺物携行中の追手カウンタ（フロアごとにリセット）
 let pursuerCount = 0;
 let turnsSinceFloor = 0;
+// 術のプレイヤーバフ計時（4-11F③・援系）。各 *Turns は残り手数（毎手 endTurn で減算）。フロア内のみ・セーブ非対象。
+let armorBuffTurns = 0;  // 硬鱗：>0 の間 被ダメ −ARMOR_BUFF
+let attackBuffTurns = 0; // 焦躁：>0 の間 近接 +ATTACK_BUFF（詠唱で深蝕も増す）
+let hasteTurns = 0;      // 疾走：>0 の間、敵手番をスキップ（自分だけ余分に動く）
+let deathDoorTurns = 0;  // 死戸：>0 の間は無敵だが回復不可、明けに深みの揺り戻し（深蝕）
+const ARMOR_BUFF = 4, ATTACK_BUFF = 5; // バフ量（理で伸ばさず固定＝読みやすさ優先）
 
 let abyssDivePending = false; // 次の潜行が「奉献の試練」（深淵帯への直下降）か
 
@@ -1732,6 +1739,12 @@ async function endTurn() {
   if (!floor || !world.current) return;
   const ch = world.current;
 
+  // 術バフの計時（毎手減算。疾走中はこの手番の敵を飛ばす。死戸は明けに揺り戻し）。
+  if (armorBuffTurns > 0) armorBuffTurns--;
+  if (attackBuffTurns > 0) attackBuffTurns--;
+  const hasted = hasteTurns > 0; if (hasteTurns > 0) hasteTurns--;
+  if (deathDoorTurns > 0) { deathDoorTurns--; if (deathDoorTurns === 0) { ch.exposure += 0.4; log("死戸が閉じる……深みの揺り戻し（深蝕＋0.4）。", "warn"); } }
+
   // 深蝕（4-10C）。心・遺物で染み込みが遅く、異物装備でじわり増える（progression）。
   ch.exposure += exposureGain(floor.depth) * heartFactor(ch) + equipExposure(ch);
 
@@ -1765,6 +1778,8 @@ async function endTurn() {
     log(`深みに蝕まれる……（HP -${bite}）`, "warn");
   }
 
+  if (hasted) log("疾走――敵が止まって見える。もう一手。", "dim");
+  if (!hasted) {
   // 相棒の手番（4-14C）：予告した一手を実行（@に追従し隣接敵を討つ）。連帯深蝕も上がる。
   if (companion && companion.hp > 0 && world.companion) {
     const cr = resolveCompanion(floor, player, companion);
@@ -1790,13 +1805,15 @@ async function endTurn() {
       companion.hp -= h.dmg; // 相棒は防具軽減なし（v1）
       log(`${h.monster.kind.name}の一撃が${companionName()}を襲う！ ${h.dmg}の傷。`, "warn");
     } else {
-      const dmg = Math.max(1, h.dmg - armorReduce(ch)); // 防具で軽減（下限1）
+      let dmg = Math.max(1, h.dmg - armorReduce(ch) - (armorBuffTurns > 0 ? ARMOR_BUFF : 0)); // 防具＋硬鱗で軽減（下限1）
+      if (deathDoorTurns > 0) dmg = 0; // 死戸＝無敵
       hp -= dmg;
-      log(`${h.monster.kind.name}の一撃！ ${dmg}の傷。`, "warn");
+      log(deathDoorTurns > 0 ? `${h.monster.kind.name}の一撃を、死戸が弾く。` : `${h.monster.kind.name}の一撃！ ${dmg}の傷。`, "warn");
     }
   }
   for (const m of res.dodges) log(`${m.kind.name}の一撃を見切った。`, "dim");
   if (companion && companion.hp <= 0) companionDies(); // 相棒の戦死＝化石化
+  } // end if(!hasted)
   // 次の一手を予告する（プレイヤーが見て動けるように。相棒は連帯深蝕で erratic にぶれる）
   planMonsters(floor, player, rng, companion);
   if (companion) planCompanion(floor, player, companion, rng);
@@ -2076,12 +2093,13 @@ async function castSpell(key: string) {
     const t = nearestMon(visMon);
     const spot = adjacentSpotToward(t); // tの隣で、プレイヤーから最も近い空きマス
     if (spot) { flashFx("blink", { x: player.x, y: player.y }); player = spot; }
-    const dmg = meleeDmg(ch);
+    const dmg = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
     t.hp -= dmg;
     sfx("spell_blink");
     if (t.hp <= 0) downOrKill(t, `迫り、${t.kind.name}を討ち砕いた。`);
     else log(`迫って斬りつける（${dmg}）。`);
-  } else if (key === "heal") { // 癒し＝HP回復（理＋体）
+  } else if (key === "heal") { // 癒し＝HP回復（理＋体）。死戸中は回復不可
+    if (deathDoorTurns > 0) { log("死戸が開いている間は、癒えない。", "dim"); draw(); return; }
     const amt = effectiveReason(ch) + ch.stats.body;
     const before = hp; hp = Math.min(maxHp(ch), hp + amt);
     sfx("open"); flashFx("still");
@@ -2098,10 +2116,26 @@ async function castSpell(key: string) {
     const dmg = Math.round(warpDamage(effectiveReason(ch)) * 0.6);
     const dealt = Math.min(dmg, t.hp);
     t.hp -= dmg;
-    const before = hp; hp = Math.min(maxHp(ch), hp + Math.ceil(dealt / 2));
+    const before = hp; if (deathDoorTurns === 0) hp = Math.min(maxHp(ch), hp + Math.ceil(dealt / 2)); // 死戸中は吸命しても癒えない
     sfx("spell_warp"); flashFx("warp", { x: t.x, y: t.y });
     if (t.hp <= 0) downOrKill(t, `吸命が${t.kind.name}を干涸びさせた。`);
     else log(`吸命（与${dmg}／HP＋${hp - before}）。`);
+  } else if (key === "ironscale") { // 硬鱗＝数手 被ダメ軽減
+    armorBuffTurns = 5;
+    sfx("open"); flashFx("still");
+    log(`硬鱗。鱗が立ち、守りが固まった（被ダメ−${ARMOR_BUFF}・5手）。`);
+  } else if (key === "haste") { // 疾走＝数手 敵手番スキップ
+    hasteTurns = 3;
+    sfx("spell_blink"); flashFx("blink", { x: player.x, y: player.y });
+    log("疾走。世界が、ゆっくりと流れ出す（3手）。");
+  } else if (key === "frenzy") { // 焦躁＝数手 近接ダメ上乗せ
+    attackBuffTurns = 5;
+    sfx("open"); flashFx("warp", { x: player.x, y: player.y });
+    log(`焦躁。手が冴え、苛立ちが募る（攻撃＋${ATTACK_BUFF}・5手）。`);
+  } else if (key === "deathdoor") { // 死戸＝数手 無敵だが癒えず、明けに反動
+    deathDoorTurns = 4;
+    sfx("open"); flashFx("still");
+    log("死戸を開く。痛みが、遠い（無敵4手・癒えず・明けに揺り戻し）。");
   } else if (key === "survey") { // 地相＝フロアの地形を感知（地図が開く）
     for (let i = 0; i < floor.explored.length; i++) floor.explored[i] = true;
     sfx("open");
@@ -2144,7 +2178,7 @@ async function castSpell(key: string) {
     log(`縛鎖。${t.kind.name}を縫い止めた。`);
   } else if (key === "omni_strike") { // 万象斬＝視界の敵すべてへ斬撃（近接威力）
     if (!visMon.length) { log("斬る敵が見えない。", "dim"); draw(); return; }
-    const dmg = meleeDmg(ch);
+    const dmg = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
     for (const m of visMon) { m.hp -= dmg; flashFx("warp", { x: m.x, y: m.y }); if (m.hp <= 0) downOrKill(m, `万象斬が${m.kind.name}を断った。`); }
     sfx("spell_warp");
     log(`万象斬（${visMon.length}体・各${dmg}）。`);
@@ -2300,9 +2334,9 @@ function moveOrInteract(nx: number, ny: number): boolean {
   if (tileAt(f, nx, ny) !== 1) return false;
 
   const mon = f.monsters.find((m) => m.hp > 0 && m.x === nx && m.y === ny);
-  if (mon) { // 攻撃（確定命中・確定ダメージ＝力依存）
+  if (mon) { // 攻撃（確定命中・確定ダメージ＝力依存＋焦躁バフ）
     const ch = world.current!;
-    const dmg = meleeDmg(ch);
+    const dmg = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
     mon.hp -= dmg;
     sfx("hit");
     if (mon.hp <= 0) downOrKill(mon); // 撃破→ボスは討つ/鎮める、他は通常（手番末で処理）

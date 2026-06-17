@@ -8,7 +8,7 @@ export type SpellKey =
   | "warp_strike" | "rift_lance" | "collapse" | "thunder" | "ice_tomb" | "wither" | "condemn"  // 攻
   | "still_eye" | "slow" | "dread" | "confuse" | "slumber" | "bind"                            // 制
   | "shadow_step" | "charge" | "omni_strike" | "gravity_pull"                                   // 移
-  | "heal" | "enfeeble" | "leech"                           // 援
+  | "heal" | "enfeeble" | "leech" | "ironscale" | "haste" | "frenzy" | "deathdoor"  // 援
   | "survey" | "insight" | "scent";                         // 識
 
 export type SpellSchool = "攻" | "制" | "移" | "援" | "識";
@@ -48,6 +48,10 @@ export const SPELLS: SpellDef[] = [
   { key: "heal",        name: "癒し",   school: "援", cost: 0.30, desc: "HPを癒す（理＋体ぶん。深蝕は重い）" },
   { key: "enfeeble",    name: "蝕み",   school: "援", cost: 0.18, desc: "最寄りの敵の攻撃を数手のあいだ削ぐ" },
   { key: "leech",       name: "吸命",   school: "援", cost: 0.20, desc: "最寄りの敵を蝕み、奪ったぶんHPに変える" },
+  { key: "ironscale",   name: "硬鱗",   school: "援", cost: 0.18, desc: "数手のあいだ、被ダメージを和らげる（守りを固める）" },
+  { key: "haste",       name: "疾走",   school: "援", cost: 0.25, desc: "数手のあいだ、敵を置き去りに余分な一手を得る" },
+  { key: "frenzy",      name: "焦躁",   school: "援", cost: 0.20, desc: "数手のあいだ近接が冴える（深蝕も募る）" },
+  { key: "deathdoor",   name: "死戸",   school: "援", cost: 0.40, desc: "数手のあいだ無敵だが癒えず、明けに深みの揺り戻し" },
   // ── 識 ──
   { key: "survey",      name: "地相",   school: "識", cost: 0.08, desc: "このフロアの地形を感知する（地図が開ける）" },
   { key: "insight",     name: "看破",   school: "識", cost: 0.06, desc: "可視の敵の正体とHPを見抜く（強さを測る）" },
