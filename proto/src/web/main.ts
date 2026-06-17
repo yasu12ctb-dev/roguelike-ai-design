@@ -2934,7 +2934,10 @@ $("menuBtn").onclick = async () => {
   const mark = { birth: "生", death: "死", rediscovery: "再", intervention: "干", legend: "伝", rumor: "噂" } as const;
   const tail = world.chronicle.slice(-10).map((e) => `世代${e.generation} [${mark[e.kind]}] ${e.text}`).join("\n");
   const canLoadout = !!ch && mode !== "dive" && ch.spells.length > 0; // 構えの入替は安全地帯（街）のみ
-  const opts: string[] = [isMuted() ? "♪ 音を出す" : "🔇 音を消す"];
+  const opts: string[] = [
+    isMuted() ? "♪ 音を出す" : "🔇 音を消す",
+    dpadOn ? "方向パッド：オン → オフにする" : "方向パッド：オフ → オンにする",
+  ];
   if (canLoadout) opts.push("術を構える（ロードアウト）");
   else if (ch && ch.spells.length > 0) opts.push("（術の構えは街・安全地帯でのみ）");
   opts.push("閉じる");
@@ -2944,7 +2947,8 @@ $("menuBtn").onclick = async () => {
     options: opts,
   });
   if (r.pick === 1) { ensureAudio(); setMuted(!isMuted()); }
-  else if (canLoadout && r.pick === 2) { await manageLoadout(ch!); }
+  else if (r.pick === 2) { setDpad(!dpadOn); }
+  else if (canLoadout && r.pick === 3) { await manageLoadout(ch!); }
   busy = false;
 };
 
@@ -2969,29 +2973,67 @@ async function manageLoadout(ch: Character) {
   save();
 }
 
-// ---------- 入力（スワイプ＝移動／タップ＝待機／図でタップ＝そこまで自動移動・矢印キー＝移動・.＝待機） ----------
+// ---------- 入力（8方向：スワイプ／方向キー／numpad／viキー(yubn)／D-pad。タップ＝待機／図でタップ＝自動移動／.＝待機） ----------
 $("mapBtn").onclick = () => { if (mode === "dive" && !busy) setMapMode(!mapMode); };
+
+// 方向パッド（D-pad）の表示設定。スワイプと併用、設定（≡メニュー）でオンオフ・端末に記憶。
+const DPAD_KEY = "sekitsui.dpad";
+let dpadOn = false;
+function loadDpadPref() { try { dpadOn = localStorage.getItem(DPAD_KEY) === "1"; } catch { /* ignore */ } }
+function applyDpad() { $("dpad").classList.toggle("show", dpadOn); }
+function setDpad(on: boolean) {
+  dpadOn = on;
+  try { localStorage.setItem(DPAD_KEY, on ? "1" : "0"); } catch { /* ignore */ }
+  applyDpad();
+}
+
+/** 移動入力の合流点（キー／スワイプ／D-pad）。8方向＋待機。mode と図モードの面倒を見る。 */
+function dirMove(dx: number, dy: number) {
+  if (busy) return;
+  ensureAudio();
+  if (mode === "town" || mode === "interior") { if (dx === 0 && dy === 0) return; townAct(dx, dy); return; }
+  if (mode !== "dive") return;
+  if (mapMode) { setMapMode(false); return; }
+  void playerAct(dx, dy);
+}
+
+/** スワイプのベクトルを8方向へ量子化（45°セクタ。tan22.5°≈0.414 で斜めと直交を分ける）。 */
+function octant(dx: number, dy: number): [number, number] {
+  const adx = Math.abs(dx), ady = Math.abs(dy);
+  const sx = adx > ady * 0.414 ? Math.sign(dx) : 0;
+  const sy = ady > adx * 0.414 ? Math.sign(dy) : 0;
+  return [sx, sy];
+}
+
+// D-pad のボタン（body 直下＝mapWrap のタッチ判定と干渉しない）。click でタップ／マウス両対応。
+for (const btn of Array.from($("dpad").querySelectorAll("button"))) {
+  (btn as HTMLElement).addEventListener("click", () => {
+    const el = btn as HTMLElement;
+    dirMove(Number(el.dataset.dx), Number(el.dataset.dy));
+  });
+}
+
 // 最初のユーザー操作で音を起動（iOS は AudioContext を gesture 内で resume する必要がある）
 addEventListener("pointerdown", () => ensureAudio());
+
+// キー入力：方向キー＋WASD（直交）／viキー yubn（斜め）／numpad 1-9（8方向＋5=待機）。
+const DIR_KEYS: Record<string, [number, number]> = {
+  ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
+  w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0],
+  y: [-1, -1], u: [1, -1], b: [-1, 1], n: [1, 1],
+  ".": [0, 0],
+};
+const DIR_CODES: Record<string, [number, number]> = {
+  Numpad8: [0, -1], Numpad2: [0, 1], Numpad4: [-1, 0], Numpad6: [1, 0],
+  Numpad7: [-1, -1], Numpad9: [1, -1], Numpad1: [-1, 1], Numpad3: [1, 1], Numpad5: [0, 0],
+};
 addEventListener("keydown", (e) => {
   ensureAudio();
-  if (mode === "town" || mode === "interior") {
-    const tm: Record<string, [number, number]> = {
-      ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
-      w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0],
-    };
-    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-    if (tm[k]) { e.preventDefault(); townAct(...tm[k]); }
-    return;
-  }
-  const map: Record<string, [number, number]> = {
-    ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], ".": [0, 0],
-  };
-  if (map[e.key]) {
-    e.preventDefault();
-    if (mapMode) { setMapMode(false); return; }
-    void playerAct(...map[e.key]);
-  }
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  const dir = DIR_KEYS[k] ?? DIR_CODES[e.code];
+  if (!dir) return;
+  e.preventDefault();
+  dirMove(dir[0], dir[1]);
 });
 let touchStart: { x: number; y: number } | null = null;
 $("mapWrap").addEventListener("touchstart", (e) => {
@@ -3005,15 +3047,14 @@ $("mapWrap").addEventListener("touchend", (e) => {
   const tap = Math.hypot(dx, dy) < 24;
 
   if (mode === "town" || mode === "interior") {
-    if (!tap) { // スワイプ＝移動
-      if (Math.abs(dx) > Math.abs(dy)) townAct(Math.sign(dx), 0);
-      else townAct(0, Math.sign(dy));
-    } else if (cellSize > 0) { // タップ＝隣接マスへ一歩
+    if (!tap) { // スワイプ＝8方向移動
+      const [sx, sy] = octant(dx, dy); townAct(sx, sy);
+    } else if (cellSize > 0) { // タップ＝隣接マスへ一歩（斜め含む）
       const r = gridEl.getBoundingClientRect();
       const gx = cam.x + Math.floor((tx - r.left) / cellSize);
       const gy = cam.y + Math.floor((ty - r.top) / cellSize);
       const ddx = gx - townPlayer.x, ddy = gy - townPlayer.y;
-      if (Math.abs(ddx) + Math.abs(ddy) === 1) townAct(Math.sign(ddx), Math.sign(ddy));
+      if (Math.max(Math.abs(ddx), Math.abs(ddy)) === 1) townAct(Math.sign(ddx), Math.sign(ddy));
     }
     return;
   }
@@ -3035,12 +3076,11 @@ $("mapWrap").addEventListener("touchend", (e) => {
     return;
   }
 
-  if (!tap) { // スワイプ＝移動
-    if (Math.abs(dx) > Math.abs(dy)) void playerAct(Math.sign(dx), 0);
-    else void playerAct(0, Math.sign(dy));
+  if (!tap) { // スワイプ＝8方向移動
+    const [sx, sy] = octant(dx, dy); void playerAct(sx, sy);
     return;
   }
-  // タップ（ボタン以外の任意位置）＝待機。移動はスワイプで行う。
+  // タップ（ボタン以外の任意位置）＝待機。移動はスワイプ／D-pad で行う。
   void playerAct(0, 0);
 }, { passive: true });
 
@@ -3055,6 +3095,8 @@ addEventListener("resize", () => {
 // ---------- 起動 ----------
 async function boot() {
   loadMutePref();
+  loadDpadPref();
+  applyDpad();
   buildGridDom();
   updateStatus();
   if (!world.current || !world.current.alive) await characterCreation();
