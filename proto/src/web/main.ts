@@ -2937,6 +2937,7 @@ $("menuBtn").onclick = async () => {
   const opts: string[] = [
     isMuted() ? "♪ 音を出す" : "🔇 音を消す",
     dpadOn ? "方向パッド：オン → オフにする" : "方向パッド：オフ → オンにする",
+    dpadPos === "right" ? "方向パッドの位置：右下 → 左下にする" : "方向パッドの位置：左下 → 右下にする",
   ];
   if (canLoadout) opts.push("術を構える（ロードアウト）");
   else if (ch && ch.spells.length > 0) opts.push("（術の構えは街・安全地帯でのみ）");
@@ -2948,7 +2949,8 @@ $("menuBtn").onclick = async () => {
   });
   if (r.pick === 1) { ensureAudio(); setMuted(!isMuted()); }
   else if (r.pick === 2) { setDpad(!dpadOn); }
-  else if (canLoadout && r.pick === 3) { await manageLoadout(ch!); }
+  else if (r.pick === 3) { setDpadPos(dpadPos === "right" ? "left" : "right"); }
+  else if (canLoadout && r.pick === 4) { await manageLoadout(ch!); }
   busy = false;
 };
 
@@ -2976,14 +2978,31 @@ async function manageLoadout(ch: Character) {
 // ---------- 入力（8方向：スワイプ／方向キー／numpad／viキー(yubn)／D-pad。タップ＝待機／図でタップ＝自動移動／.＝待機） ----------
 $("mapBtn").onclick = () => { if (mode === "dive" && !busy) setMapMode(!mapMode); };
 
-// 方向パッド（D-pad）の表示設定。スワイプと併用、設定（≡メニュー）でオンオフ・端末に記憶。
+// 方向パッド（D-pad）の表示設定。スワイプと併用、設定（≡メニュー）でオンオフ・位置を端末に記憶。
 const DPAD_KEY = "sekitsui.dpad";
-let dpadOn = false;
-function loadDpadPref() { try { dpadOn = localStorage.getItem(DPAD_KEY) === "1"; } catch { /* ignore */ } }
-function applyDpad() { $("dpad").classList.toggle("show", dpadOn); }
+const DPAD_POS_KEY = "sekitsui.dpad.pos";
+let dpadOn = true; // 既定オン
+let dpadPos: "right" | "left" = "right"; // 既定は右下（利き手側）
+function loadDpadPref() {
+  try {
+    dpadOn = localStorage.getItem(DPAD_KEY) !== "0"; // 未設定＝オン
+    dpadPos = localStorage.getItem(DPAD_POS_KEY) === "left" ? "left" : "right";
+  } catch { /* ignore */ }
+}
+function applyDpad() {
+  const el = $("dpad");
+  el.classList.toggle("show", dpadOn);
+  el.classList.toggle("pos-left", dpadPos === "left");
+  el.classList.toggle("pos-right", dpadPos === "right");
+}
 function setDpad(on: boolean) {
   dpadOn = on;
   try { localStorage.setItem(DPAD_KEY, on ? "1" : "0"); } catch { /* ignore */ }
+  applyDpad();
+}
+function setDpadPos(p: "right" | "left") {
+  dpadPos = p;
+  try { localStorage.setItem(DPAD_POS_KEY, p); } catch { /* ignore */ }
   applyDpad();
 }
 
