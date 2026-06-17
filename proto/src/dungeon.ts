@@ -28,6 +28,16 @@ export const MONSTER_KINDS: MonsterKind[] = [
   { key: "ogre",   glyph: "O", name: "石鬼",     hp: 14, dmg: 4, minDepth: 22, erratic: 0.05, tier: 5 },
 ];
 
+// 深度係数（終始シビア・無限スケール 4-11F②）。種の堅さ（早期の差）に深度ぶんを上乗せ＝
+// 深いほど堅く痛い。撃破XPは kind.hp 由来なので、スポーン時に深度ぶんを焼き込めば XP も深度連動する（Lv≈深度）。
+export const depthHpBonus = (depth: number) => Math.round(depth * 1.6);
+export const depthDmgBonus = (depth: number) => Math.round(depth * 0.18);
+/** その深度の「標準的な雑魚」HP（6+1.6d）＝ボス/エリート/追手の算出基準。 */
+export const regularHpAt = (depth: number) => 6 + depthHpBonus(depth);
+/** 種＋深度係数の実体（雑魚スポーンに使う。hp/dmg を深度ぶん底上げ＝撃破XP・被ダメも深度連動）。 */
+export const scaleKind = (k: MonsterKind, depth: number): MonsterKind =>
+  ({ ...k, hp: k.hp + depthHpBonus(depth), dmg: k.dmg + depthDmgBonus(depth) });
+
 /** 敵の次手のテレグラフ（4-11A 読める盤面）。move=ここへ動く / attack=このマスを討つ */
 export type MonsterIntent =
   | { type: "attack"; x: number; y: number }
@@ -175,7 +185,7 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }
   const pool = MONSTER_KINDS.filter((k) => k.minDepth <= depth);
   const count = Math.min(Math.round((W * H) / 135) + Math.floor(depth / 3), 20);
   for (let i = 0; i < count; i++) {
-    const kind = pool[rng.int(pool.length)];
+    const kind = scaleKind(pool[rng.int(pool.length)], depth); // 深度係数を焼き込む（HP/dmg/XP連動）
     const p = randomFloorAway(floor, rng, stairsUp, 5);
     if (p) floor.monsters.push({ id: `m${depth}_${i}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: false, intent: null });
   }
@@ -186,10 +196,10 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }
     const bp = freeFloorNear(floor, stairsDown);
     if (bp) floor.monsters.push({ id: `boss${depth}`, kind, hp: kind.hp, x: bp.x, y: bp.y, awake: true, intent: null, boss: "area", fossilId });
   } else if (depth >= 5 && rng.next() < 0.3) {
-    const base = pool.reduce((a, b) => (b.tier > a.tier ? b : a));
+    const base = scaleKind(pool.reduce((a, b) => (b.tier > a.tier ? b : a)), depth); // 深度スケール済みの最上位種
     const kind: MonsterKind = {
       ...base, key: `elite${depth}`, name: `手負いの${base.name}`,
-      hp: Math.round(base.hp * 2.4) + depth, dmg: base.dmg + 1, tier: Math.min(5, base.tier + 1),
+      hp: Math.round(base.hp * 2), dmg: base.dmg + 1, tier: Math.min(5, base.tier + 1), // 雑魚と area ボスの中間
     };
     const p = randomFloorAway(floor, rng, stairsUp, 8);
     if (p) floor.monsters.push({ id: `elite${depth}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: false, intent: null, boss: "elite" });
@@ -208,7 +218,7 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }
     const lord: MonsterKind = {
       ...kind, key: `abyss${depth}`,
       name: fossilId ? kind.name.replace("成れの果て", "成れの果て――深淵の主") : "深淵の主",
-      hp: Math.round(kind.hp * 1.8) + 20, dmg: kind.dmg + 3, tier: 5,
+      hp: Math.round(kind.hp * 1.4) + 40, dmg: kind.dmg + 2, tier: 5, // area ボス（既に深度スケール済）を更に増強
     };
     const bp = freeFloorNear(floor, stairsDown) ?? stairsDown;
     floor.monsters.push({ id: "abyss_lord", kind: lord, hp: lord.hp, x: bp.x, y: bp.y, awake: true, intent: null, boss: "area", fossilId });
@@ -226,7 +236,7 @@ export function spawnPursuer(f: Floor, rng: Rng, player: Pos, depth: number, n: 
   const base = MONSTER_KINDS[MONSTER_KINDS.length - 1]; // 石鬼＝最上位
   const kind: MonsterKind = {
     ...base, key: `pursuer${depth}_${n}`, glyph: "W", name: "追い縋る怨霊",
-    hp: 8 + depth, dmg: 3 + (depth >> 4), erratic: 0.1, tier: 4,
+    hp: Math.round(regularHpAt(depth) * 1.3), dmg: 2 + depthDmgBonus(depth), erratic: 0.1, tier: 4,
   };
   const m: Monster = { id: `pursuer_${depth}_${n}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: true, intent: null };
   f.monsters.push(m);
@@ -238,7 +248,8 @@ function makeAreaBoss(world: World, depth: number, rng: Rng): { kind: MonsterKin
   const pool = world.fossils.filter((f) => f.kind === "character" || f.kind === "explorer");
   const src = pool.length ? rng.pick(pool) : null;
   const name = src ? `${src.origin.name}の成れの果て` : "深淵の主";
-  const kind: MonsterKind = { key: `boss${depth}`, glyph: "Ω", name, hp: 20 + depth * 2, dmg: 4 + (depth >> 3), minDepth: depth, erratic: 0.05, tier: 5 };
+  // エリアボス＝雑魚baseline×4+20・dmg＝雑魚+4（硬め維持＝止め/距離/弱体/回復/遠距離の駆け引き前提 4-11F）
+  const kind: MonsterKind = { key: `boss${depth}`, glyph: "Ω", name, hp: regularHpAt(depth) * 4 + 20, dmg: 5 + depthDmgBonus(depth), minDepth: depth, erratic: 0.05, tier: 5 };
   return { kind, fossilId: src?.id };
 }
 
@@ -317,7 +328,8 @@ export interface Resolution { hits: MonsterHit[]; dodges: Monster[]; }
 /** 相棒の一手の結果（プレイヤー手番末に解決）。 */
 export interface CompanionResolution { hit: Monster | null; dmg: number; }
 
-const monsterDmg = (m: Monster, f: Floor) => m.kind.dmg + (f.depth >= 20 ? 1 : 0);
+// dmg は kind に深度係数を焼き込み済み（scaleKind / ボス・エリート・追手とも）＝ここでは素のまま。
+const monsterDmg = (m: Monster, _f: Floor) => m.kind.dmg;
 /** 相棒の攻撃力（等級なし時のフォールバック＝控えめの固定値。最終調整は横断E）。 */
 export const COMPANION_DMG = 2;
 

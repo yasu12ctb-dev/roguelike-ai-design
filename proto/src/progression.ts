@@ -6,8 +6,12 @@ import type { Character, Stats } from "./types.ts";
 export const BASE_STATS: Stats = { body: 2, power: 2, reason: 2, heart: 2 };
 
 export const HP_BASE = 6, HP_PER = 3;
-/** 最大HP＝体（body2 で 12＝従来値） */
-export const maxHp = (ch: Character) => HP_BASE + ch.stats.body * HP_PER;
+/** 最大HP＝体（逓減・終始シビア 4-11F②）。体2で12＝従来値。体16までは+3/点、超過分は+1/点で
+ *  facetank を抑止（均整ビルドは不変、体全振りのみ伸びが鈍る：体51→89）。 */
+export const maxHp = (ch: Character) => {
+  const b = ch.stats.body;
+  return HP_BASE + 3 * Math.min(b, 16) + Math.max(0, b - 16);
+};
 /** 持ち物の容量（枠数）。レベル（Lv1→6, Lv4→8, Lv10→11）＋鞄（装備）で増える。 */
 export const CARRY_BASE = 6;
 export const carryCapacity = (ch: Character) =>
@@ -36,16 +40,17 @@ export const equipExposure = (ch: Character) =>
 export const heartFactor = (ch: Character) =>
   Math.max(0.3, 1 - (ch.stats.heart - 2) * 0.12) * (ch.equipment?.relic?.relic === "calm" ? 0.7 : 1);
 
-/** 次レベルに必要なXP（撃破XPで貯まる） */
-export const xpToNext = (level: number) => 6 + level * 6;
+/** 次レベルに必要なXP（撃破XPで貯まる）。案B＝終始シビア（Lv50到達総XP≈37.6k／
+ *  レベルが深度を追い越しにくく常に背伸び。旧 6+6L は浅すぎたため steepen 4-11F②）。 */
+export const xpToNext = (level: number) => Math.round(8 + level * 4 + level * level * 0.8);
 /** 敵1体の撃破XP（堅いほど多い） */
 export const xpForKill = (monsterHp: number) => Math.max(1, monsterHp);
 
 // ---- 奉献の試練（4-13） ----
-/** 第5の印「深淵への到達」を得る深度（深い帯・到達は実力の証）。 */
-export const DEPTH_SEAL_AT = 16;
-/** 深淵帯（封印フロア）の深度。通常到達域より深い＝儀でのみ降りられる神話極の層。 */
-export const ABYSS_DEPTH = 28;
+/** 第5の印「深淵への到達」を得る深度（深い帯・到達は実力の証。終始シビアで深く＝~40）。 */
+export const DEPTH_SEAL_AT = 40;
+/** 深淵帯（封印フロア）の深度。通常到達域より深い＝儀でのみ降りられる神話極の層（~50）。 */
+export const ABYSS_DEPTH = 50;
 /** 帰還の試練・聖遺物携行中の毎手 追加深蝕（深みが覚醒し、留まるほど蝕む）。 */
 export const RELIC_EXPOSURE_PER_TURN = 0.12;
 /** 帰還の試練・追手（怨霊）が湧く手間隔／1フロアの上限。 */
