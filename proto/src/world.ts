@@ -5,7 +5,7 @@ import type {
 } from "./types.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "./types.ts";
 import { resolveTonePole } from "./variation.ts";
-import { BASE_STATS, STASH_INHERIT } from "./progression.ts";
+import { BASE_STATS, STASH_INHERIT, LOADOUT_CAP } from "./progression.ts";
 
 let idCounter = 0;
 const newId = (prefix: string) => `${prefix}_${(++idCounter).toString(36)}`;
@@ -23,6 +23,8 @@ export function migrateWorld(w: World): World {
     if (typeof ch.level !== "number") ch.level = 1;
     if (typeof ch.xp !== "number") ch.xp = 0;
     if (!Array.isArray(ch.spells)) ch.spells = [];
+    if (!Array.isArray(ch.loadout)) ch.loadout = ch.spells.slice(0, LOADOUT_CAP); // 構え（4-11F③）：旧セーブは習得順の先頭から補完
+    else ch.loadout = ch.loadout.filter((k) => ch.spells.includes(k)).slice(0, LOADOUT_CAP); // 整合（未習得/超過を除去）
     if (!ch.equipment) ch.equipment = { weapon: null, armor: null, relic: null };
     if (typeof ch.gold !== "number") ch.gold = 0; // v7：金貨
     if (!Array.isArray(ch.gearBag)) ch.gearBag = []; // 持ち物 Phase4：拾った装備の袋（非破壊バックフィル）
@@ -103,7 +105,7 @@ export function createCharacter(world: World, name: string, archetype: string, l
   const ch: Character = {
     id: newId("ch"), name, archetype, lineage,
     traits: [], exposure: 0, depth: 0, bonds: [], alive: true,
-    stats: { ...BASE_STATS }, level: 1, xp: 0, spells: [],
+    stats: { ...BASE_STATS }, level: 1, xp: 0, spells: [], loadout: [],
     equipment: { weapon: null, armor: null, relic: null, bag: null },
     gold: 0,
     inventory: [],

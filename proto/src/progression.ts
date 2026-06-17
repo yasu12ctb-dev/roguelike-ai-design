@@ -25,6 +25,8 @@ export const gearCapacity = (ch: Character) =>
  *  世代交代で次代へ残るのは消耗品・装備それぞれ STASH_INHERIT 枠まで（残りは失われる）。 */
 export const STASH_CAP = 60;
 export const STASH_INHERIT = 4;
+/** 構えられる術の数（4-11F③ ロードアウト制）。習得は無制限だが、戦闘で撃てるのはこの数まで。 */
+export const LOADOUT_CAP = 10;
 /** 近接ダメージ＝力＋武器（power2・素手 で 3＝従来値。4-11F④） */
 export const meleeDmg = (ch: Character) => ch.stats.power + 1 + (ch.equipment?.weapon?.dmg ?? 0);
 /** 被ダメージ軽減＝防具（B案・下限は呼び出し側で min1） */

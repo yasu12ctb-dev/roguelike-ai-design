@@ -12,7 +12,7 @@ import {
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
 import {
   maxHp, meleeDmg, heartFactor, xpToNext, xpForKill, statsLine,
-  STAT_KEYS, STAT_LABEL, HP_PER, carryCapacity, STASH_CAP, STASH_INHERIT,
+  STAT_KEYS, STAT_LABEL, HP_PER, carryCapacity, STASH_CAP, STASH_INHERIT, LOADOUT_CAP,
   armorReduce, effectiveReason, xpMul, equipExposure, gearCapacity,
   DEPTH_SEAL_AT, ABYSS_DEPTH, RELIC_EXPOSURE_PER_TURN, RELIC_PURSUER_EVERY, RELIC_PURSUER_CAP,
 } from "../progression.ts";
@@ -693,7 +693,7 @@ async function cultOffering() {
   const boons: Boon[] = [];
   for (const s of SPELLS.filter((s) => !ch.spells.includes(s.key))) boons.push({
     label: `禁術を識る：${s.name}（${s.desc}）`,
-    run: () => { ch.spells.push(s.key); log(`深淵が囁く──《${s.name}》を識った。`, "warn"); },
+    run: () => { learnSpell(ch, s.key); log(`深淵が囁く──《${s.name}》を識った。`, "warn"); },
   });
   boons.push({ label: "深淵の力：理 ＋1（深蝕魔法が伸びる）", run: () => { ch.stats.reason += 1; log("深みが理を押し上げた（理 ＋1）。", "warn"); } });
   boons.push({ label: "深淵の力：力 ＋1（攻撃が伸びる）", run: () => { ch.stats.power += 1; log("深みが膂力を押し上げた（力 ＋1）。", "warn"); } });
@@ -1918,16 +1918,31 @@ const SMITH_SELL_MUL = 0.6, MERCHANT_SELL_MUL = 0.45;
 const sellGear = (it: Item, mul: number) => Math.max(1, Math.round(itemValue(it) * mul));
 
 // ---------- 深蝕魔法（4-11F③）。燃料＝深蝕。詠唱＝そのターンの行動。自動対象で最小UX ----------
+/** 構えている術（戦闘で撃てるのはここだけ）。未初期化/旧セーブは習得順の先頭から補完。 */
+function activeLoadout(ch: Character): string[] {
+  if (!ch.loadout) ch.loadout = ch.spells.slice(0, LOADOUT_CAP);
+  return ch.loadout.filter((k) => ch.spells.includes(k));
+}
+/** 術を識る＝図鑑に追加（取得無制限）。構えに空きがあれば自動で構える（ロードアウト制 4-11F③）。 */
+function learnSpell(ch: Character, key: string): boolean {
+  if (ch.spells.includes(key)) return false;
+  ch.spells.push(key);
+  if (!ch.loadout) ch.loadout = ch.spells.slice(0, LOADOUT_CAP);
+  if (ch.loadout.length < LOADOUT_CAP && !ch.loadout.includes(key)) ch.loadout.push(key);
+  return true;
+}
 $("spellBtn").onclick = async () => {
   if (busy || mode !== "dive" || !floor || !world.current) return;
   const ch = world.current;
-  if (ch.spells.length === 0) { log("まだ術を識らない。レベルアップで識れる。", "dim"); return; }
+  if (ch.spells.length === 0) { log("まだ術を識らない。レベルアップ/深淵/教団で識れる。", "dim"); return; }
+  const loadout = activeLoadout(ch);
+  if (loadout.length === 0) { log("術を構えていない。街の ≡ から構えを整えよ。", "dim"); return; }
   busy = true;
-  const known = ch.spells.map((k) => spellByKey(k)).filter((s): s is NonNullable<typeof s> => !!s);
+  const known = loadout.map((k) => spellByKey(k)).filter((s): s is NonNullable<typeof s> => !!s);
   const r = await sheet({
     text: `深みの力を引く。代償は深蝕（今 ${ch.exposure.toFixed(2)}）。`,
-    meta: "術 ── 深蝕を支払って盤面を曲げる",
-    options: [...known.map((s) => `${s.name}（深蝕＋${s.cost}）── ${s.desc}`), "やめる"],
+    meta: `術 ── 構え ${loadout.length}/${LOADOUT_CAP}（深蝕を支払って盤面を曲げる）`,
+    options: [...known.map((s) => `[${s.school}] ${s.name}（深蝕＋${s.cost}）── ${s.desc}`), "やめる"],
   });
   busy = false;
   const spell = known[r.pick - 1];
@@ -1954,6 +1969,26 @@ $("bagBtn").onclick = async () => {
   log(`${def?.name} を使った（${msg}）。`, "warn");
   await endTurn(); // 一手経過＝敵の手番
 };
+
+/** 視界内の最寄りの敵。 */
+function nearestMon(list: Monster[]): Monster {
+  return list.reduce((a, b) =>
+    Math.hypot(a.x - player.x, a.y - player.y) <= Math.hypot(b.x - player.x, b.y - player.y) ? a : b);
+}
+/** t に隣接する空き床のうち、プレイヤーから最も近いマス（迫りの着地点）。なければ null。 */
+function adjacentSpotToward(t: Monster): Pos | null {
+  if (!floor) return null;
+  let best: Pos | null = null, bestD = Infinity;
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if (!dx && !dy) continue;
+    const x = t.x + dx, y = t.y + dy;
+    if (tileAt(floor, x, y) !== 1) continue;
+    if (floor.monsters.some((m) => m.hp > 0 && m.x === x && m.y === y)) continue;
+    const d = Math.hypot(x - player.x, y - player.y);
+    if (d < bestD) { bestD = d; best = { x, y }; }
+  }
+  return best;
+}
 
 async function castSpell(key: string) {
   if (busy || mode !== "dive" || !floor || !world.current) return;
@@ -1993,6 +2028,84 @@ async function castSpell(key: string) {
     player = best;
     sfx("spell_blink");
     log("影を踏んで、ひと息に渡った。");
+  } else if (key === "rift_lance") { // 裂界＝最寄りへ向け一直線を貫く（線上の敵すべて）
+    if (!visMon.length) { log("貫く敵が見えない。", "dim"); draw(); return; }
+    const t = nearestMon(visMon);
+    const sx = Math.sign(t.x - player.x), sy = Math.sign(t.y - player.y);
+    const dmg = Math.round(warpDamage(effectiveReason(ch)) * 0.8);
+    let hitN = 0;
+    for (let i = 1; i <= 9; i++) {
+      const x = player.x + sx * i, y = player.y + sy * i;
+      if (tileAt(floor, x, y) !== 1) break; // 壁で止まる
+      const m = floor.monsters.find((mm) => mm.hp > 0 && mm.x === x && mm.y === y);
+      if (m) { m.hp -= dmg; hitN++; flashFx("warp", { x, y }); if (m.hp <= 0) downOrKill(m, `裂界が${m.kind.name}を裂いた。`); }
+    }
+    sfx("spell_warp");
+    log(hitN ? `裂界が一直線を貫く（${hitN}体・各${dmg}）。` : "裂界は空を裂いた。");
+  } else if (key === "collapse") { // 崩落＝最寄りを中心に範囲ダメージ
+    if (!visMon.length) { log("崩す相手が見えない。", "dim"); draw(); return; }
+    const t = nearestMon(visMon);
+    const dmg = Math.round(warpDamage(effectiveReason(ch)) * 0.7);
+    let hitN = 0;
+    for (const m of floor.monsters) {
+      if (m.hp > 0 && Math.max(Math.abs(m.x - t.x), Math.abs(m.y - t.y)) <= 1) {
+        m.hp -= dmg; hitN++; flashFx("warp", { x: m.x, y: m.y });
+        if (m.hp <= 0) downOrKill(m, `崩落が${m.kind.name}を呑んだ。`);
+      }
+    }
+    sfx("spell_warp");
+    log(`崩落（${hitN}体・各${dmg}）。`);
+  } else if (key === "thunder") { // 雷霆＝可視の敵すべてに放射状の雷（弱め）
+    if (!visMon.length) { log("雷を落とす敵が見えない。", "dim"); draw(); return; }
+    const dmg = Math.max(1, Math.round(warpDamage(effectiveReason(ch)) * 0.5));
+    for (const m of visMon) { m.hp -= dmg; if (m.hp <= 0) downOrKill(m, `雷霆が${m.kind.name}を撃ち抜いた。`); }
+    sfx("spell_warp"); flashFx("still");
+    log(`雷霆が${visMon.length}体を撃つ（各${dmg}）。`);
+  } else if (key === "slow") { // 鈍り＝可視の敵を数手1手おきに
+    if (!visMon.length) { log("鈍らせる敵が見えない。", "dim"); draw(); return; }
+    for (const m of visMon) m.slowed = 6;
+    sfx("spell_still"); flashFx("still");
+    log(`鈍り。${visMon.length}体の足が、重くなった。`);
+  } else if (key === "dread") { // 畏れ＝可視の敵を数手怯えさせ退かせる
+    if (!visMon.length) { log("怯ませる敵が見えない。", "dim"); draw(); return; }
+    for (const m of visMon) m.fear = 5;
+    sfx("spell_still"); flashFx("still");
+    log(`畏れ。${visMon.length}体が、後ずさる。`);
+  } else if (key === "charge") { // 迫り＝最寄りへ踏み込み近接一撃
+    if (!visMon.length) { log("迫る敵が見えない。", "dim"); draw(); return; }
+    const t = nearestMon(visMon);
+    const spot = adjacentSpotToward(t); // tの隣で、プレイヤーから最も近い空きマス
+    if (spot) { flashFx("blink", { x: player.x, y: player.y }); player = spot; }
+    const dmg = meleeDmg(ch);
+    t.hp -= dmg;
+    sfx("spell_blink");
+    if (t.hp <= 0) downOrKill(t, `迫り、${t.kind.name}を討ち砕いた。`);
+    else log(`迫って斬りつける（${dmg}）。`);
+  } else if (key === "heal") { // 癒し＝HP回復（理＋体）
+    const amt = effectiveReason(ch) + ch.stats.body;
+    const before = hp; hp = Math.min(maxHp(ch), hp + amt);
+    sfx("open"); flashFx("still");
+    log(`癒しが巡る（HP＋${hp - before}）。`);
+  } else if (key === "enfeeble") { // 蝕み＝最寄りの攻撃を数手削ぐ
+    if (!visMon.length) { log("蝕む敵が見えない。", "dim"); draw(); return; }
+    const t = nearestMon(visMon);
+    t.weak = 6;
+    sfx("spell_still"); flashFx("still");
+    log(`蝕み。${t.kind.name}の力が、萎えた。`);
+  } else if (key === "leech") { // 吸命＝最寄りを蝕み、奪ったぶんHPへ
+    if (!visMon.length) { log("吸う相手が見えない。", "dim"); draw(); return; }
+    const t = nearestMon(visMon);
+    const dmg = Math.round(warpDamage(effectiveReason(ch)) * 0.6);
+    const dealt = Math.min(dmg, t.hp);
+    t.hp -= dmg;
+    const before = hp; hp = Math.min(maxHp(ch), hp + Math.ceil(dealt / 2));
+    sfx("spell_warp"); flashFx("warp", { x: t.x, y: t.y });
+    if (t.hp <= 0) downOrKill(t, `吸命が${t.kind.name}を干涸びさせた。`);
+    else log(`吸命（与${dmg}／HP＋${hp - before}）。`);
+  } else if (key === "survey") { // 地相＝フロアの地形を感知（地図が開く）
+    for (let i = 0; i < floor.explored.length; i++) floor.explored[i] = true;
+    sfx("open");
+    log("地相を読む。この階の輪郭が、頭に灯った。");
   }
 
   ch.exposure += def.cost;
@@ -2009,28 +2122,31 @@ async function handleLevelUps() {
       ch.xp -= xpToNext(ch.level);
       ch.level += 1;
       busy = true;
-      // ステ+1 に加え、未習得の術を「識る」選択肢（snapshot：ステ上昇 or 術習得）
-      const learnable = SPELLS.filter((s) => !ch.spells.includes(s.key));
+      // ① ステ+1（常に。術習得とは排他にしない＝ロードアウト制 4-11F③）
       const r = await sheet({
         text: `レベル${ch.level}に達した。何を伸ばす？`,
         meta: `${statsLine(ch)} ── 最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)}`,
         options: [
           `体 ＋1（最大HPが上がる）`,
           `力 ＋1（攻撃が上がる）`,
-          `理 ＋1（深蝕魔法の威力：のちの力）`,
+          `理 ＋1（深蝕魔法の威力・癒し量）`,
           `心 ＋1（深蝕に染まりにくくなる）`,
-          ...learnable.map((s) => `術を識る：${s.name}（深蝕＋${s.cost}／${s.desc}）`),
         ],
       });
-      if (r.pick <= 4) {
-        const key = STAT_KEYS[r.pick - 1];
-        ch.stats[key] += 1;
-        if (key === "body") hp = Math.min(hp + HP_PER, maxHp(ch)); // 体UPぶんを回復
-        log(`レベル${ch.level} ── ${STAT_LABEL[key]}が伸びた（${statsLine(ch)}）。`, "warn");
-      } else {
-        const s = learnable[r.pick - 5];
-        ch.spells.push(s.key);
-        log(`レベル${ch.level} ── 深みから《${s.name}》を識った。`, "warn");
+      const key = STAT_KEYS[(r.pick - 1 + 4) % 4]; // やめる等の範囲外は体に丸める（必ず1つ伸びる）
+      ch.stats[key] += 1;
+      if (key === "body") hp = Math.min(hp + HP_PER, maxHp(ch)); // 体UPぶんを回復
+      log(`レベル${ch.level} ── ${STAT_LABEL[key]}が伸びた（${statsLine(ch)}）。`, "warn");
+      // ② 深みから術を1つ識る（任意・無制限・ステとは別枠）。空き構えがあれば自動で構える。
+      const learnable = SPELLS.filter((s) => !ch.spells.includes(s.key));
+      if (learnable.length) {
+        const lr = await sheet({
+          text: `深みから術が滲む。1つ識るか？（取得は無制限。構えは街の ≡ で整える）`,
+          meta: `術 ${ch.spells.length}種 識得済み ── 構え ${activeLoadout(ch).length}/${LOADOUT_CAP}`,
+          options: [...learnable.map((s) => `[${s.school}] ${s.name}（深蝕＋${s.cost}／${s.desc}）`), "今は識らない"],
+        });
+        const s = learnable[lr.pick - 1];
+        if (s) { learnSpell(ch, s.key); log(`深みから《${s.name}》を識った。`, "warn"); }
       }
       busy = false;
     }
@@ -2534,19 +2650,49 @@ $("menuBtn").onclick = async () => {
     ? `\n拾い物の袋 ${(ch.gearBag ?? []).length}/${gearCapacity(ch)}: ${(ch.gearBag ?? []).map((it) => itemLabel(it)).join("、")}（武具屋/行商人で売る）`
     : "";
   const sealLine = sealProgressLine();
+  const loadoutLine = ch && activeLoadout(ch).length
+    ? `\n構え ${activeLoadout(ch).length}/${LOADOUT_CAP}: ${activeLoadout(ch).map((k) => spellByKey(k)?.name).filter(Boolean).join("、")}`
+    : "";
   const sheetHead = ch
-    ? `《${ch.name}》Lv${ch.level} ── ${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のレベルまで残り${Math.max(0, xpToNext(ch.level) - ch.xp)}${eqLine}${invLine}${gearLine}\n深蝕 ${ch.exposure.toFixed(2)}${ch.carryingRelic ? `\n★聖遺物を携行中（生還せよ）` : ""}${spellNames ? `\n術: ${spellNames}` : ""}${ch.traits.length ? `\n形質: ${ch.traits.join("、")}` : ""}\n${sealLine}\n\n`
+    ? `《${ch.name}》Lv${ch.level} ── ${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のレベルまで残り${Math.max(0, xpToNext(ch.level) - ch.xp)}${eqLine}${invLine}${gearLine}\n深蝕 ${ch.exposure.toFixed(2)}${ch.carryingRelic ? `\n★聖遺物を携行中（生還せよ）` : ""}${spellNames ? `\n術(識得${ch.spells.length}): ${spellNames}` : ""}${loadoutLine}${ch.traits.length ? `\n形質: ${ch.traits.join("、")}` : ""}\n${sealLine}\n\n`
     : "";
   const mark = { birth: "生", death: "死", rediscovery: "再", intervention: "干", legend: "伝", rumor: "噂" } as const;
   const tail = world.chronicle.slice(-10).map((e) => `世代${e.generation} [${mark[e.kind]}] ${e.text}`).join("\n");
+  const canLoadout = !!ch && mode !== "dive" && ch.spells.length > 0; // 構えの入替は安全地帯（街）のみ
+  const opts: string[] = [isMuted() ? "♪ 音を出す" : "🔇 音を消す"];
+  if (canLoadout) opts.push("術を構える（ロードアウト）");
+  else if (ch && ch.spells.length > 0) opts.push("（術の構えは街・安全地帯でのみ）");
+  opts.push("閉じる");
   const r = await sheet({
     text: sheetHead + (tail || "まだ何も記されていない。"),
     meta: `人物と年代記 ── 全${world.chronicle.length}件`,
-    options: [isMuted() ? "♪ 音を出す" : "🔇 音を消す", "閉じる"],
+    options: opts,
   });
-  busy = false;
   if (r.pick === 1) { ensureAudio(); setMuted(!isMuted()); }
+  else if (canLoadout && r.pick === 2) { await manageLoadout(ch!); }
+  busy = false;
 };
+
+/** 術の構え（ロードアウト）を整える。識得済みの中から LOADOUT_CAP 個を選んで構える（安全地帯のみ）。 */
+async function manageLoadout(ch: Character) {
+  if (!ch.loadout) ch.loadout = ch.spells.slice(0, LOADOUT_CAP);
+  while (true) {
+    const known = ch.spells.map((k) => spellByKey(k)).filter((s): s is NonNullable<typeof s> => !!s);
+    const opts = known.map((s) => `${ch.loadout!.includes(s.key) ? "◆構え" : "・控え"} [${s.school}] ${s.name} ── ${s.desc}`);
+    const r = await sheet({
+      text: `戦闘で撃てるのは「構え」だけ。タップで 構え⇄控え を入れ替える。\n構え ${ch.loadout!.length}/${LOADOUT_CAP}`,
+      meta: `術の構え ── ${ch.spells.length}種 識得`,
+      options: [...opts, "閉じる"],
+    });
+    if (r.pick < 1 || r.pick > known.length) break;
+    const s = known[r.pick - 1];
+    const i = ch.loadout!.indexOf(s.key);
+    if (i >= 0) { ch.loadout!.splice(i, 1); log(`${s.name} を控えに戻した。`, "dim"); }
+    else if (ch.loadout!.length < LOADOUT_CAP) { ch.loadout!.push(s.key); log(`${s.name} を構えた。`, "dim"); }
+    else log(`構えは${LOADOUT_CAP}つまで。何か外してから。`, "dim");
+  }
+  save();
+}
 
 // ---------- 入力（スワイプ＝移動／タップ＝待機／図でタップ＝そこまで自動移動・矢印キー＝移動・.＝待機） ----------
 $("mapBtn").onclick = () => { if (mode === "dive" && !busy) setMapMode(!mapMode); };
