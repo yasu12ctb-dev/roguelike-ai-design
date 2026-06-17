@@ -9,9 +9,10 @@ export type SpellKey =
   | "still_eye" | "slow" | "dread" | "confuse" | "slumber" | "bind"                            // 制
   | "shadow_step" | "charge" | "omni_strike" | "gravity_pull"                                   // 移
   | "heal" | "enfeeble" | "leech" | "ironscale" | "haste" | "frenzy" | "deathdoor"  // 援
-  | "survey" | "insight" | "scent";                         // 識
+  | "survey" | "insight" | "scent"                          // 識
+  | "minions" | "orbblade" | "echo" | "shadowclone";        // 召
 
-export type SpellSchool = "攻" | "制" | "移" | "援" | "識";
+export type SpellSchool = "攻" | "制" | "移" | "援" | "識" | "召";
 
 export interface SpellDef {
   key: SpellKey;
@@ -56,6 +57,11 @@ export const SPELLS: SpellDef[] = [
   { key: "survey",      name: "地相",   school: "識", cost: 0.08, desc: "このフロアの地形を感知する（地図が開ける）" },
   { key: "insight",     name: "看破",   school: "識", cost: 0.06, desc: "可視の敵の正体とHPを見抜く（強さを測る）" },
   { key: "scent",       name: "嗅ぎ",   school: "識", cost: 0.06, desc: "宝箱・化石の在処を嗅ぎ当てる（地図に灯す）" },
+  // ── 召（一時味方・数手で霧散） ──
+  { key: "minions",     name: "蝕兵",   school: "召", cost: 0.30, desc: "最寄りの敵の傍に短命の眷属を2体起こす（隣接を討つ）" },
+  { key: "orbblade",    name: "廻刃",   school: "召", cost: 0.28, desc: "自分の傍を回る刃を侍らせる（隣接敵を毎手討つ）" },
+  { key: "echo",        name: "残響召喚", school: "召", cost: 0.35, desc: "在りし日の残響を1体呼ぶ（強めの一時味方）" },
+  { key: "shadowclone", name: "影分け", school: "召", cost: 0.25, desc: "影武者が数手のあいだ、敵の一撃を肩代わりする" },
 ];
 
 export const spellByKey = (key: string): SpellDef | undefined => SPELLS.find((s) => s.key === key);
