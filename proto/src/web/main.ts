@@ -177,6 +177,16 @@ function updateStatus() {
   const n = Math.min(5, Math.floor(e / 0.6));
   $("stExp").textContent = `深蝕 ${"▮".repeat(n)}${"░".repeat(5 - n)}`;
   $("stGold").textContent = ch ? `金 ${ch.gold}` : "";
+  // 術バフ/召喚の残量を一目に（潜行中のみ。4-11F③ ロードアウト魔法の体感補助）
+  const buffs: string[] = [];
+  if (armorBuffTurns > 0) buffs.push(`硬鱗${armorBuffTurns}`);
+  if (attackBuffTurns > 0) buffs.push(`焦躁${attackBuffTurns}`);
+  if (hasteTurns > 0) buffs.push(`疾走${hasteTurns}`);
+  if (deathDoorTurns > 0) buffs.push(`死戸${deathDoorTurns}`);
+  if (shadowGuard > 0) buffs.push(`影${shadowGuard}`);
+  if (cleanseTurns > 0) buffs.push(`解呪${cleanseTurns}`);
+  if (summons.length) buffs.push(`召${summons.length}`);
+  $("stBuff").textContent = (mode === "dive" && buffs.length) ? `《${buffs.join(" ")}》` : "";
 }
 
 // ---------- マップ描画（方向A） ----------
