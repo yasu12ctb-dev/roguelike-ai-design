@@ -44,6 +44,7 @@ export function migrateWorld(w: World): World {
   if (typeof w.raidCooldown !== "number") w.raidCooldown = 0; // 街襲撃の冷却：欠落は0で補完
   if (typeof w.memorialCooldown !== "number") w.memorialCooldown = 0; // 追悼の日の冷却：欠落は0で補完
   if (typeof w.plagueCooldown !== "number") w.plagueCooldown = 0; // 疫病の冷却：欠落は0で補完
+  if (typeof w.diveCount !== "number") w.diveCount = 0; // 潜行回数（再潜行farm防止のseed nonce）：欠落は0で補完
   if (!Array.isArray(w.seals)) w.seals = [];       // 奉献の試練・集めた印（4-13A）：欠落は空で補完
   if (typeof w.ascended !== "number") w.ascended = 0; // 奉献の試練・クリア回数（4-13D）
   if (w.town) { // 歩ける街（4-4B）：旧セーブに欠落するサブシーン状態を補完
@@ -118,6 +119,11 @@ export function createCharacter(world: World, name: string, archetype: string, l
       ch.bonds.push({ entityRef: anc.id, value: 2, unfinished: true }); // 先代の未完を継ぐ
       if (lineage.relation === "blood") ch.traits.push(`${anc.origin.name}の血`);
       if (lineage.relation === "pupil") ch.traits.push(`${anc.origin.name}の教え`);
+      // 先代の術の一部が初期値に滲む（4-11F②）。弟子は教えを多く継ぎ（3）、血筋は少し（2）。構えにも自動装填。
+      const inheritN = lineage.relation === "pupil" ? 3 : 2;
+      for (const key of (anc.spells ?? []).slice(0, inheritN)) {
+        if (!ch.spells.includes(key)) { ch.spells.push(key); if (ch.loadout!.length < LOADOUT_CAP) ch.loadout!.push(key); }
+      }
     }
   }
   world.current = ch;
@@ -147,6 +153,7 @@ export function fossilizeCurrent(world: World, manner: DeathManner, finalAct: Fi
     interventions: [],
     lastTouchedGeneration: world.generation,
     laidDepth: ch.depth,
+    spells: [...ch.spells], // 系譜継承（4-11F②）：覚えていた術を化石に遺す＝次代の血/弟子に滲む
   };
   world.fossils.push(fossil);
   chronicle(world, "death",

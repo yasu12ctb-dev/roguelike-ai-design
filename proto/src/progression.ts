@@ -46,7 +46,9 @@ export const heartFactor = (ch: Character) =>
  *  レベルが深度を追い越しにくく常に背伸び。旧 6+6L は浅すぎたため steepen 4-11F②）。 */
 export const xpToNext = (level: number) => Math.round(8 + level * 4 + level * level * 0.8);
 /** 敵1体の撃破XP（堅いほど多い） */
-export const xpForKill = (monsterHp: number) => Math.max(1, monsterHp);
+/** 敵1体の撃破XP（堅いほど多い）。迷宮拡張で敵数が増えたぶん係数0.55で抑え、Lv≈深度を保つ（4-11F②）。 */
+export const XP_KILL_MUL = 0.55;
+export const xpForKill = (monsterHp: number) => Math.max(1, Math.round(monsterHp * XP_KILL_MUL));
 
 // ---- 奉献の試練（4-13） ----
 /** 第5の印「深淵への到達」を得る深度（深い帯・到達は実力の証。終始シビアで深く＝~40）。 */
