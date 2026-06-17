@@ -91,7 +91,8 @@ export interface Character {
   stats: Stats;
   level: number;
   xp: number;                   // 次のレベルまでの蓄積（敵撃破で増える）
-  spells: string[];             // 習得した深蝕魔法のキー（4-11F③・SpellKey）
+  spells: string[];             // 習得した深蝕魔法のキー（取得無制限＝図鑑。4-11F③・SpellKey）
+  loadout?: string[];           // 構えている術（戦闘で撃てるのはここだけ・上限LOADOUT_CAP=10）。安全地帯でのみ入替。任意＝旧セーブ非破壊。
   equipment: Equipment;         // 装備スロット（4-11F④）
   gold: number;                 // 金貨（4-10G 経済。拾得物の売却・依頼報酬で増え、店で減る）
   inventory?: InventorySlot[];  // 持ち物（消耗品。容量はレベルで増える＝progression.carryCapacity）。任意＝旧セーブ非破壊。

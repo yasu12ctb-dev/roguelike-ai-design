@@ -48,6 +48,9 @@ export interface Monster extends Pos {
   id: string; kind: MonsterKind; hp: number; awake: boolean;
   intent: MonsterIntent | null;  // 次ターンに実行する予告（プレイヤーに見える）
   stunned?: number;              // >0 の間は行動不能（静止の眼：4-11F③）
+  slowed?: number;               // >0 の間は1手おきにしか動けない（鈍り：4-11F③）
+  fear?: number;                 // >0 の間は標的から逃げる（畏れ：4-11F③）
+  weak?: number;                 // >0 の間は攻撃力減（蝕み：4-11F③）。減算量は WEAK_AMT
   boss?: "elite" | "area";       // 中ボス（奥の強敵）／エリアボス（節目の山場）：4-11F
   fossilId?: string;             // 出自の化石（敵性化した探索者）。⑤鎮め筋の対象（4-11D）
 }
@@ -328,8 +331,9 @@ export interface Resolution { hits: MonsterHit[]; dodges: Monster[]; }
 /** 相棒の一手の結果（プレイヤー手番末に解決）。 */
 export interface CompanionResolution { hit: Monster | null; dmg: number; }
 
-// dmg は kind に深度係数を焼き込み済み（scaleKind / ボス・エリート・追手とも）＝ここでは素のまま。
-const monsterDmg = (m: Monster, _f: Floor) => m.kind.dmg;
+// dmg は kind に深度係数を焼き込み済み（scaleKind / ボス・エリート・追手とも）。蝕み（weak）中は減算（下限1）。
+export const WEAK_AMT = 4;
+const monsterDmg = (m: Monster, _f: Floor) => Math.max(1, m.kind.dmg - (m.weak && m.weak > 0 ? WEAK_AMT : 0));
 /** 相棒の攻撃力（等級なし時のフォールバック＝控えめの固定値。最終調整は横断E）。 */
 export const COMPANION_DMG = 2;
 
@@ -356,7 +360,9 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
   const comp = companion && companion.hp > 0 ? companion : null;
   for (const m of f.monsters) {
     if (m.hp <= 0) { m.intent = null; continue; }
+    if (m.weak && m.weak > 0) m.weak--; // 蝕み（攻撃減）の残り手数を消費
     if (m.stunned && m.stunned > 0) { m.stunned--; m.intent = { type: "wait" }; continue; } // 静止の眼
+    if (m.slowed && m.slowed > 0) { m.slowed--; if (m.slowed % 2 === 1) { m.intent = { type: "wait" }; continue; } } // 鈍り＝1手おき
     const dPlayer = Math.hypot(m.x - player.x, m.y - player.y);
     const dComp = comp ? Math.hypot(m.x - comp.x, m.y - comp.y) : Infinity;
     // 覚醒：プレイヤー or 相棒のいずれかを視認したら起きる
@@ -369,6 +375,18 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
     // 標的＝近い方（同距離はプレイヤー優先）
     const target = comp && dComp < dPlayer ? comp : player;
     const d = comp && dComp < dPlayer ? dComp : dPlayer;
+    if (m.fear && m.fear > 0) { // 畏れ＝標的から逃げる（隣接でも攻撃しない）
+      m.fear--;
+      let fx = Math.sign(m.x - target.x), fy = Math.sign(m.y - target.y);
+      if (fx === 0 && fy === 0) fx = 1;
+      const flee: Pos[] = [{ x: m.x + fx, y: m.y + fy }, { x: m.x + fx, y: m.y }, { x: m.x, y: m.y + fy }];
+      let dest: Pos | null = null;
+      for (const c of flee) {
+        if (tileAt(f, c.x, c.y) === 1 && !(c.x === player.x && c.y === player.y) && !occupiedBy(f, c.x, c.y, m, comp)) { dest = c; break; }
+      }
+      m.intent = dest ? { type: "move", x: dest.x, y: dest.y } : { type: "wait" };
+      continue;
+    }
     if (d < 1.5) { // 隣接 → 標的の現在マスを討つと予告（退けば空振り＝見切り）
       m.intent = { type: "attack", x: target.x, y: target.y };
       continue;
