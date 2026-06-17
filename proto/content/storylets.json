@@ -2103,6 +2103,49 @@
         { "label": "獣が来る前に救い出す", "text": "総身で瓦礫をどけ、男を引き出して背負う。獣の唸りを背に、二人で死地を駆け抜けた。男は守り袋を握らせ、深く頭を垂れた。", "effects": [ { "exposure": 0.08 }, { "gold": 18 }, { "item": "soothe" }, { "trait": "救い出した者:深層の崩落" }, { "chronicle": "深度#depth#で、獣迫る深層の崩落から、挟まれた探索者を救い出した。" } ] },
         { "label": "見捨てて逃げる", "text": "己の命が惜しかった。男を残し、闇へ駆けた。背後で上がった悲鳴を、深みが呑み込んでいく。", "effects": [ { "exposure": 0.1 }, { "chronicle": "深度#depth#で、深層の崩落に挟まれた者を見捨てて逃げた。" } ] }
       ]
+    },
+    {
+      "id": "nb_seek",
+      "context": "dungeon",
+      "prerequisites": { "arc": "noble", "arcStep": 1, "depthBand": "mid" },
+      "weight": 4,
+      "text": "深層の岩壁に、見覚えのある紋章が刻まれていた。封鎖区の一族の印——あの貴族が言った『原初の証』は、この奥に眠るのだ。重い石扉が、行く手を阻んでいる。",
+      "choices": [
+        { "label": "紋章を頼りに、奥へ進む", "text": "扉の継ぎ目に指をかけ、こじ開ける。冷気の奥から、古い血の匂いが漂ってきた。", "effects": [ { "arc": {"key": "noble", "step": 2} }, { "trait": "辿った印:封鎖区の祖の紋章" }, { "chronicle": "深度#depth#で封鎖区の一族の紋章を見つけ、原初の証へ近づいた。" } ] },
+        { "label": "一旦引き返し、備えを整える", "text": "この奥は、生半可な覚悟では踏み込めない。今日は引き返した。", "effects": [ { "chronicle": "深度#depth#で封鎖区の紋章を見つけたが、奥へは踏み込まなかった。" } ] }
+      ]
+    },
+    {
+      "id": "nb_relic",
+      "context": "dungeon",
+      "prerequisites": { "arc": "noble", "arcStep": 2, "depthBand": "mid" },
+      "weight": 4,
+      "text": "扉の奥は、奇妙に清浄な石室だった。中央の台座に、脈打つ古い護符——『原初の証』。だが壁一面の碑文が、別の真実を語っていた。この一族は、深みに『供物』を捧げて栄えたのだ。代々、攫った者をこの深部へ。証とは、その契約の証文に他ならなかった。",
+      "choices": [
+        { "label": "証だけを持ち、忠義を守る", "text": "罪は見なかったことにした。台座から護符だけを取り、石室を後にする。", "effects": [ { "arc": {"key": "noble", "step": 3, "pick": "loyal"} }, { "trait": "携えしもの:原初の証" }, { "chronicle": "深度#depth#で『原初の証』を手にした。一族の罪は、胸の奥に封じた。" } ] },
+        { "label": "一族の罪の証拠も持ち出す", "text": "攫われ、捧げられた者たちの名簿。これは、握り潰してはならない。証文ごと懐へ収めた。", "effects": [ { "arc": {"key": "noble", "step": 3, "pick": "curious"} }, { "exposure": 0.06 }, { "trait": "暴いた証拠:封鎖区の供物の契約" }, { "chronicle": "深度#depth#で『原初の証』と共に、一族が深みへ捧げた供物の証拠を持ち出した。" } ] }
+      ]
+    },
+    {
+      "id": "nb_return_loyal",
+      "context": "street",
+      "prerequisites": { "arc": "noble", "arcStep": 3, "arcPick": "loyal", "arcActor": true },
+      "weight": 3,
+      "text": "#origin_name# は『原初の証』を受け取ると、長く息を吐いた。「これで……我が血の始まりを知れる。礼を言うぞ。約束の通り、お前の想像を超える礼を」。",
+      "choices": [
+        { "label": "礼を受け取る", "text": "差し出されたのは、見たこともない額の金貨と、一族秘伝の妙薬。そして何より——封鎖区に、お前という客人の席が一つ、永く設けられた。", "effects": [ { "arc": {"key": "noble", "step": 4, "done": true} }, { "gold": 70 }, { "item": "soothe" }, { "trait": "封鎖区の客人:#origin_name#の恩人" }, { "chronicle": "#origin_name# に『原初の証』を届け、封鎖区の客人として遇された。莫大な礼を受けた。" } ] }
+      ]
+    },
+    {
+      "id": "nb_return_curious",
+      "context": "street",
+      "prerequisites": { "arc": "noble", "arcStep": 3, "arcPick": "curious", "arcActor": true },
+      "weight": 3,
+      "text": "#origin_name# が『原初の証』に手を伸ばす。だがお前の手には、一族の罪の証拠もある。攫われ、深みへ捧げられた者たちの名簿。突きつければ、この高貴な顔は、どう歪むだろう。",
+      "choices": [
+        { "label": "証だけ渡し、罪は黙して礼を得る", "text": "罪は、胸に秘めた。#origin_name# は満足げに頷き、莫大な礼を約した。後ろめたさだけが、深みのように胸の底に澱む。", "effects": [ { "arc": {"key": "noble", "step": 4, "done": true} }, { "gold": 70 }, { "exposure": 0.04 }, { "trait": "封鎖区の客人:#origin_name#の恩人" }, { "chronicle": "#origin_name# に証を届け、一族の罪は胸に秘めて莫大な礼を受けた。" } ] },
+        { "label": "罪を突きつけ、真実を暴く", "text": "名簿を叩きつけると、#origin_name# の顔から血の気が引いた。「……やめろ」。だが、もう遅い。封鎖区の暗い契約が、ついに白日の下へ。礼金は減ったが、胸は晴れた。", "effects": [ { "arc": {"key": "noble", "step": 4, "pick": "exposed", "done": true} }, { "gold": 20 }, { "exposure": -0.05 }, { "trait": "暴いた者:封鎖区の供物の罪" }, { "chronicle": "#origin_name# に一族の罪を突きつけ、封鎖区の暗い契約を白日の下に晒した。" } ] }
+      ]
     }
   ]
 }
