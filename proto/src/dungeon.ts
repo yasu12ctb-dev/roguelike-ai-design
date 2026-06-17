@@ -101,7 +101,8 @@ interface Room { x: number; y: number; w: number; h: number; }
 const center = (r: Room): Pos => ({ x: r.x + (r.w >> 1), y: r.y + (r.h >> 1) });
 
 export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }): Floor {
-  const rng = makeRng((world.seed ^ (depth * 2654435761) ^ (world.generation * 97) ^ (opts?.abyss ? 0x5eed : 0)) >>> 0);
+  // seed に潜行回数(diveCount)を混ぜる＝同一世代でも潜行ごとに別ダンジョン（生還→再潜行での宝箱/XP farm を根絶）。
+  const rng = makeRng((world.seed ^ (depth * 2654435761) ^ (world.generation * 97) ^ ((world.diveCount ?? 0) * 40503) ^ (opts?.abyss ? 0x5eed : 0)) >>> 0);
   // マップ寸法：深いほど広い（毎回ランダムな形）。常に VIEW より大きく、カメラがスクロールする。
   // 旧 24+/28+（最大50×54）は手狭との FB を受け拡張（2026-06-17）。深度50で頭打ち＝最大 86×92（≒7,912・約2.9倍）。
   // 部屋数/敵数/宝箱は面積比で自動追従＝広いほど探索量・滞在ターン（＝深蝕の蓄積）が増え手応えになる。

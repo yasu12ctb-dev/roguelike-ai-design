@@ -1769,6 +1769,7 @@ async function startDive() {
   mode = "dive";
   seenThisDive = [];
   floorCache = new Map(); // 新しい潜行＝階の記憶をリセット（深度1から）
+  world.diveCount = (world.diveCount ?? 0) + 1; // 潜行ごとに別ダンジョン＝再潜行farm防止（genFloor のseed nonce）
   if (world.current) hp = maxHp(world.current); // 街で癒えた状態から潜る
   // 街/屋内の paintCell が残したインライン背景・文字色・グローを引き継がないよう、
   // ダンジョン用ビュー(VIEW)でグリッドを組み直してから描く（他遷移と同じ規約）。
@@ -1850,9 +1851,9 @@ async function endTurn() {
     log(`深みに蝕まれる……（HP -${bite}）`, "warn");
   }
 
+  resolveSummons(); // 召喚（一時味方）の手番＝隣接敵を討つ／最寄りへ寄る・寿命を消費（味方なので疾走中も動く＝E）
   if (hasted) log("疾走――敵が止まって見える。もう一手。", "dim");
   if (!hasted) {
-  resolveSummons(); // 召喚（一時味方）の手番＝隣接敵を討つ／最寄りへ寄る・寿命を消費
   // 相棒の手番（4-14C）：予告した一手を実行（@に追従し隣接敵を討つ）。連帯深蝕も上がる。
   if (companion && companion.hp > 0 && world.companion) {
     const cr = resolveCompanion(floor, player, companion);

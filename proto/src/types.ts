@@ -26,6 +26,7 @@ export interface World {
   raidCooldown?: number;        // 街の防衛（襲撃）の冷却＝帰還ごとに減り、0で再抽選（定期的だが間隔は長い）。任意＝旧セーブ非破壊。
   memorialCooldown?: number;    // 追悼の日（祭礼）の冷却＝アンビエント街イベント（4-12 J）。任意＝旧セーブ非破壊。
   plagueCooldown?: number;      // 深蝕の瘴気（疫病）の冷却＝街の災厄（4-12 J）。任意＝旧セーブ非破壊。
+  diveCount?: number;           // 潜行回数（startDive ごと+1）。genFloor のseedに混ぜて潜行ごとに別ダンジョン＝再潜行farm防止。任意＝旧セーブ非破壊。
 }
 
 /** 同行（相棒）の永続状態（4-14C）。潜行開始時にグリッドの相棒エンティティへ展開される。 */
@@ -164,6 +165,7 @@ export interface Fossil {
   interventions: Intervention[];
   lastTouchedGeneration: number;
   laidDepth: number;
+  spells?: string[];            // 死亡時に覚えていた術（系譜継承 4-11F②：先代の術の一部が次代に滲む）。任意＝旧セーブ非破壊。
 }
 
 export interface TrackedEntity {
