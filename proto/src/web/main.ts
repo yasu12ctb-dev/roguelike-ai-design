@@ -498,6 +498,40 @@ async function questBoard() {
   if (i >= 0 && i < actions.length) { actions[i].run(); save(); }
 }
 // 武具屋 売る：袋の未装備装備を確実・高値（itemValue×0.6）で買い取る。
+const APPRAISE_MUL = 0.4; // 鑑定料＝鑑定後価値の4割（拾い得を残しつつ、装備で賭けるより安全な対価）
+/** 奇物堂（古物商クオ）：拾った未鑑定品（gearBag）を料金を払って鑑定する＝装備せずに正体を明かす。 */
+async function appraiseShop() {
+  const ch = world.current!;
+  for (;;) {
+    const bag = ch.gearBag ?? [];
+    const unid = bag.map((it, i) => ({ it, i })).filter((o) => o.it.unidentified);
+    if (!unid.length) {
+      busy = true;
+      await sheet({ text: "鑑定するものはないようだ。迷宮で『見知らぬ』品を拾ったら、袋に入れて持っておいで。", meta: "奇物堂 ── 鑑定", options: ["わかった"] });
+      busy = false; break;
+    }
+    const fee = (it: Item) => Math.max(6, Math.round(itemValue({ ...it, unidentified: false }) * APPRAISE_MUL));
+    busy = true;
+    const r = await sheet({
+      text: `クオは品を矯めつ眇めつする。所持 金${ch.gold}。\n袋の未鑑定 ${unid.length} 点。どれを観てもらう？`,
+      meta: "奇物堂 ── 鑑定（料を払えば、装備せずとも正体が分かる）",
+      options: [...unid.map((o) => `見知らぬ${SLOT_LABEL[o.it.slot]} → 鑑定料 ${fee(o.it)}金`), "やめる"],
+    });
+    busy = false;
+    const k = r.pick - 1;
+    if (k < 0 || k >= unid.length) break;
+    const it = unid[k].it, cost = fee(it);
+    if (ch.gold < cost) {
+      busy = true;
+      await sheet({ text: `金が足りない（鑑定料 ${cost}・所持 ${ch.gold}）。`, options: ["仕方ない"] });
+      busy = false; continue;
+    }
+    ch.gold -= cost; it.unidentified = false; sfx("open");
+    log(`鑑定した――《${it.name}》。${itemPower(it)}${it.exposurePerTurn ? "・装備中わずかに深蝕＋" : ""}（鑑定料 ${cost}／所持 ${ch.gold}）。`, "warn");
+    save();
+  }
+}
+
 async function smithSell() {
   const ch = world.current!;
   for (;;) {
@@ -1107,6 +1141,7 @@ async function talkKeeper(asKind?: string) {
   if (kind === "cult" && actIdx === 0) return void cultLore("gospel");  // 深淵の福音を聞く
   if (kind === "cult" && actIdx === 1) return void cultOffering();      // 深蝕を捧げる（危険な恩恵）
   if (kind === "cult" && actIdx === 2) return void cultLore("rite");    // 儀式について尋ねる
+  if (kind === "oddments" && actIdx === 0) return void appraiseShop();  // 未鑑定品を鑑定する（拾った異物の正体を明かす）
   if (kind === "store" && actIdx === 0) return void storeBuy();         // 消耗品を買う
   if (kind === "store" && actIdx === 1) return void storeSell();        // 異物・拾い物を売る
   if (kind === "store" && actIdx === 2) return void storeManage();      // 携行品を整える（使う/捨てる）
@@ -1487,29 +1522,35 @@ function townLoop(): Promise<void> {
 
 // ---------- 潜行 ----------
 function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
-  floor = genFloor(world, depth, abyss ? { abyss: true } : undefined);
+  const cached = abyss ? undefined : floorCache.get(depth); // 深淵帯は毎回新規（試練）。通常階は再訪で同じ盤面を復元。
+  floor = cached ?? genFloor(world, depth, abyss ? { abyss: true } : undefined);
+  if (!cached && !abyss) floorCache.set(depth, floor); // 初訪のみキャッシュ
   pursuerCount = 0; turnsSinceFloor = 0;
   armorBuffTurns = 0; attackBuffTurns = 0; hasteTurns = 0; deathDoorTurns = 0; // 術バフはフロアを跨がない（戦闘内のみ）
   summons = []; shadowGuard = 0; cleanseTurns = 0; // 召喚・影分け・解呪もフロアを跨がない
   const ch = world.current!;
   ch.depth = depth;
   player = { ...(fromAbove ? floor.stairsUp : floor.stairsDown) };
-  // 化石の配置（再会重み 4-7。同一潜行で会った相手は除外）
-  const exclude = new Set<string>(seenThisDive);
-  for (let i = 0; i < 2; i++) {
-    const fossil = rollEncounter(world, ch, rng, exclude);
-    if (!fossil) break;
-    if (Math.abs(fossil.laidDepth - depth) <= 4 && placeFossil(floor, rng, player, fossil)) exclude.add(fossil.id);
+  if (!cached) {
+    // 化石の配置（再会重み 4-7。同一潜行で会った相手は除外）。初訪のみ＝再訪で増殖しない。
+    // 出現数は面積に追従（迷宮拡張に合わせて増やす＝イベント遭遇も拡張に比例）：d1≈2 / d50≈4。
+    const exclude = new Set<string>(seenThisDive);
+    const fossilTries = 2 + Math.min(2, Math.floor((floor.w * floor.h) / 3200));
+    for (let i = 0; i < fossilTries; i++) {
+      const fossil = rollEncounter(world, ch, rng, exclude);
+      if (!fossil) break;
+      if (Math.abs(fossil.laidDepth - depth) <= 4 && placeFossil(floor, rng, player, fossil)) exclude.add(fossil.id);
+    }
+    // 入口B：手負いの冒険者を稀に配置（相棒不在時のみ＝1体限定。深度2以降）。初訪のみ。
+    floor.downed = null;
+    if (!world.companion?.alive && depth >= 2 && rng.next() < 0.14) {
+      const at = randomFloorAway(floor, rng, player, 5);
+      if (at) floor.downed = { id: `downed_${depth}_${world.generation}`, actor: mintActor(db, rng), x: at.x, y: at.y };
+    }
   }
-  // 同行（4-14C）：相棒がいれば @ の隣に展開（階段は隣接で同行降下）。
+  // 同行（4-14C）：相棒がいれば @ の隣に展開（階段は隣接で同行降下）。ephemeral＝再訪でも再展開。
   companion = null;
   if (world.companion?.alive) spawnCompanionNear(player);
-  // 入口B：手負いの冒険者を稀に配置（相棒不在時のみ＝1体限定。深度2以降）。
-  floor.downed = null;
-  if (!world.companion?.alive && depth >= 2 && rng.next() < 0.14) {
-    const at = randomFloorAway(floor, rng, player, 5);
-    if (at) floor.downed = { id: `downed_${depth}_${world.generation}`, actor: mintActor(db, rng), x: at.x, y: at.y };
-  }
   planMonsters(floor, player, rng, companion); // 入った瞬間に見えている敵は予告を出す
   if (companion) planCompanion(floor, player, companion, rng);
   setAmbient(true, depth); // 環境ドローン（深いほど低い）
@@ -1702,6 +1743,9 @@ async function rescueScene(d: DownedActor): Promise<void> {
 }
 
 let seenThisDive: string[] = [];
+// 同一潜行中に訪れた階を保持（再訪で再生成しない＝宝箱/化石/倒した敵の状態が残る。FB：上り下りで宝箱が復活していた）。
+// 潜行ごとにクリア（startDive）。セーブ対象外＝途中セーブ→再開時は再生成（稀・許容）。
+let floorCache = new Map<number, Floor>();
 // 帰還の試練（4-13C）：聖遺物携行中の追手カウンタ（フロアごとにリセット）
 let pursuerCount = 0;
 let turnsSinceFloor = 0;
@@ -1724,6 +1768,7 @@ async function startDive() {
   stopWander(); // 街の群衆ループを止める
   mode = "dive";
   seenThisDive = [];
+  floorCache = new Map(); // 新しい潜行＝階の記憶をリセット（深度1から）
   if (world.current) hp = maxHp(world.current); // 街で癒えた状態から潜る
   // 街/屋内の paintCell が残したインライン背景・文字色・グローを引き継がないよう、
   // ダンジョン用ビュー(VIEW)でグリッドを組み直してから描く（他遷移と同じ規約）。
@@ -1964,6 +2009,7 @@ const SMITH_SELL_MUL = 0.6, MERCHANT_SELL_MUL = 0.45;
 const sellGear = (it: Item, mul: number) => Math.max(1, Math.round(itemValue(it) * mul));
 
 // ---------- 深蝕魔法（4-11F③）。燃料＝深蝕。詠唱＝そのターンの行動。自動対象で最小UX ----------
+const LEARN_EVERY = 4; // 術をレベルアップで識る間隔（4レベルに1度＝毎レベル習得を避ける。他の入手法は別途）
 /** 構えている術（戦闘で撃てるのはここだけ）。未初期化/旧セーブは習得順の先頭から補完。 */
 function activeLoadout(ch: Character): string[] {
   if (!ch.loadout) ch.loadout = ch.spells.slice(0, LOADOUT_CAP);
@@ -2361,11 +2407,15 @@ async function handleLevelUps() {
       ch.stats[key] += 1;
       if (key === "body") hp = Math.min(hp + HP_PER, maxHp(ch)); // 体UPぶんを回復
       log(`レベル${ch.level} ── ${STAT_LABEL[key]}が伸びた（${statsLine(ch)}）。`, "warn");
-      // ② 深みから術を1つ識る（任意・無制限・ステとは別枠）。空き構えがあれば自動で構える。
-      const learnable = SPELLS.filter((s) => !ch.spells.includes(s.key));
+      // ② 深みから術を1つ識る（任意・無制限・ステとは別枠）。
+      //    間隔＝4レベルに1度（毎レベルは難易度を下げ、深淵/教団の意味も薄れるため）。
+      //    高効果の術は minLevel に達するまでレベルアップ選択には出ない（他の入手法は不問）。
+      const learnable = ch.level % LEARN_EVERY === 0
+        ? SPELLS.filter((s) => !ch.spells.includes(s.key) && ch.level >= (s.minLevel ?? 1))
+        : [];
       if (learnable.length) {
         const lr = await sheet({
-          text: `深みから術が滲む。1つ識るか？（取得は無制限。構えは街の ≡ で整える）`,
+          text: `深みから術が滲む。1つ識るか？（${LEARN_EVERY}レベルに1度。構えは街の ≡ で整える）`,
           meta: `術 ${ch.spells.length}種 識得済み ── 構え ${activeLoadout(ch).length}/${LOADOUT_CAP}`,
           options: [...learnable.map((s) => `[${s.school}] ${s.name}（深蝕＋${s.cost}／${s.desc}）`), "今は識らない"],
         });
