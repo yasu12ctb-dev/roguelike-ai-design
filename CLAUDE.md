@@ -54,6 +54,7 @@ v0 公開済み＋以下まで実装・公開。**M0/M1 完了・M2 ほぼ完了
   - **プレイFB対応**：鑑定店（奇物堂 `oddments`→`appraiseShop`＝拾った異物を料金で開示）／迷宮拡張（`36+min(d,50)×42+min(d,50)`＝最大86×92・深度50頭打ち・敵/宝箱/化石遭遇も面積追従）／**宝箱復活の修正**（`floorCache`＝潜行内の階を保持）。
   - **QA是正**：**再潜行farm根絶**（`World.diveCount` を `genFloor` seedに混ぜ潜行ごと別ダンジョン）／**撃破XP×0.55**（`XP_KILL_MUL`＝Lv≈深度維持）／**系譜の術継承**（`Fossil.spells`→`createCharacter` で弟子3/血筋2を初期習得＝4-11F②実装）／召喚は疾走中も稼働。
 - 見た目＝方向A（発光グリフ）・縦持ち。街グリフ規約＝看板:漢字／群衆:ラテン(c/$/n/t/f)／景物:漢字。迷宮＝@:プレイヤー(金)／相棒:@(青)／召喚:`ψ/‡/Ψ`(菫)／敵:記号×色tier／手負い:`&`(琥珀)。
+- **操作系＝8方向（PR #98・2026-06-17確定／spec §45）：** プレイヤーも敵・相棒と同じ8方向（旧4方向の非対称を是正・エンジン無改修）。入力＝`dirMove()` 集約／スワイプ8方向(`octant`)／キー＝矢印・WASD・viキー yubn・numpad1-9・`.`待機。**D-pad＝既定オン・8方向(中央=待機)・`≡`メニューでオンオフ＋位置(右下/左下)選択＝localStorage**（2026-06-13の「D-pad廃止」を反転）。web限定・CLI据え置き・既存セーブ無影響。
 - セーブ **version=9**（gold/quests/town-scene/`World.companion` 含む＋任意追加 `Character.loadout`・`World.diveCount`・`Fossil.spells` は `world.ts migrateWorld` 非破壊バックフィル）。歩ける街・同行・魔法ロードアウトは **web 限定**、CLI/デモはテキストメニュー据え置き。
 
 ## 次のタスク（M2 仕上げ → M3。詳細は `ROADMAP.md`）
