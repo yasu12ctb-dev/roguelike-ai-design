@@ -47,6 +47,7 @@ export function migrateWorld(w: World): World {
   if (typeof w.diveCount !== "number") w.diveCount = 0; // 潜行回数（再潜行farm防止のseed nonce）：欠落は0で補完
   if (!Array.isArray(w.seals)) w.seals = [];       // 奉献の試練・集めた印（4-13A）：欠落は空で補完
   if (typeof w.ascended !== "number") w.ascended = 0; // 奉献の試練・クリア回数（4-13D）
+  if (!Array.isArray(w.bestiary)) w.bestiary = []; // 敵図鑑（遭遇種）：欠落は空で補完
   if (w.town) { // 歩ける街（4-4B）：旧セーブに欠落するサブシーン状態を補完
     if (w.town.scene !== "town" && w.town.scene !== "interior") w.town.scene = "town";
     if (w.town.interiorKind === undefined) w.town.interiorKind = null;

@@ -23,6 +23,7 @@ export interface World {
   ascended?: number;            // 奉献の試練：聖遺物を地上へ生還させてクリアした回数（4-13D）。任意＝旧セーブ非破壊。
   companion?: Companion;        // 同行（相棒）の永続状態（4-14C）。生かし続ければセーブ全体を貫く反復キャラ。任意＝旧セーブ非破壊。
   arcs?: ArcState[];            // 長尺アークの進行状態（4-12(I)：多段の弧。世代越え）。任意＝旧セーブ非破壊。
+  bestiary?: string[];          // 敵図鑑：遭遇した敵種の名（kind.name。世代越え。web限定）。任意＝旧セーブ非破壊。
   raidCooldown?: number;        // 街の防衛（襲撃）の冷却＝帰還ごとに減り、0で再抽選（定期的だが間隔は長い）。任意＝旧セーブ非破壊。
   memorialCooldown?: number;    // 追悼の日（祭礼）の冷却＝アンビエント街イベント（4-12 J）。任意＝旧セーブ非破壊。
   plagueCooldown?: number;      // 深蝕の瘴気（疫病）の冷却＝街の災厄（4-12 J）。任意＝旧セーブ非破壊。
