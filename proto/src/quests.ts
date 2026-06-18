@@ -44,6 +44,36 @@ export function generateOffers(world: World, ch: Character, rng: Rng, limit: num
   return offers.slice(0, limit);
 }
 
+/** 貴族街の統治者からの大命（奉献後・4-13D Phase4）。奉献済みでのみ供給＝高報酬の到達/回収。
+ *  ギルド board に相乗りで出す（claim 経路は claimQuest 共用）。Lv45「原初の証」アークとは別軸。 */
+export function generateNobleOffers(world: World, ch: Character, rng: Rng, limit: number): Quest[] {
+  if (limit <= 0) return [];
+  const held = openQuests(world);
+  if (held.some((q) => q.patron === "noble")) return []; // 同時は1件まで（受注/達成待ちがあれば供給しない）
+  const offers: Quest[] = [];
+  if (rng.next() < 0.5) {
+    const dDepth = Math.max(5, ch.depth) + 3 + rng.int(4); // 高位＝やや深い目標
+    offers.push({
+      id: qid(), kind: "descend", patron: "noble", targetDepth: dDepth,
+      title: `貴族街からの大命：深度${dDepth}の調べ`,
+      desc: `封鎖区の統治者からの密命。深度${dDepth}まで至り、深みの異変を確かめて戻れ。`,
+      rewardGold: Math.round(dDepth * 9 * 1.8), status: "active", issuedGeneration: world.generation,
+    });
+  } else {
+    const reclaimable = world.fossils.filter((f) => !held.some((q) => q.targetFossilId === f.id));
+    if (reclaimable.length) {
+      const f = rng.pick(reclaimable);
+      offers.push({
+        id: qid(), kind: "reclaim", patron: "noble", targetFossilId: f.id, targetDepth: f.laidDepth,
+        title: `貴族街からの大命：${f.origin.name}の遺物`,
+        desc: `統治者は${f.origin.name}の痕跡を欲している。深度${f.laidDepth}付近で見つけ出せ。`,
+        rewardGold: Math.round((f.laidDepth * 6 + 12) * 1.8), status: "active", issuedGeneration: world.generation,
+      });
+    }
+  }
+  return offers.slice(0, limit);
+}
+
 /** 受注（active として積む）。 */
 export function acceptQuest(world: World, q: Quest): void {
   openQuests(world).push(q);

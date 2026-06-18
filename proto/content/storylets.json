@@ -929,6 +929,17 @@
       ]
     },
     {
+      "id": "tw_noble_ack",
+      "context": "street",
+      "prerequisites": { "arc": "noble_ack", "arcStep": 1 },
+      "weight": 3,
+      "text": "#origin_name# が声を落とした。「聞いたよ。あんた、深淵帯から聖遺物を持ち帰ったんだってな……封鎖区の連中まで、あんたの名を噂してるそうだ。たいした出世だよ」。",
+      "choices": [
+        { "label": "曖昧に笑う", "text": "「運がよかっただけさ」。そう返したが、悪い気はしなかった。", "effects": [ { "arc": {"key": "noble_ack", "step": 2} }, { "chronicle": "街で#origin_name# から、奉献の噂が貴族街にまで届いていると聞いた。" } ] },
+        { "label": "門の奥を見上げる", "text": "高い塀の向こう。いつか、あの門も――そんな思いが、ふと胸をよぎった。", "effects": [ { "arc": {"key": "noble_ack", "step": 2} }, { "trait": "聞いた噂:奉献者への眼差し" }, { "chronicle": "街で、奉献の名声が貴族街に届いたことを知った。" } ] }
+      ]
+    },
+    {
       "id": "tw_drink_offer",
       "context": "street",
       "prerequisites": {},
