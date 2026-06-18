@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ログ文字サイズ比較モック</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background:#05070a; color:#cfd6dd; font-family:"Hiragino Sans",system-ui,sans-serif; padding:24px; }
+  h1 { font-size:18px; margin-bottom:4px; font-weight:700; }
+  .sub { font-size:12.5px; color:#7d8794; margin-bottom:20px; }
+  .row { display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start; }
+  .case { width:390px; }
+  .caption { font-size:13px; color:#aab4c0; margin-bottom:8px; text-align:center; }
+  .caption b { color:#e8e2d4; }
+  .phone { position:relative; width:390px; height:844px; background:#0b0d10; overflow:hidden;
+    border-radius:30px; border:1px solid #20262e; box-shadow:0 0 0 6px #14181d, 0 14px 40px rgba(0,0,0,.6);
+    display:flex; flex-direction:column; }
+  .status { flex:none; display:flex; align-items:center; gap:10px; padding:14px 14px 10px; font-size:13px; color:#aab4c0; border-bottom:1px solid #1c222b; background:#10141a; }
+  .stName{color:#e8e2d4;} .stHp{color:#e06c5a;} .stGold{color:#d9b34a;}
+  .status .sp{flex:1;} .ham{font-size:18px;color:#8b94a0;background:none;border:1px solid #2a313b;border-radius:9px;padding:5px 12px;}
+  .bar5 i{display:flex;gap:3px;} .bar5 i span{width:11px;height:9px;background:#2a3550;display:inline-block;} .bar5 i span.on{background:#9d8fd8;}
+  .map{position:relative;flex:1;overflow:hidden;background:#07090c;}
+  .grid{display:grid;width:100%;height:100%;} .cell{display:flex;align-items:center;justify-content:center;font-family:"Menlo",monospace;font-weight:700;font-size:17px;}
+  .gw{color:#39434f;} .gf{color:#2c333d;} .gp{color:#ffd87a;text-shadow:0 0 12px rgba(255,216,122,.9),0 0 26px rgba(255,160,60,.45);}
+  .m1{color:#c4ccd4;text-shadow:0 0 6px rgba(196,204,212,.5);} .m2{color:#e0c46a;text-shadow:0 0 7px rgba(224,196,106,.6);} .m4{color:#e0564a;text-shadow:0 0 10px rgba(224,86,74,.75);} .dn{color:#6fb3c8;text-shadow:0 0 9px rgba(111,179,200,.6);}
+  .light{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 46%,rgba(255,190,110,.10),rgba(255,190,110,.04) 28%,rgba(0,0,0,.62) 76%);}
+  /* ログ：サイズは frame ごとに可変 */
+  .log{flex:none;border-top:1px solid #1c222b;background:#10141a;font-family:"Hiragino Mincho ProN",serif;color:#d6cfc0;padding:10px 14px;overflow:hidden;}
+  .log .warn{color:#d98c7a;} .log .dim{color:#6b7480;}
+  .handle{flex:none;display:flex;align-items:center;justify-content:center;gap:8px;height:42px;background:#0c0f14;border-top:1px solid #1c222b;color:#aeb8c4;font-size:13.5px;}
+  .handle .chev{font-size:15px;color:#cdd6e0;}
+</style>
+</head>
+<body>
+  <h1>ログ文字サイズ・行数の比較（D-padオフ・通常画面）</h1>
+  <div class="sub">実画面 390×844。同じログ内容で 文字サイズ／表示行数 を変えています。読みやすさで選んでください。</div>
+  <div class="row" id="row"></div>
+<script>
+const W=15;
+function dungeon(rows){
+  const cells=[]; const px=7,py=8;
+  const mons=[{x:9,y:6,c:'m2',g:'k'},{x:5,y:11,c:'m1',g:'g'},{x:10,y:10,c:'m4',g:'B'}];
+  const down={x:11,y:4,g:'>',c:'dn'};
+  for(let y=0;y<rows;y++)for(let x=0;x<W;x++){
+    const d=Math.max(Math.abs(x-px),Math.abs(y-py)); let g='·',c='gf';
+    if(x===0||y===0||x===W-1||y===rows-1||(x===3&&y<6)||(y===13&&x>4&&x<12)){g='▒';c='gw';}
+    const m=mons.find(m=>m.x===x&&m.y===y); if(m){g=m.g;c=m.c;}
+    if(down.x===x&&down.y===y){g=down.g;c=down.c;}
+    if(x===px&&y===py){g='@';c='gp';}
+    const vis=d<=5; cells.push(`<div class="cell ${c}" style="opacity:${vis?(1-d*0.10):0.10}">${vis?g:''}</div>`);
+  }
+  return `<div class="grid" style="grid-template-columns:repeat(${W},1fr);grid-template-rows:repeat(${rows},1fr)">${cells.join('')}</div><div class="light"></div>`;
+}
+const statusBar=`<div class="status"><span class="stName">ドラン</span><span>深度 <b style="color:#e8e2d4">2</b></span><span class="stHp">HP 12/15</span><span class="bar5"><span style="font-size:10px;color:#9d8fd8">深蝕</span><i><span class="on"></span><span class="on"></span><span></span><span></span><span></span></i></span><span class="stGold">金0</span><span class="sp"></span><button class="ham">≡</button></div>`;
+const logLines=`
+  <div class="warn">鎧蟲が牙を剥いた。来る。</div>
+  <div>鎧蟲に4の一撃。ひるんだ。</div>
+  <div class="dim">深みの澱が肌を舐める……深蝕＋0.02。</div>
+  <div class="warn">鎧蟲の一撃！ 2の傷。</div>
+  <div>鎧蟲を討ち取った。</div>
+  <div class="dim">床の隅に、古い化石の気配がある。</div>`;
+function frame(label, fontPx, lineH, hPx, rows){
+  return `<div class="case"><div class="caption">${label}</div><div class="phone">
+    ${statusBar}<div class="map">${dungeon(rows)}</div>
+    <div class="log" style="font-size:${fontPx}px;line-height:${lineH};height:${hPx}px">${logLines}</div>
+    <div class="handle"><span class="chev">⌃</span>操作</div>
+  </div></div>`;
+}
+document.getElementById('row').innerHTML =
+  frame('<b>小</b>（現状 13px・約3行）', 13, 1.7, 92, 20) +
+  frame('<b>中</b>（15px・約4–5行）', 15, 1.8, 138, 18) +
+  frame('<b>大</b>（17px・約5行）', 17, 1.85, 170, 16);
+</script>
+</body>
+</html>
