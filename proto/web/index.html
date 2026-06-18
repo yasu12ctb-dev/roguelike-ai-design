@@ -13,6 +13,10 @@
   <style>
     :root { color-scheme: dark; }
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    /* ゲーム中の誤操作防止：D-pad やマップのグリフを長押し／二度押ししても
+       iOS の選択メニュー（コピー/調べる/翻訳）や文字選択が出ないようにする。入力欄だけ除外。 */
+    html, body { -webkit-user-select: none; -moz-user-select: none; user-select: none; -webkit-touch-callout: none; }
+    input, textarea { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
     html, body { height: 100%; overscroll-behavior: none; }
     /* iOS スタンドアロンPWA：本体をビューポートに固定してスクロールでの“ずれ”を防ぐ */
     body {
