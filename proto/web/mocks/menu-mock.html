@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>メニュー操作レイアウト モック</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background:#05070a; color:#cfd6dd; font-family:"Hiragino Sans",system-ui,sans-serif; padding:24px; }
+  h1 { font-size:18px; color:#cfd6dd; margin-bottom:4px; font-weight:700; }
+  .sub { font-size:12.5px; color:#7d8794; margin-bottom:20px; }
+  .row { display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start; }
+  .case { width:390px; }
+  .caption { font-size:13px; color:#aab4c0; margin-bottom:8px; text-align:center; }
+  .caption b { color:#e8e2d4; }
+  /* ---- 端末枠（390×844 相当） ---- */
+  .phone {
+    position:relative; width:390px; height:844px; background:#0b0d10; overflow:hidden;
+    border-radius:30px; border:1px solid #20262e; box-shadow:0 0 0 6px #14181d, 0 14px 40px rgba(0,0,0,.6);
+    display:flex; flex-direction:column;
+  }
+  /* ---- ステータスバー ---- */
+  .status { flex:none; display:flex; align-items:center; gap:10px; padding:14px 14px 10px; font-size:13px; color:#aab4c0;
+            border-bottom:1px solid #1c222b; background:#10141a; }
+  .stName { color:#e8e2d4; } .stHp{ color:#e06c5a; } .stExp{ color:#9d8fd8; } .stGold{ color:#d9b34a; }
+  .status .sp { flex:1; }
+  .ham { font-size:18px; color:#8b94a0; background:none; border:1px solid #2a313b; border-radius:9px; padding:5px 12px; }
+  .bar5 { display:flex; flex-direction:column; gap:2px; align-items:flex-end; }
+  .bar5 i { display:flex; gap:3px; }
+  .bar5 i span{ width:11px; height:9px; background:#2a3550; display:inline-block; }
+  .bar5 i span.on{ background:#9d8fd8; }
+  /* ---- マップ ---- */
+  .map { position:relative; flex:1; overflow:hidden; background:#07090c; }
+  .grid { display:grid; width:100%; height:100%; }
+  .cell { display:flex; align-items:center; justify-content:center; font-family:"Menlo","Consolas",monospace; font-weight:700; font-size:17px; }
+  .gw{ color:#39434f; } .gf{ color:#2c333d; }
+  .gp{ color:#ffd87a; text-shadow:0 0 12px rgba(255,216,122,.9),0 0 26px rgba(255,160,60,.45); }
+  .m1{ color:#c4ccd4; text-shadow:0 0 6px rgba(196,204,212,.5);} .m2{ color:#e0c46a;text-shadow:0 0 7px rgba(224,196,106,.6);}
+  .m4{ color:#e0564a; text-shadow:0 0 10px rgba(224,86,74,.75);} .dn{ color:#6fb3c8; text-shadow:0 0 9px rgba(111,179,200,.6);}
+  .light { position:absolute; inset:0; pointer-events:none;
+           background:radial-gradient(circle at 50% 46%, rgba(255,190,110,.10), rgba(255,190,110,.04) 28%, rgba(0,0,0,.62) 76%); }
+  /* ---- ログ ---- */
+  .log { flex:none; padding:8px 14px; font-size:13px; line-height:1.7; height:84px; overflow:hidden;
+         border-top:1px solid #1c222b; background:#10141a; font-family:"Hiragino Mincho ProN",serif; color:#d6cfc0; }
+  .log .dim{ color:#6b7480; font-size:12px; } .log .warn{ color:#d98c7a; }
+  /* ---- ⌃ ハンドル ---- */
+  .handle { position:absolute; left:50%; transform:translateX(-50%); bottom:10px; z-index:5;
+            background:rgba(20,24,31,.92); border:1px solid #2e3946; border-radius:12px; color:#aeb8c4;
+            font-size:13px; padding:7px 20px; display:flex; align-items:center; gap:8px; }
+  .handle .chev{ font-size:15px; color:#cdd6e0; }
+  /* ---- 操作パネル（せり上がり） ---- */
+  .panel { position:absolute; left:0; right:0; bottom:0; z-index:8; background:#14181f; border-top:1px solid #2c3440;
+           padding:14px 14px 20px; }
+  .panelTitle{ font-size:11px; color:#7d8794; margin-bottom:10px; font-family:system-ui; }
+  .pgrid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .pbtn { font-size:17px; color:#d8dee6; background:#1c232d; border:1px solid #2e3946; border-radius:12px;
+          padding:18px 0; text-align:center; font-weight:700; }
+  .pbtn .k{ font-size:21px; display:block; margin-bottom:3px; }
+  .pbtn.spell{ color:#c4abe6; border-color:#3a2f50; }
+  .pclose{ margin-top:10px; text-align:center; color:#8b94a0; background:#161b22; border:1px solid #28303b; border-radius:10px; padding:11px 0; font-size:14px; }
+  .scrim{ position:absolute; inset:0; background:rgba(5,6,8,.45); z-index:7; }
+  /* ---- D-pad 帯 ---- */
+  .deck { flex:none; background:#0c0f14; border-top:1px solid #1c222b; height:182px; position:relative; display:flex; }
+  .deckLog { flex:1; padding:8px 12px; font-size:12.5px; line-height:1.6; color:#cdbfb0; font-family:"Hiragino Mincho ProN",serif; overflow:hidden; }
+  .deckLog .dim{ color:#6b7480; font-size:11.5px; }
+  .dpad { position:absolute; right:14px; bottom:14px; display:grid; grid-template-columns:repeat(3,52px); grid-template-rows:repeat(3,46px); gap:6px; }
+  .dpad b { font-weight:400; font-size:19px; color:#cdd6e0; background:rgba(22,27,34,.95); border:1px solid #2e3946; border-radius:10px; display:flex; align-items:center; justify-content:center; }
+  .dpad b.c{ color:#8b94a0; font-size:13px; }
+  .deck .handle{ bottom:auto; top:14px; left:18px; transform:none; }
+  .note{ font-size:11.5px; color:#6f7886; margin-top:8px; text-align:center; line-height:1.5; }
+</style>
+</head>
+<body>
+  <h1>堆積する世界 — メニュー操作レイアウト モック</h1>
+  <div class="sub">確認用：実画面サイズ（390×844）。上＝情報＋≡（設定）／下中央 ⌃ で操作パネル展開／D-pad はオン時のみ専用帯に常駐（盤面に重ねない）。</div>
+  <div class="row" id="row"></div>
+
+<script>
+const W=15, Hc=18;
+// 簡易ダンジョン生成（モック用・見た目だけ）
+function dungeon(rows){
+  const cells=[];
+  const px=7, py=8; // @ 位置
+  const mons=[{x:9,y:6,c:'m2',g:'k'},{x:5,y:11,c:'m1',g:'g'},{x:10,y:10,c:'m4',g:'B'}];
+  const down={x:11,y:4,g:'>',c:'dn'};
+  for(let y=0;y<rows;y++)for(let x=0;x<W;x++){
+    const d=Math.max(Math.abs(x-px),Math.abs(y-py));
+    let g='·',c='gf';
+    if(x===0||y===0||x===W-1||y===rows-1||(x===3&&y<6)||(y===13&&x>4&&x<12)){g='▒';c='gw';}
+    const m=mons.find(m=>m.x===x&&m.y===y); if(m){g=m.g;c=m.c;}
+    if(down.x===x&&down.y===y){g=down.g;c=down.c;}
+    if(x===px&&y===py){g='@';c='gp';}
+    const vis = d<=5;
+    cells.push(`<div class="cell ${c}" style="opacity:${vis?(1-d*0.10):0.10}">${vis?g:''}</div>`);
+  }
+  return `<div class="grid" style="grid-template-columns:repeat(${W},1fr);grid-template-rows:repeat(${rows},1fr)">${cells.join('')}</div><div class="light"></div>`;
+}
+const statusBar = `
+  <div class="status">
+    <span class="stName">ドラン</span><span>深度 <b style="color:#e8e2d4">2</b></span>
+    <span class="stHp">HP 12/15</span>
+    <span class="bar5"><span style="font-size:10px;color:#9d8fd8">深蝕</span><i><span class="on"></span><span class="on"></span><span></span><span></span><span></span></i></span>
+    <span class="stGold">金0</span>
+    <span class="sp"></span>
+    <button class="ham">≡</button>
+  </div>`;
+const logBox = `
+  <div class="log">
+    <div class="warn">鎧蟲の一撃！ 1の傷。</div>
+    <div>鎧蟲に3の一撃。</div>
+    <div>鎧蟲を倒した。</div>
+  </div>`;
+
+function frame(label, body){
+  return `<div class="case"><div class="caption">${label}</div><div class="phone">${body}</div></div>`;
+}
+
+// 1) D-pad オフ（通常・盤面最大）
+const f1 = frame('<b>① 通常</b>（D-padオフ・盤面最大）', `
+  ${statusBar}
+  <div class="map">${dungeon(20)}</div>
+  ${logBox}
+  <div class="handle"><span class="chev">⌃</span>操作</div>
+`);
+
+// 2) 操作パネル展開
+const f2 = frame('<b>② ⌃ を押す</b>（操作パネル展開）', `
+  ${statusBar}
+  <div class="map">${dungeon(20)}<div class="scrim"></div></div>
+  ${logBox}
+  <div class="panel">
+    <div class="panelTitle">操作 ── 行動を選ぶ</div>
+    <div class="pgrid">
+      <div class="pbtn spell"><span class="k">術</span>術を施す</div>
+      <div class="pbtn"><span class="k">品</span>持ち物</div>
+      <div class="pbtn"><span class="k">図</span>地図</div>
+      <div class="pbtn"><span class="k">冊</span>冒険の記録</div>
+    </div>
+    <div class="pclose">閉じる</div>
+  </div>
+`);
+
+// 3) D-pad オン（専用帯・重ねない）
+const f3 = frame('<b>③ D-padオン</b>（専用帯に常駐・盤面と非重複）', `
+  ${statusBar}
+  <div class="map">${dungeon(14)}</div>
+  <div class="deck">
+    <div class="deckLog">
+      <div style="color:#d98c7a">鎧蟲の一撃！</div>
+      <div>鎧蟲を倒した。</div>
+      <div class="dim">深度2・静寂。</div>
+    </div>
+    <div class="handle"><span class="chev">⌃</span>操作</div>
+    <div class="dpad">
+      <b>↖</b><b>↑</b><b>↗</b>
+      <b>←</b><b class="c">待</b><b>→</b>
+      <b>↙</b><b>↓</b><b>↘</b>
+    </div>
+  </div>
+`);
+
+document.getElementById('row').innerHTML = f1+f2+f3;
+</script>
+</body>
+</html>
