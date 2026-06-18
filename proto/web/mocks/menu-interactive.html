@@ -11,7 +11,7 @@
   html,body{height:100%;overscroll-behavior:none;}
   body{position:fixed;inset:0;height:100dvh;overflow:hidden;background:#0b0d10;color:#cfd6dd;font-family:"Hiragino Sans",system-ui,sans-serif;display:flex;flex-direction:column;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
   #status{flex:none;display:flex;align-items:center;gap:10px;padding:9px 14px;font-size:12.5px;color:#aab4c0;border-bottom:1px solid #1c222b;background:#10141a;}
-  .stName{color:#e8e2d4;} .stHp{color:#e06c5a;} .stGold{color:#d9b34a;} #status .sp{flex:1;}
+  .stName{color:#e8e2d4;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto;} .stHp{color:#e06c5a;flex:none;} .stGold{color:#d9b34a;flex:none;} #status>span{flex:none;} #status .sp{flex:1;}
   .bar5 i{display:flex;gap:3px;} .bar5 i span{width:11px;height:9px;background:#2a3550;display:inline-block;} .bar5 i span.on{background:#9d8fd8;}
   #mapWrap{position:relative;flex:1;overflow:hidden;background:#07090c;touch-action:none;}
   #grid{display:grid;width:100%;height:100%;}
@@ -24,17 +24,16 @@
   #log .warn{color:#d98c7a;} #log .dim{color:#6b7480;}
   #handle{flex:none;display:flex;align-items:center;justify-content:center;gap:8px;height:42px;background:#0c0f14;border-top:1px solid #1c222b;color:#aeb8c4;font-size:14px;}
   #handle .chev{font-size:16px;color:#cdd6e0;}
-  /* 行動デッキ（dive 常駐）：左=術/品/ステ、右=D-pad（オン時） */
-  #deck{flex:none;display:none;background:#0c0f14;border-top:1px solid #1c222b;position:relative;}
-  #deck.show{display:block;}
-  #deck.sz-lg{height:182px;} #deck.sz-md{height:158px;} #deck.sz-sm{height:138px;} #deck.nopad{height:104px;}
-  #cluster{position:absolute;left:14px;top:10px;bottom:10px;display:flex;flex-direction:column;gap:8px;width:108px;}
-  #cluster .qb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:#1c232d;border:1px solid #2e3946;border-radius:11px;color:#cdd6e0;font-size:11px;font-weight:700;}
-  #cluster .qb svg{width:23px;height:23px;filter:drop-shadow(0 0 4px currentColor);opacity:.92;}
+  /* 行動デッキ（dive 常駐）：術/品 を横並び、右(or左)=D-pad（オン時） */
+  #deck{flex:none;display:none;background:#0c0f14;border-top:1px solid #1c222b;align-items:center;gap:12px;padding:12px 14px;}
+  #deck.show{display:flex;}
+  #deck.sz-lg{min-height:182px;} #deck.sz-md{min-height:158px;} #deck.sz-sm{min-height:138px;} #deck.nopad{min-height:96px;}
+  #deck.pos-left{flex-direction:row-reverse;}
+  #cluster{display:flex;gap:8px;flex:1;justify-content:center;align-self:stretch;}
+  #cluster .qb{flex:1;max-width:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;background:#1c232d;border:1px solid #2e3946;border-radius:12px;color:#cdd6e0;font-size:12px;font-weight:700;}
+  #cluster .qb svg{width:25px;height:25px;filter:drop-shadow(0 0 4px currentColor);opacity:.92;}
   #cluster .qb.spell{color:#c4abe6;border-color:#3a2f50;} #cluster .qb:active{background:#28303d;}
-  #deck.nopad #cluster{left:14px;right:14px;width:auto;flex-direction:row;}
-  #dpad{position:absolute;top:50%;transform:translateY(-50%);display:grid;gap:6px;}
-  #dpad.right{right:16px;} #dpad.left{left:16px;}
+  #dpad{display:grid;gap:6px;flex:none;}
   #dpad.sz-lg{grid-template-columns:repeat(3,54px);grid-template-rows:repeat(3,48px);}
   #dpad.sz-md{grid-template-columns:repeat(3,46px);grid-template-rows:repeat(3,42px);}
   #dpad.sz-sm{grid-template-columns:repeat(3,38px);grid-template-rows:repeat(3,36px);}
@@ -54,7 +53,7 @@
 </head>
 <body>
   <div id="status">
-    <span class="stName">ドラン</span><span>深度 <b style="color:#e8e2d4">2</b></span>
+    <span class="stName">アルディス＝ヴェスパーリン</span><span>深度 <b style="color:#e8e2d4">2</b></span>
     <span class="stHp">HP 12/15</span>
     <span class="bar5"><span style="font-size:10px;color:#9d8fd8">深蝕</span><i><span class="on"></span><span class="on"></span><span></span><span></span><span></span></i></span>
     <span class="stGold">金 0</span><span class="sp"></span>
@@ -109,8 +108,9 @@ function closeSheet(){ $('overlay').classList.remove('show'); }
 $('overlay').onclick=e=>{ if(e.target===$('overlay')) closeSheet(); };
 function openSheet(title, html){ $('sheetTitle').textContent=title; $('sheetBody').innerHTML=html; $('overlay').classList.add('show'); }
 function applyDpad(){
-  const dk=$('deck'); dk.classList.add('show'); dk.classList.remove('sz-lg','sz-md','sz-sm','nopad');
-  if(dpadOn){ dk.classList.add('sz-'+dpadSize); $('dpad').style.display='grid'; $('dpad').className=dpadPos+' sz-'+dpadSize; }
+  const dk=$('deck'); dk.classList.add('show'); dk.classList.remove('sz-lg','sz-md','sz-sm','nopad','pos-left');
+  if(dpadPos==='left') dk.classList.add('pos-left');
+  if(dpadOn){ dk.classList.add('sz-'+dpadSize); $('dpad').style.display='grid'; $('dpad').className='sz-'+dpadSize; }
   else { dk.classList.add('nopad'); $('dpad').style.display='none'; }
   drawDungeon();
 }
@@ -124,7 +124,7 @@ function menu(){
       <div class="pbtn" id="m-set"><span class="ic">${ICONS.cog}</span>設定</div>
     </div>
     <button class="opt" id="m-close" style="text-align:center">閉じる</button>`);
-  $('m-stat').onclick=()=>stub('ステータス ── ドラン','Lv2 体3 力3 理2 心2 / 最大HP15 攻撃4 / 深蝕0.16 / 装備：鉄の剣・革鎧 / 形質…（モック）');
+  $('m-stat').onclick=()=>stub('ステータス','《アルディス＝ヴェスパーリン》（第1世代）\nLv2 体3 力3 理2 心2 / 最大HP15 攻撃4 / 深蝕0.16\n装備：鉄の剣・革鎧 / 形質…（モック）\n※フルネームはここで確認できる。');
   $('m-map').onclick=()=>{ closeSheet(); tip('（モック）地図モード'); };
   $('m-hub').onclick=()=>stub('冒険の記録','進行中（依頼/因縁/印）／術の図鑑／装備／人物と年代記／敵図鑑（モック）');
   $('m-set').onclick=settings;
