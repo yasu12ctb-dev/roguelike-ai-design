@@ -66,7 +66,6 @@
     <div id="cluster">
       <div class="qb spell" id="q-spell"></div>
       <div class="qb" id="q-bag"></div>
-      <div class="qb" id="q-stat"></div>
     </div>
     <div id="dpad" class="right sz-md"><b>↖</b><b>↑</b><b>↗</b><b>←</b><b class="c">待</b><b>→</b><b>↙</b><b>↓</b><b>↘</b></div>
   </div>
@@ -84,7 +83,7 @@ const ICONS={
   cog:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h6M15 7h4M5 12h2M11 12h8M5 17h9M18 17h1"/><circle cx="13" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="16" cy="17" r="2"/></svg>`,
 };
 function qb(el, icon, label, spell){ $(el).className='qb'+(spell?' spell':''); $(el).innerHTML=`${icon}<span>${label}</span>`; }
-qb('q-spell',ICONS.spell,'術',true); qb('q-bag',ICONS.bag,'品'); qb('q-stat',ICONS.stat,'ステ');
+qb('q-spell',ICONS.spell,'術',true); qb('q-bag',ICONS.bag,'品');
 function drawDungeon(){
   const W=15, el=$('grid'); const rect=$('mapWrap').getBoundingClientRect();
   const rows=Math.max(8, Math.round(rect.height/(rect.width/W)));
@@ -119,11 +118,13 @@ const SZ={lg:'大',md:'中',sm:'小'};
 function menu(){
   openSheet('メニュー', `
     <div class="pgrid">
+      <div class="pbtn" id="m-stat"><span class="ic">${ICONS.stat}</span>ステータス</div>
       <div class="pbtn" id="m-map"><span class="ic">${ICONS.map}</span>地図</div>
       <div class="pbtn" id="m-hub"><span class="ic">${ICONS.hub}</span>冒険の記録</div>
       <div class="pbtn" id="m-set"><span class="ic">${ICONS.cog}</span>設定</div>
     </div>
     <button class="opt" id="m-close" style="text-align:center">閉じる</button>`);
+  $('m-stat').onclick=()=>stub('ステータス ── ドラン','Lv2 体3 力3 理2 心2 / 最大HP15 攻撃4 / 深蝕0.16 / 装備：鉄の剣・革鎧 / 形質…（モック）');
   $('m-map').onclick=()=>{ closeSheet(); tip('（モック）地図モード'); };
   $('m-hub').onclick=()=>stub('冒険の記録','進行中（依頼/因縁/印）／術の図鑑／装備／人物と年代記／敵図鑑（モック）');
   $('m-set').onclick=settings;
@@ -156,7 +157,6 @@ $('mapWrap').addEventListener('touchend',e=>{ if(!ts)return; const dx=e.changedT
 $('handle').onclick=menu;
 $('q-spell').onclick=()=>stub('術 ── 構え','歪撃 / 静止の眼 / 影渡り …（モック）戦闘の即アクセス。');
 $('q-bag').onclick=()=>stub('品 ── 持ち物','癒しの実 ×2 / 解毒の葉 ×1 …（モック）回復の即アクセス。');
-$('q-stat').onclick=()=>stub('ステータス ── ドラン','Lv2 体3 力3 理2 心2 / 最大HP15 攻撃4 / 深蝕0.16 / 形質…（モック）');
 [...$('dpad').querySelectorAll('b')].forEach(b=>b.onclick=()=>pushLog(`${b.textContent}方向へ。`,''));
 addEventListener('resize',drawDungeon);
 renderLog(); applyDpad();
