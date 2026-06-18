@@ -29,9 +29,9 @@
   #deck.show{display:flex;}
   #deck.sz-lg{min-height:182px;} #deck.sz-md{min-height:158px;} #deck.sz-sm{min-height:138px;} #deck.nopad{min-height:96px;}
   #deck.pos-left{flex-direction:row-reverse;}
-  #cluster{display:flex;gap:8px;flex:1;justify-content:center;align-self:stretch;}
-  #cluster .qb{flex:1;max-width:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;background:#1c232d;border:1px solid #2e3946;border-radius:12px;color:#cdd6e0;font-size:12px;font-weight:700;}
-  #cluster .qb svg{width:25px;height:25px;filter:drop-shadow(0 0 4px currentColor);opacity:.92;}
+  #cluster{display:flex;gap:12px;flex:1;align-items:center;justify-content:center;}
+  #cluster .qb{flex:none;width:62px;height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:#1c232d;border:1px solid #2e3946;border-radius:14px;color:#cdd6e0;font-size:11px;font-weight:700;}
+  #cluster .qb svg{width:23px;height:23px;filter:drop-shadow(0 0 4px currentColor);opacity:.92;}
   #cluster .qb.spell{color:#c4abe6;border-color:#3a2f50;} #cluster .qb:active{background:#28303d;}
   #dpad{display:grid;gap:6px;flex:none;}
   #dpad.sz-lg{grid-template-columns:repeat(3,54px);grid-template-rows:repeat(3,48px);}
@@ -48,6 +48,16 @@
   .pbtn .ic{display:block;margin:0 auto 7px;width:30px;height:30px;} .pbtn .ic svg{width:30px;height:30px;filter:drop-shadow(0 0 5px currentColor);opacity:.92;}
   .pbtn:active{background:#28303d;}
   .opt{display:block;width:100%;text-align:left;font-size:14.5px;color:#d8dee6;background:#1c232d;border:1px solid #2e3946;border-radius:10px;padding:13px 14px;margin-top:8px;} .opt:active{background:#28303d;}
+  /* 術/品 の選択（2列グリッド・大きめ・色分け） */
+  .selgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:8px;}
+  .selbtn{background:#1c232d;border:1px solid #2e3946;border-radius:12px;padding:11px 12px 12px;text-align:left;min-height:64px;display:flex;flex-direction:column;justify-content:center;}
+  .selbtn:active{background:#28303d;}
+  .selbtn .chip{align-self:flex-start;font-size:10px;font-weight:700;padding:1px 7px;border-radius:7px;margin-bottom:5px;border:1px solid currentColor;}
+  .selbtn .nm{font-size:14.5px;color:#e8e2d4;font-weight:700;line-height:1.2;}
+  .selbtn .sub{font-size:11.5px;color:#9aa4b0;margin-top:4px;}
+  .selbtn .cost{color:#b79be0;}
+  .selbtn.dis{opacity:.4;}
+  .c-atk{color:#e0756a;} .c-ctl{color:#6fa8d8;} .c-mov{color:#6fc7c0;} .c-sup{color:#7fcf97;} .c-lore{color:#c4abe6;} .c-sum{color:#e0c46a;}
   .tip{position:fixed;left:50%;top:12px;transform:translateX(-50%);background:#1c232d;border:1px solid #2e3946;border-radius:10px;padding:7px 14px;font-size:12.5px;color:#aab4c0;z-index:30;opacity:0;transition:opacity .2s;} .tip.show{opacity:1;}
 </style>
 </head>
@@ -155,8 +165,34 @@ $('mapWrap').addEventListener('touchend',e=>{ if(!ts)return; const dx=e.changedT
   const ax=Math.abs(dx),ay=Math.abs(dy); const sx=ax>ay*0.41?Math.sign(dx):0,sy=ay>ax*0.41?Math.sign(dy):0;
   const nm={'0,-1':'上','0,1':'下','-1,0':'左','1,0':'右','-1,-1':'左上','1,-1':'右上','-1,1':'左下','1,1':'右下'}[`${sx},${sy}`]||''; pushLog(`${nm}へ歩いた。`,''); },{passive:true});
 $('handle').onclick=menu;
-$('q-spell').onclick=()=>stub('術 ── 構え','歪撃 / 静止の眼 / 影渡り …（モック）戦闘の即アクセス。');
-$('q-bag').onclick=()=>stub('品 ── 持ち物','癒しの実 ×2 / 解毒の葉 ×1 …（モック）回復の即アクセス。');
+const SPELLS=[
+  {n:'歪撃',s:'攻',c:'c-atk',cost:'+0.15',d:'最寄りの可視敵を確定で討つ'},
+  {n:'静止の眼',s:'制',c:'c-ctl',cost:'+0.20',d:'可視の敵を2手 止める'},
+  {n:'影渡り',s:'移',c:'c-mov',cost:'+0.12',d:'最遠の床へ跳ぶ（逃走）'},
+  {n:'硬鱗',s:'援',c:'c-sup',cost:'+0.10',d:'数手 防御を上げる'},
+  {n:'腐喰',s:'攻',c:'c-atk',cost:'+0.18',d:'毒を与え 継続で削る'},
+  {n:'看破',s:'識',c:'c-lore',cost:'+0.05',d:'周囲を見通す'},
+];
+const ITEMS=[
+  {n:'癒しの実',q:2,d:'HPを回復する'},
+  {n:'解毒の葉',q:1,d:'毒を癒す'},
+  {n:'灯火の油',q:3,d:'視界を広げる'},
+  {n:'力の丸薬',q:1,d:'数手 攻撃を上げる'},
+];
+function spellSelect(){
+  const grid=SPELLS.map((s,i)=>`<div class="selbtn" data-i="${i}"><span class="chip ${s.c}">${s.s}</span><div class="nm">${s.n}</div><div class="sub">深蝕<span class="cost">${s.cost}</span>・${s.d}</div></div>`).join('');
+  openSheet('術 ── 構え 6/10', `<div class="selgrid">${grid}</div><button class="opt" id="x" style="text-align:center">やめる</button>`);
+  [...document.querySelectorAll('#sheetBody .selbtn')].forEach(el=>el.onclick=()=>{ closeSheet(); pushLog(`《${SPELLS[+el.dataset.i].n}》を放った。`,'warn'); });
+  $('x').onclick=closeSheet;
+}
+function itemSelect(){
+  const grid=ITEMS.map((it,i)=>`<div class="selbtn" data-i="${i}"><div class="nm">${it.n} <span style="color:#9aa4b0;font-weight:400">×${it.q}</span></div><div class="sub">${it.d}</div></div>`).join('');
+  openSheet('品 ── 持ち物（使うと一手）', `<div class="selgrid">${grid}</div><button class="opt" id="x" style="text-align:center">やめる</button>`);
+  [...document.querySelectorAll('#sheetBody .selbtn')].forEach(el=>el.onclick=()=>{ closeSheet(); pushLog(`${ITEMS[+el.dataset.i].n} を使った。`,''); });
+  $('x').onclick=closeSheet;
+}
+$('q-spell').onclick=spellSelect;
+$('q-bag').onclick=itemSelect;
 [...$('dpad').querySelectorAll('b')].forEach(b=>b.onclick=()=>pushLog(`${b.textContent}方向へ。`,''));
 addEventListener('resize',drawDungeon);
 renderLog(); applyDpad();

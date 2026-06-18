@@ -34,17 +34,14 @@
       padding: 8px 12px; font-size: 12.5px; color: #aab4c0;
       border-bottom: 1px solid #1c222b; background: #10141a;
     }
-    #stName { color: #e8e2d4; }
     #stHp { color: #e06c5a; }
     #stExp { color: #9d8fd8; }
     #stGold { color: #d9b34a; }
-    #stBuff { color: #8fd0c0; font-size: .82em; }
+    #stBuff { color: #8fd0c0; font-size: .82em; flex: none; }
     #status .spacer { flex: 1; }
-    #spellBtn, #bagBtn, #mapBtn, #menuBtn {
-      font-size: 16px; color: #8b94a0; background: none;
-      border: 1px solid #2a313b; border-radius: 8px; padding: 3px 10px;
-    }
-    #spellBtn { color: #b79be0; border-color: #3a2f50; }
+    #status > span { flex: none; }
+    /* 長い名前は末尾…で省略＝レイアウト非破壊（フルネームはステータス画面） */
+    #stName { color: #e8e2d4; max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
 
     /* ---- マップ（方向A：発光グリフ） ---- */
     #mapWrap { position: relative; flex: 1; overflow: hidden; background: #07090c; touch-action: none; }
@@ -109,32 +106,76 @@
     }
 
 
-    /* ---- ログ ---- */
+    /* ---- ログ（文字サイズ＝設定で 小/中/大。既定＝中） ---- */
     #log {
-      flex: none; padding: 8px 14px; font-size: 13px; line-height: 1.7; height: 92px; overflow-y: auto;
+      flex: none; padding: 9px 14px; font-size: 15px; line-height: 1.8; height: 122px; overflow-y: auto;
       border-top: 1px solid #1c222b; background: #10141a;
       font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; color: #d6cfc0;
     }
-    #log .dim { color: #6b7480; font-size: 12px; }
+    #log.s-sm { font-size: 13px; height: 100px; line-height: 1.7; }
+    #log.s-lg { font-size: 17px; height: 150px; line-height: 1.85; }
+    #log .dim { color: #6b7480; font-size: .86em; }
     #log .warn { color: #d98c7a; }
+    #log .cue  { color: #8fd0c0; }
 
-    /* ---- 方向パッド（8方向・設定でオンオフ。スワイプ移動と併用） ---- */
-    #dpad {
-      position: fixed; right: 14px; z-index: 8;
-      bottom: calc(92px + 16px + env(safe-area-inset-bottom)); /* ログ(92px)の上に浮かせる */
-      display: none; grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(3, 46px);
-      gap: 5px; opacity: .82; touch-action: manipulation;
+    /* ---- ⌃ メニューハンドル（独立バー：ログ/デッキと重ならない） ---- */
+    #handle {
+      flex: none; display: none; align-items: center; justify-content: center; gap: 8px; height: 44px;
+      background: #0c0f14; border-top: 1px solid #1c222b; color: #aeb8c4; font-size: 14px;
     }
+    #handle.show { display: flex; }
+    #handle .chev { font-size: 16px; color: #cdd6e0; }
+
+    /* ---- 行動デッキ（dive常駐）：術/品（コントローラー風）＋D-pad ---- */
+    #deck {
+      flex: none; display: none; background: #0c0f14; border-top: 1px solid #1c222b;
+      align-items: center; gap: 12px; padding: 12px 14px;
+    }
+    #deck.show { display: flex; }
+    #deck.sz-lg { min-height: 182px; } #deck.sz-md { min-height: 158px; } #deck.sz-sm { min-height: 138px; } #deck.nopad { min-height: 96px; }
+    #deck.pos-left { flex-direction: row-reverse; }
+    #cluster { display: none; gap: 12px; flex: 1; align-items: center; justify-content: center; }
+    #cluster.show { display: flex; }
+    #cluster button {
+      flex: none; width: 62px; height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+      background: #1c232d; border: 1px solid #2e3946; border-radius: 14px; color: #cdd6e0; font-size: 11px; font-weight: 700;
+    }
+    #cluster button svg { width: 23px; height: 23px; filter: drop-shadow(0 0 4px currentColor); opacity: .92; }
+    #cluster button:active { background: #28303d; }
+    #cluster #spellBtn { color: #c4abe6; border-color: #3a2f50; }
+    #cluster #spellBtn.dis, #cluster #bagBtn.dis { opacity: .4; }
+    /* D-pad（帯内・サイズ可変） */
+    #dpad { display: none; grid-template-columns: repeat(3,46px); grid-template-rows: repeat(3,42px); gap: 6px; flex: none; }
     #dpad.show { display: grid; }
-    #dpad.pos-left  { left: 14px; right: auto; }   /* 利き手で右下／左下を選べる */
-    #dpad.pos-right { right: 14px; left: auto; }
+    #dpad.sz-lg { grid-template-columns: repeat(3,54px); grid-template-rows: repeat(3,48px); }
+    #dpad.sz-md { grid-template-columns: repeat(3,46px); grid-template-rows: repeat(3,42px); }
+    #dpad.sz-sm { grid-template-columns: repeat(3,38px); grid-template-rows: repeat(3,36px); }
     #dpad button {
-      font-size: 19px; color: #cdd6e0; background: rgba(20,24,31,.78);
-      border: 1px solid #2e3946; border-radius: 9px; line-height: 1;
+      font-size: 18px; color: #cdd6e0; background: rgba(22,27,34,.95);
+      border: 1px solid #2e3946; border-radius: 10px; line-height: 1;
       display: flex; align-items: center; justify-content: center; padding: 0;
     }
-    #dpad button:active { background: rgba(44,52,66,.92); color: #fff; }
+    #dpad button:active { background: rgba(44,52,66,.95); color: #fff; }
     #dpad button.center { color: #8b94a0; font-size: 13px; }
+
+    /* ---- 選択グリッド（術/品・冒険ハブの2列ボタン） ---- */
+    .selgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .selgrid.one { grid-template-columns: 1fr; }
+    .selgrid button {
+      display: block; width: 100%; text-align: left; background: #1c232d; border: 1px solid #2e3946; border-radius: 12px;
+      padding: 11px 12px 12px; min-height: 62px; font-family: inherit; color: #d8dee6;
+    }
+    .selgrid button:active { background: #28303d; }
+    .selgrid .chip { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 7px; margin-bottom: 5px; border: 1px solid currentColor; }
+    .selgrid .nm { font-size: 14.5px; color: #e8e2d4; font-weight: 700; line-height: 1.2; }
+    .selgrid .sub { font-size: 11.5px; color: #9aa4b0; margin-top: 4px; line-height: 1.4; }
+    .selgrid .cost { color: #b79be0; }
+    .c-atk{color:#e0756a;} .c-ctl{color:#6fa8d8;} .c-mov{color:#6fc7c0;} .c-sup{color:#7fcf97;} .c-lore{color:#c4abe6;} .c-sum{color:#e0c46a;}
+    /* ⌃メニューのアイコンセル（中央寄せ・アイコン＋ラベル） */
+    .selgrid .mc { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 6px 0; }
+    .selgrid .mc .icn { width: 28px; height: 28px; display: inline-block; color: #cdd6e0; }
+    .selgrid .mc .icn svg { width: 28px; height: 28px; filter: drop-shadow(0 0 5px currentColor); opacity: .92; }
+    .selgrid .mc .nm { text-align: center; }
 
     /* ---- シート（場面・選択） ---- */
     #overlay {
@@ -174,10 +215,6 @@
     <span id="stGold">金 0</span>
     <span id="stBuff"></span>
     <span class="spacer"></span>
-    <button id="spellBtn" type="button">術</button>
-    <button id="bagBtn" type="button">品</button>
-    <button id="mapBtn" type="button">図</button>
-    <button id="menuBtn" type="button">≡</button>
   </div>
 
   <div id="mapWrap">
@@ -188,16 +225,26 @@
 
   <div id="log"></div>
 
-  <div id="dpad" aria-label="方向パッド">
-    <button type="button" data-dx="-1" data-dy="-1" aria-label="左上">↖</button>
-    <button type="button" data-dx="0"  data-dy="-1" aria-label="上">↑</button>
-    <button type="button" data-dx="1"  data-dy="-1" aria-label="右上">↗</button>
-    <button type="button" data-dx="-1" data-dy="0"  aria-label="左">←</button>
-    <button type="button" class="center" data-dx="0" data-dy="0" aria-label="待機">待</button>
-    <button type="button" data-dx="1"  data-dy="0"  aria-label="右">→</button>
-    <button type="button" data-dx="-1" data-dy="1"  aria-label="左下">↙</button>
-    <button type="button" data-dx="0"  data-dy="1"  aria-label="下">↓</button>
-    <button type="button" data-dx="1"  data-dy="1"  aria-label="右下">↘</button>
+  <!-- ⌃ メニュー：ステータス／地図／冒険の記録／設定 -->
+  <div id="handle"><span class="chev">⌃</span>メニュー</div>
+
+  <!-- 行動デッキ：術/品（コントローラー風）＋D-pad -->
+  <div id="deck">
+    <div id="cluster">
+      <button id="spellBtn" type="button" aria-label="術"></button>
+      <button id="bagBtn" type="button" aria-label="品"></button>
+    </div>
+    <div id="dpad" aria-label="方向パッド">
+      <button type="button" data-dx="-1" data-dy="-1" aria-label="左上">↖</button>
+      <button type="button" data-dx="0"  data-dy="-1" aria-label="上">↑</button>
+      <button type="button" data-dx="1"  data-dy="-1" aria-label="右上">↗</button>
+      <button type="button" data-dx="-1" data-dy="0"  aria-label="左">←</button>
+      <button type="button" class="center" data-dx="0" data-dy="0" aria-label="待機">待</button>
+      <button type="button" data-dx="1"  data-dy="0"  aria-label="右">→</button>
+      <button type="button" data-dx="-1" data-dy="1"  aria-label="左下">↙</button>
+      <button type="button" data-dx="0"  data-dy="1"  aria-label="下">↓</button>
+      <button type="button" data-dx="1"  data-dy="1"  aria-label="右下">↘</button>
+    </div>
   </div>
 
   <div id="overlay">
