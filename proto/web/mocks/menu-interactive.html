@@ -4,62 +4,52 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
 <meta name="theme-color" content="#0b0d10" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
 <title>操作レイアウト 実機モック</title>
 <style>
-  :root { color-scheme: dark; }
-  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
-  html,body{ height:100%; overscroll-behavior:none; }
-  body{ position:fixed; inset:0; height:100dvh; overflow:hidden; background:#0b0d10; color:#cfd6dd;
-        font-family:"Hiragino Sans",system-ui,sans-serif; display:flex; flex-direction:column;
-        padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-        touch-action:manipulation; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
-  /* status */
-  #status{ flex:none; display:flex; align-items:center; gap:10px; padding:8px 12px; font-size:12.5px; color:#aab4c0; border-bottom:1px solid #1c222b; background:#10141a; }
+  :root{color-scheme:dark;}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;overscroll-behavior:none;}
+  body{position:fixed;inset:0;height:100dvh;overflow:hidden;background:#0b0d10;color:#cfd6dd;font-family:"Hiragino Sans",system-ui,sans-serif;display:flex;flex-direction:column;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+  #status{flex:none;display:flex;align-items:center;gap:10px;padding:9px 14px;font-size:12.5px;color:#aab4c0;border-bottom:1px solid #1c222b;background:#10141a;}
   .stName{color:#e8e2d4;} .stHp{color:#e06c5a;} .stGold{color:#d9b34a;} #status .sp{flex:1;}
   .bar5 i{display:flex;gap:3px;} .bar5 i span{width:11px;height:9px;background:#2a3550;display:inline-block;} .bar5 i span.on{background:#9d8fd8;}
-  .ham{ font-size:17px; color:#8b94a0; background:none; border:1px solid #2a313b; border-radius:9px; padding:5px 12px; }
-  /* map */
-  #mapWrap{ position:relative; flex:1; overflow:hidden; background:#07090c; touch-action:none; }
-  #grid{ display:grid; width:100%; height:100%; }
-  .cell{ display:flex; align-items:center; justify-content:center; font-family:"Menlo","Consolas",monospace; font-weight:700; font-size:18px; }
+  #mapWrap{position:relative;flex:1;overflow:hidden;background:#07090c;touch-action:none;}
+  #grid{display:grid;width:100%;height:100%;}
+  .cell{display:flex;align-items:center;justify-content:center;font-family:"Menlo","Consolas",monospace;font-weight:700;font-size:18px;}
   .gw{color:#39434f;} .gf{color:#2c333d;} .gp{color:#ffd87a;text-shadow:0 0 12px rgba(255,216,122,.9),0 0 26px rgba(255,160,60,.45);}
   .m1{color:#c4ccd4;text-shadow:0 0 6px rgba(196,204,212,.5);} .m2{color:#e0c46a;text-shadow:0 0 7px rgba(224,196,106,.6);} .m4{color:#e0564a;text-shadow:0 0 10px rgba(224,86,74,.75);} .dn{color:#6fb3c8;text-shadow:0 0 9px rgba(111,179,200,.6);}
-  #light{ position:absolute; inset:0; pointer-events:none; background:radial-gradient(circle at 50% 46%, rgba(255,190,110,.12), rgba(255,190,110,.04) 28%, rgba(0,0,0,.6) 78%); }
-  /* log（既定＝中 15px） */
-  #log{ flex:none; padding:10px 14px; line-height:1.8; height:138px; overflow-y:auto; border-top:1px solid #1c222b; background:#10141a; font-family:"Hiragino Mincho ProN",serif; color:#d6cfc0; font-size:15px; }
-  #log.s-sm{ font-size:13px; height:108px; line-height:1.7; } #log.s-lg{ font-size:17px; height:168px; line-height:1.85; }
+  #light{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 46%,rgba(255,190,110,.12),rgba(255,190,110,.04) 28%,rgba(0,0,0,.6) 78%);}
+  #log{flex:none;padding:9px 14px;line-height:1.8;height:122px;overflow-y:auto;border-top:1px solid #1c222b;background:#10141a;font-family:"Hiragino Mincho ProN",serif;color:#d6cfc0;font-size:15px;}
+  #log.s-sm{font-size:13px;height:100px;line-height:1.7;} #log.s-lg{font-size:17px;height:150px;line-height:1.85;}
   #log .warn{color:#d98c7a;} #log .dim{color:#6b7480;}
-  /* ⌃ 操作 ハンドル（独立バー） */
-  #handle{ flex:none; display:flex; align-items:center; justify-content:center; gap:8px; height:44px; background:#0c0f14; border-top:1px solid #1c222b; color:#aeb8c4; font-size:14px; }
-  #handle .chev{ font-size:16px; color:#cdd6e0; }
-  /* D-pad 帯（オン時のみ・サイズ可変） */
-  #deck{ flex:none; display:none; background:#0c0f14; border-top:1px solid #1c222b; position:relative; }
-  #deck.show{ display:block; }
-  #deck.sz-lg{ height:178px; } #deck.sz-md{ height:154px; } #deck.sz-sm{ height:132px; }
-  #deck .hint{ position:absolute; left:18px; top:50%; transform:translateY(-50%); font-size:11.5px; color:#5f6a78; line-height:1.6; }
-  #dpad{ position:absolute; top:50%; transform:translateY(-50%); display:grid; gap:6px; }
-  #dpad.right{ right:16px; } #dpad.left{ left:16px; }
-  #dpad.sz-lg{ grid-template-columns:repeat(3,54px); grid-template-rows:repeat(3,48px); }
-  #dpad.sz-md{ grid-template-columns:repeat(3,46px); grid-template-rows:repeat(3,42px); }
-  #dpad.sz-sm{ grid-template-columns:repeat(3,38px); grid-template-rows:repeat(3,36px); }
-  #dpad b{ font-weight:400; font-size:18px; color:#cdd6e0; background:rgba(22,27,34,.95); border:1px solid #2e3946; border-radius:10px; display:flex; align-items:center; justify-content:center; }
-  #dpad b:active{ background:#2c3543; } #dpad b.c{ color:#8b94a0; font-size:13px; }
-  /* sheet（設定・操作パネル・stub 共通） */
-  #overlay{ position:fixed; inset:0; display:none; align-items:flex-end; z-index:20; background:rgba(5,6,8,.62); }
-  #overlay.show{ display:flex; }
-  #sheet{ width:100%; max-height:86dvh; overflow-y:auto; background:#14181f; border-top:1px solid #2c3440; padding:16px 16px calc(16px + env(safe-area-inset-bottom)); }
-  #sheetTitle{ font-size:11px; color:#7d8794; margin-bottom:10px; font-family:system-ui; }
-  #sheetText{ font-size:14.5px; line-height:1.9; color:#e8e2d4; white-space:pre-wrap; margin-bottom:10px; }
-  .pgrid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:8px; }
-  .pbtn{ font-size:15px; color:#d8dee6; background:#1c232d; border:1px solid #2e3946; border-radius:12px; padding:16px 0 14px; text-align:center; font-weight:700; }
-  .pbtn .ic{ display:block; margin:0 auto 7px; width:30px; height:30px; }
-  .pbtn .ic svg{ width:30px; height:30px; filter:drop-shadow(0 0 5px currentColor); opacity:.92; }
-  .pbtn.spell{ color:#c4abe6; border-color:#3a2f50; } .pbtn:active{ background:#28303d; }
-  .opt{ display:block; width:100%; text-align:left; font-size:14.5px; color:#d8dee6; background:#1c232d; border:1px solid #2e3946; border-radius:10px; padding:13px 14px; margin-top:8px; }
-  .opt:active{ background:#28303d; }
-  .tip{ position:fixed; left:50%; top:12px; transform:translateX(-50%); background:#1c232d; border:1px solid #2e3946; border-radius:10px; padding:7px 14px; font-size:12.5px; color:#aab4c0; z-index:30; opacity:0; transition:opacity .2s; }
-  .tip.show{ opacity:1; }
+  #handle{flex:none;display:flex;align-items:center;justify-content:center;gap:8px;height:42px;background:#0c0f14;border-top:1px solid #1c222b;color:#aeb8c4;font-size:14px;}
+  #handle .chev{font-size:16px;color:#cdd6e0;}
+  /* 行動デッキ（dive 常駐）：左=術/品/ステ、右=D-pad（オン時） */
+  #deck{flex:none;display:none;background:#0c0f14;border-top:1px solid #1c222b;position:relative;}
+  #deck.show{display:block;}
+  #deck.sz-lg{height:182px;} #deck.sz-md{height:158px;} #deck.sz-sm{height:138px;} #deck.nopad{height:104px;}
+  #cluster{position:absolute;left:14px;top:10px;bottom:10px;display:flex;flex-direction:column;gap:8px;width:108px;}
+  #cluster .qb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:#1c232d;border:1px solid #2e3946;border-radius:11px;color:#cdd6e0;font-size:11px;font-weight:700;}
+  #cluster .qb svg{width:23px;height:23px;filter:drop-shadow(0 0 4px currentColor);opacity:.92;}
+  #cluster .qb.spell{color:#c4abe6;border-color:#3a2f50;} #cluster .qb:active{background:#28303d;}
+  #deck.nopad #cluster{left:14px;right:14px;width:auto;flex-direction:row;}
+  #dpad{position:absolute;top:50%;transform:translateY(-50%);display:grid;gap:6px;}
+  #dpad.right{right:16px;} #dpad.left{left:16px;}
+  #dpad.sz-lg{grid-template-columns:repeat(3,54px);grid-template-rows:repeat(3,48px);}
+  #dpad.sz-md{grid-template-columns:repeat(3,46px);grid-template-rows:repeat(3,42px);}
+  #dpad.sz-sm{grid-template-columns:repeat(3,38px);grid-template-rows:repeat(3,36px);}
+  #dpad b{font-weight:400;font-size:18px;color:#cdd6e0;background:rgba(22,27,34,.95);border:1px solid #2e3946;border-radius:10px;display:flex;align-items:center;justify-content:center;}
+  #dpad b:active{background:#2c3543;} #dpad b.c{color:#8b94a0;font-size:13px;}
+  #overlay{position:fixed;inset:0;display:none;align-items:flex-end;z-index:20;background:rgba(5,6,8,.62);}
+  #overlay.show{display:flex;}
+  #sheet{width:100%;max-height:86dvh;overflow-y:auto;background:#14181f;border-top:1px solid #2c3440;padding:16px 16px calc(16px + env(safe-area-inset-bottom));}
+  #sheetTitle{font-size:11px;color:#7d8794;margin-bottom:10px;font-family:system-ui;}
+  .pgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;}
+  .pbtn{font-size:15px;color:#d8dee6;background:#1c232d;border:1px solid #2e3946;border-radius:12px;padding:16px 0 14px;text-align:center;font-weight:700;}
+  .pbtn .ic{display:block;margin:0 auto 7px;width:30px;height:30px;} .pbtn .ic svg{width:30px;height:30px;filter:drop-shadow(0 0 5px currentColor);opacity:.92;}
+  .pbtn:active{background:#28303d;}
+  .opt{display:block;width:100%;text-align:left;font-size:14.5px;color:#d8dee6;background:#1c232d;border:1px solid #2e3946;border-radius:10px;padding:13px 14px;margin-top:8px;} .opt:active{background:#28303d;}
+  .tip{position:fixed;left:50%;top:12px;transform:translateX(-50%);background:#1c232d;border:1px solid #2e3946;border-radius:10px;padding:7px 14px;font-size:12.5px;color:#aab4c0;z-index:30;opacity:0;transition:opacity .2s;} .tip.show{opacity:1;}
 </style>
 </head>
 <body>
@@ -68,36 +58,39 @@
     <span class="stHp">HP 12/15</span>
     <span class="bar5"><span style="font-size:10px;color:#9d8fd8">深蝕</span><i><span class="on"></span><span class="on"></span><span></span><span></span><span></span></i></span>
     <span class="stGold">金 0</span><span class="sp"></span>
-    <button class="ham" id="ham">≡</button>
   </div>
   <div id="mapWrap"><div id="grid"></div><div id="light"></div></div>
   <div id="log"></div>
-  <div id="handle"><span class="chev">⌃</span>操作</div>
-  <div id="deck"><div class="hint">移動：<br>D-pad / スワイプ</div>
-    <div id="dpad" class="right"><b>↖</b><b>↑</b><b>↗</b><b>←</b><b class="c">待</b><b>→</b><b>↙</b><b>↓</b><b>↘</b></div>
+  <div id="handle"><span class="chev">⌃</span>メニュー</div>
+  <div id="deck">
+    <div id="cluster">
+      <div class="qb spell" id="q-spell"></div>
+      <div class="qb" id="q-bag"></div>
+      <div class="qb" id="q-stat"></div>
+    </div>
+    <div id="dpad" class="right sz-md"><b>↖</b><b>↑</b><b>↗</b><b>←</b><b class="c">待</b><b>→</b><b>↙</b><b>↓</b><b>↘</b></div>
   </div>
-  <div id="overlay"><div id="sheet"><div id="sheetTitle"></div><div id="sheetText"></div><div id="sheetBody"></div></div></div>
+  <div id="overlay"><div id="sheet"><div id="sheetTitle"></div><div id="sheetBody"></div></div></div>
   <div class="tip" id="tip"></div>
-
 <script>
 const $=id=>document.getElementById(id);
-let dpadOn=false, dpadPos='right', dpadSize='md', logSize='md';
-// 操作パネルのアイコン（インラインSVG・細線＋currentColor の淡い glow）
-const ICONS = {
+let dpadOn=true, dpadPos='right', dpadSize='md', logSize='md';
+const ICONS={
   spell:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.6"/><path d="M12 2.5v3.4M12 18.1v3.4M2.5 12h3.4M18.1 12h3.4M5.2 5.2l2.4 2.4M16.4 16.4l2.4 2.4M18.8 5.2l-2.4 2.4M7.6 16.4l-2.4 2.4"/></svg>`,
   bag:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 8c0-2.2 1.5-3.8 3.5-3.8S15.5 5.8 15.5 8"/><path d="M6.6 8h10.8l1.1 7.6a3.8 3.8 0 0 1-3.8 4.3H9.3a3.8 3.8 0 0 1-3.8-4.3L6.6 8z"/><path d="M9.2 12.2h5.6"/></svg>`,
+  stat:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.3"/><path d="M5.5 19.5c0-3.7 2.9-6.2 6.5-6.2s6.5 2.5 6.5 6.2"/></svg>`,
   map:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.2l6-2 6 2 6-2v13.6l-6 2-6-2-6 2V6.2z"/><path d="M9 4.2v13.6M15 6.2v13.6"/></svg>`,
   hub:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.2C9.8 4.9 7.2 4.6 4.5 5.2v13c2.7-.6 5.3-.3 7.5 1 2.2-1.3 4.8-1.6 7.5-1v-13C16.8 4.6 14.2 4.9 12 6.2z"/><path d="M12 6.2v13"/></svg>`,
+  cog:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h6M15 7h4M5 12h2M11 12h8M5 17h9M18 17h1"/><circle cx="13" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="16" cy="17" r="2"/></svg>`,
 };
-// ---- ダンジョン描画 ----
+function qb(el, icon, label, spell){ $(el).className='qb'+(spell?' spell':''); $(el).innerHTML=`${icon}<span>${label}</span>`; }
+qb('q-spell',ICONS.spell,'術',true); qb('q-bag',ICONS.bag,'品'); qb('q-stat',ICONS.stat,'ステ');
 function drawDungeon(){
-  const W=15, el=$('grid');
-  const rect=$('mapWrap').getBoundingClientRect();
-  const rows=Math.max(8, Math.round(rect.height/ (rect.width/W)));
+  const W=15, el=$('grid'); const rect=$('mapWrap').getBoundingClientRect();
+  const rows=Math.max(8, Math.round(rect.height/(rect.width/W)));
   el.style.gridTemplateColumns=`repeat(${W},1fr)`; el.style.gridTemplateRows=`repeat(${rows},1fr)`;
   const px=7, py=Math.floor(rows/2);
-  const mons=[{x:9,y:py-2,c:'m2',g:'k'},{x:5,y:py+3,c:'m1',g:'g'},{x:10,y:py+2,c:'m4',g:'B'}];
-  const down={x:11,y:py-4,g:'>',c:'dn'};
+  const mons=[{x:9,y:py-2,c:'m2',g:'k'},{x:5,y:py+3,c:'m1',g:'g'},{x:10,y:py+2,c:'m4',g:'B'}]; const down={x:11,y:py-4,g:'>',c:'dn'};
   let h='';
   for(let y=0;y<rows;y++)for(let x=0;x<W;x++){
     const d=Math.max(Math.abs(x-px),Math.abs(y-py)); let g='·',c='gf';
@@ -109,70 +102,61 @@ function drawDungeon(){
   }
   el.innerHTML=h;
 }
-// ---- ログ ----
-const LOG=[
-  ['鎧蟲が牙を剥いた。来る。','warn'],['鎧蟲に4の一撃。ひるんだ。',''],
-  ['深みの澱が肌を舐める……深蝕＋0.02。','dim'],['鎧蟲の一撃！ 2の傷。','warn'],
-  ['鎧蟲を討ち取った。',''],['床の隅に、古い化石の気配がある。','dim'],
-];
+const LOG=[['鎧蟲が牙を剥いた。来る。','warn'],['鎧蟲に4の一撃。ひるんだ。',''],['深みの澱が肌を舐める……深蝕＋0.02。','dim'],['鎧蟲の一撃！ 2の傷。','warn'],['鎧蟲を討ち取った。',''],['床の隅に、古い化石の気配がある。','dim']];
 function renderLog(){ $('log').className=logSize==='sm'?'s-sm':logSize==='lg'?'s-lg':''; $('log').innerHTML=LOG.map(([t,c])=>`<div class="${c}">${t}</div>`).join(''); $('log').scrollTop=$('log').scrollHeight; }
 function pushLog(t,c=''){ LOG.push([t,c]); renderLog(); }
 function tip(t){ const e=$('tip'); e.textContent=t; e.classList.add('show'); clearTimeout(e._t); e._t=setTimeout(()=>e.classList.remove('show'),1100); }
-// ---- sheet ----
 function closeSheet(){ $('overlay').classList.remove('show'); }
 $('overlay').onclick=e=>{ if(e.target===$('overlay')) closeSheet(); };
-function openSheet(title, html){ $('sheetTitle').textContent=title; $('sheetText').textContent=''; $('sheetBody').innerHTML=html; $('overlay').classList.add('show'); }
-// ---- 設定（≡） ----
+function openSheet(title, html){ $('sheetTitle').textContent=title; $('sheetBody').innerHTML=html; $('overlay').classList.add('show'); }
 function applyDpad(){
-  const dk=$('deck'); dk.classList.toggle('show', dpadOn);
-  dk.classList.remove('sz-lg','sz-md','sz-sm'); dk.classList.add('sz-'+dpadSize);
-  $('dpad').className=dpadPos+' sz-'+dpadSize; drawDungeon();
+  const dk=$('deck'); dk.classList.add('show'); dk.classList.remove('sz-lg','sz-md','sz-sm','nopad');
+  if(dpadOn){ dk.classList.add('sz-'+dpadSize); $('dpad').style.display='grid'; $('dpad').className=dpadPos+' sz-'+dpadSize; }
+  else { dk.classList.add('nopad'); $('dpad').style.display='none'; }
+  drawDungeon();
 }
-const SZJP={lg:'大',md:'中',sm:'小'};
+const SZ={lg:'大',md:'中',sm:'小'};
+function menu(){
+  openSheet('メニュー', `
+    <div class="pgrid">
+      <div class="pbtn" id="m-map"><span class="ic">${ICONS.map}</span>地図</div>
+      <div class="pbtn" id="m-hub"><span class="ic">${ICONS.hub}</span>冒険の記録</div>
+      <div class="pbtn" id="m-set"><span class="ic">${ICONS.cog}</span>設定</div>
+    </div>
+    <button class="opt" id="m-close" style="text-align:center">閉じる</button>`);
+  $('m-map').onclick=()=>{ closeSheet(); tip('（モック）地図モード'); };
+  $('m-hub').onclick=()=>stub('冒険の記録','進行中（依頼/因縁/印）／術の図鑑／装備／人物と年代記／敵図鑑（モック）');
+  $('m-set').onclick=settings;
+  $('m-close').onclick=closeSheet;
+}
 function settings(){
   openSheet('設定', `
     <button class="opt" id="o-mute">🔇 音を消す</button>
     <button class="opt" id="o-dpad">方向パッド：${dpadOn?'オン → オフ':'オフ → オン'}</button>
     <button class="opt" id="o-pos">方向パッドの位置：${dpadPos==='right'?'右下 → 左下':'左下 → 右下'}</button>
-    <button class="opt" id="o-size">方向パッドの大きさ：${SZJP[dpadSize]}（押して 大→中→小）</button>
-    <button class="opt" id="o-font">文字サイズ：${SZJP[logSize]}（押して切替）</button>
+    <button class="opt" id="o-size">方向パッドの大きさ：${SZ[dpadSize]}（大→中→小）</button>
+    <button class="opt" id="o-font">文字サイズ：${SZ[logSize]}（押して切替）</button>
     <button class="opt" id="o-reset">⟲ 世界を最初からやり直す</button>
-    <button class="opt" id="o-close">閉じる</button>`);
-  $('o-mute').onclick=()=>{ tip('（モック）音 切替'); };
+    <button class="opt" id="o-back">戻る</button>`);
+  $('o-mute').onclick=()=>tip('（モック）音 切替');
   $('o-dpad').onclick=()=>{ dpadOn=!dpadOn; applyDpad(); settings(); };
   $('o-pos').onclick=()=>{ dpadPos=dpadPos==='right'?'left':'right'; applyDpad(); settings(); };
-  $('o-size').onclick=()=>{ dpadSize=dpadSize==='lg'?'md':dpadSize==='md'?'sm':'lg'; if(!dpadOn){dpadOn=true;} applyDpad(); settings(); };
+  $('o-size').onclick=()=>{ dpadSize=dpadSize==='lg'?'md':dpadSize==='md'?'sm':'lg'; if(!dpadOn)dpadOn=true; applyDpad(); settings(); };
   $('o-font').onclick=()=>{ logSize=logSize==='sm'?'md':logSize==='md'?'lg':'sm'; renderLog(); settings(); };
-  $('o-reset').onclick=()=>{ tip('（モック）リセット確認…'); };
-  $('o-close').onclick=closeSheet;
+  $('o-reset').onclick=()=>tip('（モック）リセット確認…');
+  $('o-back').onclick=menu;
 }
-// ---- 操作パネル（⌃） ----
-function actionPanel(){
-  openSheet('操作 ── 行動を選ぶ', `
-    <div class="pgrid">
-      <div class="pbtn spell" id="a-spell"><span class="ic">${ICONS.spell}</span>術を施す</div>
-      <div class="pbtn" id="a-bag"><span class="ic">${ICONS.bag}</span>持ち物</div>
-      <div class="pbtn" id="a-map"><span class="ic">${ICONS.map}</span>地図</div>
-      <div class="pbtn" id="a-hub"><span class="ic">${ICONS.hub}</span>冒険の記録</div>
-    </div>
-    <button class="opt" id="a-close" style="text-align:center">閉じる</button>`);
-  $('a-spell').onclick=()=>stub('術 ── 構え','歪撃 / 静止の眼 / 影渡り …（モック）\n戦闘で撃てるのは構えだけ。視界に敵なし＝街以外でも構え替え可。');
-  $('a-bag').onclick=()=>stub('持ち物','癒しの実 ×2 / 解毒の葉 ×1 …（モック）');
-  $('a-map').onclick=()=>{ closeSheet(); tip('（モック）地図モード'); };
-  $('a-hub').onclick=()=>stub('冒険の記録','身上と装備 / 術（構え・図鑑）/ 進行中 / 人物と年代記 / 敵図鑑（モック）');
-  $('a-close').onclick=closeSheet;
-}
-function stub(title, body){ openSheet(title, `<div style="font-size:14.5px;line-height:1.9;color:#e8e2d4;white-space:pre-wrap;margin-bottom:10px">${body}</div><button class="opt" id="s-back" style="text-align:center">戻る</button>`); $('s-back').onclick=actionPanel; }
-// ---- スワイプ＝移動（モック：ログに方向を出すだけ） ----
+function stub(title, body){ openSheet(title, `<div style="font-size:14.5px;line-height:1.9;color:#e8e2d4;white-space:pre-wrap;margin-bottom:10px">${body}</div><button class="opt" id="s-back" style="text-align:center">戻る</button>`); $('s-back').onclick=menu; }
 let ts=null;
 $('mapWrap').addEventListener('touchstart',e=>{ts={x:e.touches[0].clientX,y:e.touches[0].clientY};},{passive:true});
-$('mapWrap').addEventListener('touchend',e=>{ if(!ts)return; const dx=e.changedTouches[0].clientX-ts.x, dy=e.changedTouches[0].clientY-ts.y; ts=null;
+$('mapWrap').addEventListener('touchend',e=>{ if(!ts)return; const dx=e.changedTouches[0].clientX-ts.x,dy=e.changedTouches[0].clientY-ts.y; ts=null;
   if(Math.hypot(dx,dy)<24){ pushLog('（その場で待機した）','dim'); return; }
-  const ax=Math.abs(dx),ay=Math.abs(dy); const sx=ax>ay*0.41?Math.sign(dx):0, sy=ay>ax*0.41?Math.sign(dy):0;
-  const name={'0,-1':'上','0,1':'下','-1,0':'左','1,0':'右','-1,-1':'左上','1,-1':'右上','-1,1':'左下','1,1':'右下'}[`${sx},${sy}`]||'';
-  pushLog(`${name}へ歩いた。`,''); },{passive:true});
-$('ham').onclick=settings;
-$('handle').onclick=actionPanel;
+  const ax=Math.abs(dx),ay=Math.abs(dy); const sx=ax>ay*0.41?Math.sign(dx):0,sy=ay>ax*0.41?Math.sign(dy):0;
+  const nm={'0,-1':'上','0,1':'下','-1,0':'左','1,0':'右','-1,-1':'左上','1,-1':'右上','-1,1':'左下','1,1':'右下'}[`${sx},${sy}`]||''; pushLog(`${nm}へ歩いた。`,''); },{passive:true});
+$('handle').onclick=menu;
+$('q-spell').onclick=()=>stub('術 ── 構え','歪撃 / 静止の眼 / 影渡り …（モック）戦闘の即アクセス。');
+$('q-bag').onclick=()=>stub('品 ── 持ち物','癒しの実 ×2 / 解毒の葉 ×1 …（モック）回復の即アクセス。');
+$('q-stat').onclick=()=>stub('ステータス ── ドラン','Lv2 体3 力3 理2 心2 / 最大HP15 攻撃4 / 深蝕0.16 / 形質…（モック）');
 [...$('dpad').querySelectorAll('b')].forEach(b=>b.onclick=()=>pushLog(`${b.textContent}方向へ。`,''));
 addEventListener('resize',drawDungeon);
 renderLog(); applyDpad();
