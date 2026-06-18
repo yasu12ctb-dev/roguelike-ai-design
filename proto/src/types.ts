@@ -189,6 +189,7 @@ export interface ChronicleEntry {
 export interface Quest {
   id: string;
   kind: "descend" | "reclaim";   // 到達／回収
+  patron?: "noble";              // 発注元＝貴族街の統治者（奉献後の大命・4-13D Phase4）。任意＝旧セーブ非破壊。
   title: string;
   desc: string;
   targetDepth?: number;          // descend: 到達すべき深度 / reclaim: 対象化石の眠る深度

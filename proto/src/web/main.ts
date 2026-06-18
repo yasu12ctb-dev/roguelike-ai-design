@@ -27,7 +27,7 @@ import { filterByTags } from "../content.ts";
 import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, selectTownStorylet, applyActorEffects } from "../storylets.ts";
 import { meetActor, mintActor, rememberActor } from "../actors.ts";
 import {
-  generateOffers, acceptQuest, activeQuests, doneQuests, claimQuest,
+  generateOffers, generateNobleOffers, acceptQuest, activeQuests, doneQuests, claimQuest,
   onReachDepth, onRediscoverFossil,
 } from "../quests.ts";
 import storyletsJson from "../../content/storylets.json";
@@ -469,6 +469,8 @@ async function questBoard() {
   const done = doneQuests(world);
   const act = activeQuests(world);
   const offers = generateOffers(world, ch, rng, Math.max(0, 2 - (done.length + act.length)));
+  // 奉献後＝貴族街の統治者からの大命がギルド経由で届く（Phase4・4-13D）。
+  if (getArc(world, "noble_ack")) offers.push(...generateNobleOffers(world, ch, rng, 1));
   const lines: string[] = [];
   if (done.length) lines.push("【達成済】" + done.map((q) => q.title).join("／"));
   if (act.length) lines.push("【受注中】" + act.map((q) => `${q.title}`).join("／"));
@@ -480,8 +482,9 @@ async function questBoard() {
       const gross = claimQuest(world, ch, q.id); // claimQuest が満額を加算済み
       const cut = world.companion?.alive ? companionCut(gross) : 0; // 同行中は依頼報酬も折半（4-14C）
       if (cut > 0) { ch.gold -= cut; log(`${companionName()}が取り分として ${cut}金貨を受け取った（折半）。`, "dim"); }
-      log(`ギルド長から報酬を受け取った（＋${gross - cut}金貨／所持 ${ch.gold}）。`);
-      chronicle(world, "legend", `${ch.name}が依頼「${q.title}」を果たした。`, [ch.id]);
+      const from = q.patron === "noble" ? "貴族の使い" : "ギルド長";
+      log(`${from}から報酬を受け取った（＋${gross - cut}金貨／所持 ${ch.gold}）。`);
+      chronicle(world, "legend", `${ch.name}が${q.patron === "noble" ? "貴族街の大命" : "依頼"}「${q.title}」を果たした。`, [ch.id]);
     },
   });
   for (const q of offers) actions.push({
@@ -1232,7 +1235,11 @@ async function talkCrowd(a: CrowdActor) {
 async function talkGuard(g: GuardDef) {
   if (busy) return;
   busy = true;
-  await sheet({ text: `${g.name} ── 貴族街の門番\n\n「${g.line}」`, meta: "封鎖ゾーン（将来解禁フック）", options: ["引き返す"] });
+  // 奉献者には門番が一目置く（解禁ではなく言及・Phase4）。門は閉じたまま＝Lv45「原初の証」アークと両立。
+  const line = getArc(world, "noble_ack")
+    ? "……あんたの名は、奥にも届いている。統治者が口にしていたよ。だが、門は門だ。招かれぬ限り、ここは通せん。"
+    : g.line;
+  await sheet({ text: `${g.name} ── 貴族街の門番\n\n「${line}」`, meta: "封鎖ゾーン（将来解禁フック）", options: ["引き返す"] });
   busy = false;
 }
 async function promptDescend() {
@@ -1281,6 +1288,7 @@ function townAct(dx: number, dy: number) {
   const t = townTileAt(townGrid, nx, ny);
   if (t === "ngate") { log("固く閉ざされた門。門番が見張っている。", "dim"); return; }
   const p = townGrid.propMap.get(`${nx},${ny}`);
+  if (p && monumentKey === `${nx},${ny}`) { void monumentScene(); return; } // 奉献の像＝専用シート（Phase4）
   if (t !== "floor" && t !== "gate") { if (p?.line) log(p.line, "dim"); return; }
   if (p && t !== "gate") { if (p.line) log(p.line, "dim"); return; } // 景物（木・井戸・碑）は塞ぐ
   townPlayer = { x: nx, y: ny };
@@ -1499,12 +1507,50 @@ async function nobleSummonsScene(): Promise<void> {
   save(); busy = false;
 }
 
+// ---------- 奉献の碑（4-13D Phase4：メタ達成＝街の塗り替え） ----------
+// 奉献（クリア）回数に応じて中央広場に像が建ち、調べると歴代の奉献者が並ぶ（snapshot 4-6C/4-13D）。
+// 動的＝起動時 const の townGrid.propMap へ帰還ごと（townLoop）に注入し直す。
+let monumentKey: string | null = null;
+function ascendedNames(): string[] {
+  return world.tracked.filter((t) => t.id.startsWith("ascended_")).map((t) => t.name);
+}
+function refreshAscendMonument() {
+  if (monumentKey) { townGrid.propMap.delete(monumentKey); monumentKey = null; } // 前回分を消してから建て直す（二重設置防止）
+  if ((world.ascended ?? 0) < 1) return;
+  // 中央広場の空き床を候補から選ぶ（門への動線 x=28 列は塞がない）。群衆は床基準で自動回避。
+  const cands: [number, number][] = [[30, 24], [26, 24], [30, 26], [26, 26], [30, 31], [26, 31]];
+  const spot = cands.find(([x, y]) =>
+    townTileAt(townGrid, x, y) === "floor" &&
+    !townGrid.propMap.has(`${x},${y}`) && !townGrid.doorMap.has(`${x},${y}`) && !townGrid.guardMap.has(`${x},${y}`));
+  if (!spot) return;
+  const [x, y] = spot;
+  monumentKey = `${x},${y}`;
+  townGrid.propMap.set(monumentKey, {
+    x, y, glyph: "像", color: "#e8c06a", glow: true,
+    line: `奉献の像。深淵帯より聖遺物を持ち帰った者たちを讃える（奉献${world.ascended}回）。`,
+  });
+}
+/** 奉献の像を調べる＝歴代の奉献者と回数を一覧（Phase4）。 */
+async function monumentScene() {
+  if (busy) return;
+  busy = true;
+  const n = world.ascended ?? 0;
+  const names = ascendedNames();
+  const roll = names.length ? names.map((nm) => `　・${nm}`).join("\n") : "　（まだ名は刻まれていない）";
+  const body = n <= 1
+    ? `中央広場に、ひとつの像が建っている。\n深淵帯より聖遺物を持ち帰った者を讃える、街の新しい記念碑だ。\n\n〔奉献を成した者〕\n${roll}`
+    : `中央広場の像は、奉献を重ねるごとに台座を継ぎ足され、いまや街の威容のひとつだ（奉献${n}回）。\n\n〔奉献を成した者たち〕\n${roll}`;
+  await sheet({ text: body, meta: "奉献の像 ── 街の記憶", options: ["立ち去る"] });
+  busy = false;
+}
+
 function townLoop(): Promise<void> {
   return new Promise((resolve) => {
     townDescendResolve = resolve;
     mode = "town"; floor = null; setAmbient(false);
     const t = world.town;
     crowd = spawnCrowd(townGrid, rng, t.pos ?? townGrid.data.start);
+    refreshAscendMonument(); // 奉献の碑をこの来訪の最新状態に（4-13D Phase4）
     sceneActorKeys = new Set(); // 来訪ごとに出会い記録をリセット（同一来訪内での重複だけ防ぐ）
     if (t.scene === "interior" && t.interiorKind && townGrid.data.keepers[t.interiorKind]) {
       townReturn = t.pos ? { x: t.pos.x, y: t.pos.y } : null;
@@ -2597,6 +2643,7 @@ async function ascendWithRelic() {
   if (companion && world.companion?.alive) { world.companion.bond += 1; log(`${companionName()}と共に、奉献を成し遂げた。`, "cue"); tryPromoteCompanion(); }
   companion = null;
   world.ascended = (world.ascended ?? 0) + 1;
+  if (!getArc(world, "noble_ack")) setArc(world, { key: "noble_ack", step: 1 }); // 貴族街が奉献者を認知（Phase4・Lv45 nobleアークと別軸）
   sfx("intervene"); flashFx("warp");
   log("★★ 地上の光――聖遺物を抱いて、生きて還った。奉献は成った。", "warn");
   chronicle(world, "legend",
