@@ -1,24 +1,27 @@
 // 鋳造所コンテンツ：タグ整合の抽選（環境非依存・純ロジック）
 // ロードは環境ごとに行う：Node = content-node.ts / ブラウザ = JSON を bundler が同梱
 
-import type { Fragment, FragmentTags, SetPiece, Storylet } from "./types.ts";
+import type { Fragment, FragmentTags, RosterActor, SetPiece, Storylet } from "./types.ts";
 import type { Rng } from "./rng.ts";
 
 export interface ContentDb {
   fragments: Fragment[];
   setpieces: SetPiece[];
   storylets: Storylet[];
+  adventurers: RosterActor[];   // ★中核の名簿（4-14・冒険者B/C）。空でも可（既定[]）。
 }
 
 export function makeContentDb(
   fragmentsJson: { fragments: Fragment[] },
   setpiecesJson: { setpieces: SetPiece[] },
   storyletsJson?: { storylets: Storylet[] },
+  adventurersJson?: { adventurers: RosterActor[] },
 ): ContentDb {
   return {
     fragments: fragmentsJson.fragments,
     setpieces: setpiecesJson.setpieces,
     storylets: storyletsJson?.storylets ?? [],
+    adventurers: adventurersJson?.adventurers ?? [],
   };
 }
 
