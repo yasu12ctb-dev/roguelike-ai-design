@@ -8,7 +8,7 @@ export type SpellKey =
   | "warp_strike" | "rift_lance" | "collapse" | "thunder" | "ice_tomb" | "wither" | "condemn"  // 攻
   | "still_eye" | "slow" | "dread" | "confuse" | "slumber" | "bind"                            // 制
   | "corrode"                                                                                    // 攻（継続）
-  | "shadow_step" | "charge" | "omni_strike" | "gravity_pull" | "miststep" | "wayfare"            // 移
+  | "shadow_step" | "charge" | "omni_strike" | "gravity_pull" | "miststep" | "wayfare" | "homeward"  // 移
   | "heal" | "enfeeble" | "leech" | "ironscale" | "haste" | "frenzy" | "deathdoor" | "cleanse"  // 援
   | "survey" | "insight" | "scent"                          // 識
   | "minions" | "orbblade" | "echo" | "shadowclone";        // 召
@@ -51,6 +51,7 @@ export const SPELLS: SpellDef[] = [
   { key: "gravity_pull", name: "引閘",  school: "移", cost: 0.18, desc: "見えている敵を自分のほうへ一斉に引き寄せる", minLevel: 12 },
   { key: "miststep",    name: "霞足",   school: "移", cost: 0.10, desc: "近場へ霞のように短く跳ぶ（敵から距離を取る）", minLevel: 3 },
   { key: "wayfare",     name: "退き戸", school: "移", cost: 0.16, desc: "上り階段の傍へ退く門を開く（退避）", minLevel: 9 },
+  { key: "homeward",    name: "帰還の詠唱", school: "移", cost: 0.20, desc: "数手の詠唱で地上へ還る（詠唱中は無防備・動くと中断）。聖遺物を抱いていれば奉献が成る", minLevel: 9 },
   // ── 援 ──
   { key: "heal",        name: "癒し",   school: "援", cost: 0.30, desc: "HPを癒す（理＋体ぶん。深蝕は重い）" },
   { key: "enfeeble",    name: "蝕み",   school: "援", cost: 0.18, desc: "最寄りの敵の攻撃を数手のあいだ削ぐ", minLevel: 6 },

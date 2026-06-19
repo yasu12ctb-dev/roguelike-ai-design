@@ -9,7 +9,7 @@ import {
   newWorld, createCharacter, fossilizeCurrent, fossilizeCompanion, fossilizeAbandoned, intervene, recordRediscovery,
   chronicle, poleLabel, finalActLabel, migrateWorld, awardSeal, abyssUnlocked, setArc, getArc,
 } from "../world.ts";
-import { computeVariation, exposureGain, exposurePerDescent, QUIRK_THRESHOLDS } from "../variation.ts";
+import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
 import {
   maxHp, meleeDmg, heartFactor, xpToNext, xpForKill, statsLine,
   STAT_KEYS, STAT_LABEL, HP_PER, carryCapacity, STASH_CAP, STASH_INHERIT, LOADOUT_CAP, BASE_STATS,
@@ -40,7 +40,7 @@ import { ensureAudio, sfx, setAmbient, setMuted, isMuted, loadMutePref } from ".
 import {
   genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx, spawnPursuer,
   planCompanion, resolveCompanion, randomFloorAway, inBounds, companionMaxHp, companionDmg,
-  VIEW_W, VIEW_H, type Floor, type Pos, type Chest, type Monster, type CompanionEntity, type DownedActor,
+  VIEW_W, VIEW_H, type Floor, type Pos, type Chest, type Monster, type CompanionEntity, type DownedActor, type Shrine,
 } from "../dungeon.ts";
 import type { Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, LivingActor, SetPiece, Storylet, TownContext, World } from "../types.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
@@ -216,6 +216,7 @@ function updateStatus() {
   if (hasteTurns > 0) buffs.push(`疾走${hasteTurns}`);
   if (deathDoorTurns > 0) buffs.push(`死戸${deathDoorTurns}`);
   if (shadowGuard > 0) buffs.push(`影${shadowGuard}`);
+  if (chantTurns > 0) buffs.push(`帰還詠唱${chantTurns}`);
   if (summons.length) buffs.push(`召${summons.length}`);
   $("stBuff").textContent = (mode === "dive" && buffs.length) ? `《${buffs.join(" ")}》` : "";
   applyChrome(); // 下部の操作系（⌃メニュー・行動デッキ・D-pad）を mode に応じて表示更新
@@ -281,6 +282,9 @@ function draw() {
     let cls = t === 0 ? "g-wall" : "g-floor";
     if (x === floor.stairsDown.x && y === floor.stairsDown.y) { glyph = "›"; cls = "g-down"; }
     if (x === floor.stairsUp.x && y === floor.stairsUp.y) { glyph = "‹"; cls = "g-up"; }
+    const shrM = floor.shrines.find((s) => s.x === x && s.y === y); // 回復ノード（v2・記憶に残る目印）
+    if (shrM) { glyph = shrM.kind === "spring" ? "泉" : "安"; cls = shrM.kind === "spring" ? "g-spring" : "g-rest"; }
+    if (floor.returnDoor && floor.returnDoor.x === x && floor.returnDoor.y === y) { glyph = "扉"; cls = "g-door"; } // 帰還の扉
     if (visible) {
       const fe = floor.fossils.find((e) => e.x === x && e.y === y);
       if (fe) { glyph = "†"; cls = fe.resolved ? "g-fossil-quiet" : "g-fossil"; }
@@ -336,6 +340,9 @@ function drawMapMode() {
     let glyph = "", cls = "";
     if (x === floor.stairsDown.x && y === floor.stairsDown.y) { bg = "#173b44"; glyph = "›"; cls = "g-down"; }
     else if (x === floor.stairsUp.x && y === floor.stairsUp.y) { bg = "#173b44"; glyph = "‹"; cls = "g-up"; }
+    const shrM = floor.shrines.find((s) => s.x === x && s.y === y);
+    if (shrM) { bg = shrM.kind === "spring" ? "#13404a" : "#173f2e"; glyph = shrM.kind === "spring" ? "泉" : "安"; cls = shrM.kind === "spring" ? "g-spring" : "g-rest"; }
+    if (floor.returnDoor && floor.returnDoor.x === x && floor.returnDoor.y === y) { bg = "#3a3417"; glyph = "扉"; cls = "g-door"; }
     const fe = floor.fossils.find((e) => e.x === x && e.y === y);
     if (fe) { bg = "#1f433d"; glyph = "†"; cls = fe.resolved ? "g-fossil-quiet" : "g-fossil"; }
     if (floor.chests.some((cc) => cc.x === x && cc.y === y && !cc.opened)) { bg = "#473916"; glyph = "▭"; cls = "g-chest"; }
@@ -1600,19 +1607,16 @@ function townLoop(): Promise<void> {
 // ---------- 潜行 ----------
 function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
   const cached = abyss ? undefined : floorCache.get(depth); // 深淵帯は毎回新規（試練）。通常階は再訪で同じ盤面を復元。
+  inAbyss = abyss;
   floor = cached ?? genFloor(world, depth, abyss ? { abyss: true } : undefined);
   if (!cached && !abyss) floorCache.set(depth, floor); // 初訪のみキャッシュ
   pursuerCount = 0; turnsSinceFloor = 0;
-  armorBuffTurns = 0; attackBuffTurns = 0; hasteTurns = 0; deathDoorTurns = 0; // 術バフはフロアを跨がない（戦闘内のみ）
+  armorBuffTurns = 0; attackBuffTurns = 0; hasteTurns = 0; deathDoorTurns = 0; chantTurns = 0; // 術バフはフロアを跨がない（戦闘内のみ）
   summons = []; shadowGuard = 0; // 召喚・影分けもフロアを跨がない
   const ch = world.current!;
   ch.depth = depth;
-  // 深蝕の累積＝降りた階に対する刻印（深度の刻印型・4-10C改）。マップの広さ（滞在ターン）には依らない。
-  // 降下のときだけ刻む（fromAbove＝上り階段からの降下・深淵帯への直下降を含む。上りでは増えない）。
-  if (fromAbove) {
-    const stain = exposurePerDescent(depth) * heartFactor(ch) + equipExposure(ch) * EQUIP_DESCENT_MULT;
-    if (stain > 0) ch.exposure += stain;
-  }
+  // 深蝕リワーク v2：降下・探索・移動では深蝕は増えない（じっくり攻略を罰しない）。
+  // 蓄積源は①術使用（castSpell）②異物装備の毎手drip（endTurn）③聖遺物携行の毎手（endTurn）の3つだけ。
   player = { ...(fromAbove ? floor.stairsUp : floor.stairsDown) };
   if (!cached) {
     // 化石の配置（再会重み 4-7。同一潜行で会った相手は除外）。初訪のみ＝再訪で増殖しない。
@@ -1854,6 +1858,7 @@ let seenThisDive: string[] = [];
 // 同一潜行中に訪れた階を保持（再訪で再生成しない＝宝箱/化石/倒した敵の状態が残る。FB：上り下りで宝箱が復活していた）。
 // 潜行ごとにクリア（startDive）。セーブ対象外＝途中セーブ→再開時は再生成（稀・許容）。
 let floorCache = new Map<number, Floor>();
+let inAbyss = false; // 現在のフロアが深淵帯（奉献の試練）か（帰還の扉を出さない判定に使う：v2）
 // 帰還の試練（4-13C）：聖遺物携行中の追手カウンタ（フロアごとにリセット）
 let pursuerCount = 0;
 let turnsSinceFloor = 0;
@@ -1862,6 +1867,7 @@ let armorBuffTurns = 0;  // 硬鱗：>0 の間 被ダメ −ARMOR_BUFF
 let attackBuffTurns = 0; // 焦躁：>0 の間 近接 +ATTACK_BUFF（詠唱で深蝕も増す）
 let hasteTurns = 0;      // 疾走：>0 の間、敵手番をスキップ（自分だけ余分に動く）
 let deathDoorTurns = 0;  // 死戸：>0 の間は無敵だが回復不可、明けに深みの揺り戻し（深蝕）
+let chantTurns = 0;      // 帰還の詠唱（v2）：>0 の間 詠唱中（無防備）。移動で中断。0到達で地上へ還る
 const ARMOR_BUFF = 4, ATTACK_BUFF = 5; // バフ量（理で伸ばさず固定＝読みやすさ優先）
 // 召喚＝一時味方（4-11F③・召系）。盤上 ephemeral：数手で霧散。隣接敵を毎手討ち、いなければ最寄りへ寄る。
 // monsters のターゲットには乗らない（簡潔さ優先）＝味方AIは攻撃のみ。echo_summon(4-10I) とは別物（術側は割り切り）。
@@ -1896,6 +1902,7 @@ async function playerAct(dx: number, dy: number) {
   if (busy || mode !== "dive" || !floor || !world.current) return;
 
   if (!(dx === 0 && dy === 0)) {
+    if (chantTurns > 0) { chantTurns = 0; log("帰還の詠唱が、途切れた。", "warn"); } // 動くと中断（v2）
     const nx = player.x + dx, ny = player.y + dy;
     if (!moveOrInteract(nx, ny)) return; // 壁
   }
@@ -1910,8 +1917,8 @@ const CORRUPTION_DRAIN_FROM = 1.5;
 const CORRUPTION_DRAIN_STEP = 2.0;
 /** 牙の毎手上限：どれだけ深く染まってもこれ以上は削れない（青天井の死の螺旋を断つ）。 */
 const CORRUPTION_DRAIN_CAP = 2;
-/** 降下1階ごとの異物装備由来の深蝕（毎手 exposurePerTurn を「1階ぶん」に束ねた係数）。 */
-const EQUIP_DESCENT_MULT = 6;
+/** 帰還の詠唱（v2）：完成までの詠唱手数（この間は無防備＝敵が動く。移動で中断）。 */
+const HOMEWARD_CHANT = 3;
 /** 1手ぶんの後処理：深蝕→奇癖→蝕み→敵の手番→予告更新→描画→昇級→死。移動も詠唱もここに合流する。 */
 async function endTurn() {
   if (!floor || !world.current) return;
@@ -1930,12 +1937,15 @@ async function endTurn() {
     }
   }
 
-  // 深蝕（4-10C・深度の刻印型）。歩くだけの毎手累積は撤去し、降下ごとに enterFloor で刻む方式へ
-  // （巨大マップの滞在ターンで青天井に膨れる破綻を是正）。毎手で増えるのは聖遺物携行のときだけ。
+  // 深蝕の累積（リワーク v2）：探索・移動・降下では一切増えない。毎手で増えるのは
+  //   ②異物装備の drip（呪われた装備の代償・equipExposure）と ③聖遺物携行のときだけ。
+  //   （①術使用は castSpell で都度加算。これら3源以外に受動累積は無い＝じっくり攻略を罰しない。）
+  const drip = equipExposure(ch) * heartFactor(ch); // ②異物 drip も心で和らぐ
+  if (drip > 0) ch.exposure += drip;
 
   // 帰還の試練（4-13C）：聖遺物携行中は深みが覚醒＝毎手 深蝕が急騰し、追手の怨霊が湧く。
   if (ch.carryingRelic) {
-    ch.exposure += RELIC_EXPOSURE_PER_TURN;
+    ch.exposure += RELIC_EXPOSURE_PER_TURN * heartFactor(ch); // ③聖遺物携行も心で和らぐ
     turnsSinceFloor++;
     if (turnsSinceFloor % RELIC_PURSUER_EVERY === 0 && pursuerCount < RELIC_PURSUER_CAP) {
       const m = spawnPursuer(floor, rng, player, floor.depth, pursuerCount);
@@ -2019,7 +2029,19 @@ async function endTurn() {
     companion.crisisShown = true;
     await companionCrisis();
   }
-  if (hp <= 0) await deathFlow();
+  if (hp <= 0) { await deathFlow(); return; }
+  // 帰還の詠唱（v2）：詠唱が満ちたら地上へ還る（聖遺物携行中は奉献成立＝NetHack 昇天ラン型の山場）。
+  if (chantTurns > 0) {
+    chantTurns--;
+    if (chantTurns === 0) {
+      sfx("intervene"); flashFx("warp");
+      if (ch.carryingRelic) { await ascendWithRelic(); return; }
+      log("詠唱が満ちる――視界が白に溶け、地上の光が射した。", "cue");
+      await surfaceReturn();
+      return;
+    }
+    log(`帰還の詠唱――地が遠ざかってゆく（あと${chantTurns}手）。`, "cue");
+  }
 }
 
 // ---------- 装備（4-11F④）。拾得＝装備プロンプト。ボス/宝箱から入手。 ----------
@@ -2054,6 +2076,7 @@ async function handleBossResolve() {
       ch.xp += Math.round(xpForKill(boss.kind.hp) * 0.5 * xpMul(ch)); // 鎮めは報酬控えめ＝慈悲の代償
       log(`★ ${ch.name}は${boss.kind.name}を鎮めた。深みの底で、何かが静かになった。`, "warn");
       chronicle(world, "intervention", `${ch.name}が深度${floor!.depth}で${boss.kind.name}を鎮めた。`, [ch.id, boss.fossilId]);
+      if (boss.boss === "area") spawnReturnDoor(boss); // 帰還の扉＝往復チェックポイント（v2・鎮めでも出現）
       recordCompanionFeat(); // 相棒と共にボスを鎮めた＝偉業（4-4E 昇格ゲート）
     } else {
       rewardKill(boss); // 討つ＝通常撃破（XP満額＋ドロップ＋legend）
@@ -2397,6 +2420,12 @@ async function castSpell(key: string) {
     if (!spot) { log("退き戸が開かない。", "dim"); draw(); return; }
     flashFx("blink", { x: player.x, y: player.y }); player = { x: spot.x, y: spot.y }; sfx("spell_blink");
     log("退き戸を開く。上り階段の傍へ、退いた。");
+  } else if (key === "homeward") { // 帰還の詠唱（v2）＝数手の詠唱で地上へ還る（聖遺物携行中は奉献成立）。詠唱中は無防備・動くと中断
+    chantTurns = HOMEWARD_CHANT;
+    sfx("open"); flashFx("warp", { x: player.x, y: player.y });
+    log(ch.carryingRelic
+      ? `帰還の詠唱を始める。聖遺物を抱いたまま――満ちれば、奉献が成る（${HOMEWARD_CHANT}手・無防備・動くと中断）。`
+      : `帰還の詠唱を始める（${HOMEWARD_CHANT}手・詠唱中は無防備・動くと中断）。`, "cue");
   } else if (key === "cleanse") { // 解呪＝今この場で深蝕をいくらか祓う（潜行中の浄化弁）
     const before = ch.exposure;
     ch.exposure = Math.max(0, ch.exposure - 0.6);
@@ -2494,8 +2523,9 @@ async function castSpell(key: string) {
     log("影分け。三つの影が、身代わりに立つ（3度まで）。");
   }
 
-  ch.exposure += def.cost;
-  log(`（${def.name}の代償：深蝕＋${def.cost}）`, "dim");
+  const gain = def.cost * heartFactor(ch); // 心（染み込み係数）で術の深蝕代償が和らぐ＝v2 の主累積源①
+  ch.exposure += gain;
+  log(`（${def.name}の代償：深蝕＋${gain.toFixed(2)}）`, "dim");
   await endTurn();
 }
 
@@ -2598,6 +2628,16 @@ async function autoTravel(dest: Pos) {
   }
 }
 
+/** 帰還の扉を据える（v2）：エリアボス撃破地点に往復チェックポイントを生成。深淵帯では出さない
+ *  （試練の脱出は上り階段／帰還の詠唱のみ）。1フロア1つ。塞がっていれば近傍へ。 */
+function spawnReturnDoor(mon: Monster): void {
+  if (!floor || inAbyss || floor.returnDoor) return;
+  const at = (tileAt(floor, mon.x, mon.y) === 1) ? { x: mon.x, y: mon.y } : freeFloorSpotNear({ x: mon.x, y: mon.y });
+  if (!at) return;
+  floor.returnDoor = at;
+  log("討たれたものの居た場所に、ほのかな光の門が立ち上がった――帰還の扉。街と往復できる。", "warn");
+}
+
 /** 撃破時の報酬：XP（敵の堅さ比例）。ボスは特別演出＋年代記に刻む（4-11F）。 */
 function rewardKill(mon: Monster, killLine?: string) {
   const ch = world.current!;
@@ -2613,6 +2653,7 @@ function rewardKill(mon: Monster, killLine?: string) {
     if (mon.boss === "area" && awardSeal(world, "abyss_boss", [ch.id])) {
       log("◆ 「成れの果ての討伐」の印を得た。", "warn");
     }
+    if (mon.boss === "area") spawnReturnDoor(mon); // 帰還の扉＝往復チェックポイント（v2・深淵帯を除く）
     recordCompanionFeat(); // 相棒と共にボスを討った＝偉業（4-4E 昇格ゲート）
   } else {
     log(killLine ?? `${mon.kind.name}を倒した。`);
@@ -2652,6 +2693,13 @@ function moveOrInteract(nx: number, ny: number): boolean {
     return true;
   }
 
+  // 帰還の扉（v2）：踏むと一時帰還の確認へ（街⇔このフロアの往復チェックポイント）。
+  if (f.returnDoor && f.returnDoor.x === nx && f.returnDoor.y === ny) { void returnViaDoor(); return true; }
+
+  // 回復ノード（v2）：踏むと一度だけ効く（効く余地が無ければ温存して素通り）。
+  const shr = f.shrines.find((s) => !s.used && s.x === nx && s.y === ny);
+  if (shr) useShrine(shr);
+
   player = { x: nx, y: ny };
   sfx("move");
 
@@ -2659,6 +2707,74 @@ function moveOrInteract(nx: number, ny: number): boolean {
   if (nx === f.stairsDown.x && ny === f.stairsDown.y) void stairsPrompt("down");
   else if (nx === f.stairsUp.x && ny === f.stairsUp.y) void stairsPrompt("up");
   return true;
+}
+
+/** 回復ノードの使用（v2）：泉＝HP回復／安息所＝深蝕浄化。効く余地が無ければ温存（消えない）。 */
+const SPRING_HEAL_FRAC = 0.6; // 回復の泉：最大HPの6割を癒す
+const REST_CLEANSE = 0.8;     // 安息所：深蝕をこれだけ祓う（術コスト数発ぶん）
+function useShrine(s: Shrine): void {
+  const ch = world.current!;
+  if (s.kind === "spring") {
+    if (hp >= maxHp(ch)) return; // 満タンなら温存
+    const before = hp; hp = Math.min(maxHp(ch), hp + Math.max(1, Math.round(maxHp(ch) * SPRING_HEAL_FRAC)));
+    sfx("open");
+    log(`回復の泉。澄んだ水を含むと、傷が塞がってゆく（HP＋${hp - before}）。泉は涸れた。`, "cue");
+  } else {
+    if (ch.exposure <= 0.05) return; // 浄める澱が無ければ温存
+    const before = ch.exposure; ch.exposure = Math.max(0, ch.exposure - REST_CLEANSE);
+    sfx("open");
+    log(`安息所。息を整えると、胸の澱がほどけてゆく（深蝕 -${(before - ch.exposure).toFixed(2)}）。安息所は鎮まった。`, "cue");
+  }
+  s.used = true;
+  const i = floor!.shrines.indexOf(s); if (i >= 0) floor!.shrines.splice(i, 1);
+}
+
+/** 地上への生還（フル離脱・v2）：傷は癒え深みは残る。潜行を終え街へ→次は新ダンジョン1階から
+ *  （startDive が floorCache/diveCount をリセット＝farm根絶を維持）。上り階段(深度1)・帰還の詠唱から呼ぶ。 */
+async function surfaceReturn() {
+  const ch = world.current!;
+  hp = maxHp(ch); ch.depth = 0;
+  // 同行（4-14C）：二人で生還＝絆が深まり、相棒は街に残存（次の潜行も隣を歩く）。
+  if (companion && world.companion?.alive) {
+    world.companion.bond += 1;
+    log(`${companionName()}と共に生還した。絆が深まる。`, "cue");
+    tryPromoteCompanion();
+  }
+  companion = null;
+  save();
+  log("地上の光がまぶしい。生きて、帰った。");
+  busy = false;
+  await maybeTownEvent(); // アンビエント街イベント（4-12 J）：襲撃/追悼など、稀に街で出来事が起きる
+  await townLoop(); await startDive();
+}
+
+/** 帰還の扉（v2）：エリアボス撃破で出現する往復チェックポイント。街⇔このフロアを何度でも往復
+ *  （floorCache/diveCount を保持＝同一潜行を継続）。フル離脱（階段/詠唱）するまで扉は残る。 */
+async function returnViaDoor() {
+  if (busy) return;
+  busy = true;
+  const ch = world.current!;
+  const depth = floor!.depth;
+  const r = await sheet({
+    text: `帰還の扉が、静かに口を開けている。\nここから街へ一度戻り、また このフロア（深度${depth}）へ戻って来られる。\n（潜行は続く＝迷宮はそのまま。傷は街で癒えるが、深みは残る）`,
+    meta: "帰還の扉 ── 一時帰還", options: ["扉をくぐる（街へ・また戻れる）", "とどまる"],
+  });
+  if (r.pick !== 1) { busy = false; draw(); return; }
+  hp = maxHp(ch); ch.depth = 0;
+  companion = null; // 相棒は world.companion として街へ同道（再降下で再展開）
+  save();
+  sfx("stairs"); flashFx("warp");
+  log("帰還の扉をくぐる――束の間の地上。扉は、あのフロアへ繋がったままだ。", "cue");
+  busy = false;
+  await townLoop();
+  if (abyssDivePending) { await startDive(); return; } // 街で奉献の試練を選んだ＝通常の新規潜行へ（floorCache リセット）
+  // 同一潜行を継続：floorCache が同じ盤面を復元（diveCount/seenThisDive は据え置き＝farm根絶を侵さない）。
+  mode = "dive";
+  buildGridDom(VIEW_W, VIEW_H);
+  if (world.current) hp = maxHp(world.current);
+  enterFloor(depth, true);
+  if (floor?.returnDoor) { player = { ...floor.returnDoor }; if (companion) spawnCompanionNear(player); draw(); } // 扉のあった場所へ再出現
+  log(`帰還の扉――深度${depth}へ戻った。`, "cue");
 }
 
 async function stairsPrompt(dir: "down" | "up") {
@@ -2679,21 +2795,7 @@ async function stairsPrompt(dir: "down" | "up") {
     if (r.pick === 1) { sfx("stairs"); enterFloor(f.depth + 1, true); await maybeDungeonEvent(floor!.depth); await maybeMerchantEncounter(); }
   } else if (f.depth === 1) {
     const r = await sheet({ text: "地上への階段だ。街へ戻るか？\n（傷は癒えるが、浴びた深みは消えない）", options: ["街へ戻る", "とどまる"] });
-    if (r.pick === 1) {
-      hp = maxHp(world.current!); world.current!.depth = 0;
-      // 同行（4-14C）：二人で生還＝絆が深まり、相棒は街に残存（次の潜行も隣を歩く）。
-      if (companion && world.companion?.alive) {
-        world.companion.bond += 1;
-        log(`${companionName()}と共に生還した。絆が深まる。`, "cue");
-        tryPromoteCompanion();
-      }
-      companion = null;
-      save();
-      log("地上の光がまぶしい。生きて、帰った。");
-      busy = false;
-      await maybeTownEvent(); // アンビエント街イベント（4-12 J）：襲撃/追悼など、稀に街で出来事が起きる
-      await townLoop(); await startDive(); return;
-    }
+    if (r.pick === 1) { await surfaceReturn(); return; }
   } else {
     const r = await sheet({ text: `上り階段がある。深度${f.depth - 1}へ戻るか？`, options: ["戻る", "とどまる"] });
     if (r.pick === 1) { enterFloor(f.depth - 1, false); await maybeDungeonEvent(floor!.depth); await maybeMerchantEncounter(); }
