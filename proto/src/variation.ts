@@ -47,13 +47,5 @@ export function exposureGain(depth: number): number {
   return band === "shallow" ? 0 : band === "mid" ? 0.02 : 0.06;
 }
 
-/** 1階降りるごとの深蝕増分（深度の刻印・4-10C改）。web はこちらを使う。
- *  累積を「毎手×歩数」から「降りた階数」に移し、マップの広さから完全に切り離す
- *  （巨大マップの滞在ターンで exposure が青天井に膨れる破綻を是正）。浅0／中0.10／深0.20。 */
-export function exposurePerDescent(depth: number): number {
-  const band = depthBand(depth);
-  return band === "shallow" ? 0 : band === "mid" ? 0.10 : 0.20;
-}
-
 /** 奇癖が付く深蝕閾値（超えるたびに1つ） */
 export const QUIRK_THRESHOLDS = [0.5, 1.2, 2.5];
