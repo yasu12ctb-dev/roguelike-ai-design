@@ -1,6 +1,160 @@
 {
   "storylets": [
     {
+      "id": "ch_wrapped_coins",
+      "context": "chest", "prerequisites": {}, "weight": 2,
+      "result": { "text": "硬貨がひと握り、布にくるまれて入っていた。誰かの命がけの稼ぎだ。", "effects": [ { "gold": 8 }, { "chronicle": "深度#depth#の宝箱から、いくらかの硬貨を得た。" } ] }
+    },
+    {
+      "id": "ch_salve",
+      "context": "chest", "prerequisites": {}, "weight": 2,
+      "result": { "text": "油紙に包まれた膏薬が、まだ乾かずに残っていた。", "effects": [ { "item": "salve" }, { "chronicle": "深度#depth#の宝箱から治癒の膏薬を得た。" } ] }
+    },
+    {
+      "id": "ch_soothe",
+      "context": "chest", "prerequisites": { "depthBand": "mid" }, "weight": 1,
+      "result": { "text": "小瓶がひとつ。鼻を近づけると、覚えのある鎮めの香りがした。", "effects": [ { "item": "soothe" }, { "chronicle": "深度#depth#の宝箱から鎮静の薬を得た。" } ] }
+    },
+    {
+      "id": "ch_unaddressed_letter",
+      "context": "chest", "prerequisites": {}, "weight": 1,
+      "result": { "text": "金目のものはない。ただ、宛名のない手紙が一通、丁寧に畳まれていた。", "effects": [ { "trait": "拾得:宛名のない手紙" }, { "chronicle": "深度#depth#の宝箱で、誰にも届かなかった手紙を見つけた。" } ] }
+    },
+    {
+      "id": "ch_spores",
+      "context": "chest", "prerequisites": { "depthBand": "mid" }, "weight": 1,
+      "result": { "text": "蓋を開けた途端、黒い胞子がぶわりと噴き上がった。咳き込みながら蓋を閉じる。", "effects": [ { "exposure": 0.08 }, { "chronicle": "深度#depth#の宝箱は罠だった。胞子を吸い込んでしまった。" } ] }
+    },
+    {
+      "id": "ch_double_bottom",
+      "context": "chest", "prerequisites": { "depthBand": "deep" }, "weight": 1,
+      "result": { "text": "中身は空——と見せかけて、底板が二重になっていた。隠された硬貨が、ずしりと重い。", "effects": [ { "gold": 18 }, { "chronicle": "深度#depth#の宝箱の二重底から、隠し金を掘り当てた。" } ] }
+    },
+    {
+      "id": "ch_cursed_coin",
+      "context": "chest", "prerequisites": { "depthBand": "deep" }, "weight": 1,
+      "result": { "text": "昏く光る古銭が山と積まれている。掴むと、指先から冷たいものが這い上がってきた。", "effects": [ { "gold": 14 }, { "exposure": 0.1 }, { "chronicle": "深度#depth#の宝箱で、呪わしい古銭を掴んだ。富には代価があった。" } ] }
+    },
+    {
+      "id": "ch_bones_hand",
+      "context": "chest", "prerequisites": {}, "weight": 1,
+      "result": { "text": "蓋を開けると、白骨化した手が中の何かを握りしめたまま入っていた。指をほどくと、小さな硬貨が一枚。", "effects": [ { "gold": 5 }, { "chronicle": "深度#depth#の宝箱で、握られたままの硬貨を一枚もらい受けた。" } ] }
+    },
+    {
+      "id": "ch_old_map",
+      "context": "chest", "prerequisites": { "depthBand": "shallow" }, "weight": 1,
+      "result": { "text": "丸めた羊皮紙——古い見取り図だ。ところどころ、誰かが安全な道に印をつけている。", "effects": [ { "trait": "拾得:古い見取り図" }, { "chronicle": "深度#depth#の宝箱で、先人の見取り図を拾った。" } ] }
+    },
+    {
+      "id": "ch_empty_gnawed",
+      "context": "chest", "prerequisites": {}, "weight": 2,
+      "result": { "text": "蓋は齧られ、中身は荒らされていた。獣の巣になって久しい。", "effects": [ { "chronicle": "深度#depth#の宝箱は、獣に荒らされた後だった。" } ] }
+    },
+    {
+      "id": "ch_relic_hum",
+      "context": "chest", "prerequisites": { "depthBand": "deep" }, "weight": 1,
+      "result": { "text": "底に、低く唸る小さな塊がひとつ。何の品かは分からないが、確かに『生きて』いる気配がある。", "effects": [ { "trait": "拾得:唸る小塊" }, { "exposure": 0.05 }, { "chronicle": "深度#depth#の宝箱で、唸りを上げる謎の塊を手にした。" } ] }
+    },
+    {
+      "id": "dg_shallow_pool",
+      "context": "dungeon", "prerequisites": { "depthBand": "shallow" }, "weight": 1,
+      "text": "壁の窪みに、澄んだ水が溜まっている。覗き込むと、自分の顔が静かに揺れた。",
+      "choices": [
+        { "label": "口をすすぐ", "text": "冷たい水で顔を洗うと、張りつめていたものが少しほどけた。", "effects": [ { "exposure": -0.03 }, { "chronicle": "深度#depth#の澄んだ水で、ひと息ついた。" } ] },
+        { "label": "先を急ぐ", "text": "立ち止まる余裕はない。水面に背を向けた。", "effects": [] }
+      ]
+    },
+    {
+      "id": "dg_shallow_lampnote",
+      "context": "dungeon", "prerequisites": { "depthBand": "shallow" }, "weight": 1,
+      "text": "壁に、先客が彫り残した覚書がある。「ここから先、灯りを絶やすな」。",
+      "choices": [
+        { "label": "書き写す", "text": "忠告を頭に刻んだ。誰かの経験が、こちらの命を延ばすこともある。", "effects": [ { "trait": "心得:灯りを絶やすな" }, { "chronicle": "深度#depth#で、先人の覚書を書き写した。" } ] },
+        { "label": "通り過ぎる", "text": "他人の恐れに、足を止めている暇はなかった。", "effects": [] }
+      ]
+    },
+    {
+      "id": "dg_shallow_beastnest",
+      "context": "dungeon", "prerequisites": { "depthBand": "shallow" }, "weight": 1,
+      "text": "壁の隙間に、獣の巣がある。光るものが、奥にいくつか紛れている。",
+      "choices": [
+        { "label": "手を入れて探る", "text": "噛みつかれそうになりながら、硬貨を数枚つまみ出した。", "effects": [ { "gold": 5 }, { "exposure": 0.03 }, { "chronicle": "深度#depth#の獣の巣から、硬貨をくすねた。" } ] },
+        { "label": "そっとしておく", "text": "起こせば厄介だ。息を殺して離れた。", "effects": [] }
+      ]
+    },
+    {
+      "id": "dg_mid_altar",
+      "context": "dungeon", "prerequisites": { "depthBand": "mid" }, "weight": 1,
+      "text": "小さな祭壇が、忘れられたように佇んでいる。誰かが手向けた供物が、まだ残っている。",
+      "choices": [
+        { "label": "祈りを捧げる", "text": "膝をつき、短く祈る。胸の澱が、わずかに軽くなった気がした。", "effects": [ { "exposure": -0.05 }, { "chronicle": "深度#depth#の祭壇で祈り、深みが少し退いた。" } ] },
+        { "label": "供物を頂く", "text": "供物の硬貨を懐に収めた。罰当たりな冷気が、背を撫でていく。", "effects": [ { "gold": 8 }, { "exposure": 0.1 }, { "chronicle": "深度#depth#の祭壇の供物を奪い、深みを浴びた。" } ] }
+      ]
+    },
+    {
+      "id": "dg_mid_freshcorpse",
+      "context": "dungeon", "prerequisites": { "depthBand": "mid" }, "weight": 1,
+      "text": "まだ新しい亡骸が、壁にもたれている。先客だ。物入れが、半ば開いている。",
+      "choices": [
+        { "label": "物入れを検める", "text": "使える物資を頂いた。いつか、自分もこうなるのだろうか。", "effects": [ { "item": "salve" }, { "exposure": 0.04 }, { "chronicle": "深度#depth#で、先客の亡骸から物資を得た。" } ] },
+        { "label": "手を合わせる", "text": "せめて、と短く頭を垂れた。名も知らぬ同業者へ。", "effects": [ { "exposure": -0.03 }, { "chronicle": "深度#depth#で、先客の亡骸に手を合わせた。" } ] }
+      ]
+    },
+    {
+      "id": "dg_mid_voices",
+      "context": "dungeon", "prerequisites": { "depthBand": "mid" }, "weight": 1,
+      "text": "通路の奥から、聞き取れないほど小さな囁きが、いくつも重なって流れてくる。",
+      "choices": [
+        { "label": "耳を澄ます", "text": "言葉の端が、ふいに自分の名のように聞こえた。深みが、こちらを覚え始めている。", "effects": [ { "exposure": 0.08 }, { "trait": "聞いたもの:深みの囁き" }, { "chronicle": "深度#depth#で、深みの囁きに耳を貸してしまった。" } ] },
+        { "label": "耳を塞ぐ", "text": "聞いてはいけない種類の声だ。耳を覆い、足早に抜けた。", "effects": [] }
+      ]
+    },
+    {
+      "id": "dg_mid_cache",
+      "context": "dungeon", "prerequisites": { "depthBand": "mid" }, "weight": 1,
+      "text": "床石の一枚が、不自然に浮いている。下に、何かが隠されているらしい。",
+      "choices": [
+        { "label": "持ち上げる", "text": "隠し場所から、誰かの備えが出てきた。役立たせてもらおう。", "effects": [ { "item": "soothe" }, { "chronicle": "深度#depth#の隠し場所から、備えを掘り出した。" } ] },
+        { "label": "戻しておく", "text": "誰かが戻ってくるのかもしれない。石を元に戻した。", "effects": [] }
+      ]
+    },
+    {
+      "id": "dg_deep_rift",
+      "context": "dungeon", "prerequisites": { "depthBand": "deep" }, "weight": 1,
+      "text": "壁の亀裂が、呼吸するようにゆっくりと開閉している。奥は、底の見えない闇だ。",
+      "choices": [
+        { "label": "覗き込む", "text": "闇の奥で、何かがこちらを見返した。背筋を、冷たいものが走り抜ける。", "effects": [ { "exposure": 0.1 }, { "trait": "見たもの:呼吸する亀裂" }, { "chronicle": "深度#depth#で、呼吸する亀裂を覗き込んでしまった。" } ] },
+        { "label": "離れる", "text": "近づいてはいけない。亀裂に背を向け、足早に去った。", "effects": [] }
+      ]
+    },
+    {
+      "id": "dg_deep_mirror",
+      "context": "dungeon", "prerequisites": { "depthBand": "deep" }, "weight": 1,
+      "text": "黒曜のように磨かれた壁面が、鏡のように立っている。映る自分の輪郭が、ほんの少しずれている。",
+      "choices": [
+        { "label": "見つめ返す", "text": "鏡の中の己が、こちらより一拍遅れて笑った。何かを、置き去りにした気がする。", "effects": [ { "exposure": 0.1 }, { "trait": "見たもの:ずれた己" }, { "chronicle": "深度#depth#の黒い鏡で、ずれた己と目を合わせた。" } ] },
+        { "label": "叩き割る", "text": "拳で打つと、鏡は鈍く軋んだだけだった。だが、視線は外れた。", "effects": [ { "exposure": 0.04 }, { "chronicle": "深度#depth#の黒い鏡を打ち、視線を断った。" } ] }
+      ]
+    },
+    {
+      "id": "dg_deep_shrine",
+      "context": "dungeon", "prerequisites": { "depthBand": "deep" }, "weight": 1,
+      "text": "崩れかけた祠が、深い闇の中に沈んでいる。賽銭らしき硬貨が、底に光る。",
+      "choices": [
+        { "label": "硬貨を供える", "text": "持ち合わせを供え、頭を垂れた。澱んだ空気が、ほんの少し澄む。", "effects": [ { "gold": -4 }, { "exposure": -0.08 }, { "chronicle": "深度#depth#の祠に供え、深みが退いた。" } ] },
+        { "label": "賽銭を奪う", "text": "底の硬貨を浚った。祠の闇が、じっとこちらを見ている気がした。", "effects": [ { "gold": 12 }, { "exposure": 0.12 }, { "chronicle": "深度#depth#の祠から賽銭を奪い、深く穢れた。" } ] }
+      ]
+    },
+    {
+      "id": "dg_deep_echo",
+      "context": "dungeon", "prerequisites": { "depthBand": "deep" }, "weight": 1,
+      "text": "ふいに、誰かの足音が前を歩いている。同じ歩幅で、決して追いつけない距離を保って。",
+      "choices": [
+        { "label": "ついていく", "text": "足音は、罠のない道を選んで進んでいた。先達の残響に、命を救われた気がする。", "effects": [ { "exposure": -0.04 }, { "trait": "導かれ:先達の足音" }, { "chronicle": "深度#depth#で、先達の足音の残響に導かれた。" } ] },
+        { "label": "立ち止まる", "text": "幻に従う気にはなれない。足音が消えるまで、その場を動かなかった。", "effects": [] }
+      ]
+    },
+    {
       "id": "ex_loss_satchel",
       "prerequisites": { "tone": "loss" },
       "weight": 1,
