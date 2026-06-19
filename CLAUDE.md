@@ -30,6 +30,7 @@
 
 v0 公開済み＋以下まで実装・公開。**M0/M1 完了・M2 ほぼ完了**（進捗詳細は `ROADMAP.md`）。
 
+- **深蝕リワーク v2（2026-06-19・ユーザー承認・web限定・snapshot 4-13 末尾／「深度の刻印型」を置換）：** 「じっくり攻略を一切罰しない」設計。**受動累積を全撤去**（`enterFloor` の降下刻印を削除・per-turn/per-descent とも廃止）→ **蓄積源は3つだけ**＝①術使用（`castSpell` で `def.cost×heartFactor`）②異物装備の毎手 drip（`endTurn` で `equipExposure×heartFactor`）③聖遺物携行の毎手（`RELIC_EXPOSURE_PER_TURN×heartFactor`）。**牙（HPドレイン）は維持**（閾値1.5・上限 −2/手）。**回復ノード**＝`dungeon.ts Shrine`（`回復の泉`HP回復/`安息所`深蝕 −0.8・一度使用で消滅・`genFloor` で深さ別に設置／泉は深層1階確定）＝`main.ts useShrine`・グリフ `泉`/`安`。**深淵帯フロアはフル寸法に戻す**（40×44固定を撤去）。**帰還3経路**＝①上り階段直帰（深度1‹→`surfaceReturn`＝潜行終了→次は新ダンジョン1階）②帰還の詠唱（術 `homeward`＝任意地点で `HOMEWARD_CHANT 3`手チャネル・無防備・動くと中断→街へ。聖遺物携行中は奉献成立）③帰還の扉（エリアボス撃破地点に `floor.returnDoor` 出現＝`returnViaDoor` で街⇔そのフロアを反復往復・`floorCache`/`diveCount` 保持＝farm根絶を侵さない・深淵帯では出さない）。**心(heart)** は3源すべてに係数として効く（`heartFactor`）。**数値は要テストプレイ微調整**（`HOMEWARD_CHANT`/`SPRING_HEAL_FRAC 0.6`/`REST_CLEANSE 0.8`/設置数）。CLI/demo は旧 `exposureGain` 毎手モデル据え置き。
 - **戦闘①〜⑤ 完了**：テレグラフ決定論戦闘／ステ4種(体/力/理/心)＋レベル選択成長(職業廃止)／深蝕魔法(術)／装備(武器/防具/遺物・異物・死亡刻印→継承で奪還)／鎮め筋(討つ/鎮める)。敵ティア×色・中/エリアボスも実装。
 - **遭-①〜④ 完了**：化石遭遇のストーリーレット化〈調べる/捜索〉＋effects還流＋伏線連鎖／常設動詞フル結線(鎮魂/継承/立ち去る)／**遭-③ 依頼経済**／**遭-④ 山場SetPiece**（legend_return/grudge_hunt の固有決着）。
 - **アクター記述子（PR #42・4-12G）**：生者NPC＝化石 origin の一般化。
@@ -55,7 +56,7 @@ v0 公開済み＋以下まで実装・公開。**M0/M1 完了・M2 ほぼ完了
   - **深蝕魔法＝ロードアウト制＋35種**（`spells.ts`・攻8/制6/移6/援8/識3/召4）：取得無制限＋**構え `Character.loadout`（上限`LOADOUT_CAP=10`）**＝戦闘で撃てるのは構えだけ・入替は街の ≡「術を構える」（安全地帯のみ）。習得＝**4Lv間隔（`LEARN_EVERY`）＋`SpellDef.minLevel` で高効果術を高レベルゲート**（深淵boon/教団は不問）。状態異常 `Monster.slowed/fear/confused/rooted/weak/poison`＋プレイヤーバフ計時 `armorBuffTurns/attackBuffTurns/hasteTurns/deathDoorTurns`＋召喚一時味方 `SummonEntity[]`/`shadowGuard`/解呪 `cleanseTurns`（全て `main.ts` ephemeral）。バフ残量は `stBuff` バー表示。実装の正＝`spells.ts SPELLS`＋`web/main.ts castSpell`（新術＝1行+1分岐）。**残り5種（凍霧/業火床=地形ハザード・腐喰は実装済・弾き=遠隔敵待ち・眩耀/不和=要再設計）は後続。**
   - **プレイFB対応**：鑑定店（奇物堂 `oddments`→`appraiseShop`＝拾った異物を料金で開示）／迷宮拡張（`36+min(d,50)×42+min(d,50)`＝最大86×92・深度50頭打ち・敵/宝箱/化石遭遇も面積追従）／**宝箱復活の修正**（`floorCache`＝潜行内の階を保持）。
   - **QA是正**：**再潜行farm根絶**（`World.diveCount` を `genFloor` seedに混ぜ潜行ごと別ダンジョン）／**撃破XP×0.55**（`XP_KILL_MUL`＝Lv≈深度維持）／**系譜の術継承**（`Fossil.spells`→`createCharacter` で弟子3/血筋2を初期習得＝4-11F②実装）／召喚は疾走中も稼働。
-- 見た目＝方向A（発光グリフ）・縦持ち。街グリフ規約＝看板:漢字／群衆:ラテン(c/$/n/t/f)／景物:漢字。迷宮＝@:プレイヤー(金)／相棒:@(青)／召喚:`ψ/‡/Ψ`(菫)／敵:記号×色tier／手負い:`&`(琥珀)。
+- 見た目＝方向A（発光グリフ）・縦持ち。街グリフ規約＝看板:漢字／群衆:ラテン(c/$/n/t/f)／景物:漢字。迷宮＝@:プレイヤー(金)／相棒:@(青)／召喚:`ψ/‡/Ψ`(菫)／敵:記号×色tier／手負い:`&`(琥珀)／回復の泉:`泉`(青緑)／安息所:`安`(緑)／帰還の扉:`扉`(金・v2)。
 - **操作系＝8方向（PR #98・2026-06-17確定／spec §45）：** プレイヤーも敵・相棒と同じ8方向（旧4方向の非対称を是正・エンジン無改修）。入力＝`dirMove()` 集約／スワイプ8方向(`octant`)／キー＝矢印・WASD・viキー yubn・numpad1-9・`.`待機。**D-pad＝既定オン・8方向(中央=待機)・`≡`メニューでオンオフ＋位置(右下/左下)選択＝localStorage**（2026-06-13の「D-pad廃止」を反転）。web限定・CLI据え置き・既存セーブ無影響。
 - セーブ **version=9**（gold/quests/town-scene/`World.companion` 含む＋任意追加 `Character.loadout`・`World.diveCount`・`Fossil.spells` は `world.ts migrateWorld` 非破壊バックフィル）。歩ける街・同行・魔法ロードアウトは **web 限定**、CLI/デモはテキストメニュー据え置き。
 

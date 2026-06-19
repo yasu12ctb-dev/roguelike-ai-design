@@ -65,6 +65,13 @@ export interface Chest extends Pos {
   id: string; opened: boolean;   // 宝箱（開けると中身を抽選：4-12 chest）
   relic?: boolean;               // 聖遺物（奉献の試練・深淵帯の主が守る：4-13B）
 }
+// 回復ノード（深蝕リワーク v2）：踏むと一度だけ効く＝使うと消える。
+//   rest  ＝安息所（深蝕を浄化）／spring＝回復の泉（HPを癒す）。
+//   設置数は深さで調整（深いほど多い）。泉は深層で1階確定・浅中はランダム（genFloor）。
+export type ShrineKind = "rest" | "spring";
+export interface Shrine extends Pos {
+  id: string; kind: ShrineKind; used: boolean;
+}
 // 同行（相棒）の盤上エンティティ（4-14C）。潜行中だけ生きる ephemeral。@に追従し隣接攻撃、テレグラフを出す。
 export interface CompanionEntity extends Pos {
   hp: number; maxHp: number;
@@ -87,6 +94,8 @@ export interface Floor {
   monsters: Monster[];
   fossils: FossilEntity[];
   chests: Chest[];
+  shrines: Shrine[];             // 安息所/回復の泉（一度使用で消える：深蝕リワーク v2）
+  returnDoor?: Pos | null;       // 帰還の扉（エリアボス撃破で出現＝潜行中の往復チェックポイント：v2）
   explored: boolean[];           // 既踏破（記憶表示用）
   downed?: DownedActor | null;   // 手負いの冒険者（任意。enterFloor が稀に配置：4-14C）
 }
@@ -105,7 +114,8 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }
   const rng = makeRng((world.seed ^ (depth * 2654435761) ^ (world.generation * 97) ^ ((world.diveCount ?? 0) * 40503) ^ (opts?.abyss ? 0x5eed : 0)) >>> 0);
   // マップ寸法：深いほど広い（毎回ランダムな形）。常に VIEW より大きく、カメラがスクロールする。
   // 旧 24+/28+（最大50×54）は手狭との FB を受け拡張（2026-06-17）。深度50で頭打ち＝最大 86×92（≒7,912・約2.9倍）。
-  // 部屋数/敵数/宝箱は面積比で自動追従＝広いほど探索量・滞在ターン（＝深蝕の蓄積）が増え手応えになる。
+  // 部屋数/敵数/宝箱は面積比で自動追従＝広いほど探索量が増え手応えになる（じっくり攻略）。
+  // 深淵帯（帰還の試練）もフル寸法（深蝕リワーク v2＝累積は術使用のみ＝広さで死なないため縮小不要）。
   const W = 36 + Math.min(depth, 50);
   const H = 42 + Math.min(depth, 50);
   const tiles: Tile[] = new Array(W * H).fill(0);
@@ -187,7 +197,7 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }
 
   const floor: Floor = {
     depth, w: W, h: H, tiles, stairsUp, stairsDown,
-    monsters: [], fossils: [], chests: [],
+    monsters: [], fossils: [], chests: [], shrines: [], returnDoor: null,
     explored: new Array(W * H).fill(false),
   };
 
@@ -222,6 +232,24 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }
     const p = randomFloorAway(floor, rng, stairsUp, 6);
     if (p) floor.chests.push({ id: `c${depth}_${i}`, x: p.x, y: p.y, opened: false });
   }
+
+  // ---------- 回復ノード（安息所/回復の泉・深蝕リワーク v2）：一度使用で消える ----------
+  // 設置数は深さで調整：泉は深層で1階確定・浅中はランダム／安息所は深いほど多い（深層の術使用＝
+  // 蓄積が嵩むため浄化の機会を増やす）。深淵帯（試練）は泉1のみ＝聖遺物携行の緊張を保つため安息所は置かない。
+  const deep = depth > 24, mid = depth > 8 && depth <= 24;
+  const springCount = opts?.abyss ? 1 : deep ? 1 : mid ? (rng.next() < 0.5 ? 1 : 0) : (rng.next() < 0.3 ? 1 : 0);
+  const restCount = opts?.abyss ? 0 : deep ? 1 + (rng.next() < 0.4 ? 1 : 0) : mid ? 1 : (rng.next() < 0.35 ? 1 : 0);
+  const placeShrine = (kind: ShrineKind, i: number) => {
+    for (let t = 0; t < 12; t++) {
+      const p = randomFloorAway(floor, rng, stairsUp, 6);
+      if (!p) return;
+      if (floor.shrines.some((s) => s.x === p.x && s.y === p.y)) continue;
+      floor.shrines.push({ id: `shr_${kind}_${depth}_${i}`, kind, x: p.x, y: p.y, used: false });
+      return;
+    }
+  };
+  for (let i = 0; i < springCount; i++) placeShrine("spring", i);
+  for (let i = 0; i < restCount; i++) placeShrine("rest", i);
 
   // ---------- 深淵帯（奉献の試練・4-13B）：最奥の主が聖遺物を守る ----------
   if (opts?.abyss) {

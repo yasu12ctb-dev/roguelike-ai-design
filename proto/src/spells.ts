@@ -8,7 +8,7 @@ export type SpellKey =
   | "warp_strike" | "rift_lance" | "collapse" | "thunder" | "ice_tomb" | "wither" | "condemn"  // 攻
   | "still_eye" | "slow" | "dread" | "confuse" | "slumber" | "bind"                            // 制
   | "corrode"                                                                                    // 攻（継続）
-  | "shadow_step" | "charge" | "omni_strike" | "gravity_pull" | "miststep" | "wayfare"            // 移
+  | "shadow_step" | "charge" | "omni_strike" | "gravity_pull" | "miststep" | "wayfare" | "homeward"  // 移
   | "heal" | "enfeeble" | "leech" | "ironscale" | "haste" | "frenzy" | "deathdoor" | "cleanse"  // 援
   | "survey" | "insight" | "scent"                          // 識
   | "minions" | "orbblade" | "echo" | "shadowclone";        // 召
@@ -51,6 +51,7 @@ export const SPELLS: SpellDef[] = [
   { key: "gravity_pull", name: "引閘",  school: "移", cost: 0.18, desc: "見えている敵を自分のほうへ一斉に引き寄せる", minLevel: 12 },
   { key: "miststep",    name: "霞足",   school: "移", cost: 0.10, desc: "近場へ霞のように短く跳ぶ（敵から距離を取る）", minLevel: 3 },
   { key: "wayfare",     name: "退き戸", school: "移", cost: 0.16, desc: "上り階段の傍へ退く門を開く（退避）", minLevel: 9 },
+  { key: "homeward",    name: "帰還の詠唱", school: "移", cost: 0.20, desc: "数手の詠唱で地上へ還る（詠唱中は無防備・動くと中断）。聖遺物を抱いていれば奉献が成る", minLevel: 9 },
   // ── 援 ──
   { key: "heal",        name: "癒し",   school: "援", cost: 0.30, desc: "HPを癒す（理＋体ぶん。深蝕は重い）" },
   { key: "enfeeble",    name: "蝕み",   school: "援", cost: 0.18, desc: "最寄りの敵の攻撃を数手のあいだ削ぐ", minLevel: 6 },
@@ -59,7 +60,7 @@ export const SPELLS: SpellDef[] = [
   { key: "haste",       name: "疾走",   school: "援", cost: 0.25, desc: "数手のあいだ、敵を置き去りに余分な一手を得る", minLevel: 20 },
   { key: "frenzy",      name: "焦躁",   school: "援", cost: 0.20, desc: "数手のあいだ近接が冴える（深蝕も募る）", minLevel: 13 },
   { key: "deathdoor",   name: "死戸",   school: "援", cost: 0.40, desc: "数手のあいだ無敵だが癒えず、明けに深みの揺り戻し", minLevel: 26 },
-  { key: "cleanse",     name: "解呪",   school: "援", cost: 0.12, desc: "数手のあいだ、装備（異物/刻印）の蝕みを抑える", minLevel: 3 },
+  { key: "cleanse",     name: "解呪",   school: "援", cost: 0.12, desc: "今この場で深蝕をいくらか祓う（-0.6）", minLevel: 3 },
   // ── 識 ──
   { key: "survey",      name: "地相",   school: "識", cost: 0.08, desc: "このフロアの地形を感知する（地図が開ける）" },
   { key: "insight",     name: "看破",   school: "識", cost: 0.06, desc: "可視の敵の正体とHPを見抜く（強さを測る）" },

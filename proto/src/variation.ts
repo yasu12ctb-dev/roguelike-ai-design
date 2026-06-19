@@ -41,7 +41,7 @@ export function depthBand(depth: number): "shallow" | "mid" | "deep" {
   return "deep";
 }
 
-/** 1ターンぶんの深蝕増分（4-10C） */
+/** 1ターンぶんの深蝕増分（4-10C・CLI/demo 用の旧モデル） */
 export function exposureGain(depth: number): number {
   const band = depthBand(depth);
   return band === "shallow" ? 0 : band === "mid" ? 0.02 : 0.06;

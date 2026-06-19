@@ -87,6 +87,10 @@
     .g-fossil-quiet { color: #6f9a93; }
     .g-chest { color: #e8c06a; text-shadow: 0 0 9px rgba(232,192,106,.7); }
     .g-chest-open { color: #7a6a44; }
+    /* 回復ノード（v2）：回復の泉＝青緑／安息所＝緑。帰還の扉＝金の脈動（往復チェックポイント）。 */
+    .g-spring { color: #5fd2d8; text-shadow: 0 0 10px rgba(95,210,216,.8), 0 0 20px rgba(60,170,200,.4); animation: pulse 2.4s ease-in-out infinite; }
+    .g-rest   { color: #8fdf9a; text-shadow: 0 0 10px rgba(143,223,154,.75); animation: pulse 2.8s ease-in-out infinite; }
+    .g-door   { color: #ffd24a; text-shadow: 0 0 12px rgba(255,210,74,.9), 0 0 26px rgba(255,170,40,.5); animation: pulse 1.5s ease-in-out infinite; }
     @keyframes pulse { 50% { text-shadow: 0 0 16px rgba(159,216,207,1), 0 0 30px rgba(159,216,207,.4); } }
     /* 攻撃予告：自分のマスが討たれる＝赤い危険枠（@ も赤く明滅する：g-player-danger） */
     .cell.tele-atk::after {
