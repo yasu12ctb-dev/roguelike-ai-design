@@ -106,8 +106,10 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }
   // マップ寸法：深いほど広い（毎回ランダムな形）。常に VIEW より大きく、カメラがスクロールする。
   // 旧 24+/28+（最大50×54）は手狭との FB を受け拡張（2026-06-17）。深度50で頭打ち＝最大 86×92（≒7,912・約2.9倍）。
   // 部屋数/敵数/宝箱は面積比で自動追従＝広いほど探索量・滞在ターン（＝深蝕の蓄積）が増え手応えになる。
-  const W = 36 + Math.min(depth, 50);
-  const H = 42 + Math.min(depth, 50);
+  // 帰還の試練フロア（深淵帯）は脱出スプリント＝小型固定（最大マップだと聖遺物の往復で深蝕が
+  // 致死量に達し生還不能だったため：深度の刻印型 4-13改）。通常階は深いほど広い（毎回ランダム）。
+  const W = opts?.abyss ? 40 : 36 + Math.min(depth, 50);
+  const H = opts?.abyss ? 44 : 42 + Math.min(depth, 50);
   const tiles: Tile[] = new Array(W * H).fill(0);
   const gi = (x: number, y: number) => y * W + x;
   const rooms: Room[] = [];

@@ -59,7 +59,7 @@ export const SPELLS: SpellDef[] = [
   { key: "haste",       name: "疾走",   school: "援", cost: 0.25, desc: "数手のあいだ、敵を置き去りに余分な一手を得る", minLevel: 20 },
   { key: "frenzy",      name: "焦躁",   school: "援", cost: 0.20, desc: "数手のあいだ近接が冴える（深蝕も募る）", minLevel: 13 },
   { key: "deathdoor",   name: "死戸",   school: "援", cost: 0.40, desc: "数手のあいだ無敵だが癒えず、明けに深みの揺り戻し", minLevel: 26 },
-  { key: "cleanse",     name: "解呪",   school: "援", cost: 0.12, desc: "数手のあいだ、装備（異物/刻印）の蝕みを抑える", minLevel: 3 },
+  { key: "cleanse",     name: "解呪",   school: "援", cost: 0.12, desc: "今この場で深蝕をいくらか祓う（-0.6）", minLevel: 3 },
   // ── 識 ──
   { key: "survey",      name: "地相",   school: "識", cost: 0.08, desc: "このフロアの地形を感知する（地図が開ける）" },
   { key: "insight",     name: "看破",   school: "識", cost: 0.06, desc: "可視の敵の正体とHPを見抜く（強さを測る）" },

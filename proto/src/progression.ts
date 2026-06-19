@@ -55,8 +55,9 @@ export const xpForKill = (monsterHp: number) => Math.max(1, Math.round(monsterHp
 export const DEPTH_SEAL_AT = 40;
 /** 深淵帯（封印フロア）の深度。通常到達域より深い＝儀でのみ降りられる神話極の層（~50）。 */
 export const ABYSS_DEPTH = 50;
-/** 帰還の試練・聖遺物携行中の毎手 追加深蝕（深みが覚醒し、留まるほど蝕む）。 */
-export const RELIC_EXPOSURE_PER_TURN = 0.12;
+/** 帰還の試練・聖遺物携行中の毎手 追加深蝕（深みが覚醒し、留まるほど蝕む）。
+ *  深度の刻印型では脱出までの上り階段スプリントが生存可能になるよう抑えめ（旧0.12）。 */
+export const RELIC_EXPOSURE_PER_TURN = 0.03;
 /** 帰還の試練・追手（怨霊）が湧く手間隔／1フロアの上限。 */
 export const RELIC_PURSUER_EVERY = 3;
 export const RELIC_PURSUER_CAP = 6;
