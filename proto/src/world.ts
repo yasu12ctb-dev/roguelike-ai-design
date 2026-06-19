@@ -190,6 +190,7 @@ export function fossilizeCompanion(
     interventions: [],
     lastTouchedGeneration: world.generation,
     laidDepth: opts.depth,
+    wasCompanion: true,
   };
   world.fossils.push(fossil);
   chronicle(world, "death",
@@ -221,6 +222,7 @@ export function fossilizeAbandoned(
     interventions: [],
     lastTouchedGeneration: world.generation,
     laidDepth: opts.depth,
+    wasCompanion: true,
   };
   world.fossils.push(fossil);
   chronicle(world, "death",

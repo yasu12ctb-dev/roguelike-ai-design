@@ -303,7 +303,7 @@ function draw() {
     const isCompanion = !!companion && x === companion.x && y === companion.y;
     if (isCompanion && visible) {
       glyph = "@";
-      cls = companionThreatened ? "g-companion-danger" : `g-companion${companion!.intent?.type === "attack" ? " g-mon-atk" : ""}`;
+      cls = companionThreatened ? "g-companion-danger" : `g-companion${(companion!.erratic ?? 0) > 0 ? " g-companion-erratic" : ""}${companion!.intent?.type === "attack" ? " g-mon-atk" : ""}`;
     }
     const isPlayer = x === player.x && y === player.y;
     if (isPlayer) { glyph = "@"; cls = playerThreatened ? "g-player-danger" : "g-player"; }
@@ -1647,8 +1647,24 @@ const companionName = () => world.companion?.actor.name ?? "相棒";
 // 連帯深蝕（Phase B）：閾値で奇癖（erratic 逸脱）が始まり、危険閾値で C（討つ/鎮める）を迫る。
 const COMPANION_ERRATIC_AT = 0.6;  // この連帯深蝕から挙動がぶれ始める
 const COMPANION_DANGER_AT = 1.2;   // この連帯深蝕で危険化＝生者のうちに決断（プレイヤーの蝕み閾値と対称）
+const COMPANION_QUIRK_AT = [0.6, 1.2]; // 相棒の奇癖が刻まれる深蝕段（erratic 開始／危険化に対応）
 const companionErraticRate = (exposure: number) =>
   exposure < COMPANION_ERRATIC_AT ? 0 : Math.min(0.5, (exposure - COMPANION_ERRATIC_AT) * 0.4);
+/** 相棒の名前付き奇癖（Phase B）：連帯深蝕の段ごとに「奇癖:…」を相棒の traits に刻む（プレイヤー機構の転用）。 */
+function applyCompanionQuirks(): void {
+  const c = world.companion; if (!c?.alive) return;
+  const traits = (c.traits ??= []);
+  const want = COMPANION_QUIRK_AT.filter((th) => c.exposure >= th).length;
+  while (traits.filter((t) => t.startsWith("奇癖:")).length < want) {
+    const pool = filterByTags(db, "exposure_quirk", {});
+    const used = new Set(traits);
+    const cand = pool.filter((f) => !used.has(`奇癖:${f.text}`));
+    if (!cand.length) break;
+    const q = rng.pick(cand);
+    traits.push(`奇癖:${q.text}`);
+    log(`${companionName()}に深みが滲む――奇癖「${q.text}」。`, "warn");
+  }
+}
 /** 相棒エンティティを @ の隣の空きマスへ展開（無ければ近傍を順に探す）。連帯深蝕の現状を erratic に反映。 */
 function spawnCompanionNear(at: Pos): void {
   if (!floor || !world.companion?.alive) return;
@@ -1676,8 +1692,11 @@ function spawnCompanionNear(at: Pos): void {
 function companionDies(reason: "combat" | "mercy" = "combat"): void {
   if (!floor || !companion || !world.companion) return;
   const name = companionName();
+  // 慈悲のとどめ＝深みに呑まれる前の安らかな解放。連帯深蝕を清めて化石化し、後世で亡霊/怨念へ寄せない
+  // （討つ＝神話/喪失寄り／戦死(combat)＝高深蝕のまま＝未決着の亡霊化を残す）。
+  const exposureAtRest = reason === "mercy" ? Math.min(world.companion.exposure, 0.2) : world.companion.exposure;
   const fossil = fossilizeCompanion(world, world.companion.actor, {
-    depth: floor.depth, exposure: world.companion.exposure, bond: world.companion.bond,
+    depth: floor.depth, exposure: exposureAtRest, bond: world.companion.bond,
   });
   floor.fossils.push({ id: `fe_${fossil.id}`, fossilId: fossil.id, x: companion.x, y: companion.y, resolved: false });
   world.companion.alive = false;
@@ -1702,8 +1721,10 @@ async function companionCrisis(): Promise<void> {
   const name = companionName();
   const ch = world.current;
   const chance = calmChance(ch);
+  const quirks = (world.companion.traits ?? []).filter((t) => t.startsWith("奇癖:")).map((t) => t.slice(3));
+  const quirkLine = quirks.length ? `\n奇癖：${quirks.join("、")}` : "";
   const r = await sheet({
-    text: `${name}の様子がおかしい。眼の奥に、見覚えのある昏さ――深みが、もう半ば呑み込んでいる。\nまだ生者のうちに、決めねばならない。`,
+    text: `${name}の様子がおかしい。眼の奥に、見覚えのある昏さ――深みが、もう半ば呑み込んでいる。\nまだ生者のうちに、決めねばならない。${quirkLine}`,
     meta: `${name} ── 連帯深蝕（討つ／鎮める）`,
     options: [
       "討つ（慈悲＝即座に化石へ）",
@@ -1717,6 +1738,10 @@ async function companionCrisis(): Promise<void> {
     if (rng.next() < chance) {
       world.companion.exposure = 0.2; // 正気へ＝連帯深蝕をリセット
       world.companion.bond += 1;
+      // 鎮めた証＝奇癖がひとつ薄れる（正気を取り戻す）。
+      const tr = world.companion.traits ?? [];
+      const qi = tr.map((t, i) => ({ t, i })).filter((x) => x.t.startsWith("奇癖:")).pop();
+      if (qi) { tr.splice(qi.i, 1); world.companion.traits = tr; }
       if (companion) { companion.erratic = 0; companion.crisisShown = false; }
       sfx("intervene");
       log(`${name}を鎮めた。深みが退き、昏さが薄れていく。絆が深まった。`, "cue");
@@ -1947,6 +1972,8 @@ async function endTurn() {
     if (before < COMPANION_ERRATIC_AT && world.companion.exposure >= COMPANION_ERRATIC_AT) {
       log(`${companionName()}の足取りが、時折おかしくなる。深みが、相棒にも滲み始めた。`, "warn");
     }
+    // 相棒の名前付き奇癖（Phase B）：プレイヤーと同じ機構を転用。深蝕段ごとに「奇癖:…」を刻む。
+    applyCompanionQuirks();
   }
 
   // 敵の手番：予告した一手を実行（退いた予告は空振り＝見切り。静止中はwait）。標的は @ or 相棒。
@@ -2771,7 +2798,11 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   const v = computeVariation(fossil, world.generation);
   const setPiece = renderSetPieceIfAny(db, fossil, v);
   const spType = setPiece ? matchSetPiece(db, fossil, v)?.type : undefined; // 山場の型（遭-④）
-  const text = setPiece ?? renderRediscovery(db, rng, fossil, v);
+  const baseText = setPiece ?? renderRediscovery(db, rng, fossil, v);
+  // 相棒由来の化石は「相棒だと分かる」一言を添える（4-14C Phase C・固有性）。
+  const text = fossil.wasCompanion
+    ? `${fossil.death.manner === "betrayed" ? "――見捨てたあの者が、宿敵となって還った。" : "――かつて共に歩いた相棒の、亡骸だ。"}\n${baseText}`
+    : baseText;
   recordRediscovery(world, fossil.id);
   seenThisDive.push(fossil.id);
   for (const l of onRediscoverFossil(world, fossil.id)) { log(l, "cue"); save(); } // 回収系の依頼達成

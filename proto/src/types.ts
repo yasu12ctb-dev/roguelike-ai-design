@@ -41,6 +41,7 @@ export interface Companion {
   recruitedGeneration: number;  // 勧誘した世代（系譜記憶の起点）
   grade: number;                // 金属等級（4-4E）0=アイアン..4=プラチナ。初期は設定ファイル由来・生還で⤴昇格（プラチナ頭打ち／ミスリルは死後）。
   feats: number;                // 共に遂げた偉業の数（ボス撃破/山場決着）。昇格は生還(bond)＋偉業(feats)の両ゲート＝滅多に上がらない。
+  traits?: string[];            // 連帯深蝕で刻まれる「奇癖:…」（Phase B）。任意＝旧セーブ非破壊。
 }
 
 /** 奉献の試練の印（4-13A）。多様な源から1種ずつ。5種揃うと深淵帯が解錠。 */
@@ -167,6 +168,7 @@ export interface Fossil {
   lastTouchedGeneration: number;
   laidDepth: number;
   spells?: string[];            // 死亡時に覚えていた術（系譜継承 4-11F②：先代の術の一部が次代に滲む）。任意＝旧セーブ非破壊。
+  wasCompanion?: boolean;       // 同行（相棒）由来の化石（戦死/慈悲/見捨て）。後世の再会で「相棒だと分かる」一言に使う（4-14C）。任意＝旧セーブ非破壊。
 }
 
 export interface TrackedEntity {
