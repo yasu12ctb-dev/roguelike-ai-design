@@ -3199,11 +3199,16 @@ function applyChrome() {
   const showDpad = dpadOn && walk;       // 移動補助＝歩ける場面で常駐
   const showCluster = dive;              // 術/品＝迷宮のみ
   const deck = $("deck");
-  deck.classList.toggle("show", inGame && (showDpad || showCluster));
+  const deckShown = inGame && (showDpad || showCluster);
+  deck.classList.toggle("show", deckShown);
   deck.classList.remove("sz-lg", "sz-md", "sz-sm", "nopad", "pos-left");
   if (dpadPos === "left") deck.classList.add("pos-left");
   deck.classList.add(showDpad ? `sz-${dpadSize}` : "nopad");
-  $("cluster").classList.toggle("show", showCluster);
+  // デッキ表示中は左ハーフ(cluster)を常に確保＝D-padは街でも迷宮と同じ右ハーフ中央に揃う。
+  $("cluster").classList.toggle("show", deckShown);
+  // 術/品 ボタンは迷宮のみ表示（街では左ハーフは空＝枠だけ確保）。
+  ($("spellBtn") as HTMLElement).style.display = showCluster ? "" : "none";
+  ($("bagBtn") as HTMLElement).style.display = showCluster ? "" : "none";
   const dp = $("dpad");
   dp.classList.toggle("show", showDpad);
   dp.classList.remove("sz-lg", "sz-md", "sz-sm"); dp.classList.add(`sz-${dpadSize}`);
