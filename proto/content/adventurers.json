@@ -1,0 +1,16 @@
+{
+  "adventurers": [
+    { "id": "adv_mira",   "name": "ミラ・片目",     "archetype": "剣士",     "epithet": "片目",       "gearTags": ["片目の長剣"],       "grade": 4, "fate": { "tone": "myth",   "hook": "legend",  "arc": "mira_seal" } },
+    { "id": "adv_teara",  "name": "テアラ・和解",   "archetype": "祈祷師",   "epithet": "和解",       "gearTags": ["和解の数珠"],       "grade": 4, "fate": { "tone": "myth",   "hook": "requiem", "arc": "teara_reconcile" } },
+    { "id": "adv_nereia", "name": "ネレイア・鴉",   "archetype": "深淵術士", "epithet": "鴉",         "gearTags": ["鴉羽の外套"],       "catchphrase": "深く、もっと深く", "grade": 4, "fate": { "tone": "grudge", "hook": "grudge",  "arc": "nereia_temptation" } },
+    { "id": "adv_kordo",  "name": "コルド・生き残り", "archetype": "重戦士",  "epithet": "生き残り",   "gearTags": ["欠けた大盾"],       "catchphrase": "俺だけが、還った", "grade": 3, "fate": { "tone": "grudge", "hook": "grudge",  "arc": "kordo_squad" } },
+    { "id": "adv_yura",   "name": "ユラ・贖い",     "archetype": "衛士",     "epithet": "贖い",       "gearTags": ["罪過の槍"],         "grade": 3, "fate": { "tone": "myth",   "hook": "requiem", "arc": "yura_atone" } },
+    { "id": "adv_mark",   "name": "マーク・覚悟",   "archetype": "踏破者",   "epithet": "覚悟",       "gearTags": ["覚悟の戦鎚"],       "catchphrase": "次代へ、繋ぐ", "grade": 3, "fate": { "tone": "myth",   "hook": "lineage", "arc": "mark_ascend" } },
+    { "id": "adv_madu",   "name": "マドゥ・捜索",   "archetype": "斥候",     "epithet": "捜索",       "gearTags": ["片割れの笛"],       "grade": 2, "fate": { "tone": "loss",   "hook": "requiem", "arc": "madu_twin" } },
+    { "id": "adv_korute", "name": "コルテ・偽名",   "archetype": "流れ者",   "epithet": "偽名",       "gearTags": ["偽りの認識票"],     "catchphrase": "その名は、捨てた", "grade": 2, "fate": { "tone": "grudge", "hook": "grudge",  "arc": "korute_fugitive" } },
+    { "id": "adv_navi",   "name": "ナヴィ・折れた翼", "archetype": "元精鋭",  "epithet": "折れた翼",   "gearTags": ["折れた細剣"],       "grade": 1, "fate": { "tone": "loss",   "hook": "requiem", "arc": "navi_restore" } },
+    { "id": "adv_uru",    "name": "ウル・末弟",     "archetype": "新参",     "epithet": "末弟",       "gearTags": ["兄の形見の短刀"],   "catchphrase": "兄さんたちの分も", "grade": 0, "fate": { "tone": "myth",   "hook": "lineage", "arc": "uru_brothers" } },
+    { "id": "adv_don",    "name": "ドン・遅咲き",   "archetype": "薬草採り", "epithet": "遅咲き",     "gearTags": ["古い薬籠"],         "grade": 1, "fate": { "tone": "loss",   "hook": "requiem", "arc": "don_relic" } },
+    { "id": "adv_veru",   "name": "ヴェル・二重生活", "archetype": "夜の商人", "epithet": "二重生活",  "gearTags": ["二つ名の指輪"],     "catchphrase": "昼の顔と、夜の顔", "grade": 1, "fate": { "tone": "grudge", "hook": "grudge",  "arc": "veru_noble" } }
+  ]
+}

@@ -13,5 +13,7 @@ export function loadContent(): ContentDb {
   const sps = JSON.parse(readFileSync(join(contentDir, "setpieces.json"), "utf-8"));
   const slPath = join(contentDir, "storylets.json");
   const sl = existsSync(slPath) ? JSON.parse(readFileSync(slPath, "utf-8")) : { storylets: [] };
-  return makeContentDb(frags, sps, sl);
+  const advPath = join(contentDir, "adventurers.json");
+  const adv = existsSync(advPath) ? JSON.parse(readFileSync(advPath, "utf-8")) : { adventurers: [] };
+  return makeContentDb(frags, sps, sl, adv);
 }

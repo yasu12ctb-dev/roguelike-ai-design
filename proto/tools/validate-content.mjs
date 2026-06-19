@@ -113,6 +113,30 @@ for (const s of list) {
     W(id, "#origin_catchphrase# を使うが prereq.hasCatchphrase:true が無い（充填漏れの恐れ）");
 }
 
+// ---- 名簿（adventurers.json・4-14 冒険者B/C）の検証 ----
+const ROSTER_HOOKS = new Set(["legend", "grudge", "requiem", "lineage"]);
+try {
+  const adv = JSON.parse(read("content/adventurers.json")).adventurers;
+  const advSeen = new Set();
+  for (const a of adv) {
+    const id = a.id ?? "(no-id)";
+    if (typeof a.id !== "string" || !a.id.startsWith("adv_")) E(id, "名簿 id は 'adv_' で始まる文字列が必須");
+    if (advSeen.has(a.id)) E(id, "名簿 id が重複"); advSeen.add(a.id);
+    if (typeof a.name !== "string" || !a.name) E(id, "name（文字列）が必須");
+    if (typeof a.archetype !== "string" || !a.archetype) E(id, "archetype（文字列）が必須");
+    if (!Array.isArray(a.gearTags) || a.gearTags.length === 0) E(id, "gearTags（非空配列）が必須");
+    if (a.grade !== undefined && (!Number.isInteger(a.grade) || a.grade < 0 || a.grade > 4)) E(id, `grade は 0..4（今: ${a.grade}）`);
+    const f = a.fate ?? {};
+    if (!TONES.has(f.tone)) E(id, `fate.tone 不正 "${f.tone}"`);
+    if (!ROSTER_HOOKS.has(f.hook)) E(id, `fate.hook 不正 "${f.hook}"（許可: ${[...ROSTER_HOOKS].join(",")}）`);
+    if (f.arc !== undefined && typeof f.arc !== "string") E(id, "fate.arc は文字列");
+  }
+  console.log(`== 名簿（adventurers）：${adv.length}人 ==`);
+} catch (e) {
+  if (String(e).includes("ENOENT")) console.log("== 名簿（adventurers.json）なし＝スキップ ==");
+  else E("adventurers.json", `読み込み/解析に失敗: ${e}`);
+}
+
 // arc 整合：anchor で開始する弧に、arcActor で戻る後段があるか（緩いチェック）
 const arcsStarted = new Set();
 for (const s of list) for (const c of s.choices ?? []) for (const e of c.effects ?? []) if (e.arc?.anchor) arcsStarted.add(e.arc.key);

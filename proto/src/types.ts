@@ -130,6 +130,17 @@ export interface Actor {
 /** 化石の出自。Actor の別名（後方互換）。 */
 export interface FossilOrigin extends Actor {}
 
+/** ★中核の名簿員（4-14・冒険者B/C）。content/adventurers.json で定義し、街で本人として出会える。
+ *  Actor＋安定id（adv_*）＋運命メタ（化石化したときの極の傾き／弧の型）。セーブ非対象＝コンテンツ。 */
+export interface RosterActor extends Actor {
+  id: string;                                  // 安定id（例 "adv_mira"）。LivingActor.id にそのまま使う。
+  fate: {
+    tone: TonePole;                            // 化石化時に寄せたい極（legend=myth／因縁=grudge 等）
+    hook: "legend" | "grudge" | "requiem" | "lineage"; // 似合う型（C-2 の弧・setpiece 傾向）
+    arc?: string;                              // 街の出会い弧のキー（C-2 で arc+arcActor アンカー）
+  };
+}
+
 /** 生者NPC（lazy：遭遇時に mint し、effects が参照した時だけ World.actors に永続：4-6/4-12C）。 */
 export interface LivingActor {
   id: string;

@@ -27,10 +27,35 @@ export function mintActor(db: ContentDb, rng: Rng, tags: FragmentTags = {}): Act
   return { name, archetype, gearTags: [gear], epithet, alive: true, grade };
 }
 
-/** 街などで生者と出会う。既知の生者がいれば一定確率で再会（伏線の follow-up を可能に）、なければ新規 mint。 */
+/** ★中核の名簿（4-14）から、まだ登場していない本人を1人 LivingActor で返す（無ければ null）。
+ *  「登場済み」＝world.actors に id 登録済み／既に同名の化石になっている（死者は生者として出さない）。 */
+export function pickRosterActor(world: World, db: ContentDb, rng: Rng): LivingActor | null {
+  const roster = db.adventurers ?? [];
+  if (roster.length === 0) return null;
+  const metIds = new Set((world.actors ?? []).map((a) => a.id));
+  const deadNames = new Set((world.fossils ?? []).map((f) => f.origin.name));
+  const avail = roster.filter((r) => !metIds.has(r.id) && !deadNames.has(r.name));
+  if (avail.length === 0) return null;
+  const r = rng.pick(avail);
+  const actor: Actor = {
+    name: r.name, archetype: r.archetype, gearTags: r.gearTags,
+    catchphrase: r.catchphrase, epithet: r.epithet, grade: r.grade, alive: true,
+  };
+  return { id: r.id, actor, metGeneration: world.generation };
+}
+
+/** 名簿員を街で出す確率（4-14：本人として出会わせる）。0 で従来挙動と完全一致。 */
+const ROSTER_MEET_CHANCE = 0.35;
+
+/** 街などで生者と出会う。既知の生者がいれば一定確率で再会（伏線の follow-up を可能に）、
+ *  次いで一定確率で★中核の本人（名簿）、いずれも無ければ新規 mint（無名の通行人）。 */
 export function meetActor(world: World, db: ContentDb, rng: Rng): LivingActor {
   const known = world.actors ?? [];
   if (known.length > 0 && rng.next() < 0.5) return rng.pick(known);
+  if (rng.next() < ROSTER_MEET_CHANCE) {
+    const r = pickRosterActor(world, db, rng);
+    if (r) return r;
+  }
   const id = `npc_${world.generation}_${Math.floor(rng.next() * 1e9).toString(36)}`;
   return { id, actor: mintActor(db, rng), metGeneration: world.generation };
 }

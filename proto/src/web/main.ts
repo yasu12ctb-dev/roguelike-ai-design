@@ -25,12 +25,13 @@ import {
 import { rollEncounter } from "../weights.ts";
 import { filterByTags } from "../content.ts";
 import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, selectTownStorylet, applyActorEffects } from "../storylets.ts";
-import { meetActor, mintActor, rememberActor } from "../actors.ts";
+import { meetActor, mintActor, rememberActor, pickRosterActor } from "../actors.ts";
 import {
   generateOffers, generateNobleOffers, acceptQuest, activeQuests, doneQuests, claimQuest,
   onReachDepth, onRediscoverFossil,
 } from "../quests.ts";
 import storyletsJson from "../../content/storylets.json";
+import adventurersJson from "../../content/adventurers.json";
 import townJson from "../../content/town.json";
 import {
   buildTownGrid, buildInterior, spawnCrowd, wanderCrowd, crowdAt, townTileAt, interiorActorAt,
@@ -42,7 +43,7 @@ import {
   planCompanion, resolveCompanion, randomFloorAway, inBounds, companionMaxHp, companionDmg,
   VIEW_W, VIEW_H, type Floor, type Pos, type Chest, type Monster, type CompanionEntity, type DownedActor, type Shrine,
 } from "../dungeon.ts";
-import type { Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, LivingActor, SetPiece, Storylet, TownContext, World } from "../types.ts";
+import type { Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, LivingActor, RosterActor, SetPiece, Storylet, TownContext, World } from "../types.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
@@ -52,6 +53,7 @@ const db = makeContentDb(
   fragmentsJson as { fragments: Fragment[] },
   setpiecesJson as { setpieces: SetPiece[] },
   storyletsJson as { storylets: Storylet[] },
+  adventurersJson as { adventurers: RosterActor[] },
 );
 
 // ---------- DOM ----------
@@ -1693,7 +1695,13 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
     floor.downed = null;
     if (!world.companion?.alive && depth >= 2 && rng.next() < 0.14) {
       const at = randomFloorAway(floor, rng, player, 5);
-      if (at) floor.downed = { id: `downed_${depth}_${world.generation}`, actor: mintActor(db, rng), x: at.x, y: at.y };
+      if (at) {
+        // 手負いは一定確率で★中核の本人（名簿）＝救助/見殺しが固有名の物語になる（4-14・B）。
+        const rosterLa = rng.next() < ROSTER_DOWNED_CHANCE ? pickRosterActor(world, db, rng) : null;
+        floor.downed = rosterLa
+          ? { id: rosterLa.id, actor: rosterLa.actor, x: at.x, y: at.y }
+          : { id: `downed_${depth}_${world.generation}`, actor: mintActor(db, rng), x: at.x, y: at.y };
+      }
     }
   }
   // 同行（4-14C）：相棒がいれば @ の隣に展開（階段は隣接で同行降下）。ephemeral＝再訪でも再展開。
@@ -1718,6 +1726,7 @@ const companionName = () => world.companion?.actor.name ?? "相棒";
 const COMPANION_ERRATIC_AT = 0.6;  // この連帯深蝕から挙動がぶれ始める
 const COMPANION_DANGER_AT = 1.2;   // この連帯深蝕で危険化＝生者のうちに決断（プレイヤーの蝕み閾値と対称）
 const COMPANION_QUIRK_AT = [0.6, 1.2]; // 相棒の奇癖が刻まれる深蝕段（erratic 開始／危険化に対応）
+const ROSTER_DOWNED_CHANCE = 0.5; // 手負いが出るとき、★中核の本人（名簿）である確率（4-14・B）。0で従来=無名のみ
 const companionErraticRate = (exposure: number) =>
   exposure < COMPANION_ERRATIC_AT ? 0 : Math.min(0.5, (exposure - COMPANION_ERRATIC_AT) * 0.4);
 /** 相棒の名前付き奇癖（Phase B）：連帯深蝕の段ごとに「奇癖:…」を相棒の traits に刻む（プレイヤー機構の転用）。 */
@@ -1895,7 +1904,9 @@ async function rescueScene(d: DownedActor): Promise<void> {
   if (floor) floor.downed = null;
   if (r.pick === 1 && downed) {
     sfx("intervene");
-    const la: LivingActor = { id: `npc_${world.generation}_${downed.id}`, actor: downed.actor, metGeneration: world.generation };
+    // 名簿員（adv_*）なら安定idのまま＝再会/永続/setpiece が本人に紐づく。無名は従来どおり世代付きid。
+    const laId = downed.id.startsWith("adv_") ? downed.id : `npc_${world.generation}_${downed.id}`;
+    const la: LivingActor = { id: laId, actor: downed.actor, metGeneration: world.generation };
     if (outranksPlayer(la)) { // 格上を救えても雇えず去る（救った＝怨念化はしない・4-14C ランクゲート）
       log(`${d.actor.name}を救い出した。だが「お前とはまだ格が違う」と、礼だけを残して去っていった。`, "cue");
       chronicle(world, "rediscovery", `${d.actor.name}を深度${floor?.depth ?? 1}で救った。格上ゆえ同道はせず、相応の高みでの再会を約した。`, []);
