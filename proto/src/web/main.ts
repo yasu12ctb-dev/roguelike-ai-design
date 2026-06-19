@@ -1900,8 +1900,10 @@ async function playerAct(dx: number, dy: number) {
   await endTurn();
 }
 
-/** 深蝕の即時の牙（4-10C）：この深蝕を超えると歩くだけで蝕まれる（＝2番目の変質閾値・怨念寄りライン）。 */
-const CORRUPTION_DRAIN_FROM = 1.2;
+/** 深蝕の即時の牙（4-10C）：この深蝕を超えると歩くだけで蝕まれる（＝怨念寄りライン）。 */
+const CORRUPTION_DRAIN_FROM = 1.5;
+/** 牙の加速幅：深蝕がこれだけ深まるごとにドレインが＋1（緩やかな逓増＝死の螺旋を回避）。 */
+const CORRUPTION_DRAIN_STEP = 2.0;
 /** 1手ぶんの後処理：深蝕→奇癖→蝕み→敵の手番→予告更新→描画→昇級→死。移動も詠唱もここに合流する。 */
 async function endTurn() {
   if (!floor || !world.current) return;
@@ -1944,11 +1946,11 @@ async function endTurn() {
     log(`深みが染みてくる……奇癖を得た──「${q.text}」`, "warn");
   }
 
-  // 深蝕の即時の牙：深く染まると歩くだけで深みに蝕まれる。閾値1.2以上で逐増（深蝕+1.0ごとに+1）。
+  // 深蝕の即時の牙：深く染まると歩くだけで深みに蝕まれる。閾値1.5以上で逐増（深蝕+2.0ごとに+1＝緩い逓増）。
   // これで深蝕は「後世（死亡時の怨念化）」だけでなく在りし日の生存圧にもなる。HP0は手番末の通常死＝
   // 高い exposureAtDeath で強い怨念化。街は endTurn を通らない＝安全地帯。
   if (ch.exposure >= CORRUPTION_DRAIN_FROM) {
-    const bite = 1 + Math.floor(ch.exposure - CORRUPTION_DRAIN_FROM);
+    const bite = 1 + Math.floor((ch.exposure - CORRUPTION_DRAIN_FROM) / CORRUPTION_DRAIN_STEP);
     hp -= bite;
     sfx("hurt");
     log(`深みに蝕まれる……（HP -${bite}）`, "warn");
