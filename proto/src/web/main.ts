@@ -12,7 +12,7 @@ import {
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
 import {
   maxHp, meleeDmg, heartFactor, xpToNext, xpForKill, statsLine,
-  STAT_KEYS, STAT_LABEL, HP_PER, carryCapacity, STASH_CAP, STASH_INHERIT, LOADOUT_CAP,
+  STAT_KEYS, STAT_LABEL, HP_PER, carryCapacity, STASH_CAP, STASH_INHERIT, LOADOUT_CAP, BASE_STATS,
   armorReduce, effectiveReason, xpMul, equipExposure, gearCapacity,
   DEPTH_SEAL_AT, ABYSS_DEPTH, RELIC_EXPOSURE_PER_TURN, RELIC_PURSUER_EVERY, RELIC_PURSUER_CAP,
 } from "../progression.ts";
@@ -3048,6 +3048,7 @@ async function settingsSheet() {
     `方向パッドの位置：${dpadPos === "right" ? "右下 → 左下" : "左下 → 右下"}`,
     `方向パッドの大きさ：${SZJP[dpadSize]}（大→中→小）`,
     `文字サイズ：${SZJP[logSize]}（小→中→大）`,
+    "🔧 テスト",
     "⟲ 世界を最初からやり直す",
     "閉じる",
   ];
@@ -3058,7 +3059,87 @@ async function settingsSheet() {
   else if (r.pick === 3) { setDpadPos(dpadPos === "right" ? "left" : "right"); await settingsSheet(); }
   else if (r.pick === 4) { setDpadSize(dpadSize === "lg" ? "md" : dpadSize === "md" ? "sm" : "lg"); await settingsSheet(); }
   else if (r.pick === 5) { setLogSize(logSize === "sm" ? "md" : logSize === "md" ? "lg" : "sm"); await settingsSheet(); }
-  else if (r.pick === 6) { await resetWorld(); }
+  else if (r.pick === 6) { await testSheet(); }
+  else if (r.pick === 7) { await resetWorld(); }
+}
+
+// ---------- 🔧 テストモード（開発用・web限定）。設定→テスト。レベル/深度を即変更しバランス検証を加速。 ----------
+/** レベルを target に設定：体/力へ交互配分（典型近接ビルド）・XPリセット・HP全回復。 */
+function testSetLevel(target: number): void {
+  const ch = world.current; if (!ch) return;
+  target = Math.max(1, Math.min(60, Math.floor(target)));
+  ch.stats = { ...BASE_STATS };
+  for (let i = 0; i < target - 1; i++) ch.stats[STAT_KEYS[[1, 0][i % 2]]]++; // 力→体 交互
+  ch.level = target; ch.xp = 0;
+  hp = maxHp(ch);
+  save();
+  updateStatus();
+}
+/** 今いる場所から深度 depth へ直接降りる（街なら潜行を開始してその階へ）。 */
+function testJump(depth: number): void {
+  if (!world.current) return;
+  depth = Math.max(1, Math.min(ABYSS_DEPTH, Math.floor(depth)));
+  if (mode !== "dive") {
+    stopWander(); mode = "dive"; seenThisDive = [];
+    hp = maxHp(world.current);
+    buildGridDom(VIEW_W, VIEW_H);
+  }
+  world.diveCount = (world.diveCount ?? 0) + 1; // 別ダンジョンとして生成
+  floorCache = new Map();
+  enterFloor(depth, true);
+  log(`【テスト】深度${depth}へ跳んだ。`, "warn");
+  save();
+}
+/** 全術を識り、構え（上限まで）を満たす。 */
+function testLearnAll(): void {
+  const ch = world.current; if (!ch) return;
+  for (const s of SPELLS) learnSpell(ch, s.key);
+  save();
+  updateStatus();
+}
+/** 金貨と消耗品を付与し、相棒（中堅等級）を一人つける。 */
+function testGiveResources(): void {
+  const ch = world.current; if (!ch) return;
+  ch.gold += 1000;
+  for (const c of CONSUMABLES) for (let i = 0; i < 3; i++) addConsumable(ch, c.key);
+  const grade = 2;
+  world.companion = {
+    actorRef: `test_comp_${world.generation}_${Math.floor(rng.next() * 1e6)}`,
+    actor: mintActor(db, rng),
+    bond: 1, exposure: 0, alive: true,
+    maxHp: companionMaxHp(grade), recruitedGeneration: world.generation,
+    grade, feats: 0, traits: [],
+  };
+  if (mode === "dive" && floor) spawnCompanionNear(player);
+  save();
+  updateStatus();
+}
+
+async function testSheet(): Promise<void> {
+  busy = true;
+  const ch = world.current;
+  const info = ch
+    ? `Lv${ch.level}／${statsLine(ch)}／HP${maxHp(ch)} 攻${meleeDmg(ch)}／金${ch.gold}／術${ch.spells.length}/${SPELLS.length}／相棒${world.companion?.alive ? "有" : "無"}`
+    : "（キャラ不在）";
+  const r = await sheet({
+    text: `開発用のテストモード。数値はその場で反映される。\n現在：${info}`,
+    meta: "🔧 テスト",
+    options: ["レベルを設定", "深度へ跳ぶ", "全術を識り構えを満たす", "金貨1000＋消耗品＋相棒", "戻る"],
+  });
+  busy = false;
+  if (r.pick === 1) {
+    const a = await sheet({ text: "設定するレベル（1〜60）。体/力に自動配分し、HPは全回復する。", meta: "🔧 レベル設定", options: ["設定する", "やめる"], input: "レベル" });
+    if (a.pick === 1) { const n = parseInt(a.text, 10); if (Number.isFinite(n)) { testSetLevel(n); log(`【テスト】Lv${world.current?.level} に設定（${statsLine(world.current!)}）。`, "warn"); } }
+    await testSheet();
+  } else if (r.pick === 2) {
+    const a = await sheet({ text: `跳ぶ深度（1〜${ABYSS_DEPTH}）。今いる場所から直接その階へ降りる。`, meta: "🔧 深度ジャンプ", options: ["跳ぶ", "やめる"], input: "深度" });
+    if (a.pick === 1) { const n = parseInt(a.text, 10); if (Number.isFinite(n)) { testJump(n); return; } } // 跳んだら迷宮へ＝メニューは閉じる
+    await testSheet();
+  } else if (r.pick === 3) {
+    testLearnAll(); log(`【テスト】全${SPELLS.length}術を識り、構えを満たした。`, "warn"); await testSheet();
+  } else if (r.pick === 4) {
+    testGiveResources(); log("【テスト】金貨1000・消耗品・相棒（中堅）を付与した。", "warn"); await testSheet();
+  }
 }
 
 /** ⌃→ステータス：身上＋装備（フルネーム・第N世代もここで）。装備換装は非戦闘で可。 */
