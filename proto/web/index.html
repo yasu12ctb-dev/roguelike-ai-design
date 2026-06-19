@@ -134,8 +134,11 @@
     #deck.show { display: flex; }
     #deck.sz-lg { min-height: 182px; } #deck.sz-md { min-height: 158px; } #deck.sz-sm { min-height: 138px; } #deck.nopad { min-height: 96px; }
     #deck.pos-left { flex-direction: row-reverse; }
-    #cluster { display: none; gap: 12px; flex: 1; align-items: center; justify-content: center; }
+    /* 左右2分割：各半分の中央に 術/品 と D-pad を置く（端に寄せない＝親指が届く） */
+    #cluster { display: none; gap: 14px; flex: 1; align-items: center; justify-content: center; }
     #cluster.show { display: flex; }
+    #dpadWrap { flex: 1; display: flex; align-items: center; justify-content: center; }
+    #deck.nopad #dpadWrap { display: none; }
     #cluster button {
       flex: none; width: 62px; height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
       background: #1c232d; border: 1px solid #2e3946; border-radius: 14px; color: #cdd6e0; font-size: 11px; font-weight: 700;
@@ -234,16 +237,18 @@
       <button id="spellBtn" type="button" aria-label="術"></button>
       <button id="bagBtn" type="button" aria-label="品"></button>
     </div>
-    <div id="dpad" aria-label="方向パッド">
-      <button type="button" data-dx="-1" data-dy="-1" aria-label="左上">↖</button>
-      <button type="button" data-dx="0"  data-dy="-1" aria-label="上">↑</button>
-      <button type="button" data-dx="1"  data-dy="-1" aria-label="右上">↗</button>
-      <button type="button" data-dx="-1" data-dy="0"  aria-label="左">←</button>
-      <button type="button" class="center" data-dx="0" data-dy="0" aria-label="待機">待</button>
-      <button type="button" data-dx="1"  data-dy="0"  aria-label="右">→</button>
-      <button type="button" data-dx="-1" data-dy="1"  aria-label="左下">↙</button>
-      <button type="button" data-dx="0"  data-dy="1"  aria-label="下">↓</button>
-      <button type="button" data-dx="1"  data-dy="1"  aria-label="右下">↘</button>
+    <div id="dpadWrap">
+      <div id="dpad" aria-label="方向パッド">
+        <button type="button" data-dx="-1" data-dy="-1" aria-label="左上">↖</button>
+        <button type="button" data-dx="0"  data-dy="-1" aria-label="上">↑</button>
+        <button type="button" data-dx="1"  data-dy="-1" aria-label="右上">↗</button>
+        <button type="button" data-dx="-1" data-dy="0"  aria-label="左">←</button>
+        <button type="button" class="center" data-dx="0" data-dy="0" aria-label="待機">待</button>
+        <button type="button" data-dx="1"  data-dy="0"  aria-label="右">→</button>
+        <button type="button" data-dx="-1" data-dy="1"  aria-label="左下">↙</button>
+        <button type="button" data-dx="0"  data-dy="1"  aria-label="下">↓</button>
+        <button type="button" data-dx="1"  data-dy="1"  aria-label="右下">↘</button>
+      </div>
     </div>
   </div>
 
