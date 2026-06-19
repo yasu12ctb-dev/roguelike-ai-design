@@ -573,6 +573,45 @@ async function appraiseShop() {
   }
 }
 
+// 奇物堂 act1「奇妙な異物を買う」：未鑑定の品を一律料金で買う賭け（当たり＝強い異物／外れ＝凡品）。
+// 中身を値で悟らせないため価格は一律。買った品は袋へ＝鑑定(act0)するか装備すれば正体が分かる。
+async function oddmentsBuy() {
+  busy = true;
+  const ch = world.current!;
+  const tier = Math.max(4, ch.level + 1);
+  const stock = [rollItem(tier, rng, { boss: true }), rollItem(tier, rng, { boss: true }), rollItem(tier, rng, { boss: true })];
+  for (const it of stock) it.unidentified = true; // 奇物堂の品は必ず未鑑定（賭け）
+  const price = 14 + tier * 3; // 一律＝中身（異物か凡品か）を値段から読ませない
+  if ((ch.gearBag?.length ?? 0) >= gearCapacity(ch)) {
+    await sheet({ text: "クオは布を畳む。「袋がいっぱいだろう。先に整理しておいで」。", meta: "奇物堂 ── 異物を買う", options: ["わかった"] });
+    busy = false; return;
+  }
+  const r = await sheet({
+    text: `クオは埃をかぶった布をめくる。「曰くつきの品ばかりさ……当たりも、外れもある。鑑定はせん。買ってから、己で確かめな」。\n所持 金${ch.gold}。どれも一律 ${price}金。`,
+    meta: "奇物堂 ── 異物を買う（未鑑定の賭け）",
+    options: [...stock.map((it) => `見知らぬ${SLOT_LABEL[it.slot]}（未鑑定）／${price}金`), "やめる"],
+  });
+  busy = false;
+  const i = r.pick - 1;
+  if (i < 0 || i >= stock.length) return;
+  if (ch.gold < price) { busy = true; await sheet({ text: "金貨が足りない。", options: ["出直す"] }); busy = false; return; }
+  ch.gold -= price; sfx("open");
+  busy = true;
+  await gearBagPush(stock[i]); // 袋へ（容量は事前確認済み＝必ず入る）
+  busy = false;
+  log(`見知らぬ${SLOT_LABEL[stock[i].slot]}を買った（−${price}金／所持 ${ch.gold}）。正体は鑑定するか、装備すれば分かる。`, "warn");
+  save();
+}
+// 奇物堂 act2「品の曰くを聞く」：異物＝この世界唯一の輸出品（4-3③）の由来を語る flavor。
+async function oddmentsLore() {
+  busy = true;
+  await sheet({
+    text: "クオは昏い護符を指先で回す。\n「異物ってのはね、深みが人の業を写し取って固めたものさ。地上じゃ二つとない――だから物好きが高く買う。\nだが身につければ、向こうもこちらを少しずつ写し取る。深蝕ってのは、その代価だよ」。",
+    meta: "奇物堂 ── 品の曰く", options: ["耳を傾ける"],
+  });
+  busy = false;
+}
+
 async function smithSell() {
   const ch = world.current!;
   for (;;) {
@@ -617,6 +656,25 @@ async function smithBuyKind(slot: "weapon" | "armor") {
   log(`${it.name} を買って装備した（−${price}金貨／所持 ${ch.gold}）。`);
   if (it.exposurePerTurn) log("……身につけた途端、深みがじわりと滲む。", "warn");
   save();
+}
+// 武具屋 act2「先代の刻印武器について訊く」：刻印武器（4-11E）の由来を語る flavor＋系譜への手がかり。
+// 死亡時、握っていた武器は亡骸（化石）に刻まれる。その化石に出会い〈継ぐ〉と奪還できる。
+async function smithLore() {
+  busy = true;
+  const ch = world.current!;
+  const anc = ch.lineage?.ancestorFossilId ? world.fossils.find((f) => f.id === ch.lineage.ancestorFossilId) : undefined;
+  const ancWeapon = anc?.origin.gearTags?.[0];
+  const reclaimable = ancWeapon ? itemByName(ancWeapon) : null;
+  const hint = !anc
+    ? "「お前さんは、誰の得物も継いじゃいない。まあ、いずれ誰かの刻印を背負う日も来るさ」。"
+    : reclaimable
+      ? `「お前の血筋――${anc.origin.name} が握っていたのは《${ancWeapon}》だ。その亡骸に出会い、遺志を継げば、得物ごと取り戻せる」。`
+      : `「${anc.origin.name} の得物は《${ancWeapon}》。ありゃ既製の品じゃない……奪い返せるかは、お前次第だ」。`;
+  await sheet({
+    text: `鍛冶ヴァロは炉の火を見つめる。\n「斃れた探索者の得物には、持ち主の念が刻まれる。地に還っても、刃はあるじを忘れんのさ。\nその亡骸に出会い、遺志を〈継げ〉ば――得物は、また血の中へ戻ってくる」。\n\n${hint}`,
+    meta: "武具屋 ── 先代の刻印武器（4-11E）", options: ["うなずく"],
+  });
+  busy = false;
 }
 // 薬師：金貨で深蝕の進行を和らげる（exposure を一段戻す）。
 async function healerTreat() {
@@ -1171,6 +1229,7 @@ async function talkKeeper(asKind?: string) {
   if (kind === "archive" && actIdx === 2) return void lineageScene();   // 系譜をたどる
   if (kind === "smith" && actIdx === 0) return void smithBuyKind("weapon"); // 武器を買う
   if (kind === "smith" && actIdx === 1) return void smithSell();         // 拾い物を売る（袋を買い取る）
+  if (kind === "smith" && actIdx === 2) return void smithLore();         // 先代の刻印武器について訊く（4-11E）
   if (kind === "smith_armor" && actIdx === 0) return void smithBuyKind("armor"); // 防具を買う
   if (kind === "healer" && actIdx === 1) return void healerTreat();     // 深蝕の進行を診てもらう
   if (kind === "guild" && actIdx === 0) return void questBoard();       // 依頼を受ける（回収業）
@@ -1183,6 +1242,8 @@ async function talkKeeper(asKind?: string) {
   if (kind === "cult" && actIdx === 1) return void cultOffering();      // 深蝕を捧げる（危険な恩恵）
   if (kind === "cult" && actIdx === 2) return void cultLore("rite");    // 儀式について尋ねる
   if (kind === "oddments" && actIdx === 0) return void appraiseShop();  // 未鑑定品を鑑定する（拾った異物の正体を明かす）
+  if (kind === "oddments" && actIdx === 1) return void oddmentsBuy();   // 奇妙な異物を買う（未鑑定の賭け）
+  if (kind === "oddments" && actIdx === 2) return void oddmentsLore();  // 品の曰くを聞く（異物の由来 flavor）
   if (kind === "store" && actIdx === 0) return void storeBuy();         // 消耗品を買う
   if (kind === "store" && actIdx === 1) return void storeSell();        // 異物・拾い物を売る
   if (kind === "store" && actIdx === 2) return void storeManage();      // 携行品を整える（使う/捨てる）
