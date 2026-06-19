@@ -39,8 +39,9 @@ function arcMatches(p: Prereq, world: World): boolean {
 /** 重み付き抽選。ただしアーク段（prereq.arc 指定）があれば最優先＝弧を確実に前進させる。 */
 function pickPreferArc(pool: Storylet[], rng: Rng): Storylet | null {
   if (pool.length === 0) return null;
-  const arcs = pool.filter((s) => s.prerequisites.arc !== undefined);
-  const p = arcs.length ? arcs : pool;
+  // 弧（arc）と特定人物（actorId・名簿員の固有ビート）を最優先＝雑踏に埋もれさせず確実に前進させる。
+  const priority = pool.filter((s) => s.prerequisites.arc !== undefined || s.prerequisites.actorId !== undefined);
+  const p = priority.length ? priority : pool;
   if (p.length === 1) return p[0];
   const total = p.reduce((a, s) => a + Math.max(0, s.weight), 0);
   if (total <= 0) return p[0];
@@ -178,6 +179,7 @@ const TOWN_CONTEXTS: readonly TownContext[] = ["street", "tavern", "guild", "sho
 
 /** 街ストーリーレットの前提照合（生者アクターにアンカー。flag/notFlag/bond/exposure を actor.id でスコープ）。 */
 function townMatches(p: Prereq, world: World, ch: Character, la: LivingActor): boolean {
+  if (p.actorId !== undefined && p.actorId !== la.id) return false; // 特定の名簿員にのみ（4-14 イントロ）
   const bond = ch.bonds.find((b) => b.entityRef === la.id);
   if (p.minBond !== undefined && (bond?.value ?? 0) < p.minBond) return false;
   if (p.unfinished !== undefined && (bond?.unfinished ?? false) !== p.unfinished) return false;

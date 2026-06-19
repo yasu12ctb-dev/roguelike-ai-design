@@ -269,6 +269,7 @@ export interface Prereq {
   arcPick?: string;        // かつ分岐の選択がこの値（早い選択が後段を変える）
   arcActor?: boolean;      // かつ「今会っている生者＝この弧のアンカーNPC」（特定NPCに戻る弧／街）
   notArc?: string;         // この弧が未開始であること（開幕の重複発火を防ぐ）
+  actorId?: string;        // 特定の生者（名簿員＝adv_*）に出会った時だけ発火（街専用・4-14 イントロ用）
 }
 
 /** 選択の結果として世界状態へ還流する変化。文字列は origin スロットを充填できる。 */

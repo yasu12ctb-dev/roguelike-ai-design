@@ -14,7 +14,7 @@ const read = (p) => readFileSync(join(ROOT, p), "utf-8");
 // ---- エンジンのスキーマ（types.ts と同期。enum は安定。消耗品キーは items.ts から動的取得）----
 const CONTEXTS = new Set(["encounter", "dungeon", "street", "tavern", "guild", "shop", "quest", "chest"]);
 const TOWN = new Set(["street", "tavern", "guild", "shop", "quest"]);
-const PREREQ_KEYS = new Set(["tone", "stage", "finalAct", "kind", "minBond", "unfinished", "minExposure", "minLevel", "hasCatchphrase", "depthBand", "flag", "notFlag", "arc", "arcStep", "arcPick", "arcActor", "notArc"]);
+const PREREQ_KEYS = new Set(["tone", "stage", "finalAct", "kind", "minBond", "unfinished", "minExposure", "minLevel", "hasCatchphrase", "depthBand", "flag", "notFlag", "arc", "arcStep", "arcPick", "arcActor", "actorId", "notArc"]);
 const EFFECT_KEYS = new Set(["bond", "closeUnfinished", "exposure", "trait", "chronicle", "plant", "arc", "gold", "item"]);
 const TONES = new Set(["loss", "myth", "grudge"]);
 const STAGES = new Set(["weathered", "twisting", "alien"]);
@@ -23,6 +23,9 @@ const BANDS = new Set(["shallow", "mid", "deep"]);
 const KINDS = new Set(["character", "explorer", "relic"]);
 // 消耗品キーは items.ts から取り出す（ドリフト防止）
 const CONSUMABLES = new Set([...read("src/items.ts").matchAll(/key:\s*"([a-z_]+)"/g)].map((m) => m[1]));
+// 名簿id（actorId prereq の突合・4-14）。adventurers.json があれば集める。
+let ROSTER_IDS = new Set();
+try { ROSTER_IDS = new Set(JSON.parse(read("content/adventurers.json")).adventurers.map((a) => a.id)); } catch { /* 名簿なし＝空 */ }
 
 // context ごとに本文へ充填できるスロット（fillDungeonText/fillStoryletText/fillActorText に対応）
 const SLOTS = {
@@ -86,6 +89,10 @@ for (const s of list) {
   if (p.kind !== undefined && !KINDS.has(p.kind)) E(id, `prereq.kind 不正 "${p.kind}"`);
   if ((p.arcStep !== undefined || p.arcPick !== undefined || p.arcActor !== undefined) && p.arc === undefined)
     E(id, "arcStep/arcPick/arcActor を使うなら prereq.arc が必須");
+  if (p.actorId !== undefined) { // 名簿員アンカー（街専用・4-14）
+    if (!TOWN.has(ctx)) E(id, `actorId は街 context のみ（今: ${ctx}）`);
+    if (ROSTER_IDS.size && !ROSTER_IDS.has(p.actorId)) E(id, `actorId "${p.actorId}" は名簿(adventurers.json)に無い`);
+  }
   // weight
   if (typeof s.weight !== "number" || s.weight <= 0) E(id, `weight は正の number（今: ${s.weight}）`);
   // 本文（context別の形）

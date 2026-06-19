@@ -1,6 +1,213 @@
 {
   "storylets": [
     {
+      "id": "adv_mira_meet",
+      "context": "guild", "prerequisites": { "actorId": "adv_mira", "notArc": "mira_seal" }, "weight": 3,
+      "text": "片目に古い傷を負った剣士が、壁にもたれて杯を傾けている。#origin_name#――噂に聞く、深淵帯を見て還った数少ない一人だ。「奉献の試練に挑むつもりか。なら、ひとつ言っておく。底は、勝つ場所じゃない。還る場所だ」。",
+      "choices": [
+        { "label": "助言を請う", "text": "#origin_name# は片目を細めて笑った。「いい目だ。お前は、まだ人でいられる」。", "effects": [ { "arc": { "key": "mira_seal", "step": 1, "anchor": true } }, { "bond": 1 }, { "trait": "教え:#origin_name#の心得" }, { "chronicle": "#origin_name# と出会い、深淵への心得を授かり始めた。" } ] },
+        { "label": "今は聞かない", "text": "「そうか。気が向いたら、また来い」。片目の剣士は杯に視線を戻した。", "effects": [] }
+      ]
+    },
+    {
+      "id": "adv_mira_seal",
+      "context": "street", "prerequisites": { "arc": "mira_seal", "arcStep": 1, "arcActor": true }, "weight": 3,
+      "text": "#origin_name# が、こちらの歩みに何かを見て取ったように頷いた。「お前、印を集めているな。──いいか、聖遺物を抱いたら、決して立ち止まるな。深みは、留まる者から喰らう。振り返らず、ただ地上の光だけを見て駆けろ」。",
+      "choices": [
+        { "label": "胸に刻む", "text": "片目の剣士は、最後にそう言って背を向けた。その背中が、いつか自分の還る道を照らす気がした。", "effects": [ { "arc": { "key": "mira_seal", "step": 2, "done": true } }, { "bond": 1 }, { "trait": "深淵の心得:#origin_name#の遺言" }, { "chronicle": "#origin_name# から、聖遺物を抱いての帰還の極意を授かった。" } ] }
+      ]
+    },
+    {
+      "id": "adv_teara_meet",
+      "context": "street", "prerequisites": { "actorId": "adv_teara", "notArc": "teara_reconcile" }, "weight": 2,
+      "text": "数珠を繰る祈祷師が、道の隅で目を伏せている。#origin_name#。「深みに呑まれた者を、討つだけが弔いではない。憎しみに凝った魂は、鎮めることもできる。……難しいことだがね」。",
+      "choices": [
+        { "label": "作法を学ぶ", "text": "#origin_name# は数珠をひとつ、こちらの掌に握らせた。「祈りは、刃より重い。覚えておおき」。", "effects": [ { "arc": { "key": "teara_reconcile", "step": 1, "anchor": true } }, { "trait": "和解の作法:#origin_name#" }, { "chronicle": "#origin_name# から、怨念を鎮める和解の作法を学び始めた。" } ] },
+        { "label": "弔いは討つことだと返す", "text": "祈祷師は静かに首を振り、それ以上は語らなかった。", "effects": [] }
+      ]
+    },
+    {
+      "id": "adv_teara_reconcile",
+      "context": "street", "prerequisites": { "arc": "teara_reconcile", "arcStep": 1, "arcActor": true }, "weight": 2,
+      "text": "#origin_name# が、こちらの手の荒れ方を見て微笑んだ。「ずいぶん、鎮めてきたようだね。──怨みを撥ねつけるのは易い。向き合って詫びるのは、難い。お前はもう、難い方を選べる」。",
+      "choices": [
+        { "label": "頭を垂れる", "text": "祈祷師は、こちらの肩にそっと手を置いた。胸の澱が、ほんの少しほどけていく。", "effects": [ { "arc": { "key": "teara_reconcile", "step": 2, "done": true } }, { "bond": 1 }, { "exposure": -0.05 }, { "item": "soothe" }, { "trait": "鎮める者:#origin_name#の弟子" }, { "chronicle": "#origin_name# に和解の作法を認められた。" } ] }
+      ]
+    },
+    {
+      "id": "adv_nereia_meet",
+      "context": "street", "prerequisites": { "actorId": "adv_nereia", "notArc": "nereia_temptation" }, "weight": 2,
+      "text": "鴉羽の外套をまとった女が、こちらをじっと見ている。#origin_name#。「浅いところでうろうろして、楽しいかい。深く潜るほど、世界はお前を覚える。深蝕は呪いじゃない――特権だよ」。",
+      "choices": [
+        { "label": "その言葉に惹かれる", "text": "#origin_name# は満足げに嗤った。「いい顔だ。もっと深く、もっと昏く」。胸の奥で、何かが疼く。", "effects": [ { "arc": { "key": "nereia_temptation", "step": 1, "anchor": true, "pick": "lured" } }, { "exposure": 0.05 }, { "trait": "誘い:#origin_name#の囁き" }, { "chronicle": "#origin_name# の深みへの誘いに、心を惹かれた。" } ] },
+        { "label": "距離を置く", "text": "「つまらない」。#origin_name# は鴉のように笑い、外套を翻した。", "effects": [ { "arc": { "key": "nereia_temptation", "step": 1, "anchor": true, "pick": "wary" } }, { "chronicle": "#origin_name# の誘いを、警戒して退けた。" } ] }
+      ]
+    },
+    {
+      "id": "adv_nereia_pull",
+      "context": "street", "prerequisites": { "arc": "nereia_temptation", "arcStep": 1, "arcActor": true }, "weight": 2,
+      "text": "#origin_name# が、こちらの深蝕の色を見て取って近づく。「ほら、深みがお前を選び始めている。怖いか？ それとも――心地いいか？」。鴉の眼が、こちらの底を覗き込む。",
+      "choices": [
+        { "label": "もっと深くへ、と応える", "text": "#origin_name# は囁いた。「いい子だ」。深みが、また一歩、こちらへ踏み込んできた。", "effects": [ { "arc": { "key": "nereia_temptation", "step": 2, "done": true, "pick": "fallen" } }, { "exposure": 0.12 }, { "trait": "鴉の同類:#origin_name#" }, { "chronicle": "#origin_name# の誘いに従い、より深く深みへ身を委ねた。" } ] },
+        { "label": "もう聞かない、と背を向ける", "text": "「……いつか、また来るさ」。#origin_name# の声が、背中に貼りついた。", "effects": [ { "arc": { "key": "nereia_temptation", "step": 2, "done": true, "pick": "refused" } }, { "trait": "撥ねつけた誘い:#origin_name#" }, { "chronicle": "#origin_name# の深みへの誘いを、断ち切った。" } ] }
+      ]
+    },
+    {
+      "id": "adv_kordo_meet",
+      "context": "tavern", "prerequisites": { "actorId": "adv_kordo", "notArc": "kordo_squad" }, "weight": 3,
+      "text": "欠けた大盾を傍らに置いた重戦士が、一人で杯を重ねている。#origin_name#。「……分隊で潜った。六人いた。還ったのは、俺だけだ」。据わった目が、こちらを見ているようで、誰も見ていない。",
+      "choices": [
+        { "label": "黙って隣に座る", "text": "#origin_name# はしばらく黙り、それから低く呟いた。「あいつらは、まだ下にいる。誰も、連れ帰っちゃくれない」。", "effects": [ { "arc": { "key": "kordo_squad", "step": 1, "anchor": true } }, { "bond": 1 }, { "trait": "聞いた話:#origin_name#の分隊" }, { "chronicle": "酒場で#origin_name# から、還らなかった分隊の話を聞いた。" } ] },
+        { "label": "そっとしておく", "text": "かける言葉が見つからない。静かに席を離れた。", "effects": [] }
+      ]
+    },
+    {
+      "id": "adv_kordo_reunion",
+      "context": "street", "prerequisites": { "arc": "kordo_squad", "arcStep": 1, "arcActor": true }, "weight": 3,
+      "text": "#origin_name# が、こちらを見て立ち上がった。深層で誰かの亡骸を見た、その目をしていると見抜いたのだ。「下で……会ったのか。あいつらに」。声が、震えている。",
+      "choices": [
+        { "label": "見たままを伝える", "text": "#origin_name# は両手で顔を覆い、長く嗚咽した。「……ありがとう。これで、俺も前を向ける」。差し出されたのは、分隊の形見だという古い徽章だった。", "effects": [ { "arc": { "key": "kordo_squad", "step": 2, "done": true } }, { "bond": 2 }, { "gold": 20 }, { "trait": "託された:#origin_name#の分隊の徽章" }, { "chronicle": "#origin_name# に分隊の最期を伝え、その心を救った。" } ] },
+        { "label": "何も言えず口を噤む", "text": "真実は、重すぎた。曖昧に首を振ると、#origin_name# の目から光が消えていった。", "effects": [ { "arc": { "key": "kordo_squad", "step": 2, "done": true, "pick": "silent" } }, { "exposure": 0.06 }, { "chronicle": "#origin_name# に分隊の最期を伝えられず、その背を見送った。" } ] }
+      ]
+    },
+    {
+      "id": "adv_yura_meet",
+      "context": "street", "prerequisites": { "actorId": "adv_yura", "notArc": "yura_atone" }, "weight": 2,
+      "text": "罪過の槍を背に負った衛士が、俯きがちに立っている。#origin_name#。「俺は、仲間を見殺しにして生き延びた。その罪を、まだ返せずにいる」。",
+      "choices": [
+        { "label": "贖いの道を聞く", "text": "#origin_name# は静かに語った。「だから俺は、もう誰も置いていかない。次は、必ず」。その誓いが、痛いほど伝わってくる。", "effects": [ { "arc": { "key": "yura_atone", "step": 1, "anchor": true } }, { "bond": 1 }, { "trait": "誓い:#origin_name#の贖い" }, { "chronicle": "#origin_name# の、仲間を見殺しにした悔いと贖いの誓いを聞いた。" } ] },
+        { "label": "誰にでもあることだと返す", "text": "「……そう言ってくれるな」。#origin_name# は弱く笑い、目を逸らした。", "effects": [] }
+      ]
+    },
+    {
+      "id": "adv_yura_atone",
+      "context": "street", "prerequisites": { "arc": "yura_atone", "arcStep": 1, "arcActor": true }, "weight": 2,
+      "text": "#origin_name# が、晴れやかな顔で近づいてきた。「お前を見ていて、思えたんだ。罪は消えない。だが、背負って前へ進むことはできる、と」。",
+      "choices": [
+        { "label": "共に前へ、と頷く", "text": "#origin_name# は深く礼をした。「お前と出会えて、よかった」。罪過の槍が、ほんの少し軽くなったように見えた。", "effects": [ { "arc": { "key": "yura_atone", "step": 2, "done": true } }, { "bond": 1 }, { "exposure": -0.04 }, { "trait": "戦友:#origin_name#" }, { "chronicle": "#origin_name# が贖いの重荷と折り合い、前を向いた。" } ] }
+      ]
+    },
+    {
+      "id": "adv_mark_meet",
+      "context": "guild", "prerequisites": { "actorId": "adv_mark", "notArc": "mark_ascend" }, "weight": 2,
+      "text": "覚悟の戦鎚を携えた踏破者が、若い冒険者たちに何かを説いている。#origin_name#。「俺はもう長くない。だが、俺の歩いた道は、次の誰かが継げばいい。お前も、その一人になれる」。",
+      "choices": [
+        { "label": "その志を受け取る", "text": "#origin_name# は力強く頷いた。「いい返事だ。いつか俺が還らなくなったら――俺の得物を、継いでくれ」。", "effects": [ { "arc": { "key": "mark_ascend", "step": 1, "anchor": true } }, { "bond": 1 }, { "trait": "託された志:#origin_name#の覚悟" }, { "chronicle": "#origin_name# から、次代へ道を継ぐ覚悟を託された。" } ] },
+        { "label": "自分には荷が重いと辞する", "text": "「そうか。だが、覚えておけ。道は、誰かが継がねば消える」。", "effects": [] }
+      ]
+    },
+    {
+      "id": "adv_mark_legacy",
+      "context": "guild", "prerequisites": { "arc": "mark_ascend", "arcStep": 1, "arcActor": true }, "weight": 2,
+      "text": "#origin_name# が、戦鎚を布で丁寧に拭いながら待っていた。「お前の血筋に、これを伝えておきたい。形あるものはいつか朽ちる。だが、継がれた覚悟は朽ちない」。",
+      "choices": [
+        { "label": "覚悟を継ぐと誓う", "text": "#origin_name# は満足げに笑った。「これで、安心して逝ける」。その言葉は、不吉でいて、温かかった。", "effects": [ { "arc": { "key": "mark_ascend", "step": 2, "done": true } }, { "bond": 1 }, { "gold": 12 }, { "trait": "継いだ覚悟:#origin_name#の道" }, { "chronicle": "#origin_name# の覚悟を、自らの血筋へ継ぐと誓った。" } ] }
+      ]
+    },
+    {
+      "id": "adv_madu_meet",
+      "context": "street", "prerequisites": { "actorId": "adv_madu", "notArc": "madu_twin" }, "weight": 2,
+      "text": "片割れの笛を握りしめた斥候が、行き交う人を見回している。#origin_name#。「双子の弟が、深層から還らない。あいつとは、この笛で合図を送り合ってた。……まだ、聞こえる気がするんだ」。",
+      "choices": [
+        { "label": "弟を捜すと約束する", "text": "#origin_name# は笛をこちらに握らせた。「もし下で、これと同じ音を聞いたら……頼む」。", "effects": [ { "arc": { "key": "madu_twin", "step": 1, "anchor": true } }, { "bond": 1 }, { "trait": "託された:#origin_name#の双子の笛" }, { "chronicle": "#origin_name# から、深層に消えた双子の弟の捜索を頼まれた。" } ] },
+        { "label": "気休めは言えないと首を振る", "text": "#origin_name# は俯き、笛を強く握り直した。", "effects": [] }
+      ]
+    },
+    {
+      "id": "adv_madu_closure",
+      "context": "street", "prerequisites": { "arc": "madu_twin", "arcStep": 1, "arcActor": true }, "weight": 2,
+      "text": "#origin_name# が、こちらの持つ笛に気づいて駆け寄ってきた。「その音……お前、下で聞いたんだな。弟の」。縋るような目が、答えを待っている。",
+      "choices": [
+        { "label": "弟は静かに眠っていたと伝える", "text": "#origin_name# は泣き笑いの顔で頷いた。「そうか。……独りじゃ、なかったんだな」。二本の笛が、はじめて同じ音で鳴った。", "effects": [ { "arc": { "key": "madu_twin", "step": 2, "done": true } }, { "bond": 1 }, { "exposure": -0.03 }, { "trait": "双子の片割れ:#origin_name#" }, { "chronicle": "#origin_name# に双子の弟の最期を伝え、長い捜索に区切りをつけた。" } ] }
+      ]
+    },
+    {
+      "id": "adv_korute_meet",
+      "context": "street", "prerequisites": { "actorId": "adv_korute", "notArc": "korute_fugitive" }, "weight": 2,
+      "text": "偽りの認識票を提げた流れ者が、人混みに紛れるように立っている。#origin_name#。「名前なんざ、どうでもいい。昔の名は……捨てた。詮索しないなら、悪い話はしないぜ」。",
+      "choices": [
+        { "label": "詮索せず、頷く", "text": "#origin_name# は薄く笑った。「物分かりがいいな。気が合いそうだ」。だが、その目の奥には、消えない怯えがあった。", "effects": [ { "arc": { "key": "korute_fugitive", "step": 1, "anchor": true } }, { "trait": "知り合い:#origin_name#（訳ありの流れ者）" }, { "plant": "korute_known" }, { "chronicle": "訳ありの流れ者#origin_name# と、互いを詮索しない関係を結んだ。" } ] },
+        { "label": "素性を問い質す", "text": "#origin_name# の顔が強張った。「……忠告だ。知らない方が、身のためだぜ」。", "effects": [] }
+      ]
+    },
+    {
+      "id": "adv_korute_past",
+      "context": "street", "prerequisites": { "arc": "korute_fugitive", "arcStep": 1, "arcActor": true }, "weight": 2,
+      "text": "#origin_name# が、いつになく青ざめてこちらを物陰へ引き込んだ。「追手が、街まで来やがった。俺の過去が、ようやく追いついたらしい。……笑えるだろ。深層より、過去の方が怖いんだ」。",
+      "choices": [
+        { "label": "逃がす手を貸す", "text": "#origin_name# は深く頷いた。「恩に着る。もし俺が下で還らなかったら……俺は、最後まで逃げ切れなかったってことだ」。", "effects": [ { "arc": { "key": "korute_fugitive", "step": 2, "done": true } }, { "bond": 1 }, { "trait": "逃がした:#origin_name#の過去" }, { "chronicle": "#origin_name# の過去の追手から、彼を逃がす手を貸した。" } ] },
+        { "label": "関わるまいと背を向ける", "text": "「……だよな。それが、賢い」。#origin_name# の声には、恨みすら滲んでいた。", "effects": [ { "arc": { "key": "korute_fugitive", "step": 2, "done": true, "pick": "abandoned" } }, { "exposure": 0.05 }, { "chronicle": "#origin_name# を追手に見捨てた。その目の恨みが、忘れられない。" } ] }
+      ]
+    },
+    {
+      "id": "adv_navi_meet",
+      "context": "street", "prerequisites": { "actorId": "adv_navi", "notArc": "navi_restore" }, "weight": 2,
+      "text": "折れた細剣を杖代わりにした女が、虚ろに座り込んでいる。#origin_name#。かつては精鋭だったという。「もう、潜れない。翼は折れた。……あんたは、まだ飛べるんだな」。",
+      "choices": [
+        { "label": "まだ終わっていないと励ます", "text": "#origin_name# は弱く、しかし確かに、顔を上げた。「……そう、かな。そう、なのかな」。", "effects": [ { "arc": { "key": "navi_restore", "step": 1, "anchor": true, "pick": "encourage" } }, { "bond": 1 }, { "trait": "励ました:#origin_name#" }, { "chronicle": "折れた元精鋭#origin_name# を、まだ終わっていないと励ました。" } ] },
+        { "label": "そっとしておく", "text": "言葉は、時に酷だ。静かにその場を離れた。", "effects": [ { "arc": { "key": "navi_restore", "step": 1, "anchor": true, "pick": "left" } }, { "chronicle": "折れた元精鋭#origin_name# を、そっとしておいた。" } ] }
+      ]
+    },
+    {
+      "id": "adv_navi_wing",
+      "context": "street", "prerequisites": { "arc": "navi_restore", "arcStep": 1, "arcActor": true }, "weight": 2,
+      "text": "#origin_name# が、新しく打ち直した細剣を手に立っていた。背筋が、以前より伸びている。「あんたの言葉が、ずっと耳に残ってた。もう一度だけ、翼を試してみる」。",
+      "choices": [
+        { "label": "再起を見届ける", "text": "#origin_name# は不敵に笑った。かつての精鋭の顔だった。「次は、深層で会おう」。", "effects": [ { "arc": { "key": "navi_restore", "step": 2, "done": true } }, { "bond": 1 }, { "trait": "再起の証人:#origin_name#" }, { "chronicle": "#origin_name# が折れた翼を打ち直し、再び深層へ向かった。" } ] }
+      ]
+    },
+    {
+      "id": "adv_uru_meet",
+      "context": "street", "prerequisites": { "actorId": "adv_uru", "notArc": "uru_brothers" }, "weight": 2,
+      "text": "兄の形見だという短刀を大事そうに提げた新参が、緊張した面持ちで立っている。#origin_name#。「兄さんが三人、みんな深層で逝った。末っ子の俺が、その分も生きて、潜る。……笑わないでくれ」。",
+      "choices": [
+        { "label": "その覚悟を認める", "text": "#origin_name# は、はにかむように笑った。「ありがとう。あんたみたいな先達が、いてくれて心強いよ」。", "effects": [ { "arc": { "key": "uru_brothers", "step": 1, "anchor": true } }, { "bond": 1 }, { "trait": "見守る:#origin_name#（末弟）" }, { "chronicle": "三人の兄を喪った新参#origin_name# の、血筋を継ぐ覚悟を認めた。" } ] },
+        { "label": "深層は甘くないと諭す", "text": "「……分かってる。分かってるんだ」。#origin_name# は短刀を握りしめた。", "effects": [] }
+      ]
+    },
+    {
+      "id": "adv_uru_vow",
+      "context": "street", "prerequisites": { "arc": "uru_brothers", "arcStep": 1, "arcActor": true }, "weight": 2,
+      "text": "#origin_name# が、少し逞しくなった顔で駆けてきた。「この前の潜行で、兄さんたちの気配を感じた気がしたんだ。怖くなかった。……見守ってくれてる、って思えた」。",
+      "choices": [
+        { "label": "兄たちは見ている、と頷く", "text": "#origin_name# は深く頷いた。「うん。俺は、独りじゃない」。形見の短刀が、誇らしげに光った。", "effects": [ { "arc": { "key": "uru_brothers", "step": 2, "done": true } }, { "bond": 1 }, { "trait": "末弟の誓い:#origin_name#" }, { "chronicle": "#origin_name# が、喪った兄たちの血筋を継ぐ誓いを新たにした。" } ] }
+      ]
+    },
+    {
+      "id": "adv_don_meet",
+      "context": "street", "prerequisites": { "actorId": "adv_don", "notArc": "don_relic" }, "weight": 2,
+      "text": "古い薬籠を背負った中年の男が、薬師の店先で何かを問い詰めている。#origin_name#。遅咲きの新人だという。「どんな傷も、深蝕すらも癒す秘宝があると聞いた。それを探しに、俺は潜るんだ」。",
+      "choices": [
+        { "label": "その夢を聞く", "text": "#origin_name# は照れたように頭を掻いた。「歳をくってからの夢だ。笑われるのは慣れてる。だが、誰かを救えるなら――な」。", "effects": [ { "arc": { "key": "don_relic", "step": 1, "anchor": true } }, { "bond": 1 }, { "trait": "知る夢:#origin_name#の秘宝" }, { "chronicle": "遅咲きの#origin_name# の、万能の癒しの秘宝を探す夢を聞いた。" } ] },
+        { "label": "そんな秘宝はないと告げる", "text": "#origin_name# は寂しげに笑った。「……かもな。だが、無いと確かめるまでは、信じていたいのさ」。", "effects": [] }
+      ]
+    },
+    {
+      "id": "adv_don_truth",
+      "context": "street", "prerequisites": { "arc": "don_relic", "arcStep": 1, "arcActor": true }, "weight": 2,
+      "text": "#origin_name# が、薬籠を抱えて穏やかな顔で待っていた。「秘宝は、見つからなかったよ。だがな、潜るうちに気づいたんだ。俺の作る薬で救える命も、確かにあるってことに」。",
+      "choices": [
+        { "label": "その歩みを讃える", "text": "#origin_name# は嬉しそうに、手製の膏薬をひとつ握らせてくれた。「お前にやるよ。深層で、誰かを救ってやってくれ」。", "effects": [ { "arc": { "key": "don_relic", "step": 2, "done": true } }, { "bond": 1 }, { "item": "salve" }, { "trait": "遅咲きの友:#origin_name#" }, { "chronicle": "#origin_name# が幻の秘宝より、自らの薬の価値に気づいた。" } ] }
+      ]
+    },
+    {
+      "id": "adv_veru_meet",
+      "context": "street", "prerequisites": { "actorId": "adv_veru", "notArc": "veru_noble" }, "weight": 2,
+      "text": "二つ名の指輪を光らせた商人風の女が、声を潜めて近づいてきた。#origin_name#。「昼は商人、夜は……まあ、いろいろさ。あんた、面白い目をしてる。封じられた貴族街に、興味はないかい」。",
+      "choices": [
+        { "label": "話に乗る", "text": "#origin_name# は妖しく微笑んだ。「いい度胸だ。あの門の向こうには、深層とは別の『深み』があるよ。……いずれ、案内してやる」。", "effects": [ { "arc": { "key": "veru_noble", "step": 1, "anchor": true } }, { "trait": "密約:#origin_name#（夜の顔）" }, { "plant": "noble_whisper" }, { "chronicle": "夜の顔を持つ#origin_name# から、封じられた貴族街の噂を聞いた。" } ] },
+        { "label": "関わらないでおく", "text": "「賢明だ。だが、気が変わったら声をかけな」。#origin_name# は雑踏へ溶けていった。", "effects": [] }
+      ]
+    },
+    {
+      "id": "adv_veru_thread",
+      "context": "street", "prerequisites": { "arc": "veru_noble", "arcStep": 1, "arcActor": true }, "weight": 2,
+      "text": "#origin_name# が、指輪をくるりと回しながら囁いた。「貴族街の門番は、賄賂じゃ動かない。動くのは『名』だけだ。お前が深淵で名を上げれば――あの門は、おのずと開く。覚えておきな」。",
+      "choices": [
+        { "label": "その糸を握っておく", "text": "#origin_name# は満足げに頷いた。「お前とは、長い付き合いになりそうだ」。封じられた門への、細い糸が一本繋がった。", "effects": [ { "arc": { "key": "veru_noble", "step": 2, "done": true } }, { "bond": 1 }, { "plant": "noble_thread" }, { "trait": "貴族街への糸:#origin_name#" }, { "chronicle": "#origin_name# から、貴族街の門が『名』で開くという手がかりを得た。" } ] }
+      ]
+    },
+    {
       "id": "ch_wrapped_coins",
       "context": "chest", "prerequisites": {}, "weight": 2,
       "result": { "text": "硬貨がひと握り、布にくるまれて入っていた。誰かの命がけの稼ぎだ。", "effects": [ { "gold": 8 }, { "chronicle": "深度#depth#の宝箱から、いくらかの硬貨を得た。" } ] }
