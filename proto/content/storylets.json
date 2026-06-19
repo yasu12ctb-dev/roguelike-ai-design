@@ -1,6 +1,127 @@
 {
   "storylets": [
     {
+      "id": "ex_loss_satchel",
+      "prerequisites": { "tone": "loss" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# の#origin_gear# は、まだ肩に掛けたままだった。中を検めると、誰かへの土産だったらしい小さな包みが、開けられることなく残っている。",
+        "effects": [ { "bond": 1 }, { "trait": "見たもの:#origin_name#の土産" }, { "chronicle": "#origin_name# の遺した包みを見つけた。渡す相手は、もういない。" } ]
+      },
+      "search": {
+        "text": "亡骸の周りを探ると、#origin_gear# のほかに、擦り切れた地図の断片が落ちていた。引き返す道が、赤い線で何度もなぞられている。",
+        "effects": [ { "trait": "遺品:#origin_name#の帰り道の地図" }, { "chronicle": "#origin_name# が帰り道を探し続けた跡を見た。" } ]
+      }
+    },
+    {
+      "id": "ex_loss_lastmeal",
+      "prerequisites": { "tone": "loss" },
+      "weight": 1,
+      "investigate": {
+        "text": "冷えた焚き火の跡。#origin_name# は最後の食事を半分だけ残し、#origin_gear# を枕に横たわっていた。空腹より先に、力が尽きたのだろう。",
+        "effects": [ { "exposure": 0.04 }, { "chronicle": "#origin_name# の最後の野営の跡を見た。" } ]
+      }
+    },
+    {
+      "id": "ex_loss_quiet",
+      "prerequisites": { "tone": "loss" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# の表情は、不思議と穏やかだった。#origin_gear# を胸に組み、まるで眠っているようだ。傍らに、誰かのために残されたような干し草の束。",
+        "effects": [ { "item": "soothe" }, { "chronicle": "安らかな #origin_name# の最期に、胸が少し凪いだ。" } ]
+      }
+    },
+    {
+      "id": "ex_loss_token",
+      "prerequisites": { "tone": "loss" },
+      "weight": 1,
+      "search": {
+        "text": "#origin_gear# のそばを掘ると、欠けた木札が出てきた。裏に小さく『#origin_name#』。仲間と分け合った、合言葉の片割れだろうか。",
+        "effects": [ { "trait": "遺品:#origin_name#の木札" }, { "chronicle": "#origin_name# の木札を拾った。片割れは、どこに。" } ]
+      }
+    },
+    {
+      "id": "ex_loss_relief",
+      "prerequisites": { "tone": "loss" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# の#origin_gear# の下に、使いかけの傷薬が残されていた。最後まで、誰かを手当てするつもりだったのかもしれない。",
+        "effects": [ { "item": "salve" }, { "chronicle": "#origin_name# の遺した傷薬を受け取った。" } ]
+      }
+    },
+    {
+      "id": "ex_any_dust",
+      "prerequisites": {},
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# の#origin_gear# に、指で文字を書けるほど埃が積もっている。誰にも触れられぬまま、ここで長い時が流れたのだ。",
+        "effects": [ { "chronicle": "#origin_name# の亡骸に積もった時の厚みを見た。" } ]
+      }
+    },
+    {
+      "id": "ex_any_offerings",
+      "prerequisites": {},
+      "weight": 1,
+      "search": {
+        "text": "亡骸の周りに、後から来た探索者たちの手向けが残っている。硬貨、燃え差しの蝋燭、名も知らぬ花。#origin_name# は、ひとりではなかった。",
+        "effects": [ { "gold": 4 }, { "chronicle": "#origin_name# への手向けから、一枚だけ硬貨を譲り受けた。" } ]
+      }
+    },
+    {
+      "id": "ex_myth_offering",
+      "prerequisites": { "tone": "myth" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# の#origin_gear# は、まるで聖具のように据えられている。手を合わせると、胸の澱がわずかに軽くなった気がした。",
+        "effects": [ { "exposure": -0.05 }, { "chronicle": "#origin_name# の遺徳に触れ、深みが少し退いた。" } ]
+      }
+    },
+    {
+      "id": "ex_myth_marker",
+      "prerequisites": { "tone": "myth" },
+      "weight": 1,
+      "search": {
+        "text": "石塚の下を検めると、#origin_gear# とともに、後進へ宛てた覚書が油紙に包まれていた。『ここまで来たお前は、もう独りで歩ける』——#origin_name# の筆だ。",
+        "effects": [ { "bond": 1 }, { "trait": "受け継ぎ:#origin_name#の覚書" }, { "chronicle": "#origin_name# が後進へ遺した言葉を読んだ。" } ]
+      }
+    },
+    {
+      "id": "ex_myth_light",
+      "prerequisites": { "tone": "myth" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# の眠る一角だけ、空気が澄んでいる。#origin_gear# の淡い残光が、迷宮の闇をわずかに押し返していた。",
+        "effects": [ { "chronicle": "#origin_name# の遺した静けさに、しばし足を止めた。" } ]
+      }
+    },
+    {
+      "id": "ex_grudge_chill",
+      "prerequisites": { "tone": "grudge" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# の#origin_gear# に手をかざすと、肌が粟立つほどの冷気が這い上がってくる。憎しみは、熱ではなく冷たさで残るのだと知った。",
+        "effects": [ { "exposure": 0.1 }, { "trait": "触れたもの:#origin_name#の冷気" }, { "chronicle": "#origin_name# の遺した冷気に触れ、深みを浴びた。" } ]
+      }
+    },
+    {
+      "id": "ex_grudge_scratch",
+      "prerequisites": { "tone": "grudge" },
+      "weight": 1,
+      "search": {
+        "text": "亡骸の奥の壁に、#origin_gear# の先で刻んだらしい文字が連なっている。最後はただ、見覚えのない——いや、自分に似た名で終わっていた。",
+        "effects": [ { "exposure": 0.06 }, { "trait": "見たもの:#origin_name#の刻字" }, { "chronicle": "#origin_name# が壁に刻んだ名を見た。背筋が冷えた。" } ]
+      }
+    },
+    {
+      "id": "ex_grudge_follow",
+      "prerequisites": { "tone": "grudge" },
+      "weight": 1,
+      "investigate": {
+        "text": "#origin_name# の#origin_gear# が、ひとりでに微かに震え、奥の闇を指している。まるで、まだ追うべき相手がいるかのように。",
+        "effects": [ { "bond": 1 }, { "exposure": 0.05 }, { "chronicle": "#origin_name# の未練が、まだ奥を指しているのを見た。" } ]
+      }
+    },
+    {
       "id": "sl_grudge_marks",
       "prerequisites": { "tone": "grudge", "notFlag": "traced" },
       "weight": 1,
