@@ -3516,6 +3516,7 @@ function applyChrome() {
   // 術/品 ボタンは迷宮のみ表示（街では左ハーフは空＝枠だけ確保）。
   ($("spellBtn") as HTMLElement).style.display = showCluster ? "" : "none";
   ($("bagBtn") as HTMLElement).style.display = showCluster ? "" : "none";
+  ($("mapBtn") as HTMLElement).style.display = showCluster ? "" : "none";
   const dp = $("dpad");
   dp.classList.toggle("show", showDpad);
   dp.classList.remove("sz-lg", "sz-md", "sz-sm"); dp.classList.add(`sz-${dpadSize}`);
@@ -3538,6 +3539,9 @@ const ICONS = {
 // 行動デッキの 術/品 ボタン＝アイコン＋ラベル。
 $("spellBtn").innerHTML = `${ICONS.spell}<span>術</span>`;
 $("bagBtn").innerHTML = `${ICONS.bag}<span>品</span>`;
+$("mapBtn").innerHTML = `${ICONS.map}<span>地図</span>`;
+// 地図ボタン（潜行中・術/品の隣）：踏破範囲の俯瞰を即トグル（FB：地図を多用するので⌃メニュー階層を省く）。
+$("mapBtn").onclick = () => { if (mode !== "dive") return; setMapMode(!mapMode); };
 
 /** 視界内に生存敵がいる＝戦闘中（既存の自動移動中断と同じ判定）。 */
 function inSight(): boolean {
