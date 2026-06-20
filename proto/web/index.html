@@ -18,9 +18,11 @@
     html, body { -webkit-user-select: none; -moz-user-select: none; user-select: none; -webkit-touch-callout: none; }
     input, textarea { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
     html, body { height: 100%; overscroll-behavior: none; }
-    /* iOS スタンドアロンPWA：本体をビューポートに固定してスクロールでの“ずれ”を防ぐ */
+    /* iOS：本体を実ビューポート全域に固定。inset:0（top/bottom:0）で画面最下端まで満たす。
+       ※ height:100dvh を併記すると over-constrained で bottom:0 が無視され、dvh が実画面より
+         短く解決される端末でタブバーが下端に届かない（2026-06-20 FB）。inset:0 のみに統一。 */
     body {
-      position: fixed; inset: 0; height: 100dvh; overflow: hidden;
+      position: fixed; inset: 0; overflow: hidden;
       background: #0b0d10; color: #cfd6dd;
       font-family: "Hiragino Sans", system-ui, sans-serif;
       display: flex; flex-direction: column;
