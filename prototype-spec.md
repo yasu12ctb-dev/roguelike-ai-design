@@ -259,8 +259,8 @@ CLI/demo（旧モデル・据え置き）:
 web（v2＝じっくり攻略を罰しない）:
   受動累積なし（探索・移動・降下では増えない）。蓄積源は3つだけ:
     ① 術使用     character.exposure += spell.cost × 心係数   （castSpell）
-    ② 異物装備   character.exposure += equipExposure × 心係数 （毎手 drip・呪いの代償）
-    ③ 聖遺物携行 character.exposure += RELIC_EXPOSURE_PER_TURN × 心係数（帰還の試練）
+    ② 異物装備   character.exposure += equipExposure × ODDITY_DESCENT_MULT(10) × 心係数（降下1階ごと・呪いの代償・滞在ターン非依存）
+    ③ 聖遺物携行 character.exposure += RELIC_EXPOSURE_PER_TURN(0.015) × 心係数（帰還の試練・毎手）
   牙（即時HPドレイン）: exposure≥1.5 で毎手 −1（+2.0ごとに+1・上限 −2/手）
   回復ノード（Shrine・一度使用で消える）: 回復の泉=HP回復 / 安息所=深蝕 −0.8
   帰還方法（3経路）: 上り階段直帰 / 帰還の詠唱(homeward・数手チャネル) /

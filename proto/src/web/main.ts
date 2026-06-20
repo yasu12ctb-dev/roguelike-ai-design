@@ -1991,6 +1991,10 @@ const CORRUPTION_DRAIN_STEP = 2.0;
 const CORRUPTION_DRAIN_CAP = 2;
 /** 帰還の詠唱（v2）：完成までの詠唱手数（この間は無防備＝敵が動く。移動で中断）。 */
 const HOMEWARD_CHANT = 3;
+/** 異物（呪い装備）の深蝕＝「降下1階ごと」の固定係数（毎手 exposurePerTurn を1階ぶんに束ねる）。
+ *  滞在ターン非依存＝大マップでじっくり探索しても青天井にならない（2026-06-19 バランス是正）。
+ *  両異物(0.05)×10×心係数 ≈ 0.5/floor（heart2）＝予測可能な呪いの代償。 */
+const ODDITY_DESCENT_MULT = 10;
 /** 1手ぶんの後処理：深蝕→奇癖→蝕み→敵の手番→予告更新→描画→昇級→死。移動も詠唱もここに合流する。 */
 async function endTurn() {
   if (!floor || !world.current) return;
@@ -2012,10 +2016,11 @@ async function endTurn() {
   // 深蝕の累積（リワーク v2）：探索・移動・降下では一切増えない。毎手で増えるのは
   //   ②異物装備の drip（呪われた装備の代償・equipExposure）と ③聖遺物携行のときだけ。
   //   （①術使用は castSpell で都度加算。これら3源以外に受動累積は無い＝じっくり攻略を罰しない。）
-  const drip = equipExposure(ch) * heartFactor(ch); // ②異物 drip も心で和らぐ
-  if (drip > 0) ch.exposure += drip;
+  // 深蝕の累積（リワーク v2／2026-06-19 微調整）：探索・移動では一切増えない。毎手で増えるのは
+  //   ③聖遺物携行のときだけ。①術使用は castSpell で都度／②異物装備は降下ごと（stairsPrompt down）に課金。
+  //   （滞在ターンに比例しないため「じっくり攻略」を罰しない＝大マップでも異物が青天井にならない。）
 
-  // 帰還の試練（4-13C）：聖遺物携行中は深みが覚醒＝毎手 深蝕が急騰し、追手の怨霊が湧く。
+  // 帰還の試練（4-13C）：聖遺物携行中は深みが覚醒＝毎手 深蝕が騰がり、追手の怨霊が湧く。
   if (ch.carryingRelic) {
     ch.exposure += RELIC_EXPOSURE_PER_TURN * heartFactor(ch); // ③聖遺物携行も心で和らぐ
     turnsSinceFloor++;
@@ -2864,7 +2869,13 @@ async function stairsPrompt(dir: "down" | "up") {
   }
   if (dir === "down") {
     const r = await sheet({ text: `下り階段がある。深度${f.depth + 1}へ降りるか？`, options: ["降りる", "とどまる"] });
-    if (r.pick === 1) { sfx("stairs"); enterFloor(f.depth + 1, true); await maybeDungeonEvent(floor!.depth); await maybeMerchantEncounter(); }
+    if (r.pick === 1) {
+      // 異物（呪い装備）の深蝕＝降下1階ごとに1回（v2 微調整・滞在ターン非依存）。装備していなければ0。
+      const ch = world.current!;
+      const oddity = equipExposure(ch) * ODDITY_DESCENT_MULT * heartFactor(ch);
+      if (oddity > 0) { ch.exposure += oddity; log(`異物が、深みを一段呼び込む（深蝕 ＋${oddity.toFixed(2)}）。`, "warn"); }
+      sfx("stairs"); enterFloor(f.depth + 1, true); await maybeDungeonEvent(floor!.depth); await maybeMerchantEncounter();
+    }
   } else if (f.depth === 1) {
     const r = await sheet({ text: "地上への階段だ。街へ戻るか？\n（傷は癒えるが、浴びた深みは消えない）", options: ["街へ戻る", "とどまる"] });
     if (r.pick === 1) { await surfaceReturn(); return; }
