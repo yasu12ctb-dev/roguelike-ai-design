@@ -2245,7 +2245,7 @@ $("spellBtn").onclick = async () => {
   const ch = world.current;
   if (ch.spells.length === 0) { log("まだ術を識らない。レベルアップ/深淵/教団で識れる。", "dim"); return; }
   const loadout = activeLoadout(ch);
-  if (loadout.length === 0) { log("術を構えていない。⌃メニュー→冒険の記録→術 で構えを整えよ。", "dim"); return; }
+  if (loadout.length === 0) { log("術を構えていない。⌃メニュー→ステータス→術を構える で構えを整えよ。", "dim"); return; }
   busy = true;
   const known = loadout.map((k) => spellByKey(k)).filter((s): s is NonNullable<typeof s> => !!s);
   // 選びやすい2列グリッド：学派の色チップ＋深蝕コスト＋効果（4-11F③）。
@@ -2638,7 +2638,7 @@ async function handleLevelUps() {
         : [];
       if (learnable.length) {
         const lr = await sheet({
-          text: `深みから術が滲む。1つ識るか？（${LEARN_EVERY}レベルに1度。構えは街の ≡ で整える）`,
+          text: `深みから術が滲む。1つ識るか？（${LEARN_EVERY}レベルに1度。構えは ⌃→ステータス→術を構える で整える）`,
           meta: `術 ${ch.spells.length}種 識得済み ── 構え ${activeLoadout(ch).length}/${LOADOUT_CAP}`,
           options: [...learnable.map((s) => `[${s.school}] ${s.name}（深蝕＋${s.cost}／${s.desc}）`), "今は識らない"],
         });
@@ -3345,9 +3345,14 @@ async function charScreen() {
     const eq = ch.equipment;
     const eqLine = `武器=${eq.weapon ? itemLabel(eq.weapon) : "なし"} / 防具=${eq.armor ? itemLabel(eq.armor) : "なし"} / 遺物=${eq.relic ? itemLabel(eq.relic) : "なし"} / 鞄=${eq.bag ? itemLabel(eq.bag) : "なし"}`;
     const inv = (ch.inventory ?? []).length ? (ch.inventory ?? []).map((s) => `${consumableByKey(s.key)?.name ?? s.key}×${s.qty}`).join("、") : "なし";
-    const text = `《${ch.name}》（第${world.generation}世代）Lv${ch.level}\n${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のLvまで${Math.max(0, xpToNext(ch.level) - ch.xp)}\n深蝕 ${ch.exposure.toFixed(2)}${ch.carryingRelic ? "（★聖遺物 携行中）" : ""}\n装備：${eqLine}\n持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)}：${inv}${ch.traits.length ? `\n形質：${ch.traits.join("、")}` : ""}`;
-    const r = await sheet({ text, meta: "ステータス", options: ["装備を換える", "閉じる"] });
-    if (r.pick === 1) { busy = false; await equipSwap(ch); busy = true; } else break;
+    const lo = activeLoadout(ch);
+    const loNames = lo.map((k) => spellByKey(k)?.name ?? k).join("、");
+    const loLine = ch.spells.length ? `構え ${lo.length}/${LOADOUT_CAP}：${loNames || "なし"}` : "術：未識得";
+    const text = `《${ch.name}》（第${world.generation}世代）Lv${ch.level}\n${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のLvまで${Math.max(0, xpToNext(ch.level) - ch.xp)}\n深蝕 ${ch.exposure.toFixed(2)}${ch.carryingRelic ? "（★聖遺物 携行中）" : ""}\n装備：${eqLine}\n${loLine}\n持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)}：${inv}${ch.traits.length ? `\n形質：${ch.traits.join("、")}` : ""}`;
+    const r = await sheet({ text, meta: "ステータス", options: ["装備を換える", "術を構える", "閉じる"] });
+    if (r.pick === 1) { busy = false; await equipSwap(ch); busy = true; }
+    else if (r.pick === 2) { busy = false; await spellMenu(ch); busy = true; }
+    else break;
   }
   busy = false;
 }
@@ -3516,6 +3521,7 @@ function applyChrome() {
   // 術/品 ボタンは迷宮のみ表示（街では左ハーフは空＝枠だけ確保）。
   ($("spellBtn") as HTMLElement).style.display = showCluster ? "" : "none";
   ($("bagBtn") as HTMLElement).style.display = showCluster ? "" : "none";
+  ($("mapBtn") as HTMLElement).style.display = showCluster ? "" : "none";
   const dp = $("dpad");
   dp.classList.toggle("show", showDpad);
   dp.classList.remove("sz-lg", "sz-md", "sz-sm"); dp.classList.add(`sz-${dpadSize}`);
@@ -3538,6 +3544,9 @@ const ICONS = {
 // 行動デッキの 術/品 ボタン＝アイコン＋ラベル。
 $("spellBtn").innerHTML = `${ICONS.spell}<span>術</span>`;
 $("bagBtn").innerHTML = `${ICONS.bag}<span>品</span>`;
+$("mapBtn").innerHTML = `${ICONS.map}<span>地図</span>`;
+// 地図ボタン（潜行中・術/品の隣）：踏破範囲の俯瞰を即トグル（FB：地図を多用するので⌃メニュー階層を省く）。
+$("mapBtn").onclick = () => { if (mode !== "dive") return; setMapMode(!mapMode); };
 
 /** 視界内に生存敵がいる＝戦闘中（既存の自動移動中断と同じ判定）。 */
 function inSight(): boolean {
