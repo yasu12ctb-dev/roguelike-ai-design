@@ -141,13 +141,14 @@
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
       display: none; align-items: stretch;
       background: #0c0f14; border-top: 1px solid #1c222b;
-      padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+      /* アイコンを下端に寄せる：セーフエリアから 12px 引いてインジケータ上に詰める（最低 8px は確保）。 */
+      padding-bottom: max(8px, calc(env(safe-area-inset-bottom, 0px) - 12px));
     }
     /* タブバー表示中は本体下部にバー高ぶんの余白を確保（D-pad 等がバー裏に隠れない） */
-    body.has-tabbar { padding-bottom: calc(54px + env(safe-area-inset-bottom)); }
+    body.has-tabbar { padding-bottom: calc(48px + max(8px, calc(env(safe-area-inset-bottom, 0px) - 12px))); }
     #tabbar.show { display: flex; }
     #tabbar .tab {
-      flex: 1 1 0; min-width: 0; height: 54px;
+      flex: 1 1 0; min-width: 0; height: 48px;
       display: flex; align-items: center; justify-content: center;
       background: none; border: none; color: #9aa4b0;
     }
