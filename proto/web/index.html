@@ -124,7 +124,7 @@
     #log .warn { color: #d98c7a; }
     #log .cue  { color: #8fd0c0; }
 
-    /* ---- ⌃ メニューハンドル（独立バー：ログ/デッキと重ならない） ---- */
+    /* ---- ⌃ メニューハンドル（最下部の独立バー：デッキの下） ---- */
     #handle {
       flex: none; display: none; align-items: center; justify-content: center; gap: 8px; height: 44px;
       background: #0c0f14; border-top: 1px solid #1c222b; color: #aeb8c4; font-size: 14px;
@@ -234,9 +234,6 @@
 
   <div id="log"></div>
 
-  <!-- ⌃ メニュー：ステータス／地図／冒険の記録／設定 -->
-  <div id="handle"><span class="chev">⌃</span>メニュー</div>
-
   <!-- 行動デッキ：術/品（コントローラー風）＋D-pad -->
   <div id="deck">
     <div id="cluster">
@@ -257,6 +254,9 @@
       </div>
     </div>
   </div>
+
+  <!-- ⌃ メニュー：ステータス／地図／冒険の記録／設定（最下部＝親指の届く位置） -->
+  <div id="handle"><span class="chev">⌃</span>メニュー</div>
 
   <div id="overlay">
     <div id="sheet">
