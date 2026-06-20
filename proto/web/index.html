@@ -135,10 +135,10 @@
     /* ---- 行動デッキ（dive常駐）：術/品（コントローラー風）＋D-pad ---- */
     #deck {
       flex: none; display: none; background: #0c0f14; border-top: 1px solid #1c222b;
-      align-items: center; gap: 12px; padding: 12px 14px;
+      align-items: flex-end; gap: 12px; padding: 8px 14px 10px;
     }
     #deck.show { display: flex; }
-    #deck.sz-lg { min-height: 182px; } #deck.sz-md { min-height: 158px; } #deck.sz-sm { min-height: 138px; } #deck.nopad { min-height: 96px; }
+    #deck.sz-lg { min-height: 0; } #deck.sz-md { min-height: 0; } #deck.sz-sm { min-height: 0; } #deck.nopad { min-height: 0; }
     #deck.pos-left { flex-direction: row-reverse; }
     /* 左右2分割：各半分の中央に 術/品/地図 と D-pad を置く（端に寄せない＝親指が届く） */
     #cluster { display: none; gap: 10px; flex: 1; align-items: center; justify-content: center; }
