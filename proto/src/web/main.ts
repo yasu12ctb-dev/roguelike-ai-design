@@ -3504,12 +3504,12 @@ const ICONS = {
   hub: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.2C9.8 4.9 7.2 4.6 4.5 5.2v13c2.7-.6 5.3-.3 7.5 1 2.2-1.3 4.8-1.6 7.5-1v-13C16.8 4.6 14.2 4.9 12 6.2z"/><path d="M12 6.2v13"/></svg>`,
   cog: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h6M15 7h4M5 12h2M11 12h8M5 17h9M18 17h1"/><circle cx="13" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="16" cy="17" r="2"/></svg>`,
 };
-// 下部タブバー（SubsFolio型）：術／品／地図／ステータス／設定＝アイコン＋ラベル。
-$("spellBtn").innerHTML = `${ICONS.spell}<span>術</span>`;
-$("bagBtn").innerHTML = `${ICONS.bag}<span>品</span>`;
-$("mapBtn").innerHTML = `${ICONS.map}<span>地図</span>`;
-$("statBtn").innerHTML = `${ICONS.stat}<span>ステータス</span>`;
-$("cogBtn").innerHTML = `${ICONS.cog}<span>設定</span>`;
+// 下部タブバー：術／品／地図／ステータス／設定＝アイコンのみ（文字なし＝ゲームUI標準）。
+$("spellBtn").innerHTML = ICONS.spell;
+$("bagBtn").innerHTML = ICONS.bag;
+$("mapBtn").innerHTML = ICONS.map;
+$("statBtn").innerHTML = ICONS.stat;
+$("cogBtn").innerHTML = ICONS.cog;
 // 地図タブ：踏破範囲の俯瞰を即トグル（迷宮のみ）。
 $("mapBtn").onclick = () => { if (mode !== "dive") return; setMapMode(!mapMode); };
 // ステータスタブ＝身上・装備・術・進行中・年代記・敵図鑑（旧「冒険の記録」を統合）。
