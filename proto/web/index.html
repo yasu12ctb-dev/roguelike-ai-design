@@ -3,7 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-  <meta name="theme-color" content="#0b0d10" />
+  <!-- iOS standalone はホームインジケータ帯（Webビュー外）を theme-color で塗る。
+       タブバーと同色(#0c0f14)にして帯とバーを連続させ「最下端まで」見せる（2026-06-20）。 -->
+  <meta name="theme-color" content="#0c0f14" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>堆積する世界 v0</title>
@@ -18,19 +20,22 @@
     html, body { -webkit-user-select: none; -moz-user-select: none; user-select: none; -webkit-touch-callout: none; }
     input, textarea { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
     html { height: 100%; overscroll-behavior: none; }
-    /* iOS standalone PWA の要点：body を position:fixed にすると、子の #tabbar(position:fixed)
-       の containing block が壊れ、fixed; bottom:0 でも画面最下端に届かない（WebKit 既知の癖・
-       2026-06-20 実機解析で確認）。→ body は通常フローの全高フレックスシェルにし、#tabbar の
-       fixed をビューポート基準で正しく効かせる。高さは 100dvh＋-webkit-fill-available 併用。 */
+    /* iOS の全高問題（リサーチ確定・2026-06-20）：
+       - 通常(Safari)は 100dvh が正（ツールバー伸縮に追従）。
+       - standalone PWA はツールバーが無く overflow:hidden で非スクロール＝100vh が物理全画面で正。
+         100dvh だと端末によりホームインジケータ分だけ短く解決され下端に隙間が出る。
+       → 既定 100dvh、display-mode:standalone のときだけ 100vh に上書き。 */
     body {
-      height: 100vh; height: 100dvh; min-height: -webkit-fill-available;
+      height: 100vh; height: 100dvh;
       overflow: hidden; overscroll-behavior: none;
-      background: #0b0d10; color: #cfd6dd;
+      background: #0c0f14; color: #cfd6dd;
       font-family: "Hiragino Sans", system-ui, sans-serif;
       display: flex; flex-direction: column;
       padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
       touch-action: manipulation;
     }
+    /* standalone PWA（ホーム画面起動）：100vh＝物理全画面で下端まで満たす（上記コメント参照） */
+    @media (display-mode: standalone) { body { height: 100vh; } }
 
     /* ---- ステータスバー ---- */
     #status {
@@ -136,7 +141,7 @@
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
       display: none; align-items: stretch;
       background: #0c0f14; border-top: 1px solid #1c222b;
-      padding-bottom: env(safe-area-inset-bottom);
+      padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
     }
     /* タブバー表示中は本体下部にバー高ぶんの余白を確保（D-pad 等がバー裏に隠れない） */
     body.has-tabbar { padding-bottom: calc(54px + env(safe-area-inset-bottom)); }
