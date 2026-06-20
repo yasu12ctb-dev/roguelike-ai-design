@@ -18,6 +18,7 @@
 - **開発フロー：** feature ブランチ → PR 作成 → **ユーザーがレビュー・マージ** → GitHub Pages 自動デプロイ。マージ報告を受けたら Actions の success を確認して報告する。
   - **PR 作成は Claude の判断で行ってよい（2026-06-16 ユーザー承認）。** まとまった単位（機能・リファクタ）が完成したら、確認を待たずに PR を作成してよい。マージはユーザーが行う。
 - 本体は https://yasu12ctb-dev.github.io/roguelike-ai-design/ に公開（モック比較は `/mocks/`）。
+- **連続して外したら推量をやめてリサーチ（2026-06-20 ユーザー指示・徹底事項）。** 同種の不具合で修正が2回続けて外れたら、その時点で推量ベースの試行を止め、WebSearch/WebFetch で確立解を調べてから直す。especially 環境依存（iOS/PWA/ブラウザ差）はヘッドレスで再現しないため当て推量が無駄打ちになりやすい。スクショは PIL でピクセル解析して定量化する（明度プロファイルで要素位置・隙間を実測）。
 
 ## 技術メモ
 
@@ -25,6 +26,8 @@
 - `npm run build:web`（esbuild。依存は esbuild のみ）。CLI: `npm run cli`。
 - エンジンはブラウザセーフ（fs依存は `*-node.ts` に隔離）。決定論：seed → mulberry32 一本。
 - **実行時LLMは使わない**（snapshot 4-9）。LLMは制作時の素材生成（鋳造所）のみ。
+- **アプリ版数（2026-06-20 導入）：** `src/web/main.ts` の `APP_VERSION` が単一の真実。画面右上 `#stVer` に常時表示＋設定シートに build 日。**デプロイのたびに `APP_VERSION` と `web/sw.js` の `CACHE`（`sekitsui-X.Y.Z`）を同値で必ず上げる。** 最新かの判定は右上の版数で行う。
+- **iOS standalone PWA の下部バー＝最下端問題の確定解（2026-06-20・PR #125-131・リサーチ済み）：** ①`meta viewport` に `viewport-fit=cover`（env(safe-area-*) と edge-to-edge に必須）。②**`body` 高さ＝既定 `100dvh`、`@media (display-mode: standalone)` のとき `100vh`**（standalone はツールバー伸縮なし＋`overflow:hidden` 非スクロールゆえ 100vh が物理全画面で正。`100dvh` だと端末によりホームインジケータ分だけ短く解決され下端に隙間）。③下部バーは `position: fixed; left/right/bottom:0; z-index:10`（overlay=20 の下）。④iOS standalone はホームインジケータ帯を **Web ビュー外**に確保し CSS で塗れない→`theme-color`／manifest／`body` 背景をバー色（現 `#0c0f14`）に統一して帯とバーを連続表示。⑤アイコン位置＝`#tabbar` の `padding-bottom: max(8px, calc(env(safe-area-inset-bottom) - 12px))` で安全域を残しつつ下端へ寄せる。⑥`body.has-tabbar` でバー高ぶんの下部余白を確保（fixed バー裏に D-pad 等が隠れない）。⚠**iOS PWA のキャッシュは粘着的**＝版数バンプだけでは更新されず、ホーム画面から入れ直しが要ることがある（だから版数表示が有効）。
 
 ## 現在地（2026-06-17・PR #1〜#96 マージ済み）
 
