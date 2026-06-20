@@ -126,12 +126,17 @@
     #log .warn { color: #d98c7a; }
     #log .cue  { color: #8fd0c0; }
 
-    /* ---- 下部タブバー（SubsFolio型：最下部・背景はセーフエリア最下端まで延長） ---- */
+    /* ---- 下部タブバー（SubsFolio型）：実ビューポート最下端に固定ピン留め。
+       ※ flex 最終子に頼ると iOS の position:fixed 親で自由領域計算が狂い下端に届かない
+         （2026-06-20 FB・画像解析で確認）。position:fixed; bottom:0 で確実に最下端へ。 */
     #tabbar {
-      flex: none; display: none; align-items: stretch;
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+      display: none; align-items: stretch;
       background: #0c0f14; border-top: 1px solid #1c222b;
       padding-bottom: env(safe-area-inset-bottom);
     }
+    /* タブバー表示中は本体下部にバー高ぶんの余白を確保（D-pad 等がバー裏に隠れない） */
+    body.has-tabbar { padding-bottom: calc(54px + env(safe-area-inset-bottom)); }
     #tabbar.show { display: flex; }
     #tabbar .tab {
       flex: 1 1 0; min-width: 0; height: 54px;
