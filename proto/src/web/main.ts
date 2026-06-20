@@ -47,6 +47,9 @@ import type { Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, Livin
 import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
+// アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
+export const APP_VERSION = "0.9.0";
+export const APP_BUILD = "2026-06-20";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
 const db = makeContentDb(
@@ -58,6 +61,7 @@ const db = makeContentDb(
 
 // ---------- DOM ----------
 const $ = (id: string) => document.getElementById(id)!;
+$("stVer").textContent = "v" + APP_VERSION; // 画面上部に版数を常時表示（最新かの判定用）
 const gridEl = $("grid"), lightEl = $("light"), logEl = $("log");
 const overlayEl = $("overlay"), sheetText = $("sheetText"), sheetMeta = $("sheetMeta");
 const sheetButtons = $("sheetButtons"), sheetInputRow = $("sheetInputRow");
@@ -3229,7 +3233,7 @@ async function settingsSheet() {
     "⟲ 世界を最初からやり直す",
     "閉じる",
   ];
-  const r = await sheet({ text: "音・操作・表示を整える。", meta: "設定", options: opts });
+  const r = await sheet({ text: `音・操作・表示を整える。\n\nバージョン ${APP_VERSION}（build ${APP_BUILD}）`, meta: "設定", options: opts });
   busy = false;
   if (r.pick === 1) { ensureAudio(); setMuted(!isMuted()); await settingsSheet(); }
   else if (r.pick === 2) { setDpad(!dpadOn); await settingsSheet(); }
