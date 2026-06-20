@@ -124,37 +124,33 @@
     #log .warn { color: #d98c7a; }
     #log .cue  { color: #8fd0c0; }
 
-    /* ---- ⌃ メニューハンドル（最下部の独立バー：デッキの下） ---- */
-    #handle {
-      flex: none; display: none; align-items: center; justify-content: center; gap: 8px;
-      height: calc(44px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
-      background: #0c0f14; border-top: 1px solid #1c222b; color: #aeb8c4; font-size: 14px;
+    /* ---- 下部タブバー（SubsFolio型：最下部・背景はセーフエリア最下端まで延長） ---- */
+    #tabbar {
+      flex: none; display: none; align-items: stretch;
+      background: #0c0f14; border-top: 1px solid #1c222b;
+      padding-bottom: env(safe-area-inset-bottom);
     }
-    #handle.show { display: flex; }
-    #handle .chev { font-size: 16px; color: #cdd6e0; }
+    #tabbar.show { display: flex; }
+    #tabbar .tab {
+      flex: 1 1 0; min-width: 0; height: 54px;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: none; color: #9aa4b0;
+    }
+    #tabbar .tab svg { width: 27px; height: 27px; filter: drop-shadow(0 0 4px currentColor); opacity: .92; }
+    #tabbar .tab:active { color: #e8e2d4; }
+    #tabbar #spellBtn { color: #c4abe6; }
+    #tabbar #mapBtn { color: #8fb7d8; }
+    #tabbar .tab.dis { opacity: .28; pointer-events: none; }
 
-    /* ---- 行動デッキ（dive常駐）：術/品（コントローラー風）＋D-pad ---- */
+    /* ---- 行動デッキ（歩ける場面で常駐）：D-pad のみ。タブバーの上に重なる帯 ---- */
     #deck {
-      flex: none; display: none; background: #0c0f14; border-top: 1px solid #1c222b;
-      align-items: flex-end; gap: 12px; padding: 8px 14px 10px;
+      flex: none; display: none; background: #0c0f14;
+      align-items: flex-end; padding: 8px 14px 8px;
     }
     #deck.show { display: flex; }
-    #deck.sz-lg { min-height: 0; } #deck.sz-md { min-height: 0; } #deck.sz-sm { min-height: 0; } #deck.nopad { min-height: 0; }
-    #deck.pos-left { flex-direction: row-reverse; }
-    /* 左右2分割：各半分の中央に 術/品/地図 と D-pad を置く（端に寄せない＝親指が届く） */
-    #cluster { display: none; gap: 10px; flex: 1; align-items: center; justify-content: center; }
-    #cluster.show { display: flex; }
-    #dpadWrap { flex: 1; display: flex; align-items: center; justify-content: center; }
-    #deck.nopad #dpadWrap { display: none; }
-    #cluster button {
-      flex: 0 1 58px; width: 58px; min-width: 0; height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-      background: #1c232d; border: 1px solid #2e3946; border-radius: 14px; color: #cdd6e0; font-size: 11px; font-weight: 700;
-    }
-    #cluster button svg { width: 23px; height: 23px; filter: drop-shadow(0 0 4px currentColor); opacity: .92; }
-    #cluster button:active { background: #28303d; }
-    #cluster #spellBtn { color: #c4abe6; border-color: #3a2f50; }
-    #cluster #mapBtn { color: #8fb7d8; border-color: #2c3f50; }
-    #cluster #spellBtn.dis, #cluster #bagBtn.dis, #cluster #mapBtn.dis { opacity: .4; }
+    #dpadWrap { flex: 1; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; }
+    #deck.pos-left #dpadWrap { justify-content: flex-start; padding-right: 0; padding-left: 6px; }
+    #deck.nopad { display: none; }
     /* D-pad（帯内・サイズ可変） */
     #dpad { display: none; grid-template-columns: repeat(3,46px); grid-template-rows: repeat(3,42px); gap: 6px; flex: none; }
     #dpad.show { display: grid; }
@@ -236,13 +232,8 @@
 
   <div id="log"></div>
 
-  <!-- 行動デッキ：術/品（コントローラー風）＋D-pad -->
+  <!-- 行動デッキ：D-pad（移動補助・歩ける場面で常駐） -->
   <div id="deck">
-    <div id="cluster">
-      <button id="spellBtn" type="button" aria-label="術"></button>
-      <button id="bagBtn" type="button" aria-label="品"></button>
-      <button id="mapBtn" type="button" aria-label="地図"></button>
-    </div>
     <div id="dpadWrap">
       <div id="dpad" aria-label="方向パッド">
         <button type="button" data-dx="-1" data-dy="-1" aria-label="左上">↖</button>
@@ -258,8 +249,14 @@
     </div>
   </div>
 
-  <!-- ⌃ メニュー：ステータス／地図／冒険の記録／設定（最下部＝親指の届く位置） -->
-  <div id="handle"><span class="chev">⌃</span>メニュー</div>
+  <!-- 下部タブバー（最下部＝親指の届く位置・背景はセーフエリア最下端まで） -->
+  <nav id="tabbar" aria-label="メニュー">
+    <button id="spellBtn" class="tab" type="button" aria-label="術"></button>
+    <button id="bagBtn"   class="tab" type="button" aria-label="品"></button>
+    <button id="mapBtn"   class="tab" type="button" aria-label="地図"></button>
+    <button id="statBtn"  class="tab" type="button" aria-label="ステータス"></button>
+    <button id="cogBtn"   class="tab" type="button" aria-label="設定"></button>
+  </nav>
 
   <div id="overlay">
     <div id="sheet">

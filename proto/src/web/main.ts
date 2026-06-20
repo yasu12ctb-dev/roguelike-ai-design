@@ -221,7 +221,7 @@ function updateStatus() {
   if (chantTurns > 0) buffs.push(`帰還詠唱${chantTurns}`);
   if (summons.length) buffs.push(`召${summons.length}`);
   $("stBuff").textContent = (mode === "dive" && buffs.length) ? `《${buffs.join(" ")}》` : "";
-  applyChrome(); // 下部の操作系（⌃メニュー・行動デッキ・D-pad）を mode に応じて表示更新
+  applyChrome(); // 下部の操作系（タブバー・D-pad）を mode に応じて表示更新
 }
 
 // ---------- マップ描画（方向A） ----------
@@ -2245,7 +2245,7 @@ $("spellBtn").onclick = async () => {
   const ch = world.current;
   if (ch.spells.length === 0) { log("まだ術を識らない。レベルアップ/深淵/教団で識れる。", "dim"); return; }
   const loadout = activeLoadout(ch);
-  if (loadout.length === 0) { log("術を構えていない。⌃メニュー→ステータス→術を構える で構えを整えよ。", "dim"); return; }
+  if (loadout.length === 0) { log("術を構えていない。下部タブ「ステータス」→術（構え・図鑑）で構えを整えよ。", "dim"); return; }
   busy = true;
   const known = loadout.map((k) => spellByKey(k)).filter((s): s is NonNullable<typeof s> => !!s);
   // 選びやすい2列グリッド：学派の色チップ＋深蝕コスト＋効果（4-11F③）。
@@ -2638,7 +2638,7 @@ async function handleLevelUps() {
         : [];
       if (learnable.length) {
         const lr = await sheet({
-          text: `深みから術が滲む。1つ識るか？（${LEARN_EVERY}レベルに1度。構えは ⌃→ステータス→術を構える で整える）`,
+          text: `深みから術が滲む。1つ識るか？（${LEARN_EVERY}レベルに1度。構えは 下部タブ「ステータス」→術 で整える）`,
           meta: `術 ${ch.spells.length}種 識得済み ── 構え ${activeLoadout(ch).length}/${LOADOUT_CAP}`,
           options: [...learnable.map((s) => `[${s.school}] ${s.name}（深蝕＋${s.cost}／${s.desc}）`), "今は識らない"],
         });
@@ -3213,27 +3213,9 @@ function sealProgressLine(): string {
   return `${head}${asc}${tail}\n  ${marks}`;
 }
 
-// ---------- メニュー（≡：今後拡張のフック） ----------
-// ---------- ⌃ メニュー（ステータス／地図／冒険の記録／設定） ----------
-$("handle").onclick = () => { void openMenu(); };
+// ---------- 設定（下部タブ「設定」から） ----------
 const SZJP = { lg: "大", md: "中", sm: "小" } as const;
 const ARC_KEY_LABEL: Record<string, string> = { noble: "封鎖区の大命「原初の証」", noble_ack: "奉献者への眼差し" };
-const menuCell = (icon: string, label: string) => ({ html: `<div class="mc"><span class="icn">${icon}</span><div class="nm">${label}</div></div>` });
-
-async function openMenu() {
-  if (busy) return;
-  busy = true;
-  const i = await chooseGrid({
-    title: "メニュー",
-    cells: [menuCell(ICONS.stat, "ステータス"), menuCell(ICONS.map, "地図"), menuCell(ICONS.hub, "冒険の記録"), menuCell(ICONS.cog, "設定")],
-    cancel: "閉じる",
-  });
-  busy = false;
-  if (i === 0) await charScreen();
-  else if (i === 1) { if (mode === "dive" && !mapMode) setMapMode(true); else if (mode === "dive") setMapMode(false); else log("地図は迷宮でのみ見られる。", "dim"); }
-  else if (i === 2) await adventureHub();
-  else if (i === 3) await settingsSheet();
-}
 
 async function settingsSheet() {
   busy = true;
@@ -3337,7 +3319,7 @@ async function testSheet(): Promise<void> {
   }
 }
 
-/** ⌃→ステータス：身上＋装備（フルネーム・第N世代もここで）。装備換装は非戦闘で可。 */
+/** 下部タブ「ステータス」：身上＋装備＋術＋進行中＋年代記＋敵図鑑（旧「冒険の記録」を統合）。装備換装は非戦闘で可。 */
 async function charScreen() {
   const ch = world.current; if (!ch) return;
   busy = true;
@@ -3349,10 +3331,15 @@ async function charScreen() {
     const loNames = lo.map((k) => spellByKey(k)?.name ?? k).join("、");
     const loLine = ch.spells.length ? `構え ${lo.length}/${LOADOUT_CAP}：${loNames || "なし"}` : "術：未識得";
     const text = `《${ch.name}》（第${world.generation}世代）Lv${ch.level}\n${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のLvまで${Math.max(0, xpToNext(ch.level) - ch.xp)}\n深蝕 ${ch.exposure.toFixed(2)}${ch.carryingRelic ? "（★聖遺物 携行中）" : ""}\n装備：${eqLine}\n${loLine}\n持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)}：${inv}${ch.traits.length ? `\n形質：${ch.traits.join("、")}` : ""}`;
-    const r = await sheet({ text, meta: "ステータス", options: ["装備を換える", "術を構える", "閉じる"] });
-    if (r.pick === 1) { busy = false; await equipSwap(ch); busy = true; }
-    else if (r.pick === 2) { busy = false; await spellMenu(ch); busy = true; }
+    const r = await sheet({ text, meta: "ステータス", options: ["装備を換える", "術（構え・図鑑）", "進行中（依頼・因縁・印）", "人物と年代記", "敵図鑑", "閉じる"] });
+    busy = false;
+    if (r.pick === 1) await equipSwap(ch);
+    else if (r.pick === 2) await spellMenu(ch);
+    else if (r.pick === 3) await eventsScreen();
+    else if (r.pick === 4) await chronicleScene();
+    else if (r.pick === 5) await bestiaryScreen();
     else break;
+    busy = true;
   }
   busy = false;
 }
@@ -3374,27 +3361,6 @@ async function equipSwap(ch: Character) {
   if (cur) bag.push(cur);
   log(`${itemLabel(it)} を装備した。`, "cue");
   save(); updateStatus();
-}
-
-/** ⌃→冒険の記録：身上＆装備／術（構え・図鑑）／進行中／人物と年代記／敵図鑑。 */
-async function adventureHub() {
-  const ch = world.current; if (!ch) return;
-  busy = true;
-  for (;;) {
-    const r = await sheet({
-      text: "これまでの歩みと、いま負っているもの。",
-      meta: "冒険の記録",
-      options: ["身上と装備", "術（構え・図鑑）", "進行中（依頼・因縁・印）", "人物と年代記", "敵図鑑", "閉じる"],
-    });
-    busy = false;
-    if (r.pick === 1) await charScreen();
-    else if (r.pick === 2) await spellMenu(ch);
-    else if (r.pick === 3) await eventsScreen();
-    else if (r.pick === 4) await chronicleScene();
-    else if (r.pick === 5) await bestiaryScreen();
-    else break;
-    busy = true;
-  }
 }
 
 async function spellMenu(ch: Character) {
@@ -3502,26 +3468,23 @@ function loadDpadPref() {
     const lz = localStorage.getItem(LOG_SIZE_KEY); if (lz === "lg" || lz === "md" || lz === "sm") logSize = lz;
   } catch { /* ignore */ }
 }
-/** 下部の操作系（⌃メニュー・行動デッキ・D-pad）を mode と設定に応じて表示更新。updateStatus から毎度呼ぶ。 */
+/** 下部の操作系（タブバー・D-pad）を mode と設定に応じて表示更新。updateStatus から毎度呼ぶ。 */
 function applyChrome() {
   const inGame = !!world.current;
   const dive = mode === "dive";
   const walk = dive || mode === "town" || mode === "interior";
-  $("handle").classList.toggle("show", inGame && walk);
-  const showDpad = dpadOn && walk;       // 移動補助＝歩ける場面で常駐
-  const showCluster = dive;              // 術/品＝迷宮のみ
+  // 下部タブバー＝在ゲーム中は常駐（術/品/地図/ステータス/設定）。
+  $("tabbar").classList.toggle("show", inGame);
+  // 術/品/地図 は迷宮でのみ有効（それ以外は淡色＝無効）。ステータス/設定は常時有効。
+  ($("spellBtn") as HTMLElement).classList.toggle("dis", !dive);
+  ($("bagBtn") as HTMLElement).classList.toggle("dis", !dive);
+  ($("mapBtn") as HTMLElement).classList.toggle("dis", !dive);
+  // D-pad 帯（移動補助）＝歩ける場面で常駐・タブバーの上。
+  const showDpad = dpadOn && walk;
   const deck = $("deck");
-  const deckShown = inGame && (showDpad || showCluster);
-  deck.classList.toggle("show", deckShown);
-  deck.classList.remove("sz-lg", "sz-md", "sz-sm", "nopad", "pos-left");
+  deck.classList.toggle("show", inGame && showDpad);
+  deck.classList.remove("pos-left", "nopad");
   if (dpadPos === "left") deck.classList.add("pos-left");
-  deck.classList.add(showDpad ? `sz-${dpadSize}` : "nopad");
-  // デッキ表示中は左ハーフ(cluster)を常に確保＝D-padは街でも迷宮と同じ右ハーフ中央に揃う。
-  $("cluster").classList.toggle("show", deckShown);
-  // 術/品 ボタンは迷宮のみ表示（街では左ハーフは空＝枠だけ確保）。
-  ($("spellBtn") as HTMLElement).style.display = showCluster ? "" : "none";
-  ($("bagBtn") as HTMLElement).style.display = showCluster ? "" : "none";
-  ($("mapBtn") as HTMLElement).style.display = showCluster ? "" : "none";
   const dp = $("dpad");
   dp.classList.toggle("show", showDpad);
   dp.classList.remove("sz-lg", "sz-md", "sz-sm"); dp.classList.add(`sz-${dpadSize}`);
@@ -3541,12 +3504,18 @@ const ICONS = {
   hub: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.2C9.8 4.9 7.2 4.6 4.5 5.2v13c2.7-.6 5.3-.3 7.5 1 2.2-1.3 4.8-1.6 7.5-1v-13C16.8 4.6 14.2 4.9 12 6.2z"/><path d="M12 6.2v13"/></svg>`,
   cog: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h6M15 7h4M5 12h2M11 12h8M5 17h9M18 17h1"/><circle cx="13" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="16" cy="17" r="2"/></svg>`,
 };
-// 行動デッキの 術/品 ボタン＝アイコン＋ラベル。
-$("spellBtn").innerHTML = `${ICONS.spell}<span>術</span>`;
-$("bagBtn").innerHTML = `${ICONS.bag}<span>品</span>`;
-$("mapBtn").innerHTML = `${ICONS.map}<span>地図</span>`;
-// 地図ボタン（潜行中・術/品の隣）：踏破範囲の俯瞰を即トグル（FB：地図を多用するので⌃メニュー階層を省く）。
+// 下部タブバー：術／品／地図／ステータス／設定＝アイコンのみ（文字なし＝ゲームUI標準）。
+$("spellBtn").innerHTML = ICONS.spell;
+$("bagBtn").innerHTML = ICONS.bag;
+$("mapBtn").innerHTML = ICONS.map;
+$("statBtn").innerHTML = ICONS.stat;
+$("cogBtn").innerHTML = ICONS.cog;
+// 地図タブ：踏破範囲の俯瞰を即トグル（迷宮のみ）。
 $("mapBtn").onclick = () => { if (mode !== "dive") return; setMapMode(!mapMode); };
+// ステータスタブ＝身上・装備・術・進行中・年代記・敵図鑑（旧「冒険の記録」を統合）。
+$("statBtn").onclick = () => { if (!busy) void charScreen(); };
+// 設定タブ＝音・操作・表示。
+$("cogBtn").onclick = () => { if (!busy) void settingsSheet(); };
 
 /** 視界内に生存敵がいる＝戦闘中（既存の自動移動中断と同じ判定）。 */
 function inSight(): boolean {
