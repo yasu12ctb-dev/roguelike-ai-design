@@ -3,7 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-  <meta name="theme-color" content="#0b0d10" />
+  <!-- iOS standalone はホームインジケータ帯（Webビュー外）を theme-color で塗る。
+       タブバーと同色(#0c0f14)にして帯とバーを連続させ「最下端まで」見せる（2026-06-20）。 -->
+  <meta name="theme-color" content="#0c0f14" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>堆積する世界 v0</title>
@@ -25,7 +27,7 @@
     body {
       height: 100vh; height: 100dvh; min-height: -webkit-fill-available;
       overflow: hidden; overscroll-behavior: none;
-      background: #0b0d10; color: #cfd6dd;
+      background: #0c0f14; color: #cfd6dd;
       font-family: "Hiragino Sans", system-ui, sans-serif;
       display: flex; flex-direction: column;
       padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
