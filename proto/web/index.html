@@ -17,12 +17,14 @@
        iOS の選択メニュー（コピー/調べる/翻訳）や文字選択が出ないようにする。入力欄だけ除外。 */
     html, body { -webkit-user-select: none; -moz-user-select: none; user-select: none; -webkit-touch-callout: none; }
     input, textarea { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
-    html, body { height: 100%; overscroll-behavior: none; }
-    /* iOS：本体を実ビューポート全域に固定。inset:0（top/bottom:0）で画面最下端まで満たす。
-       ※ height:100dvh を併記すると over-constrained で bottom:0 が無視され、dvh が実画面より
-         短く解決される端末でタブバーが下端に届かない（2026-06-20 FB）。inset:0 のみに統一。 */
+    html { height: 100%; overscroll-behavior: none; }
+    /* iOS standalone PWA の要点：body を position:fixed にすると、子の #tabbar(position:fixed)
+       の containing block が壊れ、fixed; bottom:0 でも画面最下端に届かない（WebKit 既知の癖・
+       2026-06-20 実機解析で確認）。→ body は通常フローの全高フレックスシェルにし、#tabbar の
+       fixed をビューポート基準で正しく効かせる。高さは 100dvh＋-webkit-fill-available 併用。 */
     body {
-      position: fixed; inset: 0; overflow: hidden;
+      height: 100vh; height: 100dvh; min-height: -webkit-fill-available;
+      overflow: hidden; overscroll-behavior: none;
       background: #0b0d10; color: #cfd6dd;
       font-family: "Hiragino Sans", system-ui, sans-serif;
       display: flex; flex-direction: column;
