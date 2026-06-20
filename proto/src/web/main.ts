@@ -3473,8 +3473,9 @@ function applyChrome() {
   const inGame = !!world.current;
   const dive = mode === "dive";
   const walk = dive || mode === "town" || mode === "interior";
-  // 下部タブバー＝在ゲーム中は常駐（術/品/地図/ステータス/設定）。
+  // 下部タブバー＝在ゲーム中は常駐（術/品/地図/ステータス/設定）。position:fixed で最下端固定。
   $("tabbar").classList.toggle("show", inGame);
+  document.body.classList.toggle("has-tabbar", inGame); // バー高ぶんの下部余白を本体に確保
   // 術/品/地図 は迷宮でのみ有効（それ以外は淡色＝無効）。ステータス/設定は常時有効。
   ($("spellBtn") as HTMLElement).classList.toggle("dis", !dive);
   ($("bagBtn") as HTMLElement).classList.toggle("dis", !dive);
