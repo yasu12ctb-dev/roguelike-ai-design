@@ -195,6 +195,10 @@ export interface TrackedEntity {
   beat: number;
   lastObservedGeneration: number;
   originRef?: string;
+  // 運命の弧の進行（4-6B・M3 第一スライス）。すべて任意＝旧セーブ非破壊バックフィル（migrateWorld）。
+  drift?: number;      // 法則順守（4-2）：高深度で原型化石に関与した累積。閾値で終端を破滅側へ歪める。
+  terminal?: boolean;  // 弧が終端（beat==ARC_MAX_BEAT）に到達し、帰結を1度だけ刻んだ。
+  pick?: string;       // 終端の分岐（"warped"＝drift で歪んだ末路）。後続スライスの実体化フックが読む。
 }
 
 export interface ChronicleEntry {
@@ -236,6 +240,8 @@ export interface FragmentTags {
   depthBand?: "shallow" | "mid" | "deep";
   archetype?: string;
   finalAct?: FinalActChoice;
+  arc?: "retire" | "doom" | "fall" | "lore_drift"; // 運命の弧の原型（arc_beat 断片・4-6B）
+  beat?: number;                                   // 弧の段（arc_beat 断片）
 }
 
 export interface Fragment {

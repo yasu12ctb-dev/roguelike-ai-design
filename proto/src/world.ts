@@ -1,7 +1,7 @@
 // 世界の生成・化石化・干渉・年代記・永続化（prototype-spec.md §2 / §5）
 
 import type {
-  Actor, ArcEffect, ArcState, Character, ChronicleEntry, Companion, DeathManner, FinalAct, Fossil, Lineage, SealKey, World,
+  Actor, ArcEffect, ArcState, Character, ChronicleEntry, Companion, DeathManner, FinalAct, Fossil, Lineage, SealKey, TrackedEntity, World,
 } from "./types.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "./types.ts";
 import { resolveTonePole } from "./variation.ts";
@@ -41,6 +41,12 @@ export function migrateWorld(w: World): World {
   if (!Array.isArray(w.stash)) w.stash = [];       // 自宅の保管庫・消耗品（持ち物 Phase3）：欠落は空で補完
   if (!Array.isArray(w.stashGear)) w.stashGear = []; // 自宅の保管庫・装備：欠落は空で補完
   if (!Array.isArray(w.arcs)) w.arcs = [];         // 長尺アーク（4-12(I)）：欠落は空で補完
+  if (!Array.isArray(w.tracked)) w.tracked = [];   // 追跡対象（4-6）：欠落は空で補完
+  for (const t of w.tracked) {                     // 運命の弧の進行フィールド（M3 第一スライス）：欠落は0/未到達で補完
+    if (typeof t.beat !== "number") t.beat = 0;
+    if (typeof t.lastObservedGeneration !== "number") t.lastObservedGeneration = w.generation ?? 1;
+    if (typeof t.drift !== "number") t.drift = 0;
+  }
   if (typeof w.raidCooldown !== "number") w.raidCooldown = 0; // 街襲撃の冷却：欠落は0で補完
   if (typeof w.memorialCooldown !== "number") w.memorialCooldown = 0; // 追悼の日の冷却：欠落は0で補完
   if (typeof w.plagueCooldown !== "number") w.plagueCooldown = 0; // 疫病の冷却：欠落は0で補完
@@ -165,6 +171,8 @@ export function fossilizeCurrent(world: World, manner: DeathManner, finalAct: Fi
   // 自宅の保管庫は世代を越えて残るが、遺せるのは消耗品・装備それぞれ STASH_INHERIT 枠まで（残りは歳月とともに失われる）。
   if (Array.isArray(world.stash) && world.stash.length > STASH_INHERIT) world.stash = world.stash.slice(0, STASH_INHERIT);
   if (Array.isArray(world.stashGear) && world.stashGear.length > STASH_INHERIT) world.stashGear = world.stashGear.slice(0, STASH_INHERIT);
+  // 運命の弧（4-6）：世代がひとつビートを刻む＝目を離した隙に tracked の弧が進む。
+  advanceArcs(world);
   return fossil;
 }
 
@@ -249,6 +257,85 @@ export function setArc(world: World, e: ArcEffect): void {
   } else world.arcs.push({ key: e.key, step: e.step, pick: e.pick, actorRef: e.actorRef, done: e.done });
 }
 
+// ---------- 運命の弧（4-6B：tracked が世代をビートに辿る原型的軌道。M3 第一スライス） ----------
+/** 弧の段数（一律3段＝終端）。後で arcType ごとに変えられる。 */
+export const ARC_MAX_BEAT = 3;
+/** 法則順守（4-2）：drift がこの値に達した tracked は、終端で破滅側へ歪んだ末路をたどる。 */
+const ARC_DRIFT_WARP = 2;
+
+/** 弧の段ごとの年代記行（伝聞＝又聞きで「目を離した隙に世界が動いた」を必ず拾わせる）。
+ *  beat 1..3。warped は終端(beat3)の歪み分岐のみ差し替える。#name# に tracked.name を差す。 */
+const ARC_BEAT_LINE: Record<TrackedEntity["arcType"], { normal: string[]; warped: string }> = {
+  doom: {
+    normal: [
+      "#name#が、また深みへ降りていったらしい。何かに憑かれたように。",
+      "#name#の様子がおかしいと、戻った者が囁く。あの目は、もう人のものじゃない。",
+      "#name#は、ついに還らなかった。深みが、英雄をひとつ呑んだのだ。",
+    ],
+    warped: "#name#は、ついに還らなかった。深みが、英雄をひとつ呑んだのだ。",
+  },
+  retire: {
+    normal: [
+      "#name#が一線を退くそうだ。潮時を心得た、いい引き際だと皆が言う。",
+      "#name#が街の後進を導いていると聞く。剣を置いた手が、今は若い者の肩にある。",
+      "#name#の名は、もう伝説として語られる。生きてその声を聞ける者は、幸運だ。",
+    ],
+    warped: "#name#は引退できなかった。深みの誘いに抗えず、その姿は二度と街に戻らなかった。",
+  },
+  fall: {
+    normal: [
+      "#name#の名声は今が絶頂だ。だが、その慢心を危ぶむ声もある。",
+      "#name#が仲間を失い、独りで深層に挑んでいるという。もう誰も止められない。",
+      "#name#は変わり果てた。かつての英雄は今や、出会う者を災いと見なすらしい。",
+    ],
+    warped: "#name#は墜ちるのも早かった。怨嗟だけを残し、宿敵として深みに巣食っている。",
+  },
+  lore_drift: {
+    normal: [
+      "#name#の武勇伝、語る者によって少しずつ食い違ってきたな。",
+      "#name#の逸話に、別の誰かの手柄が混じり始めている。もう誰も正せない。",
+      "#name#という名は、もはや誰のものとも知れぬ。伝説だけが、独り歩きしている。",
+    ],
+    warped: "#name#の物語は完全に変質した。原型は失われ、別人の伝説とすり替わってしまった。",
+  },
+};
+
+/** 弧を世代分だけ前進させる（fossilizeCurrent から世代交代のたびに呼ぶ）。
+ *  「進んだことになる」を実際に beat へ反映し、節目で年代記に伝聞を1行刻む（lazy の解決＝観測点）。
+ *  純ロジック（content/render 非依存）：豊かな酒場フレーバは render.ts renderArcBeat 側が担う。 */
+export function advanceArcs(world: World): void {
+  for (const t of world.tracked) {
+    if (t.terminal) continue;                              // 終端済みは動かない
+    if (world.generation <= t.lastObservedGeneration) continue; // この世代は反映済み（防御的）
+    t.lastObservedGeneration = world.generation;
+    t.beat = Math.min(ARC_MAX_BEAT, (t.beat ?? 0) + 1);    // 1世代1ビート
+    const table = ARC_BEAT_LINE[t.arcType];
+    const warped = (t.drift ?? 0) >= ARC_DRIFT_WARP;
+    let line: string;
+    if (t.beat >= ARC_MAX_BEAT) {                          // 終端＝帰結を1度だけ刻む
+      t.terminal = true;
+      if (warped) t.pick = "warped";
+      line = warped ? table.warped : table.normal[ARC_MAX_BEAT - 1];
+    } else {
+      line = table.normal[t.beat - 1] ?? table.normal[table.normal.length - 1];
+    }
+    const refs = t.originRef ? [t.id, t.originRef] : [t.id];
+    chronicle(world, t.terminal ? "legend" : "rumor", line.replace(/#name#/g, t.name), refs);
+  }
+}
+
+/** 法則順守（4-2「最も偉大な者すら深淵に変えられる」）：深層(laidDepth>=18)の原型化石に
+ *  プレイヤーが関与した世代は、その化石を originRef に持つ tracked の drift を進める。
+ *  drift が閾値に達すると、弧の終端が破滅側（warped）へ寄る。seeded は originRef を持たず影響を受けない。 */
+const ARC_DRIFT_DEPTH = 18;
+export function markArcDrift(world: World, fossilId: string): void {
+  const fossil = world.fossils.find((f) => f.id === fossilId);
+  if (!fossil || fossil.laidDepth < ARC_DRIFT_DEPTH) return;
+  for (const t of world.tracked) {
+    if (t.originRef === fossilId && !t.terminal) t.drift = (t.drift ?? 0) + 1;
+  }
+}
+
 /** 干渉（鎮魂/継承/供養）：変質クロックをリセットし、因縁を閉じる（4-1C / 4-2） */
 export function intervene(world: World, fossilId: string, type: "requiem" | "inherit" | "memorial"): void {
   const fossil = world.fossils.find((f) => f.id === fossilId);
@@ -270,6 +357,7 @@ export function intervene(world: World, fossilId: string, type: "requiem" | "inh
     [fossilId]);
   // 奉献の試練・印②：因縁（怨念極の化石）を鎮魂（4-13A）。鎮魂の全経路（慰霊堂/戦闘/遭遇）を捕捉。
   if (type === "requiem" && fossil.tonePole === "grudge") awardSeal(world, "requiem", [fossilId]);
+  markArcDrift(world, fossilId); // 深層の原型に干渉＝弧を歪める一因（4-6 法則順守）
 }
 
 export function recordRediscovery(world: World, fossilId: string): void {
@@ -282,6 +370,7 @@ export function recordRediscovery(world: World, fossilId: string): void {
     if (bond) bond.value += 1;
     else ch.bonds.push({ entityRef: fossilId, value: 1, unfinished: false });
   }
+  markArcDrift(world, fossilId); // 深層の原型と再会＝弧を歪める一因（4-6 法則順守）
 }
 
 export function chronicle(world: World, kind: ChronicleEntry["kind"], text: string, refs: string[]): void {

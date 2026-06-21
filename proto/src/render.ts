@@ -3,7 +3,7 @@
 
 import type { ContentDb } from "./content.ts";
 import { filterByTags, pickByTags } from "./content.ts";
-import type { Actor, Fossil, SetPiece, TonePole, VariationResult } from "./types.ts";
+import type { Actor, Fossil, SetPiece, TonePole, TrackedEntity, VariationResult } from "./types.ts";
 import type { Rng } from "./rng.ts";
 
 interface SlotValues { [slot: string]: string | undefined; }
@@ -207,4 +207,15 @@ export function renderRumor(db: ContentDb, rng: Rng, fossil: Fossil): string {
   const usable = pool.filter((f) => slotsOf(f.text).every((s) => origin[s] !== undefined));
   const frame = rng.pick(usable.length > 0 ? usable : pool);
   return fillSlots(frame.text, origin);
+}
+
+/** 運命の弧の伝聞（4-6C：酒場で聞く弧の現在段。化石を要さず tracked 自身にアンカー）。
+ *  arc×beat の断片を優先し、無ければ arc のみ→全体→固定文へ縮退（決して throw しない）。
+ *  fossil 非依存ゆえ seeded（「銀の三人」＝originRef 無し）にも使える＝最重要要件。 */
+export function renderArcBeat(db: ContentDb, rng: Rng, t: TrackedEntity): string {
+  let pool = filterByTags(db, "arc_beat", { arc: t.arcType, beat: t.beat });
+  if (pool.length === 0) pool = filterByTags(db, "arc_beat", { arc: t.arcType });
+  if (pool.length === 0) pool = filterByTags(db, "arc_beat", {});
+  if (pool.length === 0) return `「${t.name}の名は、近頃とんと噂に上らないな」`;
+  return fillSlots(rng.pick(pool).text, { tracked_name: t.name });
 }

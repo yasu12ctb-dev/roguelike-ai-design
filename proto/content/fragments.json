@@ -221,6 +221,34 @@
     { "id": "agrade_silver_3", "slotType": "actor_grade", "tags": {}, "text": "silver" },
     { "id": "agrade_gold_1", "slotType": "actor_grade", "tags": {}, "text": "gold" },
     { "id": "agrade_gold_2", "slotType": "actor_grade", "tags": {}, "text": "gold" },
-    { "id": "agrade_platinum_1", "slotType": "actor_grade", "tags": {}, "text": "platinum" }
+    { "id": "agrade_platinum_1", "slotType": "actor_grade", "tags": {}, "text": "platinum" },
+
+    { "id": "arc_doom_1a", "slotType": "arc_beat", "tags": { "arc": "doom", "beat": 1 }, "text": "「#tracked_name#か。ここんとこ、取り憑かれたみたいに毎日潜ってるそうだ」" },
+    { "id": "arc_doom_1b", "slotType": "arc_beat", "tags": { "arc": "doom", "beat": 1 }, "text": "「#tracked_name#が浅層を素通りして、もっと下へ下へと急いでるらしい」" },
+    { "id": "arc_doom_2a", "slotType": "arc_beat", "tags": { "arc": "doom", "beat": 2 }, "text": "「#tracked_name#と深層ですれ違った奴が言うには……目が、こっちを見ていなかったとさ」" },
+    { "id": "arc_doom_2b", "slotType": "arc_beat", "tags": { "arc": "doom", "beat": 2 }, "text": "「#tracked_name#の声が、人のものじゃなくなってきたって噂だ。気味が悪い」" },
+    { "id": "arc_doom_3a", "slotType": "arc_beat", "tags": { "arc": "doom", "beat": 3 }, "text": "「#tracked_name#は、もう戻らないだろうよ。深みが気に入っちまったのさ」" },
+    { "id": "arc_doom_3b", "slotType": "arc_beat", "tags": { "arc": "doom", "beat": 3 }, "text": "「#tracked_name#の名は、これからは“喪われた英雄”の側に並ぶことになる」" },
+
+    { "id": "arc_retire_1a", "slotType": "arc_beat", "tags": { "arc": "retire", "beat": 1 }, "text": "「#tracked_name#、そろそろ潮時だと洩らしてたな。賢い引き際ってもんだ」" },
+    { "id": "arc_retire_1b", "slotType": "arc_beat", "tags": { "arc": "retire", "beat": 1 }, "text": "「#tracked_name#が深層通いをやめたらしい。あれだけの腕で、惜しいもんだ」" },
+    { "id": "arc_retire_2a", "slotType": "arc_beat", "tags": { "arc": "retire", "beat": 2 }, "text": "「#tracked_name#は今、若い連中に手ほどきしてるってさ。いい先生になったもんだ」" },
+    { "id": "arc_retire_2b", "slotType": "arc_beat", "tags": { "arc": "retire", "beat": 2 }, "text": "「#tracked_name#を広場で見かけたよ。剣じゃなく、酒を傾けてた。穏やかな顔でな」" },
+    { "id": "arc_retire_3a", "slotType": "arc_beat", "tags": { "arc": "retire", "beat": 3 }, "text": "「#tracked_name#の武勇伝、もう吟遊詩人が歌にしてる。生きて伝説になるとはな」" },
+    { "id": "arc_retire_3b", "slotType": "arc_beat", "tags": { "arc": "retire", "beat": 3 }, "text": "「#tracked_name#は街の守り神みたいなもんさ。あの人がいる限り、ここは安泰だ」" },
+
+    { "id": "arc_fall_1a", "slotType": "arc_beat", "tags": { "arc": "fall", "beat": 1 }, "text": "「#tracked_name#は今が絶頂だな。……だが、ああいうのは長くないってのが相場だ」" },
+    { "id": "arc_fall_1b", "slotType": "arc_beat", "tags": { "arc": "fall", "beat": 1 }, "text": "「#tracked_name#、近頃ちょっと天狗になってないか? 危なっかしいぜ」" },
+    { "id": "arc_fall_2a", "slotType": "arc_beat", "tags": { "arc": "fall", "beat": 2 }, "text": "「#tracked_name#、仲間と袂を分かったらしい。今は一人で無茶な深さに挑んでるとか」" },
+    { "id": "arc_fall_2b", "slotType": "arc_beat", "tags": { "arc": "fall", "beat": 2 }, "text": "「#tracked_name#を諫めた奴が、突き放されたって聞いた。もう誰の声も届かんのだろう」" },
+    { "id": "arc_fall_3a", "slotType": "arc_beat", "tags": { "arc": "fall", "beat": 3 }, "text": "「#tracked_name#は変わっちまった。出くわした者を片端から敵と見るそうだ。近づくな」" },
+    { "id": "arc_fall_3b", "slotType": "arc_beat", "tags": { "arc": "fall", "beat": 3 }, "text": "「#tracked_name#か……あれはもう、昔の#tracked_name#じゃない。災いそのものだ」" },
+
+    { "id": "arc_lore_1a", "slotType": "arc_beat", "tags": { "arc": "lore_drift", "beat": 1 }, "text": "「#tracked_name#の手柄話、語り手によって微妙に違うんだよな。どれが本当やら」" },
+    { "id": "arc_lore_1b", "slotType": "arc_beat", "tags": { "arc": "lore_drift", "beat": 1 }, "text": "「#tracked_name#の武勇伝、聞くたびに尾ひれが増えてる気がするぜ」" },
+    { "id": "arc_lore_2a", "slotType": "arc_beat", "tags": { "arc": "lore_drift", "beat": 2 }, "text": "「#tracked_name#の逸話に、別の誰かの手柄が紛れ込んでる。もう誰も正せんよ」" },
+    { "id": "arc_lore_2b", "slotType": "arc_beat", "tags": { "arc": "lore_drift", "beat": 2 }, "text": "「#tracked_name#がやったって話、実は隣町の別人だったって説もあってな」" },
+    { "id": "arc_lore_3a", "slotType": "arc_beat", "tags": { "arc": "lore_drift", "beat": 3 }, "text": "「#tracked_name#? その名の英雄談なら山ほどあるが……どれが本人のものやら、もう誰も知らん」" },
+    { "id": "arc_lore_3b", "slotType": "arc_beat", "tags": { "arc": "lore_drift", "beat": 3 }, "text": "「#tracked_name#の名は、いまや伝説そのものの代名詞さ。中身が誰かなんて、どうでもよくなった」" }
   ]
 }
