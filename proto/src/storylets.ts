@@ -152,7 +152,9 @@ function pickByContext(
     if (p.maxDepth !== undefined && depth > p.maxDepth) return false;
     if (p.minLevel !== undefined && level < p.minLevel) return false;
     if (p.minExposure !== undefined && exposure < p.minExposure) return false;
-    return world === undefined || arcMatches(p, world); // 長尺アーク（4-12(I)）の段ゲート
+    // 長尺アーク（4-12(I)）の段ゲート。world 未指定（CLI/demo）では arc を確認できないので
+    // arc/notArc 付きは除外＝弧イベントが弧未開始のまま漏れ出るのを防ぐ（web は常に world を渡す）。
+    return world === undefined ? (p.arc === undefined && p.notArc === undefined) : arcMatches(p, world);
   });
   return pickPreferArc(pool, rng, avoid);
 }
