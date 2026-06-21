@@ -17,7 +17,7 @@ import {
   DEPTH_SEAL_AT, ABYSS_DEPTH, RELIC_EXPOSURE_PER_TURN, RELIC_PURSUER_EVERY, RELIC_PURSUER_CAP,
 } from "../progression.ts";
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
-import { rollItem, rollItemOfSlot, itemByName, itemPower, itemLabel, itemValue, SLOT_LABEL, CONSUMABLES, consumableByKey, grantConsumable } from "../items.ts";
+import { rollItem, rollItemOfSlot, itemByName, enchantUp, itemPower, itemLabel, itemValue, SLOT_LABEL, CONSUMABLES, consumableByKey, grantConsumable } from "../items.ts";
 import {
   renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, matchSetPiece, fillStoryletText, fillDungeonText, fillActorText,
   requiemLine, leaveLine, inheritLine, REQUIEM_RELIEF,
@@ -51,7 +51,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.12.2";
+export const APP_VERSION = "0.13.0";
 export const APP_BUILD = "2026-06-21";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -600,7 +600,7 @@ async function appraiseShop() {
       busy = false; continue;
     }
     ch.gold -= cost; it.unidentified = false; sfx("buy");
-    log(`鑑定した――《${it.name}》。${itemPower(it)}${it.exposurePerTurn ? "・装備中わずかに深蝕＋" : ""}（鑑定料 ${cost}／所持 ${ch.gold}）。`, "warn");
+    log(`鑑定した――《${it.name}》。${itemPower(it)}（鑑定料 ${cost}／所持 ${ch.gold}）。`, "warn");
     save();
   }
 }
@@ -688,6 +688,39 @@ async function smithBuyKind(slot: "weapon" | "armor") {
   log(`${it.name} を買って装備した（−${price}金貨／所持 ${ch.gold}）。`);
   if (it.exposurePerTurn) log("……身につけた途端、深みがじわりと滲む。", "warn");
   save();
+}
+// 武具屋 打ち直し（ルートシステム）：今装備中の武器/防具の強化度 +N を金貨で1段上げる（銘・基は不変）。
+// 後半の金貨の使い道（gold sink）＋確実な伸びしろ＝終始シビアと相性。数値はテストプレイ調整候補。
+const REFORGE_MAX = 9;
+async function smithReforge() {
+  busy = true;
+  const ch = world.current!;
+  const cost = (it: Item) => Math.round((15 + itemValue({ ...it, unidentified: false })) * (1 + (it.enchant ?? 0)));
+  for (;;) {
+    const eq = [ch.equipment.weapon, ch.equipment.armor].filter((it): it is Item => !!it);
+    if (!eq.length) { await sheet({ text: "打ち直せる武器・防具を身につけていない。", options: ["わかった"] }); break; }
+    const optLabel = (it: Item) => (it.enchant ?? 0) >= REFORGE_MAX
+      ? `${it.name}（+${REFORGE_MAX} これ以上は鍛えられない）`
+      : `${it.name} → +${(it.enchant ?? 0) + 1}（${cost(it)}金貨）`;
+    const r = await sheet({
+      text: `鍛冶ヴァロが鎚を構える。「打ち直しゃ、刃も鎧も冴えるぜ。…銘はそのまま、地金を鍛え直すだけだ」。\n所持 金${ch.gold}。`,
+      meta: "武具屋 ── 打ち直し（+N を上げる）",
+      options: [...eq.map(optLabel), "やめる"],
+    });
+    const i = r.pick - 1;
+    if (i < 0 || i >= eq.length) break;
+    const it = eq[i];
+    if ((it.enchant ?? 0) >= REFORGE_MAX) { await sheet({ text: "これ以上は鍛えられない。", options: ["なるほど"] }); continue; }
+    const price = cost(it);
+    if (ch.gold < price) { await sheet({ text: "金貨が足りない。", options: ["出直す"] }); continue; }
+    const up = enchantUp(it);
+    if (!up) { await sheet({ text: "この品は打ち直せない（素性が分からない）。", options: ["わかった"] }); continue; }
+    ch.gold -= price; up.unidentified = false; ch.equipment[up.slot] = up;
+    sfx("equip");
+    log(`${it.name} を打ち直した――《${up.name}》（${itemPower(up)}・−${price}金貨／所持 ${ch.gold}）。`);
+    save();
+  }
+  busy = false;
 }
 // 武具屋 act2「先代の刻印武器について訊く」：刻印武器（4-11E）の由来を語る flavor＋系譜への手がかり。
 // 死亡時、握っていた武器は亡骸（化石）に刻まれる。その化石に出会い〈継ぐ〉と奪還できる。
@@ -1262,7 +1295,9 @@ async function talkKeeper(asKind?: string) {
   if (kind === "smith" && actIdx === 0) return void smithBuyKind("weapon"); // 武器を買う
   if (kind === "smith" && actIdx === 1) return void smithSell();         // 拾い物を売る（袋を買い取る）
   if (kind === "smith" && actIdx === 2) return void smithLore();         // 先代の刻印武器について訊く（4-11E）
+  if (kind === "smith" && actIdx === 3) return void smithReforge();      // 打ち直し（+N を上げる・ルートシステム）
   if (kind === "smith_armor" && actIdx === 0) return void smithBuyKind("armor"); // 防具を買う
+  if (kind === "smith_armor" && actIdx === 1) return void smithReforge(); // 打ち直し（防具担当でも可）
   if (kind === "healer" && actIdx === 1) return void healerTreat();     // 深蝕の進行を診てもらう
   if (kind === "guild" && actIdx === 0) return void questBoard();       // 依頼を受ける（回収業）
   if (kind === "guild" && actIdx === 1) return void heroRoll();         // 等級・英雄譜を見る（4-4）
