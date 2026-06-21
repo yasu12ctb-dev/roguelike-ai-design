@@ -206,8 +206,10 @@ export type Sfx =
   // 相棒・死
   | "companion_join" | "companion_down" | "death";
 
-/** 短い合成効果音。ミュート中・未初期化なら無音。層構造（トランジェント＋実体音）で手応えを出す。 */
-export function sfx(kind: Sfx): void {
+/** 短い合成効果音。ミュート中・未初期化なら無音。層構造（トランジェント＋実体音）で手応えを出す。
+ *  delaySec>0 で遅延再生＝同時に鳴る音（自分の攻撃と敵の反撃など）をずらして互いのマスキングを防ぐ。 */
+export function sfx(kind: Sfx, delaySec = 0): void {
+  if (delaySec > 0) { setTimeout(() => sfx(kind), delaySec * 1000); return; }
   if (!ctx || muted) return;
   switch (kind) {
     // ── 移動・世界 ──

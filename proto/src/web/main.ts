@@ -51,7 +51,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.10.2";
+export const APP_VERSION = "0.10.3";
 export const APP_BUILD = "2026-06-21";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -2086,7 +2086,8 @@ async function endTurn() {
 
   // 敵の手番：予告した一手を実行（退いた予告は空振り＝見切り。静止中はwait）。標的は @ or 相棒。
   const res = resolveMonsters(floor, player, companion);
-  if (res.hits.length) sfx("hurt");
+  // 被弾音は少し遅らせる＝自分の攻撃音(hit/術)と同時に潰れず「攻撃→（間）→反撃を食らう」と順次に聞こえる。
+  if (res.hits.length) sfx("hurt", 0.14);
   for (const h of res.hits) {
     if (h.target === "companion" && companion) {
       companion.hp -= h.dmg; // 相棒は防具軽減なし（v1）
