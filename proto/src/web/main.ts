@@ -51,7 +51,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.10.4";
+export const APP_VERSION = "0.11.0";
 export const APP_BUILD = "2026-06-21";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -183,7 +183,29 @@ function loadOrCreateWorld(): World {
   log("（新しい世界が生まれた）", "dim");
   return newWorld(Date.now() % 2147483647);
 }
-const save = () => localStorage.setItem(SAVE_KEY, JSON.stringify(world));
+const save = () => { localStorage.setItem(SAVE_KEY, JSON.stringify(world)); saveDive(); };
+
+// 潜行の途中状態（フロア/位置/HP/階キャッシュ）を保存＝アプリを完全に閉じても深度0からやり直しにならない
+// （途中で閉じる＝危機回避の抜け道を塞ぐ＝難易度維持）。Floor は JSON 化可能。街/死で自動クリア。
+const DIVE_KEY = "sekitsui.dive.v0";
+interface DiveSnapshot { depth: number; hp: number; inAbyss: boolean; player: Pos; floor: Floor; cache: [number, Floor][]; pursuerCount: number; turnsSinceFloor: number; }
+function saveDive(): void {
+  try {
+    if (mode === "dive" && floor && world.current?.alive) {
+      const snap: DiveSnapshot = { depth: floor.depth, hp, inAbyss, player, floor, cache: [...floorCache.entries()], pursuerCount, turnsSinceFloor };
+      localStorage.setItem(DIVE_KEY, JSON.stringify(snap));
+    } else localStorage.removeItem(DIVE_KEY);
+  } catch { /* ignore */ }
+}
+function clearDive(): void { try { localStorage.removeItem(DIVE_KEY); } catch { /* ignore */ } }
+function loadDive(): DiveSnapshot | null {
+  try {
+    const raw = localStorage.getItem(DIVE_KEY); if (!raw) return null;
+    const s = JSON.parse(raw) as DiveSnapshot;
+    if (s && s.floor && s.player && typeof s.hp === "number" && Array.isArray(s.cache)) return s;
+  } catch { /* ignore */ }
+  return null;
+}
 
 // ---------- 状態 ----------
 let world = loadOrCreateWorld();
@@ -1657,7 +1679,7 @@ async function monumentScene() {
 function townLoop(): Promise<void> {
   return new Promise((resolve) => {
     townDescendResolve = resolve;
-    mode = "town"; floor = null; setAmbient(false); setBgm("town");
+    mode = "town"; floor = null; setAmbient(false); setBgm("town"); clearDive(); // 街に戻った＝潜行スナップショット破棄
     const t = world.town;
     crowd = spawnCrowd(townGrid, rng, t.pos ?? townGrid.data.start);
     refreshAscendMonument(); // 奉献の碑をこの来訪の最新状態に（4-13D Phase4）
@@ -1729,6 +1751,7 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
     sfx("seal"); log("◆ 「深淵への到達」の印を得た。", "warn"); save();
   }
   if (abyss) { sfx("boss"); log("封じられていた層――空気が、軋むほど濃い。最奥で何かが、聖遺物を抱いている。", "warn"); }
+  saveDive(); // 降りた直後にも保存（この一歩で閉じても新しい深度から再開）
 }
 
 // ---------- 同行（相棒）：4-14C。盤上は ephemeral、世代越えは world.companion。 ----------
@@ -1940,7 +1963,7 @@ async function rescueScene(d: DownedActor): Promise<void> {
 
 let seenThisDive: string[] = [];
 // 同一潜行中に訪れた階を保持（再訪で再生成しない＝宝箱/化石/倒した敵の状態が残る。FB：上り下りで宝箱が復活していた）。
-// 潜行ごとにクリア（startDive）。セーブ対象外＝途中セーブ→再開時は再生成（稀・許容）。
+// 潜行ごとにクリア（startDive）。途中状態は DiveSnapshot で保存＝アプリを閉じても同じ深度・盤面から再開。
 let floorCache = new Map<number, Floor>();
 let inAbyss = false; // 現在のフロアが深淵帯（奉献の試練）か（帰還の扉を出さない判定に使う：v2）
 // 帰還の試練（4-13C）：聖遺物携行中の追手カウンタ（フロアごとにリセット）
@@ -1979,6 +2002,29 @@ async function startDive() {
     enterFloor(1, true);
     log("迷宮に降りた。冷えた空気が頬を撫でる。");
   }
+}
+
+/** 保存した潜行を再開（boot 時）：街に戻さず、同じ深度・盤面・HP から続ける。 */
+function resumeDive(snap: DiveSnapshot): void {
+  mode = "dive"; seenThisDive = [];
+  floorCache = new Map(snap.cache);
+  floor = snap.floor;
+  player = snap.player;
+  hp = snap.hp;
+  inAbyss = snap.inAbyss;
+  pursuerCount = snap.pursuerCount ?? 0;
+  turnsSinceFloor = snap.turnsSinceFloor ?? 0;
+  if (world.current) world.current.depth = floor.depth;
+  buildGridDom(VIEW_W, VIEW_H);
+  companion = null;
+  if (world.current?.alive && world.companion?.alive) spawnCompanionNear(player);
+  planMonsters(floor, player, rng, companion); // 予告を出し直す
+  if (companion) planCompanion(floor, player, companion, rng);
+  setAmbient(true, floor.depth);
+  if (inAbyss) setBgm("abyss", floor.depth); else { setBgm("dungeon", floor.depth); setBgmDepth(floor.depth); }
+  applyChrome(); // dive 用の下部タブ/術・品・地図の有効化
+  draw(); updateStatus();
+  log(`（${world.current?.name ?? "探索者"}は深度${floor.depth}で潜行を続けている）`, "dim");
 }
 
 // ---------- 1ターンの処理 ----------
@@ -2111,6 +2157,7 @@ async function endTurn() {
 
   draw();
   updateStatus(); // HP/深蝕の即時反映（蝕み・被弾・持ち物使用が毎手バーに出る）
+  saveDive(); // 毎手スナップショット＝アプリを閉じても同じ深度・HPから再開（途中閉じで0階に戻る抜け道を塞ぐ）
   await handleBossResolve();
   await handleLevelUps();
   await handleDrops();
@@ -3240,7 +3287,7 @@ async function settingsSheet() {
     isBgmOn() ? "🎵 BGM：オン → オフ" : "🎵 BGM：オフ → オン",
     `🎵 BGM音量：${bgmVolJp}（小→中→大）`,
     dpadOn ? "方向パッド：オン → オフ" : "方向パッド：オフ → オン",
-    `方向パッドの位置：${dpadPos === "right" ? "右下 → 左下" : "左下 → 右下"}`,
+    `方向パッドの位置：${dpadPos === "right" ? "右下" : dpadPos === "left" ? "左下" : "中央"}（右下→左下→中央）`,
     `方向パッドの大きさ：${SZJP[dpadSize]}（大→中→小）`,
     `文字サイズ：${SZJP[logSize]}（小→中→大）`,
     "🔧 テスト",
@@ -3253,7 +3300,7 @@ async function settingsSheet() {
   else if (r.pick === 2) { ensureAudio(); setBgmEnabled(!isBgmOn()); await settingsSheet(); }
   else if (r.pick === 3) { ensureAudio(); setBgmVolume(bgmVolume() < 0.45 ? 0.6 : bgmVolume() < 0.72 ? 0.85 : 0.35); await settingsSheet(); }
   else if (r.pick === 4) { setDpad(!dpadOn); await settingsSheet(); }
-  else if (r.pick === 5) { setDpadPos(dpadPos === "right" ? "left" : "right"); await settingsSheet(); }
+  else if (r.pick === 5) { setDpadPos(dpadPos === "right" ? "left" : dpadPos === "left" ? "center" : "right"); await settingsSheet(); }
   else if (r.pick === 6) { setDpadSize(dpadSize === "lg" ? "md" : dpadSize === "md" ? "sm" : "lg"); await settingsSheet(); }
   else if (r.pick === 7) { setLogSize(logSize === "sm" ? "md" : logSize === "md" ? "lg" : "sm"); await settingsSheet(); }
   else if (r.pick === 8) { await testSheet(); }
@@ -3444,6 +3491,7 @@ async function resetWorld() {
   });
   if (r2.pick !== 2) return;
   try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ }
+  clearDive();
   log("世界をまっさらに戻す……", "warn");
   location.reload(); // 再起動＝boot() が新規 World＋キャラ作成から走る（一時状態の取りこぼし無し）
 }
@@ -3477,13 +3525,14 @@ const DPAD_SIZE_KEY = "sekitsui.dpad.size";
 const LOG_SIZE_KEY = "sekitsui.logsize";
 type Sz = "lg" | "md" | "sm";
 let dpadOn = true; // 既定オン
-let dpadPos: "right" | "left" = "right"; // 既定は右下（利き手側）
+let dpadPos: "right" | "left" | "center" = "right"; // 既定は右下（利き手側）。中央も選べる（メニュー下置きで余裕あり）
 let dpadSize: Sz = "md"; // 既定 中
 let logSize: Sz = "md"; // 既定 中（ログを読みやすく）
 function loadDpadPref() {
   try {
     dpadOn = localStorage.getItem(DPAD_KEY) !== "0"; // 未設定＝オン
-    dpadPos = localStorage.getItem(DPAD_POS_KEY) === "left" ? "left" : "right";
+    const dp = localStorage.getItem(DPAD_POS_KEY);
+    dpadPos = dp === "left" || dp === "center" ? dp : "right";
     const dz = localStorage.getItem(DPAD_SIZE_KEY); if (dz === "lg" || dz === "md" || dz === "sm") dpadSize = dz;
     const lz = localStorage.getItem(LOG_SIZE_KEY); if (lz === "lg" || lz === "md" || lz === "sm") logSize = lz;
   } catch { /* ignore */ }
@@ -3504,15 +3553,16 @@ function applyChrome() {
   const showDpad = dpadOn && walk;
   const deck = $("deck");
   deck.classList.toggle("show", inGame && showDpad);
-  deck.classList.remove("pos-left", "nopad");
+  deck.classList.remove("pos-left", "pos-center", "nopad");
   if (dpadPos === "left") deck.classList.add("pos-left");
+  else if (dpadPos === "center") deck.classList.add("pos-center");
   const dp = $("dpad");
   dp.classList.toggle("show", showDpad);
   dp.classList.remove("sz-lg", "sz-md", "sz-sm"); dp.classList.add(`sz-${dpadSize}`);
 }
 function applyLogSize() { $("log").classList.remove("s-sm", "s-lg"); if (logSize === "sm") $("log").classList.add("s-sm"); else if (logSize === "lg") $("log").classList.add("s-lg"); }
 function setDpad(on: boolean) { dpadOn = on; try { localStorage.setItem(DPAD_KEY, on ? "1" : "0"); } catch { /* ignore */ } applyChrome(); }
-function setDpadPos(p: "right" | "left") { dpadPos = p; try { localStorage.setItem(DPAD_POS_KEY, p); } catch { /* ignore */ } applyChrome(); }
+function setDpadPos(p: "right" | "left" | "center") { dpadPos = p; try { localStorage.setItem(DPAD_POS_KEY, p); } catch { /* ignore */ } applyChrome(); }
 function setDpadSize(s: Sz) { dpadSize = s; try { localStorage.setItem(DPAD_SIZE_KEY, s); } catch { /* ignore */ } applyChrome(); }
 function setLogSize(s: Sz) { logSize = s; try { localStorage.setItem(LOG_SIZE_KEY, s); } catch { /* ignore */ } applyLogSize(); }
 
@@ -3671,7 +3721,12 @@ async function boot() {
   applyChrome();
   buildGridDom();
   updateStatus();
-  if (!world.current || !world.current.alive) await characterCreation();
+  // 潜行の途中で閉じていたら、街に戻さず同じ深度から再開（深度0やり直しの抜け道を塞ぐ）。
+  if (world.current && world.current.alive) {
+    const snap = loadDive();
+    if (snap) { try { resumeDive(snap); return; } catch { clearDive(); } }
+  }
+  if (!world.current || !world.current.alive) { clearDive(); await characterCreation(); }
   else { world.current.depth = 0; log(`（${world.current.name}は街にいる）`, "dim"); }
   await townLoop();
   await startDive();
