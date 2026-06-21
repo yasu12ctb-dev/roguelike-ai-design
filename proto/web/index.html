@@ -39,17 +39,19 @@
 
     /* ---- ステータスバー ---- */
     #status {
-      flex: none; display: flex; align-items: center; gap: 10px;
-      padding: 8px 12px; font-size: 12.5px; color: #aab4c0;
+      flex: none; display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; font-size: 12px; color: #aab4c0;
       border-bottom: 1px solid #1c222b; background: #10141a;
     }
+    /* 左群＝縮む箱（溢れたら末尾から隠れる）。版数は右端に必ず残す（最新判定用）。 */
+    #stLeft { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap; }
     #stHp { color: #e06c5a; }
     #stExp { color: #9d8fd8; }
     #stGold { color: #d9b34a; }
     #stBuff { color: #8fd0c0; font-size: .82em; flex: none; }
     #status .spacer { flex: 1; }
-    #stVer { color: #5b6673; font-size: 10.5px; font-weight: 600; letter-spacing: .03em; flex: none; }
-    #status > span { flex: none; }
+    #stVer { color: #5b6673; font-size: 10.5px; font-weight: 600; letter-spacing: .03em; flex: none; margin-left: 8px; }
+    #status > span, #stLeft > span { flex: none; }
     /* 長い名前は末尾…で省略＝レイアウト非破壊（フルネームはステータス画面） */
     #stName { color: #e8e2d4; max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
 
@@ -232,13 +234,14 @@
 </head>
 <body>
   <div id="status">
-    <span id="stName">—</span>
-    <span>深度 <b id="stDepth">0</b></span>
-    <span id="stHp">HP --</span>
-    <span id="stExp">深蝕 ░░░░░</span>
-    <span id="stGold">金 0</span>
-    <span id="stBuff"></span>
-    <span class="spacer"></span>
+    <div id="stLeft">
+      <span id="stName">—</span>
+      <span>深度 <b id="stDepth">0</b></span>
+      <span id="stHp">HP --</span>
+      <span id="stExp">深蝕 ░░░░░</span>
+      <span id="stGold">金 0</span>
+      <span id="stBuff"></span>
+    </div>
     <span id="stVer">v—</span>
   </div>
 

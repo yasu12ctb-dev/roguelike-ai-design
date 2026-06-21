@@ -261,6 +261,8 @@ export interface Prereq {
   minLevel?: number;       // プレイヤーのレベルがこれ以上（高名さのゲート＝貴族の関心など）
   hasCatchphrase?: boolean;// 化石が口癖を持つ/持たない（#origin_catchphrase# を使う本文の安全ガード）
   depthBand?: "shallow" | "mid" | "deep"; // 深度帯（ダンジョン文脈の発火条件）
+  minDepth?: number;       // この深度以上で発火（depthBand より細かい下限・dungeon/chest）
+  maxDepth?: number;       // この深度以下で発火（語りと深度の整合・上限）
   flag?: string;           // この化石に立った伏線フラグが有る（遭-②：伏線→後続）
   notFlag?: string;        // この化石に立った伏線フラグが無い（重複発火を防ぐ）
   // 長尺アーク（4-12(I)：進行度クオリティで多段の弧を組む。世界スコープ＝化石/アクター非依存）
