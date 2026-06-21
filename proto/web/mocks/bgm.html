@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
 <meta name="theme-color" content="#0c0f14" />
-<title>BGM 候補 聴き比べ — 堆積する世界</title>
+<title>BGM 候補 聴き比べ v2 — 堆積する世界</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -16,83 +16,74 @@
     display: flex; flex-direction: column; align-items: center;
   }
   header { width: 100%; max-width: 560px; padding: 16px 2px 8px; }
-  h1 { font-size: 15px; letter-spacing: .14em; color: #aeb8c4; font-weight: 700; }
+  h1 { font-size: 15px; letter-spacing: .12em; color: #aeb8c4; font-weight: 700; }
   .lead { font-size: 12px; line-height: 1.7; color: #8b94a0; margin-top: 6px; }
   .lead b { color: #cfd6dd; }
-
-  .panel {
-    width: 100%; max-width: 560px; background: #11161d; border: 1px solid #232a33;
-    border-radius: 12px; padding: 12px 14px; margin-top: 12px;
-  }
+  .panel { width: 100%; max-width: 560px; background: #11161d; border: 1px solid #232a33; border-radius: 12px; padding: 12px 14px; margin-top: 12px; }
   .row { display: flex; align-items: center; gap: 10px; }
   .row + .row { margin-top: 12px; }
   .row label { font-size: 12px; color: #9aa4b0; min-width: 72px; }
   .row .val { font-size: 12px; color: #cfd6dd; min-width: 56px; text-align: right; font-variant-numeric: tabular-nums; }
   input[type=range] { flex: 1; accent-color: #6fb3c8; }
-
   #cards { width: 100%; max-width: 560px; margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
-  .card {
-    background: #11161d; border: 1px solid #232a33; border-radius: 12px; padding: 12px 14px;
-    display: flex; align-items: center; gap: 12px;
-  }
+  .card { background: #11161d; border: 1px solid #232a33; border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; }
   .card.active { border-color: #3a5566; background: #14202a; box-shadow: 0 0 0 1px #3a5566 inset; }
   .card .meta { flex: 1; min-width: 0; }
   .card .nm { font-size: 14px; font-weight: 700; color: #e8e2d4; }
   .card.active .nm { color: #9fe0f0; }
   .card .desc { font-size: 11.5px; line-height: 1.6; color: #8b94a0; margin-top: 3px; }
-  .card .play {
-    flex: none; width: 64px; height: 44px; border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 700;
-    color: #cdd6e0; background: #1c232d; border: 1px solid #2e3946;
-  }
+  .card .play { flex: none; width: 64px; height: 44px; border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 700; color: #cdd6e0; background: #1c232d; border: 1px solid #2e3946; }
   .card.active .play { color: #0c0f14; background: #6fb3c8; border-color: #6fb3c8; }
-
-  #stopAll {
-    width: 100%; max-width: 560px; margin-top: 14px; height: 46px; border-radius: 12px;
-    font-family: inherit; font-size: 14px; font-weight: 700; color: #d8dee6; background: #1a212a; border: 1px solid #2e3946;
-  }
-  .hint { width: 100%; max-width: 560px; font-size: 11px; color: #5b6470; margin-top: 14px; line-height: 1.7; }
+  #stopAll { width: 100%; max-width: 560px; margin-top: 14px; height: 46px; border-radius: 12px; font-family: inherit; font-size: 14px; font-weight: 700; color: #d8dee6; background: #1a212a; border: 1px solid #2e3946; }
   .now { width: 100%; max-width: 560px; margin-top: 8px; font-size: 12px; color: #6fb3c8; min-height: 16px; }
+  .hint { width: 100%; max-width: 560px; font-size: 11px; color: #5b6470; margin-top: 14px; line-height: 1.7; }
 </style>
 </head>
 <body>
   <header>
-    <h1>BGM 候補 — 聴き比べ（実機確認用）</h1>
-    <p class="lead">プロシージャル（合成・素材ファイルなし）。<b>静かな持続音</b>です。実機（特に iPhone）で <b>1つずつ再生</b>して雰囲気を選んでください。すべて<b>低音量・長フェード・突発音なし</b>で設計。<br>下の <b>音量</b>と <b>深度</b> スライダーで体感を調整（深度は迷宮系候補②④に効きます）。</p>
+    <h1>BGM 候補 v2 — 聴き比べ（実機確認用）</h1>
+    <p class="lead">他ゲーム（ダークアンビエント/ダンジョン crawler）のリサーチを踏まえ全面刷新。<b>合成リバーブ（サンプル無し）</b>で余韻を足し、ドローン＋エア層＋スケール旋律を重ねた。すべて<b>低音量・長フェード・突発音なし</b>。実機で<b>1つずつ</b>再生して選んでください。<b>深度</b>は迷宮系（②③）に効きます。</p>
   </header>
 
   <div class="panel">
-    <div class="row">
-      <label>音量</label>
-      <input id="vol" type="range" min="0" max="100" value="55" />
-      <span class="val" id="volVal">55</span>
-    </div>
-    <div class="row">
-      <label>深度</label>
-      <input id="depth" type="range" min="0" max="50" value="0" />
-      <span class="val" id="depthVal">0</span>
-    </div>
+    <div class="row"><label>音量</label><input id="vol" type="range" min="0" max="100" value="60" /><span class="val" id="volVal">60</span></div>
+    <div class="row"><label>深度</label><input id="depth" type="range" min="0" max="50" value="0" /><span class="val" id="depthVal">0</span></div>
   </div>
 
   <div class="now" id="now">— 停止中 —</div>
   <div id="cards"></div>
   <button id="stopAll">■ すべて停止</button>
 
-  <p class="hint">※ 最初の再生タップで音が有効化されます（iOS 仕様）。サイレントスイッチ OFF・音量を上げてご確認ください。<br>気に入った候補番号と「もっと低く/明るく/静かに」等のご希望を教えていただければ、本体へ組み込み、街・迷宮（深度連動）・深淵・タイトル/死の各場面に割り当てます。</p>
+  <p class="hint">※ 最初の再生タップで音が有効化されます（iOS 仕様）。サイレントスイッチ OFF・音量を上げてご確認を。<br>気に入った候補と「もっと暗く/明るく/旋律を増減/リバーブ増減」等のご希望を教えてください。本体の各場面（街・迷宮・深淵・タイトル/死）へ割り当てます。</p>
 
 <script>
 (() => {
-  let ac = null, master = null;
-  let vol = 0.55, depth = 0;
+  let ac = null, master = null, dryBus = null, wetBus = null, reverb = null;
+  let vol = 0.60, depth = 0;
   let active = null, activeIdx = -1;
+
+  function makeImpulse(dur, decay) {
+    const rate = ac.sampleRate, len = Math.floor(rate * dur);
+    const buf = ac.createBuffer(2, len, rate);
+    for (let c = 0; c < 2; c++) {
+      const d = buf.getChannelData(c);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+    }
+    return buf;
+  }
 
   function ensure() {
     if (!ac) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return false;
       ac = new AC();
-      master = ac.createGain();
-      master.gain.value = vol;
-      master.connect(ac.destination);
+      master = ac.createGain(); master.gain.value = vol; master.connect(ac.destination);
+      // 合成コンボリューション・リバーブ（減衰ノイズのインパルス＝サンプル不要）
+      reverb = ac.createConvolver(); reverb.buffer = makeImpulse(3.6, 2.6);
+      const revReturn = ac.createGain(); revReturn.gain.value = 0.9;
+      reverb.connect(revReturn); revReturn.connect(master);
+      dryBus = ac.createGain(); dryBus.gain.value = 0.65; dryBus.connect(master);
+      wetBus = ac.createGain(); wetBus.gain.value = 1.0; wetBus.connect(reverb);
     }
     if (ac.state === "suspended") ac.resume();
     return true;
@@ -100,153 +91,164 @@
   const T = () => ac.currentTime;
   const midi = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
-  // 緩やかな持続パッド：和音を周波数ランプでゆっくり推移＋各声部の呼吸LFO。突発音なし。
-  function startPad(opts) {
-    // opts: chords[[midi..]..], wave, cutoff, progMs, amp, detune, lfoRate, depthReact
-    const bed = ac.createGain(); bed.gain.value = 0.0001;
-    const lp = ac.createBiquadFilter(); lp.type = "lowpass";
-    const baseCut = opts.cutoff;
-    lp.frequency.value = baseCut;
-    lp.Q.value = 0.4;
-    lp.connect(bed); bed.connect(master);
-
-    const n = opts.chords[0].length;
-    const voices = [];
-    for (let i = 0; i < n; i++) {
-      const osc = ac.createOscillator(); osc.type = opts.wave;
-      const det = (opts.detune || 0) * (i % 2 ? 1 : -1);
-      osc.detune.value = det;
-      const vg = ac.createGain(); vg.gain.value = opts.amp;
-      // 呼吸LFO（とてもゆっくり）：gain を amp ± amp*0.4 で揺らす
-      const lfo = ac.createOscillator(); lfo.type = "sine";
-      lfo.frequency.value = (opts.lfoRate || 0.07) * (0.7 + Math.random() * 0.7);
-      const lg = ac.createGain(); lg.gain.value = opts.amp * 0.4;
-      lfo.connect(lg); lg.connect(vg.gain);
-      osc.connect(vg); vg.connect(lp);
-      osc.start(); lfo.start(T() + Math.random() * 2);
-      voices.push({ osc, lfo });
-    }
-
-    let idx = 0;
-    const depthReact = opts.depthReact;
-    function applyChord(ci, ramp) {
-      const ch = opts.chords[ci];
-      const s = depthReact ? -Math.floor(depth / 5) : 0;
-      for (let i = 0; i < n; i++) {
-        const f = midi(ch[i % ch.length] + s);
-        voices[i].osc.frequency.exponentialRampToValueAtTime(Math.max(20, f), T() + ramp);
-      }
-      if (depthReact) {
-        const cut = baseCut * (1 - 0.55 * (depth / 50));
-        lp.frequency.exponentialRampToValueAtTime(Math.max(120, cut), T() + ramp);
-      }
-    }
-    // 初期和音を即セット
-    for (let i = 0; i < n; i++) voices[i].osc.frequency.value = midi(opts.chords[0][i % opts.chords[0].length] + (depthReact ? -Math.floor(depth/5) : 0));
-    // フェードイン（3.5s・突発音回避）
-    bed.gain.setValueAtTime(0.0001, T());
-    bed.gain.linearRampToValueAtTime(1, T() + 3.5);
-
-    const prog = setInterval(() => {
-      idx = (idx + 1) % opts.chords.length;
-      applyChord(idx, opts.progMs / 1000 * 0.55);
-    }, opts.progMs);
-
-    return {
-      stop() {
-        clearInterval(prog);
-        bed.gain.cancelScheduledValues(T());
-        bed.gain.setValueAtTime(bed.gain.value, T());
-        bed.gain.linearRampToValueAtTime(0.0001, T() + 2);
-        const stopAt = T() + 2.2;
-        voices.forEach(v => { try { v.osc.stop(stopAt); v.lfo.stop(stopAt); } catch (e) {} });
-      },
-      setDepth() { if (depthReact) applyChord(idx, 1.5); },
-      _filter: lp, _bed: bed
-    };
+  // 出力を dry/wet 両バスへ（wetAmt で残響量）
+  function route(node, wetAmt) {
+    node.connect(dryBus);
+    const w = ac.createGain(); w.gain.value = wetAmt == null ? 0.9 : wetAmt;
+    node.connect(w); w.connect(wetBus);
   }
 
-  // 柔らかい単音（長アタック・長リリース＝クリックなし）。bell/motif 用。
-  function softNote(freq, attack, hold, release, peak, type, dest) {
-    const o = ac.createOscillator(); o.type = type || "sine"; o.frequency.value = freq;
+  // 持続パッド：和音を周波数ランプで推移＋呼吸LFO＋デチューン重ね＋ステレオ拡げ。
+  function padChord(initNotes, o) {
+    const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = o.lpf; lp.Q.value = 0.3;
+    const out = ac.createGain(); out.gain.value = 0.0001;
+    lp.connect(out); route(out, o.wet);
+    const baseLpf = o.lpf;
+    const voices = initNotes.map((m, idx) => {
+      const pan = ac.createStereoPanner();
+      pan.pan.value = (initNotes.length > 1 ? (idx / (initNotes.length - 1)) * 2 - 1 : 0) * (o.spread || 0.5);
+      pan.connect(lp);
+      const pair = [];
+      for (let k = 0; k < 2; k++) {
+        const osc = ac.createOscillator(); osc.type = o.wave; osc.frequency.value = midi(m);
+        osc.detune.value = k ? o.detune : -o.detune;
+        const vg = ac.createGain(); vg.gain.value = o.amp;
+        const lfo = ac.createOscillator(); lfo.type = "sine";
+        lfo.frequency.value = (o.lfoRate || 0.06) * (0.7 + Math.random() * 0.6);
+        const lg = ac.createGain(); lg.gain.value = o.amp * 0.42;
+        lfo.connect(lg); lg.connect(vg.gain);
+        osc.connect(vg); vg.connect(pan);
+        osc.start(); lfo.start(T() + Math.random() * 2.5);
+        pair.push(osc); pair.push(lfo);
+      }
+      return { pair, oscs: [pair[0], pair[2]] };
+    });
+    out.gain.setValueAtTime(0.0001, T());
+    out.gain.linearRampToValueAtTime(1, T() + 4.2); // 長フェードイン
+    function setChord(notes, ramp) {
+      const tr = o.depthReact ? -Math.floor(depth / 5) : 0;
+      voices.forEach((v, i) => {
+        const m = notes[i % notes.length] + tr;
+        v.oscs.forEach((osc) => osc.frequency.exponentialRampToValueAtTime(Math.max(20, midi(m)), T() + ramp));
+      });
+      if (o.depthReact) lp.frequency.exponentialRampToValueAtTime(Math.max(120, baseLpf * (1 - 0.55 * depth / 50)), T() + ramp);
+    }
+    function stop() {
+      out.gain.cancelScheduledValues(T()); out.gain.setValueAtTime(out.gain.value, T());
+      out.gain.linearRampToValueAtTime(0.0001, T() + 2.2);
+      const s = T() + 2.4;
+      voices.forEach((v) => v.pair.forEach((n) => { try { n.stop(s); } catch (e) {} }));
+    }
+    return { setChord, stop, lpf: () => lp };
+  }
+
+  // 柔らかい単音（鐘/旋律）：長アタック/減衰＝クリックなし。倍音を少し足して質感を出す。
+  function note(m, attack, hold, release, peak, type, wetAmt) {
+    const o = ac.createOscillator(); o.type = type || "sine"; o.frequency.value = midi(m);
+    const o2 = ac.createOscillator(); o2.type = "sine"; o2.frequency.value = midi(m + 12);
     const g = ac.createGain(); g.gain.value = 0.0001;
-    o.connect(g); g.connect(dest);
+    const g2 = ac.createGain(); g2.gain.value = 0.0001;
+    o.connect(g); o2.connect(g2);
+    route(g, wetAmt); route(g2, wetAmt == null ? 1.0 : wetAmt);
     const t = T();
     g.gain.linearRampToValueAtTime(peak, t + attack);
     g.gain.setValueAtTime(peak, t + attack + hold);
     g.gain.exponentialRampToValueAtTime(0.0001, t + attack + hold + release);
-    o.start(t); o.stop(t + attack + hold + release + 0.1);
+    g2.gain.linearRampToValueAtTime(peak * 0.28, t + attack);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + attack + hold + release * 0.7);
+    const end = t + attack + hold + release + 0.1;
+    o.start(t); o2.start(t); o.stop(end); o2.stop(end);
   }
 
-  // ---- 候補定義 ----
+  // ゆっくりしたエア（フィルタノイズの吹き上がり）。動きの層。
+  function airLayer(filterFreq, peak, rate) {
+    const len = Math.floor(ac.sampleRate * 4);
+    const buf = ac.createBuffer(1, len, ac.sampleRate);
+    const d = buf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const src = ac.createBufferSource(); src.buffer = buf; src.loop = true;
+    const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = filterFreq; bp.Q.value = 0.8;
+    const g = ac.createGain(); g.gain.value = 0.0001;
+    const lfo = ac.createOscillator(); lfo.frequency.value = rate || 0.04;
+    const lg = ac.createGain(); lg.gain.value = peak;
+    lfo.connect(lg); lg.connect(g.gain);
+    src.connect(bp); bp.connect(g); route(g, 1.0);
+    src.start(); lfo.start();
+    return { stop() { const s = T() + 1.6; g.gain.setTargetAtTime(0.0001, T(), 0.5); try { src.stop(s); lfo.stop(s); } catch (e) {} } };
+  }
+
+  const NAT_MINOR = [0, 2, 3, 5, 7, 8, 10];
+  const PENT_MINOR = [0, 3, 5, 7, 10];
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+
+  // ---- 候補（リサーチ準拠：ダークアンビエント＋リバーブ＋層構造）----
   const candidates = [
     {
-      nm: "① 暖かい和音パッド",
-      desc: "協和音がゆっくり移ろう。拠点（街）向き・穏やか。",
+      nm: "① 悼みのドローン",
+      desc: "深い低音ドローンに短調パッドが重なり、長い残響に沈む。世界の哀しみの基調。",
       start() {
-        return startPad({
-          chords: [[50,53,57,60],[46,50,53,57],[48,55,58,62]], // Dm9 / Bbmaj7 / Cadd9風
-          wave: "triangle", cutoff: 1300, progMs: 15000, amp: 0.05, detune: 5, lfoRate: 0.06
-        });
+        const pad = padChord([33, 45, 48, 52], { wave: "sawtooth", detune: 8, amp: 0.028, lpf: 900, lfoRate: 0.05, spread: 0.6, wet: 0.95 });
+        const air = airLayer(220, 0.02, 0.03);
+        const chords = [[33, 45, 48, 52], [29, 41, 48, 53], [31, 43, 46, 50]]; // Am / Fadd9 / Gm 風
+        let i = 0;
+        const iv = setInterval(() => { i = (i + 1) % chords.length; pad.setChord(chords[i], 9); }, 17000);
+        return { stop() { clearInterval(iv); pad.stop(); air.stop(); }, setDepth() {} };
       }
     },
     {
-      nm: "② 冷たい疎なドローン",
-      desc: "低く暗い持続音。迷宮向き。深度で低く・暗く（深度連動）。",
+      nm: "② 冷たい石の広間",
+      desc: "疎な空虚5度のドローンに、遠い鐘がぽつりと灯る。広大な残響。深度連動。",
       start() {
-        return startPad({
-          chords: [[38,45,50],[36,43,48],[41,48,53]], // D / C / F の空虚5度
-          wave: "sine", cutoff: 620, progMs: 17000, amp: 0.06, detune: 7, lfoRate: 0.05, depthReact: true
-        });
+        const pad = padChord([38, 45, 50], { wave: "sine", detune: 6, amp: 0.04, lpf: 650, lfoRate: 0.045, spread: 0.7, wet: 1.0, depthReact: true });
+        const chords = [[38, 45, 50], [36, 43, 48], [40, 47, 52]];
+        let i = 0;
+        const prog = setInterval(() => { i = (i + 1) % chords.length; pad.setChord(chords[i], 10); }, 19000);
+        const root = 57; // A3 基準のペンタ
+        const bells = setInterval(() => {
+          const m = root + pick(PENT_MINOR) + 12 * pick([0, 1]) - Math.floor(depth / 5);
+          note(m, 1.8, 0.4, 6.0, 0.05, "sine", 1.0);
+        }, 7000);
+        return { stop() { clearInterval(prog); clearInterval(bells); pad.stop(); }, setDepth() { pad.setChord(chords[i], 2); } };
       }
     },
     {
-      nm: "③ クリスタル / シマー",
-      desc: "薄いベッドに、長く伸びる倍音がときどき灯る。神秘的。",
+      nm: "③ 沈淵（深淵・山場）",
+      desc: "最低域のサブと不協和なクラスタ。ゆっくり押し寄せる圧。深度連動。",
       start() {
-        const pad = startPad({
-          chords: [[45,52,57],[45,53,57],[43,50,57]], // A系の柔らかい揺れ
-          wave: "sine", cutoff: 1600, progMs: 16000, amp: 0.035, detune: 4, lfoRate: 0.06
-        });
-        const bells = [81,84,86,88,93];
-        const iv = setInterval(() => {
-          const m = bells[Math.floor(Math.random() * bells.length)];
-          softNote(midi(m), 2.2, 0.5, 5.5, 0.04, "sine", pad._filter);
-        }, 6500);
-        return {
-          stop() { clearInterval(iv); pad.stop(); },
-          setDepth() {}
-        };
+        const pad = padChord([26, 38, 39, 44], { wave: "sine", detune: 4, amp: 0.05, lpf: 380, lfoRate: 0.035, spread: 0.5, wet: 0.85, depthReact: true });
+        const air = airLayer(90, 0.03, 0.025);
+        const chords = [[26, 38, 39, 44], [26, 37, 39, 44], [24, 36, 37, 43]]; // 短2度/三全音の緊張
+        let i = 0;
+        const iv = setInterval(() => { i = (i + 1) % chords.length; pad.setChord(chords[i], 12); }, 21000);
+        return { stop() { clearInterval(iv); pad.stop(); air.stop(); }, setDepth() { pad.setChord(chords[i], 2); } };
       }
     },
     {
-      nm: "④ 暗い圧（シネマ）",
-      desc: "最低域のサブと張り詰めた音程。深淵・山場向き。深度連動。",
+      nm: "④ 追憶（ピアノ風・旋律）",
+      desc: "薄いパッドの上を、孤独な短調の旋律がゆっくり巡る。タイトル/死の場面向き。",
       start() {
-        return startPad({
-          chords: [[26,38,44],[26,37,44],[24,36,42]], // D1+D2+G#2(三全音) など重い緊張
-          wave: "sine", cutoff: 360, progMs: 20000, amp: 0.07, detune: 3, lfoRate: 0.04, depthReact: true
-        });
+        const pad = padChord([45, 52, 57], { wave: "triangle", detune: 5, amp: 0.022, lpf: 1200, lfoRate: 0.05, spread: 0.5, wet: 0.9 });
+        const root = 57; // A
+        let last = 0;
+        const mel = setInterval(() => {
+          // 同一スケール（自然短音階）から、近い音へゆっくり歩く旋律
+          const step = pick([-2, -1, 1, 2, 0]); last = Math.max(0, Math.min(NAT_MINOR.length - 1 + 7, last + step));
+          const deg = NAT_MINOR[last % NAT_MINOR.length] + 12 * Math.floor(last / NAT_MINOR.length);
+          note(root + deg, 0.04, 0.1, 2.8, 0.06, "triangle", 0.8);
+        }, 2600);
+        return { stop() { clearInterval(mel); pad.stop(); }, setDepth() {} };
       }
     },
     {
-      nm: "⑤ 最小モチーフ",
-      desc: "薄いパッド上を、3〜4音の遅い旋律がゆるく巡る。",
+      nm: "⑤ 灰の街（拠点）",
+      desc: "暖かいが仄かに哀しいパッドに、優しい単音がときどき添う。安らぎの拠点。",
       start() {
-        const pad = startPad({
-          chords: [[45,52],[43,50],[41,48]],
-          wave: "triangle", cutoff: 1100, progMs: 18000, amp: 0.035, detune: 4, lfoRate: 0.05
-        });
-        const motif = [69,72,76,74,72,69,67,72]; // A C E D C A G C
-        let k = 0;
-        const iv = setInterval(() => {
-          const m = motif[k % motif.length]; k++;
-          softNote(midi(m), 1.2, 0.3, 3.0, 0.045, "sine", pad._filter);
-        }, 3400);
-        return {
-          stop() { clearInterval(iv); pad.stop(); },
-          setDepth() {}
-        };
+        const pad = padChord([50, 53, 57, 60], { wave: "triangle", detune: 6, amp: 0.03, lpf: 1500, lfoRate: 0.055, spread: 0.6, wet: 0.75 });
+        const chords = [[50, 53, 57, 60], [46, 50, 53, 57], [48, 52, 55, 59]]; // Dm9 / Bbmaj7 / Cadd9
+        let i = 0;
+        const prog = setInterval(() => { i = (i + 1) % chords.length; pad.setChord(chords[i], 9); }, 15000);
+        const root = 62;
+        const grace = setInterval(() => { note(root + pick(PENT_MINOR), 0.6, 0.2, 2.4, 0.035, "sine", 0.7); }, 5200);
+        return { stop() { clearInterval(prog); clearInterval(grace); pad.stop(); }, setDepth() {} };
       }
     }
   ];
@@ -261,7 +263,6 @@
     el.querySelector(".play").addEventListener("click", () => toggle(i));
     cardsEl.appendChild(el);
   });
-
   function refresh() {
     [...cardsEl.children].forEach((el, i) => {
       const on = i === activeIdx;
@@ -270,33 +271,18 @@
     });
     nowEl.textContent = activeIdx >= 0 ? `再生中：${candidates[activeIdx].nm}` : "— 停止中 —";
   }
-
-  function stopAll() {
-    if (active) { try { active.stop(); } catch (e) {} active = null; }
-    activeIdx = -1; refresh();
-  }
-
+  function stopAll() { if (active) { try { active.stop(); } catch (e) {} active = null; } activeIdx = -1; refresh(); }
   function toggle(i) {
     if (!ensure()) { nowEl.textContent = "この環境では音を出せません。"; return; }
     if (activeIdx === i) { stopAll(); return; }
     if (active) { try { active.stop(); } catch (e) {} active = null; }
-    active = candidates[i].start();
-    activeIdx = i;
-    refresh();
+    active = candidates[i].start(); activeIdx = i; refresh();
   }
-
   document.getElementById("stopAll").addEventListener("click", stopAll);
-
   const volEl = document.getElementById("vol"), volVal = document.getElementById("volVal");
-  volEl.addEventListener("input", () => {
-    vol = +volEl.value / 100; volVal.textContent = volEl.value;
-    if (master && ac) master.gain.setTargetAtTime(vol, ac.currentTime, 0.05);
-  });
+  volEl.addEventListener("input", () => { vol = +volEl.value / 100; volVal.textContent = volEl.value; if (master && ac) master.gain.setTargetAtTime(vol, ac.currentTime, 0.05); });
   const depthEl = document.getElementById("depth"), depthVal = document.getElementById("depthVal");
-  depthEl.addEventListener("input", () => {
-    depth = +depthEl.value; depthVal.textContent = depthEl.value;
-    if (active && active.setDepth) active.setDepth();
-  });
+  depthEl.addEventListener("input", () => { depth = +depthEl.value; depthVal.textContent = depthEl.value; if (active && active.setDepth) active.setDepth(); });
 })();
 </script>
 </body>
