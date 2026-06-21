@@ -65,15 +65,20 @@ export interface Stats { body: number; power: number; reason: number; heart: num
 
 /** 装備（4-11F④・4-11E）。武器=攻撃+ / 防具=被ダメ- / 遺物=パッシブ。異物=未鑑定。 */
 export type ItemSlot = "weapon" | "armor" | "relic" | "bag";
-export type RelicKind = "calm" | "reason" | "greed"; // 深蝕レート減 / 理+1 / 撃破XP増
+export type RelicKind = "calm" | "reason" | "greed" | "might" | "vigor" | "ward" | "fortune" | "mending";
+// calm=深蝕レート減 / reason=理+1 / greed=撃破XP×1.5 / might=近接+1 / vigor=最大HP+6 / ward=被ダメ-1 / fortune=拾う金貨×1.5 / mending=潜行中ゆっくり回復
 export interface Item {
   id: string; slot: ItemSlot; name: string;
-  dmg?: number;             // 武器：近接ダメージ+
-  reduce?: number;          // 防具：被ダメージ-
+  dmg?: number;             // 武器：近接ダメージ+（銘・+N 込みの最終値）
+  reduce?: number;          // 防具：被ダメージ-（銘・+N 込みの最終値）
   relic?: RelicKind;        // 遺物：パッシブ種
   capacity?: number;        // 鞄：持ち物の枠+（持ち物システム Phase2）
-  exposurePerTurn?: number; // 異物の副作用：装備中の毎ターン深蝕+
+  exposurePerTurn?: number; // 装備中の毎ターン深蝕（蝕=正／浄=負／異物の副作用）
   unidentified?: boolean;   // 未鑑定（装備すると判明）
+  // ルートシステム（銘×基×+N）。旧セーブは未設定＝name と焼かれた値で従来どおり動く（非破壊）。
+  baseName?: string;        // 基(base)の名（例 "長剣"）＝itemByName 分解・打ち直しの基点
+  affix?: string;           // 銘(affix)の key（AFFIXES）。無銘なら未設定
+  enchant?: number;         // 強化度 +N（武器/防具）。+0 なら未設定
 }
 // bag は任意＝旧セーブ非破壊（migrate 不要・version 据え置き）。
 export interface Equipment { weapon: Item | null; armor: Item | null; relic: Item | null; bag?: Item | null; }
