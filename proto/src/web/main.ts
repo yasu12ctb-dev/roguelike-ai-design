@@ -24,7 +24,7 @@ import {
 } from "../render.ts";
 import { rollEncounter } from "../weights.ts";
 import { filterByTags } from "../content.ts";
-import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, selectTownStorylet, applyActorEffects } from "../storylets.ts";
+import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, selectTownStorylet, applyActorEffects, rollChestOutcome } from "../storylets.ts";
 import { meetActor, mintActor, rememberActor, pickRosterActor } from "../actors.ts";
 import {
   generateOffers, generateNobleOffers, acceptQuest, activeQuests, doneQuests, claimQuest,
@@ -51,7 +51,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.11.2";
+export const APP_VERSION = "0.12.0";
 export const APP_BUILD = "2026-06-21";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1330,7 +1330,8 @@ async function talkCrowd(a: CrowdActor) {
   if (ch && a.npc) {
     const la = a.npc;
     const head = `${la.actor.epithet ?? ""}${la.actor.name}（${la.actor.archetype}）`;
-    const sl = selectTownStorylet(db, world, ch, la, rng, townContextsHere());
+    const sl = selectTownStorylet(db, world, ch, la, rng, townContextsHere(), recentSet());
+    if (sl) noteEvent(sl.id);
     // 同行の勧誘（4-14C 入口）：相棒が居らず、迷宮の話が通じる相手なら「同行を頼む」を添える。
     const canRecruit = !world.companion?.alive;
     const recruitOpt = "同行を頼む";
@@ -1716,7 +1717,8 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
     // 化石の配置（再会重み 4-7。同一潜行で会った相手は除外）。初訪のみ＝再訪で増殖しない。
     // 出現数は面積に追従（迷宮拡張に合わせて増やす＝イベント遭遇も拡張に比例）：d1≈2 / d50≈4。
     const exclude = new Set<string>(seenThisDive);
-    const fossilTries = 2 + Math.min(2, Math.floor((floor.w * floor.h) / 3200));
+    // P2 密度正規化＋P1 序盤抑制：浅層は疎（深度1〜3は1体まで）、深いほど面積比で増える（世代で過密にしない）。
+    const fossilTries = (depth >= 4 ? 2 : 1) + (depth >= 4 ? Math.min(2, Math.floor((floor.w * floor.h) / 3600)) : 0);
     for (let i = 0; i < fossilTries; i++) {
       const fossil = rollEncounter(world, ch, rng, exclude);
       if (!fossil) break;
@@ -1962,6 +1964,11 @@ async function rescueScene(d: DownedActor): Promise<void> {
 }
 
 let seenThisDive: string[] = [];
+// P1 ペーシング：直近に出したイベントid（context横断のリング）。同じ話の短期再発を抑える。
+const recentEvents: string[] = [];
+function noteEvent(id: string): void { recentEvents.push(id); while (recentEvents.length > 6) recentEvents.shift(); }
+const recentSet = (): Set<string> => new Set(recentEvents);
+const curLevel = (): number => world.current?.level ?? 1;
 // 同一潜行中に訪れた階を保持（再訪で再生成しない＝宝箱/化石/倒した敵の状態が残る。FB：上り下りで宝箱が復活していた）。
 // 潜行ごとにクリア（startDive）。途中状態は DiveSnapshot で保存＝アプリを閉じても同じ深度・盤面から再開。
 let floorCache = new Map<number, Floor>();
@@ -2965,14 +2972,14 @@ async function stairsPrompt(dir: "down" | "up") {
       const ch = world.current!;
       const oddity = equipExposure(ch) * ODDITY_DESCENT_MULT * heartFactor(ch);
       if (oddity > 0) { ch.exposure += oddity; log(`異物が、深みを一段呼び込む（深蝕 ＋${oddity.toFixed(2)}）。`, "warn"); }
-      sfx("stairs_down"); enterFloor(f.depth + 1, true); await maybeDungeonEvent(floor!.depth); await maybeMerchantEncounter();
+      sfx("stairs_down"); enterFloor(f.depth + 1, true); if (!(await maybeDungeonEvent(floor!.depth))) await maybeMerchantEncounter();
     }
   } else if (f.depth === 1) {
     const r = await sheet({ text: "地上への階段だ。街へ戻るか？\n（傷は癒えるが、浴びた深みは消えない）", options: ["街へ戻る", "とどまる"] });
     if (r.pick === 1) { await surfaceReturn(); return; }
   } else {
     const r = await sheet({ text: `上り階段がある。深度${f.depth - 1}へ戻るか？`, options: ["戻る", "とどまる"] });
-    if (r.pick === 1) { enterFloor(f.depth - 1, false); await maybeDungeonEvent(floor!.depth); await maybeMerchantEncounter(); }
+    if (r.pick === 1) { enterFloor(f.depth - 1, false); if (!(await maybeDungeonEvent(floor!.depth))) await maybeMerchantEncounter(); }
   }
   busy = false;
   draw();
@@ -3024,10 +3031,13 @@ async function ascendWithRelic() {
 }
 
 /** 階移動時のダンジョン環境イベント（context=dungeon・4-12 F）。深度2以上で時々発火。 */
-async function maybeDungeonEvent(depth: number) {
-  if (depth < 2 || rng.next() >= 0.55) return;
-  const ev = selectDungeonStorylet(db, depth, rng, world.current?.exposure ?? 0, world);
-  if (!ev || !ev.choices || ev.choices.length === 0) return;
+async function maybeDungeonEvent(depth: number): Promise<boolean> {
+  // P1 序盤スロープ：浅いほど低頻度（深度2≈0.19 → 深いほど上限0.55）。深度1は出さない。
+  if (depth < 2) return false;
+  if (rng.next() >= Math.min(0.55, 0.12 + depth * 0.035)) return false;
+  const ev = selectDungeonStorylet(db, depth, rng, world.current?.exposure ?? 0, world, curLevel(), recentSet());
+  if (!ev || !ev.choices || ev.choices.length === 0) return false;
+  noteEvent(ev.id);
   sfx("ui");
   const wasBusy = busy; busy = true;
   const r = await sheet({
@@ -3041,6 +3051,7 @@ async function maybeDungeonEvent(depth: number) {
   save();
   busy = wasBusy;
   if (!wasBusy) draw();
+  return true;
 }
 
 /** 迷宮の行商人との出会い（4-10G）：袋の拾い物を安値（itemValue×0.45）でその場買い取り。
@@ -3095,7 +3106,8 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   const ch = world.current!;
 
   const canInherit = fossil.death.finalAct.choice === "leave_will" || fossil.death.finalAct.choice === "guard_relic";
-  const storylet = selectStorylet(db, world, ch, fossil, v, rng);
+  const storylet = selectStorylet(db, world, ch, fossil, v, rng, recentSet());
+  if (storylet) noteEvent(storylet.id);
   const done = new Set<string>();
 
   // 遭遇＝イベントノード（4-12）：〈調べる〉〈捜索〉で掘り下げ／伏線を残してから干渉動詞を選ぶ
@@ -3232,15 +3244,27 @@ async function chestScene(ce: Chest) {
     // 開けた宝箱はマップから取り除く（空き箱を残さない）
     const i = floor!.chests.indexOf(ce);
     if (i >= 0) floor!.chests.splice(i, 1);
-    if (rng.next() < 0.15) { // 罠
+    const roll = rng.next();
+    if (roll < 0.15) { // 罠
       const dmg = 0.12 + rng.next() * 0.12;
       ch.exposure += dmg;
       log("蓋を開けた瞬間、淀んだ気が噴き上がった——罠だ。", "warn");
       log(`深みが、まともに染みた（深蝕 +${dmg.toFixed(2)}）。`, "dim");
-    } else { // 装備ドロップ
+    } else if (roll < 0.55) { // 装備ドロップ
       const item = rollItem(depth, rng);
       log("宝箱から、何かを手にした。");
       await equipPrompt(item);
+    } else { // 中身の物語（P2：既存の chest storylet を web でも出す＝金貨/消耗品/小さな所見）
+      const out = rollChestOutcome(db, depth, rng, world, curLevel(), recentSet());
+      if (out?.result) {
+        noteEvent(out.id);
+        log(fillDungeonText(depth, out.result.text));
+        for (const line of applyDungeonEffects(world, ch, depth, out.result.effects)) log(line, "dim");
+      } else { // フォールバック：所見が無ければ従来どおり装備
+        const item = rollItem(depth, rng);
+        log("宝箱から、何かを手にした。");
+        await equipPrompt(item);
+      }
     }
   }
   save();

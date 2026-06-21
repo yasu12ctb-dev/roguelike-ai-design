@@ -10518,6 +10518,426 @@
      "effects": []
     }
    ]
+  },
+  {
+   "id": "dg_p3_shrine",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 1,
+   "text": "小さな祠に、ささやかな供物が積まれている。手をつければ罰当たりだが、路銀の足しにはなる。",
+   "choices": [
+    {
+     "label": "供物を奪う",
+     "text": "硬貨を懐へ。背に、見えない視線を感じた気がした。",
+     "effects": [
+      {
+       "gold": 12
+      },
+      {
+       "exposure": 0.05
+      },
+      {
+       "chronicle": "深度#depth#の祠の供物を、奪って路銀にした。"
+      }
+     ]
+    },
+    {
+     "label": "逆に供える",
+     "text": "手持ちの小銭を足して手を合わせた。胸の澱が、わずかに退く。",
+     "effects": [
+      {
+       "gold": -4
+      },
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "深度#depth#の祠に供物を足し、手を合わせた。"
+      }
+     ]
+    },
+    {
+     "label": "触れずに行く",
+     "text": "祠には触れず、静かに通り過ぎた。",
+     "effects": []
+    }
+   ]
+  },
+  {
+   "id": "dg_p3_vein",
+   "context": "dungeon",
+   "prerequisites": {
+    "minDepth": 3
+   },
+   "weight": 1,
+   "text": "壁に、鈍く光る鉱脈が走っている。掘り出せば値はつくが、奥の澱がじわりと滲み出している。",
+   "choices": [
+    {
+     "label": "掘り出す",
+     "text": "鉱片を懐に収めた。淀んだ気が、肺の奥に残る。",
+     "effects": [
+      {
+       "gold": 10
+      },
+      {
+       "exposure": 0.04
+      },
+      {
+       "chronicle": "深度#depth#の鉱脈を掘り、淀みを浴びながら鉱片を得た。"
+      }
+     ]
+    },
+    {
+     "label": "見送る",
+     "text": "欲は身を滅ぼす。鉱脈に背を向けた。",
+     "effects": []
+    }
+   ]
+  },
+  {
+   "id": "dg_p3_trapshelf",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 1,
+   "text": "棚の奥に、薬の小瓶が見える。だが棚の縁には、淀んだ気を孕んだ細工が施されている。",
+   "choices": [
+    {
+     "label": "手を伸ばす",
+     "text": "指先が痺れたが、小瓶は掴んだ。",
+     "effects": [
+      {
+       "item": "salve"
+      },
+      {
+       "exposure": 0.05
+      },
+      {
+       "chronicle": "深度#depth#の罠棚から、痺れを浴びて膏薬を奪った。"
+      }
+     ]
+    },
+    {
+     "label": "諦める",
+     "text": "危険に見合わない。棚から手を引いた。",
+     "effects": []
+    }
+   ]
+  },
+  {
+   "id": "dg_p3_corpse_purse",
+   "context": "dungeon",
+   "prerequisites": {
+    "maxDepth": 12
+   },
+   "weight": 1,
+   "text": "倒れ伏した先人の腰に、まだ財布が残っている。漁るか、せめて弔うか。",
+   "choices": [
+    {
+     "label": "財布を漁る",
+     "text": "小銭を抜き取った。死者の視線を、背に感じる。",
+     "effects": [
+      {
+       "gold": 8
+      },
+      {
+       "exposure": 0.03
+      },
+      {
+       "chronicle": "深度#depth#の先人の財布を漁った。"
+      }
+     ]
+    },
+    {
+     "label": "弔ってやる",
+     "text": "財布には触れず、瞼を閉じてやった。胸が、少し軽い。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "深度#depth#で倒れた先人を、弔ってやった。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_p3_idol",
+   "context": "dungeon",
+   "prerequisites": {
+    "minDepth": 15
+   },
+   "weight": 1,
+   "text": "黒い偶像が、こちらを見下ろしている。砕いて持ち帰れば高く売れようが、深みが激しくざわめくだろう。",
+   "choices": [
+    {
+     "label": "砕いて持ち帰る",
+     "text": "破片を布に包んだ。途端、耳鳴りのような圧が押し寄せる。",
+     "effects": [
+      {
+       "gold": 20
+      },
+      {
+       "exposure": 0.05
+      },
+      {
+       "chronicle": "深度#depth#の黒い偶像を砕き、深みのざわめきごと持ち帰った。"
+      }
+     ]
+    },
+    {
+     "label": "拝んでおく",
+     "text": "欲を捨て、偶像に頭を垂れた。ざわめきが、すっと退いていく。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "深度#depth#の黒い偶像に頭を垂れ、深みを退けた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_p3_whisper_deal",
+   "context": "dungeon",
+   "prerequisites": {
+    "minDepth": 10
+   },
+   "weight": 1,
+   "text": "暗がりから、囁きが取引を持ちかけてくる。「力が要るか。なら、少しだけ……お前の内を寄越せ」。",
+   "choices": [
+    {
+     "label": "耳を貸す",
+     "text": "囁きの示す壁の窪みに、硬貨が湧いていた。代償に、内側が冷たい。",
+     "effects": [
+      {
+       "gold": 15
+      },
+      {
+       "exposure": 0.05
+      },
+      {
+       "chronicle": "深度#depth#で囁きの取引に応じ、内を削って硬貨を得た。"
+      }
+     ]
+    },
+    {
+     "label": "拒む",
+     "text": "「……惜しいな」。囁きは、闇に溶けて消えた。",
+     "effects": []
+    }
+   ]
+  },
+  {
+   "id": "dg_p3_altar_coin",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "shallow"
+   },
+   "weight": 1,
+   "text": "古い祭壇に、賽銭がいくらか残っている。頂くか、足すか。",
+   "choices": [
+    {
+     "label": "賽銭を頂く",
+     "text": "硬貨を懐へ。罰当たりな、と自分でも思う。",
+     "effects": [
+      {
+       "gold": 6
+      },
+      {
+       "exposure": 0.03
+      }
+     ]
+    },
+    {
+     "label": "賽銭を足す",
+     "text": "逆に小銭を置いて祈った。心が、わずかに凪ぐ。",
+     "effects": [
+      {
+       "gold": -3
+      },
+      {
+       "exposure": -0.03
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_p3_mire",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 1,
+   "text": "泥沼に、誰かの背嚢が半ば沈んでいる。引き上げれば中身は使えそうだが、淀んだ泥を浴びる。",
+   "choices": [
+    {
+     "label": "引き上げる",
+     "text": "泥まみれの背嚢から、薬瓶を一つ救い出した。",
+     "effects": [
+      {
+       "item": "soothe"
+      },
+      {
+       "exposure": 0.04
+      },
+      {
+       "chronicle": "深度#depth#の泥沼から、淀みを浴びて薬を救い出した。"
+      }
+     ]
+    },
+    {
+     "label": "泥を避ける",
+     "text": "泥に踏み込む愚は避け、縁を回った。",
+     "effects": []
+    }
+   ]
+  },
+  {
+   "id": "dg_p4_marker1",
+   "context": "dungeon",
+   "prerequisites": {
+    "minDepth": 2,
+    "maxDepth": 8,
+    "notArc": "deep_marker"
+   },
+   "weight": 1,
+   "text": "壁に、先人が刻んだらしい目印がある。「この先に遺した。拾える者に」と、掠れた文字が添えてある。",
+   "choices": [
+    {
+     "label": "覚えておく",
+     "text": "目印の形を、しかと胸に刻んだ。いつか、もっと深くで――。",
+     "effects": [
+      {
+       "arc": {
+        "key": "deep_marker",
+        "step": 1
+       }
+      },
+      {
+       "trait": "記憶:先人の目印"
+      },
+      {
+       "chronicle": "深度#depth#で、先人の遺した目印を見つけた。"
+      }
+     ]
+    },
+    {
+     "label": "気に留めない",
+     "text": "他人の遺言だ。そのまま通り過ぎた。",
+     "effects": []
+    }
+   ]
+  },
+  {
+   "id": "dg_p4_marker2",
+   "context": "dungeon",
+   "prerequisites": {
+    "arc": "deep_marker",
+    "arcStep": 1,
+    "minDepth": 9
+   },
+   "weight": 1,
+   "text": "見覚えのある刻印――あの目印の続きだ。壁の緩んだ石の奥に、油紙の包みが隠されている。",
+   "choices": [
+    {
+     "label": "包みを開ける",
+     "text": "先人が遺したのは、まとまった路銀と、短い礼の言葉だった。「よくここまで来た」。",
+     "effects": [
+      {
+       "arc": {
+        "key": "deep_marker",
+        "step": 2,
+        "done": true
+       }
+      },
+      {
+       "gold": 24
+      },
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "深度#depth#で、先人が目印の先に遺した路銀を受け取った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_p4_vow1",
+   "context": "dungeon",
+   "prerequisites": {
+    "minDepth": 3,
+    "maxDepth": 12,
+    "notArc": "echo_vow"
+   },
+   "weight": 1,
+   "text": "壁一面に、血で書かれた誓いが滲んでいる。「必ず連れ帰る」。その先は、暗がりへ続いている。",
+   "choices": [
+    {
+     "label": "誓いを追う",
+     "text": "誰の、誰への誓いか。確かめずにはいられなかった。",
+     "effects": [
+      {
+       "arc": {
+        "key": "echo_vow",
+        "step": 1
+       }
+      },
+      {
+       "chronicle": "深度#depth#で、血の誓いの跡を追い始めた。"
+      }
+     ]
+    },
+    {
+     "label": "見なかったことに",
+     "text": "踏み込んではいけない気がして、目を逸らした。",
+     "effects": []
+    }
+   ]
+  },
+  {
+   "id": "dg_p4_vow2",
+   "context": "dungeon",
+   "prerequisites": {
+    "arc": "echo_vow",
+    "arcStep": 1,
+    "minDepth": 13
+   },
+   "weight": 1,
+   "text": "二つの亡骸が、寄り添うように倒れていた。片方の腕が、もう片方をかばう形のまま固まっている。誓いは、果たされなかった。",
+   "choices": [
+    {
+     "label": "二人を弔う",
+     "text": "せめてもと、二人の傍に小石を積んだ。胸の奥が、静かに痛む。",
+     "effects": [
+      {
+       "arc": {
+        "key": "echo_vow",
+        "step": 2,
+        "done": true
+       }
+      },
+      {
+       "exposure": -0.04
+      },
+      {
+       "trait": "看取り:果たされなかった誓い"
+      },
+      {
+       "chronicle": "深度#depth#で、果たされなかった血の誓いの果てを看取った。"
+      }
+     ]
+    }
+   ]
   }
  ]
 }

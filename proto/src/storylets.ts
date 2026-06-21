@@ -36,12 +36,18 @@ function arcMatches(p: Prereq, world: World): boolean {
   return true;
 }
 
-/** 重み付き抽選。ただしアーク段（prereq.arc 指定）があれば最優先＝弧を確実に前進させる。 */
-function pickPreferArc(pool: Storylet[], rng: Rng): Storylet | null {
+/** 重み付き抽選。ただしアーク段（prereq.arc 指定）があれば最優先＝弧を確実に前進させる。
+ *  avoid＝直近に出した id（context別リング）。一般プールからのみ除外し、空になれば諦めて全体から引く
+ *  （弧/固有ビートは avoid を無視＝確実に前進させる。P1 ペーシング：同じ話の短期再発を防ぐ）。 */
+function pickPreferArc(pool: Storylet[], rng: Rng, avoid?: Set<string>): Storylet | null {
   if (pool.length === 0) return null;
   // 弧（arc）と特定人物（actorId・名簿員の固有ビート）を最優先＝雑踏に埋もれさせず確実に前進させる。
   const priority = pool.filter((s) => s.prerequisites.arc !== undefined || s.prerequisites.actorId !== undefined);
-  const p = priority.length ? priority : pool;
+  let p = priority.length ? priority : pool;
+  if (!priority.length && avoid && avoid.size) { // 直近に出した話を一般プールから外す（候補が尽きたら全体に戻す）
+    const fresh = p.filter((s) => !avoid.has(s.id));
+    if (fresh.length) p = fresh;
+  }
   if (p.length === 1) return p[0];
   const total = p.reduce((a, s) => a + Math.max(0, s.weight), 0);
   if (total <= 0) return p[0];
@@ -65,6 +71,8 @@ function matches(p: Prereq, world: World, ch: Character, fossil: Fossil, v: Vari
   if (p.unfinished !== undefined && (bond?.unfinished ?? false) !== p.unfinished) return false;
   if (p.minExposure !== undefined && ch.exposure < p.minExposure) return false;
   if (p.minLevel !== undefined && ch.level < p.minLevel) return false;
+  if (p.minDepth !== undefined && ch.depth < p.minDepth) return false;
+  if (p.maxDepth !== undefined && ch.depth > p.maxDepth) return false;
   if (p.hasCatchphrase !== undefined && !!fossil.origin.catchphrase !== p.hasCatchphrase) return false;
   const flags = world.flags ?? [];
   if (p.flag !== undefined && !flags.includes(flagKey(p.flag, fossil))) return false;
@@ -84,8 +92,9 @@ export function candidateStorylets(
 /** 化石の状況に合うストーリーレットを重み付きで1つ選ぶ（無ければ null）。 */
 export function selectStorylet(
   db: ContentDb, world: World, ch: Character, fossil: Fossil, v: VariationResult, rng: Rng,
+  avoid?: Set<string>,
 ): Storylet | null {
-  return pickPreferArc(candidateStorylets(db, world, ch, fossil, v), rng);
+  return pickPreferArc(candidateStorylets(db, world, ch, fossil, v), rng, avoid);
 }
 
 /** effects を世界状態へ還流させ、プレイヤーへ見せるログ行を返す（4-12 (A)-3）。 */
@@ -128,26 +137,38 @@ export function applyEffects(
 
 // ---------- ダンジョン環境イベント（context=dungeon。アクター無し：4-12 F） ----------
 
-/** 指定 context のうち、深度帯（と任意で深蝕の下限）に合うものを重み付きで1つ選ぶ（無ければ null）。 */
-function pickByContext(db: ContentDb, context: string, depth: number, rng: Rng, exposure = 0, world?: World): Storylet | null {
+/** 指定 context のうち、深度帯/深度/レベル（と任意で深蝕の下限）に合うものを重み付きで1つ選ぶ（無ければ null）。
+ *  level＝出し分け（語りと深度/レベルの整合：P2）。avoid＝直近の重複回避（P1）。 */
+function pickByContext(
+  db: ContentDb, context: string, depth: number, rng: Rng,
+  exposure = 0, world?: World, level = 1, avoid?: Set<string>,
+): Storylet | null {
   const band = depthBand(depth);
-  const pool = db.storylets.filter(
-    (s) => s.context === context
-      && (s.prerequisites.depthBand === undefined || s.prerequisites.depthBand === band)
-      && (s.prerequisites.minExposure === undefined || exposure >= s.prerequisites.minExposure)
-      && (world === undefined || arcMatches(s.prerequisites, world)), // 長尺アーク（4-12(I)）の段ゲート
-  );
-  return pickPreferArc(pool, rng);
+  const pool = db.storylets.filter((s) => {
+    const p = s.prerequisites;
+    if (s.context !== context) return false;
+    if (p.depthBand !== undefined && p.depthBand !== band) return false;
+    if (p.minDepth !== undefined && depth < p.minDepth) return false;
+    if (p.maxDepth !== undefined && depth > p.maxDepth) return false;
+    if (p.minLevel !== undefined && level < p.minLevel) return false;
+    if (p.minExposure !== undefined && exposure < p.minExposure) return false;
+    return world === undefined || arcMatches(p, world); // 長尺アーク（4-12(I)）の段ゲート
+  });
+  return pickPreferArc(pool, rng, avoid);
 }
 
 /** 現在深度で発火しうるダンジョン環境イベントを重み付きで1つ選ぶ（無ければ null）。world を渡すと長尺アーク段を優先。 */
-export function selectDungeonStorylet(db: ContentDb, depth: number, rng: Rng, exposure = 0, world?: World): Storylet | null {
-  return pickByContext(db, "dungeon", depth, rng, exposure, world);
+export function selectDungeonStorylet(
+  db: ContentDb, depth: number, rng: Rng, exposure = 0, world?: World, level = 1, avoid?: Set<string>,
+): Storylet | null {
+  return pickByContext(db, "dungeon", depth, rng, exposure, world, level, avoid);
 }
 
 /** 宝箱の中身を抽選（NetHack風：空/拾得/異物/罠）。result を持つ chest 状況を返す。 */
-export function rollChestOutcome(db: ContentDb, depth: number, rng: Rng, world?: World): Storylet | null {
-  return pickByContext(db, "chest", depth, rng, 0, world);
+export function rollChestOutcome(
+  db: ContentDb, depth: number, rng: Rng, world?: World, level = 1, avoid?: Set<string>,
+): Storylet | null {
+  return pickByContext(db, "chest", depth, rng, 0, world, level, avoid);
 }
 
 /** ダンジョン環境イベントの選択結果を還流させる（アクター無しなので exposure/trait/chronicle のみ）。 */
@@ -202,11 +223,11 @@ function townMatches(p: Prereq, world: World, ch: Character, la: LivingActor): b
  */
 export function selectTownStorylet(
   db: ContentDb, world: World, ch: Character, la: LivingActor, rng: Rng,
-  contexts: readonly TownContext[] = TOWN_CONTEXTS,
+  contexts: readonly TownContext[] = TOWN_CONTEXTS, avoid?: Set<string>,
 ): Storylet | null {
   const allow = new Set<string>(contexts);
   const pool = db.storylets.filter((s) => allow.has(s.context ?? "") && townMatches(s.prerequisites, world, ch, la));
-  return pickPreferArc(pool, rng);
+  return pickPreferArc(pool, rng, avoid);
 }
 
 /** 街イベントの選択結果を還流（生者アクターにアンカー）。bond/plant が立つと lazy に永続化する。 */
