@@ -33,8 +33,8 @@
 </head>
 <body>
   <header>
-    <h1>攻撃音 候補 聴き比べ（爽快感の方向性）</h1>
-    <p class="lead">「もっと爽快感を」のご要望で、攻撃命中音（<b>hit</b>）の候補を用意。各ボタンを連打すると連続ヒットの気持ちよさが分かります。<b>①が現在の音</b>（参照用）。気に入った番号と希望（もっと高く/低く/鋭く/軽く 等）を教えてください。</p>
+    <h1>攻撃音・被弾音 候補 聴き比べ</h1>
+    <p class="lead"><b>【攻撃】</b>命中音（hit）の爽快感候補。<b>【被弾】</b>「攻撃される音」（hurt）の候補も追加しました。各ボタンを連打すると感触が分かります。<b>各①が現在の音</b>（参照用）。被弾音は BGM の低音に埋もれないよう作り直しています。気に入った番号と希望を教えてください。</p>
   </header>
 
   <div class="panel">
@@ -81,6 +81,7 @@
 
   // ---- 候補 ----
   const candidates = [
+    { head: "【攻撃】命中音（hit）" },
     { nm: "① 現在の音（参照）", cur: true, desc: "鋭いノイズ＋640Hz矩形。やや軽く硬い。",
       play() { noise(0.045, 0.18, 1800, "highpass"); osc(640, 0.06, "square", 0.1, 320); } },
 
@@ -91,12 +92,13 @@
         thud(190, 0.1, 0.1);                            // 軽い実体
       } },
 
-    { nm: "③ 重い一撃", desc: "低い衝撃＋中域クラック＋サブ。ずっしり爽快・打撃感が強い。",
+    { nm: "③ 重い一撃（さらに重く）", desc: "低い基音＋長いサブを重ねた、ずっしり一撃。打撃感を最大化。",
       play() {
-        noise(0.045, 0.2, 1600, "highpass");
-        thud(210, 0.18, 0.24);                          // 重い実体
-        osc(520, 0.05, "square", 0.12, 220);            // 中域クラック
-        osc(80, 0.12, "triangle", 0.12, 50);            // サブ
+        noise(0.05, 0.18, 1300, "highpass");           // クラックは少し落ち着かせる
+        thud(150, 0.28, 0.30);                          // 低く長い実体
+        osc(420, 0.06, "square", 0.12, 150);            // 低めの中域クラック
+        osc(55, 0.24, "sine", 0.20, 34);                // 深く長いサブ
+        osc(92, 0.16, "triangle", 0.12, 48, 0.006);     // 追加の低層（厚み）
       } },
 
     { nm: "④ きらめき斬", desc: "一閃＋スウィング＋高音のキラッ。最も“爽快/ジューシー”寄り。",
@@ -115,10 +117,40 @@
         thud(140, 0.12, 0.2);
         osc(680, 0.06, "triangle", 0.08, 440, 0.01);    // リング
       } },
+
+    { head: "【被弾】攻撃される音（hurt）" },
+    { nm: "① 現在の音（参照）", cur: true, desc: "鋭い小ノイズ＋135Hzの低い実体。BGMの低音に埋もれがち。",
+      play() { noise(0.05, 0.13, 500, "bandpass"); thud(135, 0.26, 0.24); } },
+
+    { nm: "⑥ 鈍い衝撃", desc: "重い低音＋中域の“ドスッ”。BGMを抜けて分かる、被弾の基本形。",
+      play() {
+        noise(0.06, 0.18, 900, "bandpass");             // 中域の体当たり感（抜ける）
+        thud(120, 0.3, 0.28);                            // 重い実体
+        osc(300, 0.08, "square", 0.1, 130);              // 鈍い芯
+      } },
+
+    { nm: "⑦ うめき＋衝撃", desc: "衝撃＋低く沈む呻き。痛みが生々しい・危険が伝わる。",
+      play() {
+        noise(0.05, 0.16, 700, "bandpass");
+        thud(130, 0.22, 0.24);
+        osc(260, 0.32, "sawtooth", 0.12, 90, 0.01);     // 沈む呻き（下降）
+      } },
+
+    { nm: "⑧ 鋭い痛打", desc: "やや高い刺すような痛打＋低い芯。最も“食らった”警告性が高い。",
+      play() {
+        noise(0.045, 0.2, 1400, "highpass");            // 刺す痛み（明瞭・抜ける）
+        osc(520, 0.1, "sawtooth", 0.13, 180);           // 痛打の芯（高→低）
+        thud(110, 0.2, 0.22);                            // 低い実体
+      } },
   ];
 
   const cardsEl = document.getElementById("cards");
   candidates.forEach((c) => {
+    if (c.head) {
+      const h = document.createElement("div");
+      h.style.cssText = "width:100%;max-width:560px;font-size:12px;font-weight:700;color:#9fe0f0;letter-spacing:.08em;margin:14px 2px 2px;";
+      h.textContent = c.head; cardsEl.appendChild(h); return;
+    }
     const el = document.createElement("div"); el.className = "card" + (c.cur ? " cur" : "");
     el.innerHTML = `<div class="meta"><div class="nm">${c.nm}</div><div class="desc">${c.desc}</div></div><button class="play" type="button">▶ 連打</button>`;
     el.querySelector(".play").addEventListener("click", () => { if (ensure()) c.play(); });
