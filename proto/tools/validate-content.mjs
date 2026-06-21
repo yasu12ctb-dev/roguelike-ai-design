@@ -14,7 +14,7 @@ const read = (p) => readFileSync(join(ROOT, p), "utf-8");
 // ---- エンジンのスキーマ（types.ts と同期。enum は安定。消耗品キーは items.ts から動的取得）----
 const CONTEXTS = new Set(["encounter", "dungeon", "street", "tavern", "guild", "shop", "quest", "chest"]);
 const TOWN = new Set(["street", "tavern", "guild", "shop", "quest"]);
-const PREREQ_KEYS = new Set(["tone", "stage", "finalAct", "kind", "minBond", "unfinished", "minExposure", "minLevel", "hasCatchphrase", "depthBand", "flag", "notFlag", "arc", "arcStep", "arcPick", "arcActor", "actorId", "notArc"]);
+const PREREQ_KEYS = new Set(["tone", "stage", "finalAct", "kind", "minBond", "unfinished", "minExposure", "minLevel", "minDepth", "maxDepth", "hasCatchphrase", "depthBand", "flag", "notFlag", "arc", "arcStep", "arcPick", "arcActor", "actorId", "notArc"]);
 const EFFECT_KEYS = new Set(["bond", "closeUnfinished", "exposure", "trait", "chronicle", "plant", "arc", "gold", "item"]);
 const TONES = new Set(["loss", "myth", "grudge"]);
 const STAGES = new Set(["weathered", "twisting", "alien"]);
