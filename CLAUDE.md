@@ -23,6 +23,7 @@
 ## 技術メモ
 
 - Node 22。`cd proto && node --experimental-strip-types src/demo.ts`（決定論デモ＝CIスモークテスト）。
+- **⚠ push 前は必ず CI 相当を回す＝`npm run check`**（＝受理ゲート `tools/validate-content.mjs` → demo → `companion-check` → `build:web`。CI `deploy.yml` と同順）。**content（storylets/adventurers）や `types.ts` の `Prereq`/`Effect` スキーマを触ったら受理ゲート必須**＝未知キーは CI で exit 1＝**デプロイごと失敗する**（2026-06-21 に `minDepth/maxDepth` 追加を許可リスト未反映でデプロイを落とした実例あり。許可リストは `validate-content.mjs` の `PREREQ_KEYS`/`EFFECT_KEYS` と `types.ts` を同期）。
 - `npm run build:web`（esbuild。依存は esbuild のみ）。CLI: `npm run cli`。
 - エンジンはブラウザセーフ（fs依存は `*-node.ts` に隔離）。決定論：seed → mulberry32 一本。
 - **実行時LLMは使わない**（snapshot 4-9）。LLMは制作時の素材生成（鋳造所）のみ。
