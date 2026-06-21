@@ -51,7 +51,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.11.0";
+export const APP_VERSION = "0.11.1";
 export const APP_BUILD = "2026-06-21";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -2793,9 +2793,38 @@ function rewardKill(mon: Monster, killLine?: string) {
     }
     if (mon.boss === "area") spawnReturnDoor(mon); // 帰還の扉＝往復チェックポイント（v2・深淵帯を除く）
     recordCompanionFeat(); // 相棒と共にボスを討った＝偉業（4-4E 昇格ゲート）
+    // ボスは金貨も確定で落とす（rare＝farm無し）。
+    const bonus = 5 * mon.kind.tier + floor!.depth;
+    ch.gold += bonus; sfx("coin", 0.12);
+    log(`亡骸から ${bonus} 金貨を得た（所持 ${ch.gold}）。`, "dim");
   } else {
     sfx("kill");
     log(killLine ?? `${mon.kind.name}を倒した。`);
+    rollKillLoot(mon); // 雑魚の討伐報酬（控えめ・深度スケール・farm根絶下なので安全：NetHack流のたまドロップ）
+  }
+}
+
+/** 雑魚討伐のドロップ（4-10G 拡張・NetHack の death drop 流＝たまに・深度依存）。
+ *  気前＝控えめ：金貨~15%／武具~1/8(+tier)／消耗品~6%。袋満杯なら武具は見送り（売って空ける）。 */
+function rollKillLoot(mon: Monster): void {
+  const ch = world.current; if (!ch || !floor) return;
+  const depth = floor.depth, tier = mon.kind.tier;
+  if (rng.next() < 0.15) { // 金貨：亡骸から拾うめぼしい物
+    const g = 1 + tier + Math.floor(depth * 0.35) + Math.floor(rng.next() * 3);
+    ch.gold += g; sfx("coin", 0.1);
+    log(`亡骸から ${g} 金貨を拾った（所持 ${ch.gold}）。`, "dim");
+  }
+  if (rng.next() < 0.125 + (tier - 1) * 0.03) { // 武具：既存 rollItem→袋（容量制）
+    ch.gearBag ??= [];
+    if (ch.gearBag.length < gearCapacity(ch)) {
+      const it = rollItem(depth, rng);
+      ch.gearBag.push(it); sfx("pickup", 0.1);
+      log(`亡骸が ${itemLabel(it)} を遺していた（袋 ${ch.gearBag.length}/${gearCapacity(ch)}）。`, "dim");
+    } else log("めぼしい武具があったが、袋が満杯で見送った。", "dim");
+  }
+  if (rng.next() < 0.06) { // 消耗品：たまに薬の類
+    const c = rng.pick(CONSUMABLES);
+    if (addConsumable(ch, c.key)) { sfx("pickup", 0.1); log(`亡骸から ${c.name} を見つけた。`, "dim"); }
   }
 }
 
