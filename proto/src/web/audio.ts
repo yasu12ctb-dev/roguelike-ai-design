@@ -211,7 +211,9 @@ export function sfx(kind: Sfx): void {
   if (!ctx || muted) return;
   switch (kind) {
     // ── 移動・世界 ──
-    case "move": tone(150, 0.05, "triangle", 0.05); break;
+    // 足音：毎手鳴る＝控えめに。だが BGM の低音ドローン（~75-150Hz）に潰されないよう
+    // 中域の短いタップ＋ごく薄い低い実体で「歩いた」感を残す（周波数帯を分けて抜けさせる）。
+    case "move": noise(0.035, 0.05, 1100); tone(110, 0.05, "triangle", 0.04, 70); break;
     case "stairs": case "stairs_down": tone(330, 0.3, "sine", 0.13, 120); thud(150, 0.4, 0.1, 0.25); break; // 深く降りる＝下行＋低い余韻
     case "stairs_up": tone(300, 0.26, "sine", 0.12, 680); setTimeout(() => tone(540, 0.22, "sine", 0.1, 840), 90); break; // 浮上＝上行＝安堵
 

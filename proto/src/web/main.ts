@@ -51,7 +51,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.10.1";
+export const APP_VERSION = "0.10.2";
 export const APP_BUILD = "2026-06-21";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1400,6 +1400,7 @@ function townAct(dx: number, dy: number) {
   if (t !== "floor" && t !== "gate") { if (p?.line) log(p.line, "dim"); return; }
   if (p && t !== "gate") { if (p.line) log(p.line, "dim"); return; } // 景物（木・井戸・碑）は塞ぐ
   townPlayer = { x: nx, y: ny };
+  sfx("move");
   drawTown();
   if (t === "gate") { void promptDescend(); return; }
   persistTown();
@@ -1416,6 +1417,7 @@ function interiorAct(dx: number, dy: number) {
   if (t === "bldg") { const f = interior.furniture.find((f) => f.x === nx && f.y === ny); if (f?.line) log(f.line, "dim"); return; }
   if (t !== "floor" && t !== "rug") return;
   townPlayer = { x: nx, y: ny };
+  sfx("move");
   drawInterior();
   persistTown();
 }
