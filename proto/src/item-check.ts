@@ -1,8 +1,9 @@
 // ルートシステム（銘×基×+N）の決定論テスト。最重要＝合成名↔分解（itemByName）の往復一致を機械保証。
 // 化石 gearTags（文字列）→継承で itemByName 復元する経路が壊れない／銘の前方一致が曖昧でないことを担保。
 // 実行：node --experimental-strip-types src/item-check.ts
-import { AFFIXES, baseList, forgeItem, itemByName, enchantUp } from "./items.ts";
-import type { Item } from "./types.ts";
+import { AFFIXES, baseList, forgeItem, itemByName, enchantUp, itemPower } from "./items.ts";
+import { BASE_STATS, RELIC_VIGOR_HP, meleeDmg, maxHp, armorReduce, effectiveReason, xpMul } from "./progression.ts";
+import type { Character, Item } from "./types.ts";
 
 let pass = 0, fail = 0;
 function ok(cond: boolean, label: string, detail = "") {
@@ -59,6 +60,28 @@ console.log("== 深蝕の符号（蝕=+／浄=−） ==");
 ok((forgeItem("長剣", "hungry", 0)?.exposurePerTurn ?? 0) > 0, "蝕は深蝕+");
 ok((forgeItem("長剣", "absolve", 0)?.exposurePerTurn ?? 0) < 0, "浄は深蝕−（深蝕を軽減する武器）");
 ok((forgeItem("重鎧", "devour", 0)?.exposurePerTurn ?? 0) > 0, "効果高いが深蝕を帯びる防具");
+
+console.log("== 遺物の効果（派生値への反映） ==");
+// 派生関数は ch.stats と ch.equipment.relic しか読まないので最小キャラで十分（world.ts を引かない）。
+const RELIC_BASE: Record<string, string> = {
+  calm: "静心の護符", reason: "理脈の指輪", greed: "貪欲の徽章", might: "闘魂の小手",
+  vigor: "不屈の護符", ward: "守護の円環", fortune: "黄金の指輪", mending: "再生の雫",
+};
+const relicNamed = (kind: string) => forgeItem(RELIC_BASE[kind], null, 0);
+const charWith = (relic: Item | null): Character =>
+  ({ stats: { ...BASE_STATS }, equipment: { weapon: null, armor: null, relic } } as unknown as Character);
+const base = charWith(null);
+ok(meleeDmg(charWith(relicNamed("might"))) === meleeDmg(base) + 1, "might→近接+1");
+ok(maxHp(charWith(relicNamed("vigor"))) === maxHp(base) + RELIC_VIGOR_HP, "vigor→最大HP+6");
+ok(armorReduce(charWith(relicNamed("ward"))) === armorReduce(base) + 1, "ward→被ダメ-1");
+ok(effectiveReason(charWith(relicNamed("reason"))) === effectiveReason(base) + 1, "reason→理+1（回帰）");
+ok(xpMul(charWith(relicNamed("greed"))) === 1.5, "greed→XP×1.5（回帰）");
+
+console.log("== 遺物の表示（全 RelicKind が itemPower で名前を持つ） ==");
+for (const kind of ["calm", "reason", "greed", "might", "vigor", "ward", "fortune", "mending"]) {
+  const it = relicNamed(kind);
+  ok(!!it && !!it.relic && !itemPower(it).includes("遺物"), `RELIC_DESC 欠落: ${kind}`, it ? itemPower(it) : "no-base");
+}
 
 console.log(`\n=== item-check: ${pass} pass / ${fail} fail ===`);
 if (fail) process.exit(1);

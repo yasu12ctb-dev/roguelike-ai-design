@@ -36,19 +36,30 @@ const TEMPLATES: Template[] = [
   { slot: "weapon", name: "大剣",     minDepth: 13, dmg: 3 },
   { slot: "weapon", name: "双刃",     minDepth: 18, dmg: 4 },
   { slot: "weapon", name: "深淵の刃", minDepth: 16, dmg: 4, exposurePerTurn: 0.02, oddity: true },
-  // 防具（被ダメ-）
+  // 防具（被ダメ-）＝武器と同数9種
   { slot: "armor",  name: "革鎧",     minDepth: 1,  reduce: 1 },
   { slot: "armor",  name: "外套",     minDepth: 2,  reduce: 1 },
   { slot: "armor",  name: "胸当て",   minDepth: 3,  reduce: 1 },
+  { slot: "armor",  name: "鋲革鎧",   minDepth: 4,  reduce: 1 },
   { slot: "armor",  name: "鎖帷子",   minDepth: 6,  reduce: 2 },
   { slot: "armor",  name: "鱗鎧",     minDepth: 9,  reduce: 2 },
   { slot: "armor",  name: "重鎧",     minDepth: 14, reduce: 3 },
   { slot: "armor",  name: "板金鎧",   minDepth: 17, reduce: 3 },
-  // 遺物（パッシブ）
-  { slot: "relic",  name: "静心の護符", minDepth: 2,  relic: "calm" },
-  { slot: "relic",  name: "理脈の指輪", minDepth: 4,  relic: "reason" },
-  { slot: "relic",  name: "貪欲の徽章", minDepth: 7,  relic: "greed" },
-  { slot: "relic",  name: "昏き護符",   minDepth: 12, relic: "reason", exposurePerTurn: 0.03, oddity: true },
+  { slot: "armor",  name: "全身鎧",   minDepth: 20, reduce: 4 },
+  // 遺物（パッシブ：8効果＝calm/reason/greed/might/vigor/ward/fortune/mending）
+  { slot: "relic",  name: "静心の護符",   minDepth: 2,  relic: "calm" },     // 深蝕レート減
+  { slot: "relic",  name: "理脈の指輪",   minDepth: 4,  relic: "reason" },   // 理+1
+  { slot: "relic",  name: "貪欲の徽章",   minDepth: 7,  relic: "greed" },    // 撃破XP×1.5
+  { slot: "relic",  name: "不屈の護符",   minDepth: 3,  relic: "vigor" },    // 最大HP+6
+  { slot: "relic",  name: "闘魂の小手",   minDepth: 5,  relic: "might" },    // 近接+1
+  { slot: "relic",  name: "守護の円環",   minDepth: 6,  relic: "ward" },     // 被ダメ-1
+  { slot: "relic",  name: "黄金の指輪",   minDepth: 8,  relic: "fortune" },  // 拾う金貨×1.5
+  { slot: "relic",  name: "再生の雫",     minDepth: 10, relic: "mending" },  // 潜行中ゆっくり回復
+  { slot: "relic",  name: "巨人の心臓",   minDepth: 13, relic: "vigor" },    // 最大HP+6（深層版）
+  { slot: "relic",  name: "鉄壁の徽章",   minDepth: 16, relic: "ward" },     // 被ダメ-1（深層版）
+  { slot: "relic",  name: "昏き護符",     minDepth: 12, relic: "reason",  exposurePerTurn: 0.03, oddity: true }, // 理+1（異物）
+  { slot: "relic",  name: "餓狼の爪",     minDepth: 15, relic: "might",   exposurePerTurn: 0.02, oddity: true }, // 近接+1（強いが蝕む）
+  { slot: "relic",  name: "強欲の眼",     minDepth: 16, relic: "greed",   exposurePerTurn: 0.025, oddity: true }, // 撃破XP×1.5（強いが蝕む）
   // 鞄（持ち物の枠+。持ち物システム Phase2）
   { slot: "bag",    name: "革袋",         minDepth: 1,  capacity: 3 },
   { slot: "bag",    name: "探索者の背嚢", minDepth: 6,  capacity: 5 },
@@ -80,7 +91,7 @@ export const AFFIXES: Affix[] = [
   { key: "steel",    name: "鋼の",         klass: "boon", slots: ["armor"],  minDepth: 8,  weight: 5, reduceAdd: 1 },
   { key: "heavy",    name: "重厚な",       klass: "boon", slots: ["armor"],  minDepth: 10, weight: 4, reduceAdd: 2 },
   { key: "bulwark",  name: "鉄壁の",       klass: "boon", slots: ["armor"],  minDepth: 16, weight: 3, reduceAdd: 2 },
-  { key: "light",    name: "軽量の",       klass: "boon", slots: ["bag", "armor"], minDepth: 4, weight: 4, capacityAdd: 2 },
+  { key: "light",    name: "軽量の",       klass: "boon", slots: ["bag"], minDepth: 4, weight: 4, capacityAdd: 2 },
   // ── 蝕(corrupt)：禍々しい銘＝威力大だが深蝕+（別枠の危険クラス・低頻度・未鑑定の賭け） ──
   { key: "hungry",   name: "飢えた",   klass: "corrupt", slots: ["weapon"], minDepth: 6,  weight: 3, dmgAdd: 2, exposureAdd: 0.02 },
   { key: "cursing",  name: "呪詛の",   klass: "corrupt", slots: ["weapon"], minDepth: 9,  weight: 3, dmgAdd: 2, exposureAdd: 0.025 },
@@ -107,11 +118,13 @@ const round3 = (x: number) => Math.round(x * 1000) / 1000; // 深蝕の浮動小
 const enchantDmg = (slot: ItemSlot, n: number) => (slot === "weapon" ? n : 0);
 const enchantReduce = (slot: ItemSlot, n: number) => (slot === "armor" ? Math.ceil(n / 2) : 0);
 
-/** 基×銘×+N から Item を作る（値はここで最終値に焼く＝二重計算しない）。 */
+/** 基×銘×+N から Item を作る（値はここで最終値に焼く＝二重計算しない）。
+ *  銘の加算はスロットに効くものだけ焼く（派生値＝武器dmg/防具reduce/鞄capacity しか読まない＝死に値を作らない）。
+ *  exposure はどのスロットでも効く（equipExposure が全スロット合算）。 */
 function fromTemplate(t: Template, affix: Affix | null = null, enchant = 0): Item {
-  const dmg = (t.dmg ?? 0) + (affix?.dmgAdd ?? 0) + enchantDmg(t.slot, enchant);
-  const reduce = (t.reduce ?? 0) + (affix?.reduceAdd ?? 0) + enchantReduce(t.slot, enchant);
-  const cap = (t.capacity ?? 0) + (affix?.capacityAdd ?? 0);
+  const dmg = (t.dmg ?? 0) + (t.slot === "weapon" ? (affix?.dmgAdd ?? 0) : 0) + enchantDmg(t.slot, enchant);
+  const reduce = (t.reduce ?? 0) + (t.slot === "armor" ? (affix?.reduceAdd ?? 0) : 0) + enchantReduce(t.slot, enchant);
+  const cap = (t.capacity ?? 0) + (t.slot === "bag" ? (affix?.capacityAdd ?? 0) : 0);
   const exp = round3((t.exposurePerTurn ?? 0) + (affix?.exposureAdd ?? 0));
   const name = `${affix?.name ?? ""}${t.name}${enchant > 0 ? `+${enchant}` : ""}`;
   const item: Item = { id: iid(), slot: t.slot, name, baseName: t.name };
@@ -235,13 +248,19 @@ export const CONSUMABLES: ConsumableDef[] = [
 ];
 export const consumableByKey = (key: string): ConsumableDef | undefined => CONSUMABLES.find((c) => c.key === key);
 
+/** 遺物の効果説明（全 RelicKind を網羅＝新 kind 追加時はここも更新）。 */
+const RELIC_DESC: Record<NonNullable<Item["relic"]>, string> = {
+  calm: "深蝕レート減", reason: "理＋1", greed: "撃破XP増", might: "近接＋1",
+  vigor: "最大HP＋6", ward: "被ダメ−1", fortune: "拾う金貨増", mending: "潜行中ゆっくり回復",
+};
+
 /** 効果の説明（鑑定済み前提）。 */
 export function itemPower(it: Item): string {
   let s: string;
   if (it.slot === "weapon") s = `攻＋${it.dmg}`;
   else if (it.slot === "armor") s = `被ダメ−${it.reduce}`;
   else if (it.slot === "bag") s = `持てる量＋${it.capacity}`;
-  else s = it.relic === "calm" ? "深蝕レート減" : it.relic === "reason" ? "理＋1" : "撃破XP増";
+  else s = it.relic ? RELIC_DESC[it.relic] : "遺物";
   if (it.exposurePerTurn) s += it.exposurePerTurn > 0 ? "・装備中わずかに深蝕＋" : "・装備中わずかに深蝕−";
   return s;
 }

@@ -65,7 +65,8 @@ export interface Stats { body: number; power: number; reason: number; heart: num
 
 /** 装備（4-11F④・4-11E）。武器=攻撃+ / 防具=被ダメ- / 遺物=パッシブ。異物=未鑑定。 */
 export type ItemSlot = "weapon" | "armor" | "relic" | "bag";
-export type RelicKind = "calm" | "reason" | "greed"; // 深蝕レート減 / 理+1 / 撃破XP増
+export type RelicKind = "calm" | "reason" | "greed" | "might" | "vigor" | "ward" | "fortune" | "mending";
+// calm=深蝕レート減 / reason=理+1 / greed=撃破XP×1.5 / might=近接+1 / vigor=最大HP+6 / ward=被ダメ-1 / fortune=拾う金貨×1.5 / mending=潜行中ゆっくり回復
 export interface Item {
   id: string; slot: ItemSlot; name: string;
   dmg?: number;             // 武器：近接ダメージ+（銘・+N 込みの最終値）

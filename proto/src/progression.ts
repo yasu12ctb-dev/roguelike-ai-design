@@ -8,9 +8,11 @@ export const BASE_STATS: Stats = { body: 2, power: 2, reason: 2, heart: 2 };
 export const HP_BASE = 6, HP_PER = 3;
 /** 最大HP＝体（逓減・終始シビア 4-11F②）。体2で12＝従来値。体16までは+3/点、超過分は+1/点で
  *  facetank を抑止（均整ビルドは不変、体全振りのみ伸びが鈍る：体51→89）。 */
+export const RELIC_VIGOR_HP = 6; // 遺物 vigor の最大HP上乗せ
 export const maxHp = (ch: Character) => {
   const b = ch.stats.body;
-  return HP_BASE + 3 * Math.min(b, 16) + Math.max(0, b - 16);
+  return HP_BASE + 3 * Math.min(b, 16) + Math.max(0, b - 16)
+    + (ch.equipment?.relic?.relic === "vigor" ? RELIC_VIGOR_HP : 0);
 };
 /** 持ち物の容量（枠数）。レベル（Lv1→6, Lv4→8, Lv10→11）＋鞄（装備）で増える。 */
 export const CARRY_BASE = 6;
@@ -27,10 +29,12 @@ export const STASH_CAP = 60;
 export const STASH_INHERIT = 4;
 /** 構えられる術の数（4-11F③ ロードアウト制）。習得は無制限だが、戦闘で撃てるのはこの数まで。 */
 export const LOADOUT_CAP = 10;
-/** 近接ダメージ＝力＋武器（power2・素手 で 3＝従来値。4-11F④） */
-export const meleeDmg = (ch: Character) => ch.stats.power + 1 + (ch.equipment?.weapon?.dmg ?? 0);
-/** 被ダメージ軽減＝防具（B案・下限は呼び出し側で min1） */
-export const armorReduce = (ch: Character) => ch.equipment?.armor?.reduce ?? 0;
+/** 近接ダメージ＝力＋武器（power2・素手 で 3＝従来値。4-11F④）＋遺物 might */
+export const meleeDmg = (ch: Character) =>
+  ch.stats.power + 1 + (ch.equipment?.weapon?.dmg ?? 0) + (ch.equipment?.relic?.relic === "might" ? 1 : 0);
+/** 被ダメージ軽減＝防具（B案・下限は呼び出し側で min1）＋遺物 ward */
+export const armorReduce = (ch: Character) =>
+  (ch.equipment?.armor?.reduce ?? 0) + (ch.equipment?.relic?.relic === "ward" ? 1 : 0);
 /** 術の威力に使う実効・理（遺物「理脈」で+1） */
 export const effectiveReason = (ch: Character) => ch.stats.reason + (ch.equipment?.relic?.relic === "reason" ? 1 : 0);
 /** 撃破XP倍率（遺物「貪欲」で1.5倍） */
