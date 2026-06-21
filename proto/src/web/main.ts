@@ -51,7 +51,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.12.0";
+export const APP_VERSION = "0.12.1";
 export const APP_BUILD = "2026-06-21";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -188,11 +188,11 @@ const save = () => { localStorage.setItem(SAVE_KEY, JSON.stringify(world)); save
 // 潜行の途中状態（フロア/位置/HP/階キャッシュ）を保存＝アプリを完全に閉じても深度0からやり直しにならない
 // （途中で閉じる＝危機回避の抜け道を塞ぐ＝難易度維持）。Floor は JSON 化可能。街/死で自動クリア。
 const DIVE_KEY = "sekitsui.dive.v0";
-interface DiveSnapshot { depth: number; hp: number; inAbyss: boolean; player: Pos; floor: Floor; cache: [number, Floor][]; pursuerCount: number; turnsSinceFloor: number; }
+interface DiveSnapshot { depth: number; hp: number; inAbyss: boolean; player: Pos; floor: Floor; cache: [number, Floor][]; pursuerCount: number; turnsSinceFloor: number; setPieceCooldown?: number; quietDescents?: number; }
 function saveDive(): void {
   try {
     if (mode === "dive" && floor && world.current?.alive) {
-      const snap: DiveSnapshot = { depth: floor.depth, hp, inAbyss, player, floor, cache: [...floorCache.entries()], pursuerCount, turnsSinceFloor };
+      const snap: DiveSnapshot = { depth: floor.depth, hp, inAbyss, player, floor, cache: [...floorCache.entries()], pursuerCount, turnsSinceFloor, setPieceCooldown, quietDescents };
       localStorage.setItem(DIVE_KEY, JSON.stringify(snap));
     } else localStorage.removeItem(DIVE_KEY);
   } catch { /* ignore */ }
@@ -1718,7 +1718,10 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
     // 出現数は面積に追従（迷宮拡張に合わせて増やす＝イベント遭遇も拡張に比例）：d1≈2 / d50≈4。
     const exclude = new Set<string>(seenThisDive);
     // P2 密度正規化＋P1 序盤抑制：浅層は疎（深度1〜3は1体まで）、深いほど面積比で増える（世代で過密にしない）。
-    const fossilTries = (depth >= 4 ? 2 : 1) + (depth >= 4 ? Math.min(2, Math.floor((floor.w * floor.h) / 3600)) : 0);
+    let fossilTries = (depth >= 4 ? 2 : 1) + (depth >= 4 ? Math.min(2, Math.floor((floor.w * floor.h) / 3600)) : 0);
+    // 4-10H 第二層・凪検知（因縁を浮上）：無風が続き、未完の絆を抱えているなら化石を1体上乗せ。
+    // rollEncounter は未完因縁に +3.0 の重みを既に与えるため、1体増やすだけで因縁化石が盤上に出やすくなる。
+    if (quietDescents >= PITY_BOND_AT && ch.bonds.some((b) => b.unfinished)) fossilTries += 1;
     for (let i = 0; i < fossilTries; i++) {
       const fossil = rollEncounter(world, ch, rng, exclude);
       if (!fossil) break;
@@ -1969,6 +1972,16 @@ const recentEvents: string[] = [];
 function noteEvent(id: string): void { recentEvents.push(id); while (recentEvents.length > 6) recentEvents.shift(); }
 const recentSet = (): Set<string> => new Set(recentEvents);
 const curLevel = (): number => world.current?.level ?? 1;
+
+// 4-10H 第二層（ペーシング・ディレクター・2026-06-21 ユーザー承認）。第一層（深度逓増・1降下1イベント・
+// recentEvents 重複回避）の上に、緊張と緩和のリズムを監督する薄い調停層を足す。数値は要テストプレイ調整。
+const SETPIECE_COOLDOWN = 12; // 山場連発防止：山場を見せたら N 手は次の山場演出を抑制（ダイブを跨ぐ）。
+const PITY_STEP = 0.15;       // 凪検知（ピティ）：無風の降下1回ごとに迷宮イベント率へ加点。
+const PITY_BOND_AT = 2;       // 凪が PITY_BOND_AT 降下続き、未完の絆を持つなら因縁化石を1体上乗せ（因縁を浮上）。
+let setPieceCooldown = 0;     // >0 の間、山場（legend_return/grudge_hunt）演出を抑え通常遭遇へ。endTurn で毎手減算。
+let quietDescents = 0;        // 直近の降下からイベントが一度も起きていない回数（イベント発火で 0 に戻す）。
+// 何らかのイベント（迷宮の気配/行商人/化石遭遇/宝箱）が起きたらピティを解除＝凪カウンタをリセット。
+function markEventFired(): void { quietDescents = 0; }
 // 同一潜行中に訪れた階を保持（再訪で再生成しない＝宝箱/化石/倒した敵の状態が残る。FB：上り下りで宝箱が復活していた）。
 // 潜行ごとにクリア（startDive）。途中状態は DiveSnapshot で保存＝アプリを閉じても同じ深度・盤面から再開。
 let floorCache = new Map<number, Floor>();
@@ -1996,6 +2009,7 @@ async function startDive() {
   mode = "dive";
   seenThisDive = [];
   floorCache = new Map(); // 新しい潜行＝階の記憶をリセット（深度1から）
+  setPieceCooldown = 0; quietDescents = 0; // 4-10H 第二層：新しい潜行はペーシング調停層もまっさらから
   world.diveCount = (world.diveCount ?? 0) + 1; // 潜行ごとに別ダンジョン＝再潜行farm防止（genFloor のseed nonce）
   if (world.current) hp = maxHp(world.current); // 街で癒えた状態から潜る
   // 街/屋内の paintCell が残したインライン背景・文字色・グローを引き継がないよう、
@@ -2021,6 +2035,8 @@ function resumeDive(snap: DiveSnapshot): void {
   inAbyss = snap.inAbyss;
   pursuerCount = snap.pursuerCount ?? 0;
   turnsSinceFloor = snap.turnsSinceFloor ?? 0;
+  setPieceCooldown = snap.setPieceCooldown ?? 0; // 4-10H 第二層：途中閉じでクールダウン/ピティをリセットさせない（抜け道封じ）
+  quietDescents = snap.quietDescents ?? 0;
   if (world.current) world.current.depth = floor.depth;
   buildGridDom(VIEW_W, VIEW_H);
   companion = null;
@@ -2065,6 +2081,7 @@ async function endTurn() {
   if (!floor || !world.current) return;
   const ch = world.current;
 
+  if (setPieceCooldown > 0) setPieceCooldown--; // 4-10H 第二層：山場クールダウンの毎手減算（フロアを跨ぐ）
   // 術バフの計時（毎手減算。疾走中はこの手番の敵を飛ばす。死戸は明けに揺り戻し）。
   if (armorBuffTurns > 0) armorBuffTurns--;
   if (attackBuffTurns > 0) attackBuffTurns--;
@@ -2972,14 +2989,19 @@ async function stairsPrompt(dir: "down" | "up") {
       const ch = world.current!;
       const oddity = equipExposure(ch) * ODDITY_DESCENT_MULT * heartFactor(ch);
       if (oddity > 0) { ch.exposure += oddity; log(`異物が、深みを一段呼び込む（深蝕 ＋${oddity.toFixed(2)}）。`, "warn"); }
-      sfx("stairs_down"); enterFloor(f.depth + 1, true); if (!(await maybeDungeonEvent(floor!.depth))) await maybeMerchantEncounter();
+      sfx("stairs_down"); enterFloor(f.depth + 1, true);
+      // 4-10H 第二層：迷宮の気配も行商人も出なかった降下は「無風」＝ピティ加算（次の降下で発火率が上がる）。
+      if (!((await maybeDungeonEvent(floor!.depth)) || (await maybeMerchantEncounter()))) quietDescents++;
     }
   } else if (f.depth === 1) {
     const r = await sheet({ text: "地上への階段だ。街へ戻るか？\n（傷は癒えるが、浴びた深みは消えない）", options: ["街へ戻る", "とどまる"] });
     if (r.pick === 1) { await surfaceReturn(); return; }
   } else {
     const r = await sheet({ text: `上り階段がある。深度${f.depth - 1}へ戻るか？`, options: ["戻る", "とどまる"] });
-    if (r.pick === 1) { enterFloor(f.depth - 1, false); if (!(await maybeDungeonEvent(floor!.depth))) await maybeMerchantEncounter(); }
+    if (r.pick === 1) {
+      enterFloor(f.depth - 1, false);
+      if (!((await maybeDungeonEvent(floor!.depth)) || (await maybeMerchantEncounter()))) quietDescents++;
+    }
   }
   busy = false;
   draw();
@@ -3034,10 +3056,13 @@ async function ascendWithRelic() {
 async function maybeDungeonEvent(depth: number): Promise<boolean> {
   // P1 序盤スロープ：浅いほど低頻度（深度2≈0.19 → 深いほど上限0.55）。深度1は出さない。
   if (depth < 2) return false;
-  if (rng.next() >= Math.min(0.55, 0.12 + depth * 0.035)) return false;
+  // 4-10H 第二層・凪検知（ピティ）：無風の降下が続くほど発火率を上げ、長い無風を自己補正する（上限0.9）。
+  const p = Math.min(0.9, Math.min(0.55, 0.12 + depth * 0.035) + quietDescents * PITY_STEP);
+  if (rng.next() >= p) return false;
   const ev = selectDungeonStorylet(db, depth, rng, world.current?.exposure ?? 0, world, curLevel(), recentSet());
   if (!ev || !ev.choices || ev.choices.length === 0) return false;
   noteEvent(ev.id);
+  markEventFired();
   sfx("ui");
   const wasBusy = busy; busy = true;
   const r = await sheet({
@@ -3056,11 +3081,12 @@ async function maybeDungeonEvent(depth: number): Promise<boolean> {
 
 /** 迷宮の行商人との出会い（4-10G）：袋の拾い物を安値（itemValue×0.45）でその場買い取り。
  *  売る物があるときだけ稀に出る。帰還の試練中は出ない（追われている最中なので）。 */
-async function maybeMerchantEncounter() {
+async function maybeMerchantEncounter(): Promise<boolean> {
   const ch = world.current;
-  if (!ch || !floor || ch.carryingRelic) return;
+  if (!ch || !floor || ch.carryingRelic) return false;
   const bag = ch.gearBag ?? [];
-  if (!bag.length || rng.next() >= 0.3) return;
+  if (!bag.length || rng.next() >= 0.3) return false;
+  markEventFired(); // 4-10H 第二層：行商人との遭遇も「イベントが起きた」＝凪を解除
   busy = true;
   sfx("ui");
   let first = true;
@@ -3084,6 +3110,7 @@ async function maybeMerchantEncounter() {
   }
   busy = false;
   draw();
+  return true;
 }
 
 // ---------- 化石との対面（再発見 → 干渉） ----------
@@ -3093,8 +3120,12 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   const fossil = world.fossils.find((f) => f.id === fe.fossilId)!;
   sfx("ui");
   const v = computeVariation(fossil, world.generation);
-  const setPiece = renderSetPieceIfAny(db, fossil, v);
-  const spType = setPiece ? matchSetPiece(db, fossil, v)?.type : undefined; // 山場の型（遭-④）
+  let setPiece = renderSetPieceIfAny(db, fossil, v);
+  let spType = setPiece ? matchSetPiece(db, fossil, v)?.type : undefined; // 山場の型（遭-④）
+  // 4-10H 第二層・山場連発防止：直近に山場を見せていれば、この遭遇は山場演出を抑え通常遭遇に落とす
+  // （大マップで化石が複数並んでも legend_return/grudge_hunt が立て続けに起きない）。
+  if (spType && setPieceCooldown > 0) { spType = undefined; setPiece = undefined; }
+  if (spType) setPieceCooldown = SETPIECE_COOLDOWN; // 山場を見せる＝以後 N 手は次の山場を抑制
   const baseText = setPiece ?? renderRediscovery(db, rng, fossil, v);
   // 相棒由来の化石は「相棒だと分かる」一言を添える（4-14C Phase C・固有性）。
   const text = fossil.wasCompanion
@@ -3102,6 +3133,7 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
     : baseText;
   recordRediscovery(world, fossil.id);
   seenThisDive.push(fossil.id);
+  markEventFired(); // 4-10H 第二層：化石遭遇＝イベントが起きた＝凪を解除
   for (const l of onRediscoverFossil(world, fossil.id)) { log(l, "cue"); save(); } // 回収系の依頼達成
   const ch = world.current!;
 
@@ -3230,6 +3262,7 @@ async function chestScene(ce: Chest) {
       meta: `深度${depth} ── 聖遺物`, options: ["聖遺物を奪う", "まだやめておく"],
     });
     if (r.pick === 1) {
+      markEventFired(); // 4-10H 第二層：聖遺物の奪取＝大きな節目＝凪を解除
       sfx("intervene"); flashFx("warp");
       const i = floor!.chests.indexOf(ce); if (i >= 0) floor!.chests.splice(i, 1);
       ch.carryingRelic = "深淵の聖遺物";
@@ -3240,6 +3273,7 @@ async function chestScene(ce: Chest) {
   }
   const r = await sheet({ text: "古びた宝箱がある。開けてみるか？", meta: `深度${depth} ── 宝箱`, options: ["開ける", "見送る"] });
   if (r.pick === 1) {
+    markEventFired(); // 4-10H 第二層：宝箱を開ける＝イベントが起きた＝凪を解除
     sfx("chest");
     // 開けた宝箱はマップから取り除く（空き箱を残さない）
     const i = floor!.chests.indexOf(ce);
