@@ -51,7 +51,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.10.0";
+export const APP_VERSION = "0.10.1";
 export const APP_BUILD = "2026-06-21";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -530,7 +530,7 @@ async function questBoard() {
       const cut = world.companion?.alive ? companionCut(gross) : 0; // 同行中は依頼報酬も折半（4-14C）
       if (cut > 0) { ch.gold -= cut; log(`${companionName()}が取り分として ${cut}金貨を受け取った（折半）。`, "dim"); }
       const from = q.patron === "noble" ? "貴族の使い" : "ギルド長";
-      log(`${from}から報酬を受け取った（＋${gross - cut}金貨／所持 ${ch.gold}）。`);
+      sfx("coin"); log(`${from}から報酬を受け取った（＋${gross - cut}金貨／所持 ${ch.gold}）。`);
       chronicle(world, "legend", `${ch.name}が${q.patron === "noble" ? "貴族街の大命" : "依頼"}「${q.title}」を果たした。`, [ch.id]);
     },
   });
@@ -576,7 +576,7 @@ async function appraiseShop() {
       await sheet({ text: `金が足りない（鑑定料 ${cost}・所持 ${ch.gold}）。`, options: ["仕方ない"] });
       busy = false; continue;
     }
-    ch.gold -= cost; it.unidentified = false; sfx("open");
+    ch.gold -= cost; it.unidentified = false; sfx("buy");
     log(`鑑定した――《${it.name}》。${itemPower(it)}${it.exposurePerTurn ? "・装備中わずかに深蝕＋" : ""}（鑑定料 ${cost}／所持 ${ch.gold}）。`, "warn");
     save();
   }
@@ -604,7 +604,7 @@ async function oddmentsBuy() {
   const i = r.pick - 1;
   if (i < 0 || i >= stock.length) return;
   if (ch.gold < price) { busy = true; await sheet({ text: "金貨が足りない。", options: ["出直す"] }); busy = false; return; }
-  ch.gold -= price; sfx("open");
+  ch.gold -= price; sfx("buy");
   busy = true;
   await gearBagPush(stock[i]); // 袋へ（容量は事前確認済み＝必ず入る）
   busy = false;
@@ -636,7 +636,7 @@ async function smithSell() {
     const i = r.pick - 1;
     if (i < 0 || i >= bag.length) break;
     const it = bag.splice(i, 1)[0], val = splitGold(sellGear(it, SMITH_SELL_MUL)); // 同行中は売却益も折半（4-14C）
-    ch.gold += val; sfx("open");
+    ch.gold += val; sfx("sell");
     log(`${it.name} を武具屋に売った（＋${val}金貨／所持 ${ch.gold}）。`, "dim");
     save();
   }
@@ -661,7 +661,7 @@ async function smithBuyKind(slot: "weapon" | "armor") {
   const it = stock[i], price = prices[i];
   if (ch.gold < price) { busy = true; await sheet({ text: "金貨が足りない。", options: ["出直す"] }); busy = false; return; }
   ch.gold -= price; ch.equipment[it.slot] = it;
-  sfx("open");
+  sfx("buy");
   log(`${it.name} を買って装備した（−${price}金貨／所持 ${ch.gold}）。`);
   if (it.exposurePerTurn) log("……身につけた途端、深みがじわりと滲む。", "warn");
   save();
@@ -700,7 +700,7 @@ async function healerTreat() {
   if (r.pick !== 1) return;
   if (ch.gold < cost) { busy = true; await sheet({ text: "金貨が足りない。", options: ["出直す"] }); busy = false; return; }
   ch.gold -= cost; ch.exposure = Math.max(0, ch.exposure - 0.6);
-  sfx("open");
+  sfx("heal");
   log(`薬と祈りで、深蝕がわずかに退いた（−0.6／所持 ${ch.gold}）。`, "dim");
   save();
 }
@@ -924,7 +924,7 @@ async function storeBuy() {
     const c = CONSUMABLES[i];
     if (ch.gold < c.price) { await sheet({ text: "金貨が足りない。", options: ["出直す"] }); continue; }
     if (!addConsumable(ch, c.key)) { await sheet({ text: "持ち物が一杯だ。レベルが上がれば、持てる量も増える。", options: ["わかった"] }); continue; }
-    ch.gold -= c.price; sfx("open");
+    ch.gold -= c.price; sfx("buy");
     log(`${c.name} を買った（−${c.price}金貨／所持 ${ch.gold}）。`);
     save();
   }
@@ -945,7 +945,7 @@ async function storeSell() {
     const i = r.pick - 1;
     if (i < 0 || i >= inv.length) break;
     const s = inv[i], val = sellValue(s.key);
-    ch.gold += val; consumeOne(ch, s.key); sfx("open");
+    ch.gold += val; consumeOne(ch, s.key); sfx("sell");
     log(`${consumableByKey(s.key)?.name ?? s.key} を手放した（＋${val}金貨／所持 ${ch.gold}）。`, "dim");
     save();
   }
@@ -1018,14 +1018,14 @@ async function homeDeposit() {
     if (i < inv.length) { // 消耗品
       const s = inv[i];
       if (!stashAdd(s.key)) { await sheet({ text: "保管庫がもう一杯だ。", options: ["戻る"] }); continue; }
-      consumeOne(ch, s.key); sfx("open");
+      consumeOne(ch, s.key); sfx("consume");
       log(`${consumableByKey(s.key)?.name ?? s.key} を保管庫に預けた。`, "dim"); save();
     } else { // 装備（外して武具庫へ）
       if (homeFull()) { await sheet({ text: "武具庫がもう一杯だ。", options: ["戻る"] }); continue; }
       const sl = equipped[i - inv.length];
       const it = ch.equipment[sl]!;
       world.stashGear ??= []; world.stashGear.push(it); ch.equipment[sl] = null;
-      sfx("open"); log(`${it.name} を外して武具庫に納めた。`, "dim"); updateStatus(); save();
+      sfx("equip"); log(`${it.name} を外して武具庫に納めた。`, "dim"); updateStatus(); save();
     }
   }
   busy = false;
@@ -1051,7 +1051,7 @@ async function homeWithdraw() {
     if (i < st.length) { // 消耗品→持ち物
       const s = st[i];
       if (!addConsumable(ch, s.key)) { await sheet({ text: "持ち物が一杯だ。", options: ["戻る"] }); continue; }
-      stashTake(s.key); sfx("open");
+      stashTake(s.key); sfx("pickup");
       log(`${consumableByKey(s.key)?.name ?? s.key} を持ち物に移した。`, "dim"); save();
     } else { // 装備→その場で装備（今の装備は武具庫に戻す＝スワップ）
       const it = gear[i - st.length];
@@ -1060,7 +1060,7 @@ async function homeWithdraw() {
       ch.equipment[it.slot] = it;
       world.stashGear = gear.filter((g) => g !== it);
       if (cur) world.stashGear.push(cur); // スワップ（総枠は変わらない）
-      sfx("open"); log(`武具庫から ${it.name} を取り出して装備した（${itemPower(it)}）。`); updateStatus(); save();
+      sfx("equip"); log(`武具庫から ${it.name} を取り出して装備した（${itemPower(it)}）。`); updateStatus(); save();
     }
   }
   busy = false;
@@ -1163,7 +1163,7 @@ async function legendApprove() {
   sfx("intervene");
   log(`${f.origin.name} を伝説として承認した。英雄譜に名が刻まれる。`, "warn");
   // 奉献の試練・印④：旧キャラを伝説化（4-13A）
-  if (awardSeal(world, "legend", [f.id])) log("◆ 「伝説の承認」の印を得た。", "warn");
+  if (awardSeal(world, "legend", [f.id])) { sfx("seal"); log("◆ 「伝説の承認」の印を得た。", "warn"); }
   save();
 }
 // 書記 act2「系譜をたどる」：現キャラの系譜（先代→現キャラ）と継いだものを表示。
@@ -1724,9 +1724,9 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
   for (const l of onReachDepth(world, depth)) { log(l, "cue"); save(); } // 到達系の依頼達成
   // 奉献の試練・印⑤：深淵手前の高深度に到達（4-13A）
   if (depth >= DEPTH_SEAL_AT && !abyss && awardSeal(world, "depth", [ch.id])) {
-    log("◆ 「深淵への到達」の印を得た。", "warn"); save();
+    sfx("seal"); log("◆ 「深淵への到達」の印を得た。", "warn"); save();
   }
-  if (abyss) log("封じられていた層――空気が、軋むほど濃い。最奥で何かが、聖遺物を抱いている。", "warn");
+  if (abyss) { sfx("boss"); log("封じられていた層――空気が、軋むほど濃い。最奥で何かが、聖遺物を抱いている。", "warn"); }
 }
 
 // ---------- 同行（相棒）：4-14C。盤上は ephemeral、世代越えは world.companion。 ----------
@@ -1789,7 +1789,7 @@ function companionDies(reason: "combat" | "mercy" = "combat"): void {
   floor.fossils.push({ id: `fe_${fossil.id}`, fossilId: fossil.id, x: companion.x, y: companion.y, resolved: false });
   world.companion.alive = false;
   companion = null;
-  sfx(reason === "mercy" ? "intervene" : "hurt");
+  sfx(reason === "mercy" ? "intervene" : "companion_down");
   if (reason === "mercy") {
     log(`${name}に、慈悲のとどめを刺した。深みに呑まれる前に――その亡骸に、共に歩いた日々が刻まれていく……（†）`, "warn");
     chronicle(world, "intervention", `${name}が深みに呑まれかけ、${world.current?.name ?? "誰か"}が慈悲のとどめを刺した。`, [fossil.id]);
@@ -1868,6 +1868,7 @@ function recruitCompanion(la: LivingActor): void {
     actorRef: la.id, actor: la.actor, bond, exposure: 0,
     alive: true, maxHp: companionMaxHp(grade), recruitedGeneration: world.generation, grade, feats,
   };
+  sfx("companion_join");
   chronicle(world, "rediscovery", `${GRADE_LABELS[grade]}の${la.actor.name}を雇い、同行することになった。`, [la.id]);
   save();
 }
@@ -2055,7 +2056,7 @@ async function endTurn() {
   if (ch.exposure >= CORRUPTION_DRAIN_FROM) {
     const bite = Math.min(CORRUPTION_DRAIN_CAP, 1 + Math.floor((ch.exposure - CORRUPTION_DRAIN_FROM) / CORRUPTION_DRAIN_STEP));
     hp -= bite;
-    sfx("hurt");
+    sfx("drain");
     log(`深みに蝕まれる……（HP -${bite}）`, "warn");
   }
 
@@ -2198,7 +2199,7 @@ async function equipPrompt(item: Item) {
   if (r.pick === 1) {
     item.unidentified = false; // 装備で鑑定
     ch.equipment[item.slot] = item;
-    sfx("open");
+    sfx("equip");
     log(`${item.name} を装備した（${itemPower(item)}）。`);
     if (item.exposurePerTurn) log("……身につけた途端、深みがじわりと滲む。", "warn");
   } else if (r.pick === 2) {
@@ -2226,7 +2227,7 @@ async function gearBagPush(item: Item): Promise<void> {
     return;
   }
   ch.gearBag.push(item);
-  sfx("open");
+  sfx("pickup");
   log(`${item.name} を袋にしまった（${ch.gearBag.length}/${cap}）。街の武具屋か、迷宮の行商人に売れる。`, "dim");
 }
 
@@ -2281,7 +2282,7 @@ $("bagBtn").onclick = async () => {
   if (i < 0 || i >= inv.length) return;
   const s = inv[i], def = consumableByKey(s.key);
   const msg = applyConsumable(ch, s.key); consumeOne(ch, s.key);
-  sfx("open");
+  sfx("consume");
   log(`${def?.name} を使った（${msg}）。`, "warn");
   await endTurn(); // 一手経過＝敵の手番
 };
@@ -2453,7 +2454,7 @@ async function castSpell(key: string) {
     if (deathDoorTurns > 0) { log("死戸が開いている間は、癒えない。", "dim"); draw(); return; }
     const amt = effectiveReason(ch) + ch.stats.body;
     const before = hp; hp = Math.min(maxHp(ch), hp + amt);
-    sfx("open"); flashFx("still");
+    sfx("spell_heal"); flashFx("still");
     log(`癒しが巡る（HP＋${hp - before}）。`);
   } else if (key === "enfeeble") { // 蝕み＝最寄りの攻撃を数手削ぐ
     if (!visMon.length) { log("蝕む敵が見えない。", "dim"); draw(); return; }
@@ -2473,7 +2474,7 @@ async function castSpell(key: string) {
     else log(`吸命（与${dmg}／HP＋${hp - before}）。`);
   } else if (key === "ironscale") { // 硬鱗＝数手 被ダメ軽減
     armorBuffTurns = 5;
-    sfx("open"); flashFx("still");
+    sfx("spell_still"); flashFx("still");
     log(`硬鱗。鱗が立ち、守りが固まった（被ダメ−${ARMOR_BUFF}・5手）。`);
   } else if (key === "haste") { // 疾走＝数手 敵手番スキップ
     hasteTurns = 3;
@@ -2481,11 +2482,11 @@ async function castSpell(key: string) {
     log("疾走。世界が、ゆっくりと流れ出す（3手）。");
   } else if (key === "frenzy") { // 焦躁＝数手 近接ダメ上乗せ
     attackBuffTurns = 5;
-    sfx("open"); flashFx("warp", { x: player.x, y: player.y });
+    sfx("spell_still"); flashFx("warp", { x: player.x, y: player.y });
     log(`焦躁。手が冴え、苛立ちが募る（攻撃＋${ATTACK_BUFF}・5手）。`);
   } else if (key === "deathdoor") { // 死戸＝数手 無敵だが癒えず、明けに反動
     deathDoorTurns = 4;
-    sfx("open"); flashFx("still");
+    sfx("spell_still"); flashFx("still");
     log("死戸を開く。痛みが、遠い（無敵4手・癒えず・明けに揺り戻し）。");
   } else if (key === "miststep") { // 霞足＝近場（半径3）へ短くブリンク（敵から距離を取る）
     let best: Pos | null = null, bestScore = -1;
@@ -2508,18 +2509,18 @@ async function castSpell(key: string) {
     log("退き戸を開く。上り階段の傍へ、退いた。");
   } else if (key === "homeward") { // 帰還の詠唱（v2）＝数手の詠唱で地上へ還る（聖遺物携行中は奉献成立）。詠唱中は無防備・動くと中断
     chantTurns = HOMEWARD_CHANT;
-    sfx("open"); flashFx("warp", { x: player.x, y: player.y });
+    sfx("spell_still"); flashFx("warp", { x: player.x, y: player.y });
     log(ch.carryingRelic
       ? `帰還の詠唱を始める。聖遺物を抱いたまま――満ちれば、奉献が成る（${HOMEWARD_CHANT}手・無防備・動くと中断）。`
       : `帰還の詠唱を始める（${HOMEWARD_CHANT}手・詠唱中は無防備・動くと中断）。`, "cue");
   } else if (key === "cleanse") { // 解呪＝今この場で深蝕をいくらか祓う（潜行中の浄化弁）
     const before = ch.exposure;
     ch.exposure = Math.max(0, ch.exposure - 0.6);
-    sfx("open"); flashFx("still");
+    sfx("spell_heal"); flashFx("still");
     log(`解呪。胸の澱が祓われる（深蝕 -${(before - ch.exposure).toFixed(2)}）。`);
   } else if (key === "survey") { // 地相＝フロアの地形を感知（地図が開く）
     for (let i = 0; i < floor.explored.length; i++) floor.explored[i] = true;
-    sfx("open");
+    sfx("spell_still");
     log("地相を読む。この階の輪郭が、頭に灯った。");
   } else if (key === "ice_tomb") { // 氷棺＝高威力＋凍結
     if (!visMon.length) { log("討つべき敵が見えない。", "dim"); draw(); return; }
@@ -2577,31 +2578,31 @@ async function castSpell(key: string) {
   } else if (key === "insight") { // 看破＝可視の敵のHPを読み、全敵の位置を地図に灯す
     for (const m of floor.monsters) if (m.hp > 0) floor.explored[mapIdx(floor, m.x, m.y)] = true;
     const census = visMon.map((m) => `${m.kind.name} ${m.hp}/${m.kind.hp}`).join("、");
-    sfx("open");
+    sfx("spell_still");
     log(census ? `看破：${census}` : "看破：視界に敵影なし。", "warn");
   } else if (key === "scent") { // 嗅ぎ＝宝箱・化石・下り階段の在処を地図に灯す
     let n = 0;
     for (const c of floor.chests) if (!c.opened) { floor.explored[mapIdx(floor, c.x, c.y)] = true; n++; }
     for (const fo of floor.fossils) floor.explored[mapIdx(floor, fo.x, fo.y)] = true;
     floor.explored[mapIdx(floor, floor.stairsDown.x, floor.stairsDown.y)] = true;
-    sfx("open");
+    sfx("spell_still");
     log(`嗅ぎ：宝箱${n}・化石${floor.fossils.length}の気配を地図に灯した。`, "warn");
   } else if (key === "minions") { // 蝕兵＝最寄りの敵の傍に短命の眷属2体
     if (!visMon.length) { log("眷属を差し向ける敵が見えない。", "dim"); draw(); return; }
     const t = nearestMon(visMon);
     const dmg = Math.max(2, Math.round(effectiveReason(ch)));
     let n = 0; for (let i = 0; i < 2; i++) if (spawnSummon(t, "ψ", "蝕兵", dmg, 5, false)) n++;
-    sfx("spell_warp"); flashFx("warp", { x: t.x, y: t.y });
+    sfx("spell_summon"); flashFx("warp", { x: t.x, y: t.y });
     log(n ? `蝕兵を${n}体起こした（各${dmg}・5手）。` : "湧かせる隙間がない。");
   } else if (key === "orbblade") { // 廻刃＝自分の傍を回る刃（@に追従）
     const dmg = Math.max(2, Math.round(effectiveReason(ch) * 1.2));
     const ok = spawnSummon(player, "‡", "廻刃", dmg, 6, true);
-    sfx("spell_warp"); flashFx("warp", { x: player.x, y: player.y });
+    sfx("spell_summon"); flashFx("warp", { x: player.x, y: player.y });
     log(ok ? `廻刃を侍らせた（${dmg}・6手・追従）。` : "刃を置く隙間がない。");
   } else if (key === "echo") { // 残響召喚＝在りし日の残響（強めの一時味方・@に追従）
     const dmg = Math.max(3, Math.round(effectiveReason(ch) * 1.6));
     const ok = spawnSummon(player, "Ψ", "残響", dmg, 6, true);
-    sfx("spell_warp"); flashFx("still", { x: player.x, y: player.y });
+    sfx("spell_summon"); flashFx("still", { x: player.x, y: player.y });
     log(ok ? `在りし日の残響が、傍らに立った（${dmg}・6手）。` : "残響の立つ隙間がない。");
   } else if (key === "shadowclone") { // 影分け＝数手 敵の一撃を肩代わり
     shadowGuard = 3;
@@ -2624,6 +2625,7 @@ async function handleLevelUps() {
       ch.xp -= xpToNext(ch.level);
       ch.level += 1;
       busy = true;
+      sfx("levelup");
       // ① ステ+1（常に。術習得とは排他にしない＝ロードアウト制 4-11F③）
       const r = await sheet({
         text: `レベル${ch.level}に達した。何を伸ばす？`,
@@ -2729,7 +2731,7 @@ function rewardKill(mon: Monster, killLine?: string) {
   const ch = world.current!;
   ch.xp += Math.round(xpForKill(mon.kind.hp) * xpMul(ch)); // 遺物「貪欲」でXP増
   if (mon.boss) {
-    sfx("intervene");
+    sfx("boss_down");
     flashFx("warp");
     log(`★ ${mon.kind.name}を打ち倒した！`, "warn");
     chronicle(world, "legend", `${ch.name}が深度${floor!.depth}で${mon.kind.name}を打ち倒した。`, [ch.id]);
@@ -2737,11 +2739,12 @@ function rewardKill(mon: Monster, killLine?: string) {
     if (mon.boss === "area" || rng.next() < 0.7) pendingDrops.push(rollItem(floor!.depth, rng, { boss: true }));
     // 奉献の試練・印①：エリアボス（成れの果て）を撃破（4-13A）
     if (mon.boss === "area" && awardSeal(world, "abyss_boss", [ch.id])) {
-      log("◆ 「成れの果ての討伐」の印を得た。", "warn");
+      sfx("seal"); log("◆ 「成れの果ての討伐」の印を得た。", "warn");
     }
     if (mon.boss === "area") spawnReturnDoor(mon); // 帰還の扉＝往復チェックポイント（v2・深淵帯を除く）
     recordCompanionFeat(); // 相棒と共にボスを討った＝偉業（4-4E 昇格ゲート）
   } else {
+    sfx("kill");
     log(killLine ?? `${mon.kind.name}を倒した。`);
   }
 }
@@ -2756,7 +2759,7 @@ function moveOrInteract(nx: number, ny: number): boolean {
     const ch = world.current!;
     const dmg = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
     mon.hp -= dmg;
-    sfx("hit");
+    sfx(mon.boss ? "crit" : "hit");
     if (mon.hp <= 0) downOrKill(mon); // 撃破→ボスは討つ/鎮める、他は通常（手番末で処理）
     else log(`${mon.kind.name}に${dmg}の一撃。`);
     return true;
@@ -2803,12 +2806,12 @@ function useShrine(s: Shrine): void {
   if (s.kind === "spring") {
     if (hp >= maxHp(ch)) return; // 満タンなら温存
     const before = hp; hp = Math.min(maxHp(ch), hp + Math.max(1, Math.round(maxHp(ch) * SPRING_HEAL_FRAC)));
-    sfx("open");
+    sfx("heal");
     log(`回復の泉。澄んだ水を含むと、傷が塞がってゆく（HP＋${hp - before}）。泉は涸れた。`, "cue");
   } else {
     if (ch.exposure <= 0.05) return; // 浄める澱が無ければ温存
     const before = ch.exposure; ch.exposure = Math.max(0, ch.exposure - REST_CLEANSE);
-    sfx("open");
+    sfx("heal");
     log(`安息所。息を整えると、胸の澱がほどけてゆく（深蝕 -${(before - ch.exposure).toFixed(2)}）。安息所は鎮まった。`, "cue");
   }
   s.used = true;
@@ -2849,7 +2852,7 @@ async function returnViaDoor() {
   hp = maxHp(ch); ch.depth = 0;
   companion = null; // 相棒は world.companion として街へ同道（再降下で再展開）
   save();
-  sfx("stairs"); flashFx("warp");
+  sfx("stairs_up"); flashFx("warp");
   log("帰還の扉をくぐる――束の間の地上。扉は、あのフロアへ繋がったままだ。", "cue");
   busy = false;
   await townLoop();
@@ -2883,7 +2886,7 @@ async function stairsPrompt(dir: "down" | "up") {
       const ch = world.current!;
       const oddity = equipExposure(ch) * ODDITY_DESCENT_MULT * heartFactor(ch);
       if (oddity > 0) { ch.exposure += oddity; log(`異物が、深みを一段呼び込む（深蝕 ＋${oddity.toFixed(2)}）。`, "warn"); }
-      sfx("stairs"); enterFloor(f.depth + 1, true); await maybeDungeonEvent(floor!.depth); await maybeMerchantEncounter();
+      sfx("stairs_down"); enterFloor(f.depth + 1, true); await maybeDungeonEvent(floor!.depth); await maybeMerchantEncounter();
     }
   } else if (f.depth === 1) {
     const r = await sheet({ text: "地上への階段だ。街へ戻るか？\n（傷は癒えるが、浴びた深みは消えない）", options: ["街へ戻る", "とどまる"] });
@@ -2946,7 +2949,7 @@ async function maybeDungeonEvent(depth: number) {
   if (depth < 2 || rng.next() >= 0.55) return;
   const ev = selectDungeonStorylet(db, depth, rng, world.current?.exposure ?? 0, world);
   if (!ev || !ev.choices || ev.choices.length === 0) return;
-  sfx("open");
+  sfx("ui");
   const wasBusy = busy; busy = true;
   const r = await sheet({
     text: fillDungeonText(depth, ev.text ?? ""),
@@ -2969,7 +2972,7 @@ async function maybeMerchantEncounter() {
   const bag = ch.gearBag ?? [];
   if (!bag.length || rng.next() >= 0.3) return;
   busy = true;
-  sfx("open");
+  sfx("ui");
   let first = true;
   for (;;) {
     const b = ch.gearBag ?? [];
@@ -2985,7 +2988,7 @@ async function maybeMerchantEncounter() {
     const i = r.pick - 1;
     if (i < 0 || i >= b.length) { log("行商人とすれ違い、また闇に分かれた。", "dim"); break; }
     const it = b.splice(i, 1)[0], val = splitGold(sellGear(it, MERCHANT_SELL_MUL)); // 同行中は売却益も折半（4-14C）
-    ch.gold += val; sfx("open");
+    ch.gold += val; sfx("sell");
     log(`${it.name} を行商人に売った（＋${val}金貨／所持 ${ch.gold}）。`, "dim");
     save();
   }
@@ -2998,7 +3001,7 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   if (busy) return;
   busy = true;
   const fossil = world.fossils.find((f) => f.id === fe.fossilId)!;
-  sfx("open");
+  sfx("ui");
   const v = computeVariation(fossil, world.generation);
   const setPiece = renderSetPieceIfAny(db, fossil, v);
   const spType = setPiece ? matchSetPiece(db, fossil, v)?.type : undefined; // 山場の型（遭-④）
@@ -3059,7 +3062,7 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       log(`${fossil.origin.name}の光が、行く道を照らした。形質『導きの印』を得た。`);
       if (ch.exposure < before) log(`深みに削られた芯が、人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
       // 奉献の試練・印③：山場（legend_return）を決着（4-13A）
-      if (awardSeal(world, "setpiece", [fossil.id])) log("◆ 「山場の決着」の印を得た。", "warn");
+      if (awardSeal(world, "setpiece", [fossil.id])) { sfx("seal"); log("◆ 「山場の決着」の印を得た。", "warn"); }
       recordCompanionFeat(); // 相棒と共に山場を決着＝偉業（4-4E 昇格ゲート）
       save();
       break;
@@ -3073,7 +3076,7 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       log(`果たさなかった責めを認めた。${fossil.origin.name}の震えが、ゆっくりと収まっていく。`);
       if (ch.exposure < before) log(`深みに削られた芯が、少し人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
       // 奉献の試練・印③：山場（grudge_hunt）を決着（4-13A）
-      if (awardSeal(world, "setpiece", [fossil.id])) log("◆ 「山場の決着」の印を得た。", "warn");
+      if (awardSeal(world, "setpiece", [fossil.id])) { sfx("seal"); log("◆ 「山場の決着」の印を得た。", "warn"); }
       recordCompanionFeat(); // 相棒と共に山場を決着＝偉業（4-4E 昇格ゲート）
       save();
       break;

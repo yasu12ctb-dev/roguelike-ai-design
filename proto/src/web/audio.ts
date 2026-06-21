@@ -132,27 +132,127 @@ function noise(dur: number, peak: number, filterFreq: number): void {
   src.start(); src.stop(ctx.currentTime + dur + 0.03);
 }
 
-export type Sfx =
-  | "move" | "hit" | "hurt" | "open" | "chest" | "stairs" | "death" | "intervene"
-  | "spell_warp" | "spell_still" | "spell_blink";
+// ---- SFX 合成ヘルパー（リサーチ準拠：層構造＝鋭いトランジェント＋低い実体音）----
+let sfxRev: ConvolverNode | null = null;
+function getSfxRev(): ConvolverNode | null { // 「節目の音」用の短い余韻（lazy）
+  if (!ctx || !master) return null;
+  if (!sfxRev) {
+    sfxRev = ctx.createConvolver(); sfxRev.buffer = makeImpulse(1.1, 2.2);
+    const ret = ctx.createGain(); ret.gain.value = 0.5; sfxRev.connect(ret); ret.connect(master);
+  }
+  return sfxRev;
+}
+function revSend(node: AudioNode, amt: number): void {
+  const r = getSfxRev(); if (!r || !ctx) return;
+  const g = ctx.createGain(); g.gain.value = amt; node.connect(g); g.connect(r);
+}
 
-/** 短い合成効果音。ミュート中・未初期化なら無音。音量は控えめドローン廃止に合わせて上げてある。 */
+// 鋭いトランジェント（≤数十ms の減衰ノイズ）＝当たった瞬間。impact の attack 層。
+function transient(peak: number, hpFreq: number, dur = 0.045): void {
+  if (!ctx || !master) return;
+  const n = Math.floor(ctx.sampleRate * dur);
+  const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+  const d = buf.getChannelData(0); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = hpFreq;
+  const g = ctx.createGain(); g.gain.setValueAtTime(peak, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+  src.connect(hp); hp.connect(g); g.connect(master);
+  src.start(); src.stop(ctx.currentTime + dur + 0.02);
+}
+// 低い実体音（ピッチが少し落ちる＝重み）。impact の body 層。rev で余韻。
+function thud(freq: number, dur: number, peak: number, rev = 0): void {
+  if (!ctx || !master) return;
+  const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = freq;
+  o.frequency.exponentialRampToValueAtTime(Math.max(20, freq * 0.5), ctx.currentTime + dur);
+  const g = ctx.createGain(); env(g, peak, dur);
+  o.connect(g); g.connect(master); if (rev) revSend(g, rev);
+  o.start(); o.stop(ctx.currentTime + dur + 0.03);
+}
+// 余韻つきの澄んだ単音（鐘・儀式・節目）。
+function bell(freq: number, dur: number, peak: number, rev = 0, slideTo?: number): void {
+  if (!ctx || !master) return;
+  const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = freq;
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(1, slideTo), ctx.currentTime + dur);
+  const g = ctx.createGain(); env(g, peak, dur);
+  o.connect(g); g.connect(master); if (rev) revSend(g, rev);
+  o.start(); o.stop(ctx.currentTime + dur + 0.03);
+}
+// アルペジオ（上行＝高揚／下行＝喪失）。levelup/seal/quest/heal/勝利。
+function arp(notes: number[], step: number, type: OscillatorType, peak: number, rev = 0): void {
+  notes.forEach((m, i) => setTimeout(() => {
+    if (!ctx || !master || muted) return;
+    const o = ctx.createOscillator(); o.type = type; o.frequency.value = bm(m);
+    const g = ctx.createGain(); env(g, peak, 0.5);
+    o.connect(g); g.connect(master); if (rev) revSend(g, rev);
+    o.start(); o.stop(ctx.currentTime + 0.55);
+  }, i * step));
+}
+// 金属的な硬貨（買売/獲得）：高め短音を数粒、わずかにばらつかせる。
+function coins(count: number, peak: number): void {
+  for (let i = 0; i < count; i++) setTimeout(() => { if (!muted) tone(1400 + Math.random() * 900, 0.06, "square", peak); }, i * 55);
+}
+
+export type Sfx =
+  // 移動・世界
+  | "move" | "stairs" | "stairs_down" | "stairs_up"
+  // 戦闘
+  | "hit" | "crit" | "kill" | "hurt" | "drain" | "boss" | "boss_down"
+  // 魔法
+  | "spell_warp" | "spell_still" | "spell_blink" | "spell_heal" | "spell_summon"
+  // 道具・経済
+  | "buy" | "sell" | "coin" | "equip" | "consume" | "pickup" | "chest" | "deny" | "open" | "ui"
+  // 成長・意味
+  | "levelup" | "seal" | "quest" | "heal" | "intervene"
+  // 相棒・死
+  | "companion_join" | "companion_down" | "death";
+
+/** 短い合成効果音。ミュート中・未初期化なら無音。層構造（トランジェント＋実体音）で手応えを出す。 */
 export function sfx(kind: Sfx): void {
   if (!ctx || muted) return;
   switch (kind) {
-    case "move": tone(150, 0.05, "triangle", 0.06); break;
-    // 攻撃した＝高く鋭い一撃（こちらが討つ）。被弾＝低く重い衝撃（こちらが討たれる）。聞き分け重視で音域を離す。
-    case "hit": noise(0.05, 0.16, 2600); tone(660, 0.07, "square", 0.12, 300); break;
-    case "hurt": noise(0.1, 0.18, 480); tone(135, 0.26, "sawtooth", 0.27, 56); break;
-    case "open": tone(420, 0.13, "sine", 0.14); break;
-    case "chest": tone(523, 0.13, "sine", 0.15); setTimeout(() => tone(784, 0.18, "sine", 0.12), 95); break;
-    case "stairs": tone(300, 0.24, "sine", 0.15, 150); break;
-    case "death": tone(120, 0.9, "sine", 0.24, 55); break;
-    case "intervene": tone(660, 0.45, "sine", 0.15); break;
-    // 深蝕魔法（4-11F③）。歪撃＝歪んだ鋭い炸裂／静止＝昇る冷たいシマー／影渡り＝抜ける疾走音。
-    case "spell_warp": tone(880, 0.22, "sawtooth", 0.2, 120); noise(0.12, 0.14, 1800); break;
-    case "spell_still": tone(320, 0.45, "sine", 0.16, 1500); setTimeout(() => tone(1500, 0.3, "sine", 0.08), 120); break;
-    case "spell_blink": noise(0.26, 0.16, 900); tone(500, 0.18, "sine", 0.12, 1300); break;
+    // ── 移動・世界 ──
+    case "move": tone(150, 0.05, "triangle", 0.05); break;
+    case "stairs": case "stairs_down": tone(330, 0.3, "sine", 0.13, 120); thud(150, 0.4, 0.1, 0.25); break; // 深く降りる＝下行＋低い余韻
+    case "stairs_up": tone(300, 0.26, "sine", 0.12, 680); setTimeout(() => tone(540, 0.22, "sine", 0.1, 840), 90); break; // 浮上＝上行＝安堵
+
+    // ── 戦闘（討つ＝高く鋭い／被弾＝低く重い。聞き分け重視で音域を離す）──
+    case "hit": transient(0.18, 1800); tone(640, 0.06, "square", 0.1, 320); break;
+    case "crit": transient(0.28, 1400); tone(760, 0.08, "square", 0.14, 240); thud(120, 0.22, 0.18); break; // 会心/ボス打撃＝層を厚く
+    case "kill": transient(0.16, 900); thud(180, 0.18, 0.14); tone(300, 0.12, "sawtooth", 0.07, 90); break; // 撃破＝砕ける手応え
+    case "hurt": transient(0.13, 500); thud(135, 0.26, 0.24); break;
+    case "drain": tone(220, 0.5, "sine", 0.1, 70); noise(0.4, 0.05, 320); break; // 深蝕の牙＝沈む不協和
+    case "boss": thud(70, 1.1, 0.2, 0.4); tone(110, 1.0, "sawtooth", 0.06, 70); break; // ボス出現＝圧
+    case "boss_down": arp([48, 55, 60, 67], 110, "triangle", 0.14, 0.5); thud(90, 0.5, 0.16, 0.4); break; // 撃破＝荘厳なファンファーレ
+
+    // ── 魔法 ──
+    case "spell_warp": tone(880, 0.22, "sawtooth", 0.18, 120); transient(0.12, 1600); break;
+    case "spell_still": tone(320, 0.45, "sine", 0.14, 1500); setTimeout(() => tone(1500, 0.3, "sine", 0.07), 120); break;
+    case "spell_blink": noise(0.26, 0.14, 900); tone(500, 0.18, "sine", 0.1, 1300); break;
+    case "spell_heal": arp([60, 64, 67, 72], 80, "sine", 0.09, 0.35); break; // 癒し＝澄んだ上行
+    case "spell_summon": tone(140, 0.5, "sawtooth", 0.1, 280); setTimeout(() => tone(420, 0.4, "triangle", 0.08, 210), 120); break; // 召喚＝立ち上る
+
+    // ── 道具・経済 ──
+    case "buy": coins(3, 0.08); tone(660, 0.1, "sine", 0.07); break;
+    case "sell": coins(2, 0.07); break;
+    case "coin": coins(4, 0.09); break; // 金貨を得る
+    case "equip": transient(0.1, 3000); tone(880, 0.12, "square", 0.07, 660); break; // 金属の触れ合い
+    case "consume": noise(0.18, 0.09, 600); tone(280, 0.18, "sine", 0.08, 420); break; // 呑む
+    case "pickup": tone(620, 0.08, "sine", 0.08, 840); break;
+    case "chest": tone(523, 0.13, "sine", 0.13); setTimeout(() => tone(784, 0.18, "sine", 0.1), 95); break;
+    case "deny": tone(180, 0.18, "square", 0.1, 150); setTimeout(() => tone(150, 0.2, "square", 0.09, 120), 60); break; // 不可＝低い不協和
+    case "open": case "ui": tone(440, 0.09, "sine", 0.06); break; // 汎用の確定/開示
+
+    // ── 成長・意味 ──
+    case "levelup": arp([57, 60, 64, 69], 95, "triangle", 0.13, 0.4); break; // 上行＝高揚
+    case "seal": bell(330, 0.8, 0.12, 0.6); setTimeout(() => bell(495, 1.0, 0.1, 0.6), 150); break; // 印＝荘厳な鐘（完全5度・余韻）
+    case "quest": bell(660, 0.4, 0.1, 0.3); setTimeout(() => bell(880, 0.5, 0.09, 0.3), 110); break; // 受注/達成の通知
+    case "heal": arp([55, 59, 62], 90, "sine", 0.1, 0.3); break; // 温かい回復
+    case "intervene": bell(528, 0.6, 0.13, 0.45); break; // 儀式の決着（鎮魂/継承）
+
+    // ── 相棒・死 ──
+    case "companion_join": arp([57, 64, 69], 110, "triangle", 0.1, 0.3); break;
+    case "companion_down": thud(120, 0.5, 0.18, 0.3); tone(200, 0.6, "sine", 0.07, 80); break;
+    case "death": thud(120, 0.9, 0.24, 0.5); bell(110, 1.3, 0.09, 0.6, 55); break;
   }
 }
 
