@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#0c0f14" />
+<title>攻撃音 候補 聴き比べ — 堆積する世界</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { -webkit-user-select: none; user-select: none; }
+  body { background: #0c0f14; color: #cfd6dd; min-height: 100dvh; font-family: "Hiragino Sans", system-ui, sans-serif;
+    padding: env(safe-area-inset-top) 14px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; }
+  header { width: 100%; max-width: 560px; padding: 16px 2px 8px; }
+  h1 { font-size: 15px; letter-spacing: .1em; color: #aeb8c4; font-weight: 700; }
+  .lead { font-size: 12px; line-height: 1.7; color: #8b94a0; margin-top: 6px; }
+  .lead b { color: #cfd6dd; }
+  .panel { width: 100%; max-width: 560px; background: #11161d; border: 1px solid #232a33; border-radius: 12px; padding: 12px 14px; margin-top: 12px; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .row label { font-size: 12px; color: #9aa4b0; min-width: 64px; }
+  .row .val { font-size: 12px; color: #cfd6dd; min-width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+  input[type=range] { flex: 1; accent-color: #6fb3c8; }
+  #cards { width: 100%; max-width: 560px; margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .card { background: #11161d; border: 1px solid #232a33; border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; }
+  .card .meta { flex: 1; min-width: 0; }
+  .card .nm { font-size: 14px; font-weight: 700; color: #e8e2d4; }
+  .card .desc { font-size: 11.5px; line-height: 1.6; color: #8b94a0; margin-top: 3px; }
+  .card .play { flex: none; width: 76px; height: 46px; border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 700; color: #0c0f14; background: #6fb3c8; border: none; }
+  .card .play:active { background: #9fe0f0; }
+  .card.cur .play { color: #cdd6e0; background: #1c232d; border: 1px solid #2e3946; }
+  .hint { width: 100%; max-width: 560px; font-size: 11px; color: #5b6470; margin-top: 14px; line-height: 1.7; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>攻撃音 候補 聴き比べ（爽快感の方向性）</h1>
+    <p class="lead">「もっと爽快感を」のご要望で、攻撃命中音（<b>hit</b>）の候補を用意。各ボタンを連打すると連続ヒットの気持ちよさが分かります。<b>①が現在の音</b>（参照用）。気に入った番号と希望（もっと高く/低く/鋭く/軽く 等）を教えてください。</p>
+  </header>
+
+  <div class="panel">
+    <div class="row"><label>音量</label><input id="vol" type="range" min="0" max="100" value="70" /><span class="val" id="volVal">70</span></div>
+  </div>
+
+  <div id="cards"></div>
+
+  <p class="hint">※ 最初のタップで音が有効化されます（iOS）。サイレントスイッチ OFF・音量を上げてご確認を。<br>採用が決まれば本体の hit／会心(crit)／撃破(kill)へ反映します。</p>
+
+<script>
+(() => {
+  let ac = null, master = null, vol = 0.70;
+  function ensure() {
+    if (!ac) {
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false;
+      ac = new AC(); master = ac.createGain(); master.gain.value = vol; master.connect(ac.destination);
+    }
+    if (ac.state === "suspended") ac.resume(); return true;
+  }
+  const T = () => ac.currentTime;
+
+  // ---- 合成プリミティブ ----
+  function osc(freq, dur, type, peak, slideTo, delay = 0) {
+    const t = T() + delay;
+    const o = ac.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(1, slideTo), t + dur);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.03);
+  }
+  function noise(dur, peak, filterFreq, type = "bandpass", delay = 0) {
+    const t = T() + delay;
+    const n = Math.floor(ac.sampleRate * dur), buf = ac.createBuffer(1, n, ac.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = ac.createBufferSource(); src.buffer = buf;
+    const f = ac.createBiquadFilter(); f.type = type; f.frequency.value = filterFreq; f.Q.value = type === "bandpass" ? 0.9 : 0.5;
+    const g = ac.createGain(); g.gain.setValueAtTime(peak, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f); f.connect(g); g.connect(master); src.start(t); src.stop(t + dur + 0.02);
+  }
+  // 低い実体（重み・ピッチが落ちる）
+  const thud = (freq, dur, peak, d = 0) => osc(freq, dur, "sine", peak, freq * 0.5, d);
+
+  // ---- 候補 ----
+  const candidates = [
+    { nm: "① 現在の音（参照）", cur: true, desc: "鋭いノイズ＋640Hz矩形。やや軽く硬い。",
+      play() { noise(0.045, 0.18, 1800, "highpass"); osc(640, 0.06, "square", 0.1, 320); } },
+
+    { nm: "② 斬撃クリスプ", desc: "明るい一閃＋高→低の鋭いスウィング。剣の手応え・抜けが良い。",
+      play() {
+        noise(0.04, 0.22, 2600, "highpass");           // 鋭い一閃
+        osc(1300, 0.085, "sawtooth", 0.16, 200);       // 高→低スウィング（thwack）
+        thud(190, 0.1, 0.1);                            // 軽い実体
+      } },
+
+    { nm: "③ 重い一撃", desc: "低い衝撃＋中域クラック＋サブ。ずっしり爽快・打撃感が強い。",
+      play() {
+        noise(0.045, 0.2, 1600, "highpass");
+        thud(210, 0.18, 0.24);                          // 重い実体
+        osc(520, 0.05, "square", 0.12, 220);            // 中域クラック
+        osc(80, 0.12, "triangle", 0.12, 50);            // サブ
+      } },
+
+    { nm: "④ きらめき斬", desc: "一閃＋スウィング＋高音のキラッ。最も“爽快/ジューシー”寄り。",
+      play() {
+        noise(0.035, 0.2, 2400, "highpass");
+        osc(900, 0.07, "sawtooth", 0.14, 250);          // スウィング
+        thud(160, 0.08, 0.1);
+        osc(1900, 0.07, "sine", 0.08, 2600, 0.02);      // キラッ①
+        osc(2500, 0.06, "sine", 0.06, 3200, 0.045);     // キラッ②
+      } },
+
+    { nm: "⑤ アーケード・クランチ", desc: "ザクッと砕けるザップ＋実体＋リング。アクション寄りの痛快さ。",
+      play() {
+        noise(0.05, 0.2, 1500, "bandpass");
+        osc(1500, 0.07, "square", 0.16, 180);           // 下降ザップ
+        thud(140, 0.12, 0.2);
+        osc(680, 0.06, "triangle", 0.08, 440, 0.01);    // リング
+      } },
+  ];
+
+  const cardsEl = document.getElementById("cards");
+  candidates.forEach((c) => {
+    const el = document.createElement("div"); el.className = "card" + (c.cur ? " cur" : "");
+    el.innerHTML = `<div class="meta"><div class="nm">${c.nm}</div><div class="desc">${c.desc}</div></div><button class="play" type="button">▶ 連打</button>`;
+    el.querySelector(".play").addEventListener("click", () => { if (ensure()) c.play(); });
+    cardsEl.appendChild(el);
+  });
+  const volEl = document.getElementById("vol"), volVal = document.getElementById("volVal");
+  volEl.addEventListener("input", () => { vol = +volEl.value / 100; volVal.textContent = volEl.value; if (master && ac) master.gain.setTargetAtTime(vol, ac.currentTime, 0.05); });
+})();
+</script>
+</body>
+</html>
