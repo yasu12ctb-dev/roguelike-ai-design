@@ -315,7 +315,8 @@ export type StoryletContext =
   | "guild"      // ギルドの生者
   | "shop"       // 店内の生者
   | "quest"      // 依頼
-  | "chest";     // 宝箱の中身
+  | "chest"      // 宝箱の中身
+  | "delver";    // 迷宮で同時に潜る生者の冒険者（すれ違いの軽イベント・4-14）
 
 /** 街で生者と会いうる場所（4-14：street を基盤に、tavern/guild/shop が固有の顔を上乗せ）。 */
 export type TownContext = "street" | "tavern" | "guild" | "shop";

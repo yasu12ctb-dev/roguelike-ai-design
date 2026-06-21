@@ -86,6 +86,11 @@ export interface DownedActor extends Pos {
   id: string; actor: Actor;
 }
 
+// 迷宮を同時に潜っている「生きた他の冒険者」（4-14・すれ違いの軽いイベント）。接触で会話＝一度きり。
+export interface DelverActor extends Pos {
+  id: string; actor: Actor;
+}
+
 export interface Floor {
   depth: number;
   w: number; h: number;          // マップ寸法（深度でスケール。ビューより大きい）
@@ -98,6 +103,7 @@ export interface Floor {
   returnDoor?: Pos | null;       // 帰還の扉（エリアボス撃破で出現＝潜行中の往復チェックポイント：v2）
   explored: boolean[];           // 既踏破（記憶表示用）
   downed?: DownedActor | null;   // 手負いの冒険者（任意。enterFloor が稀に配置：4-14C）
+  delver?: DelverActor | null;   // 同時に潜る生者の冒険者（任意。enterFloor が時々配置：すれ違いの軽イベント）
 }
 
 /** マップ座標 → tiles/explored の添字（フロアの幅で決まる） */
@@ -387,7 +393,8 @@ const occupiedBy = (f: Floor, x: number, y: number, self: Monster | null, comp?:
   f.monsters.some((m) => m !== self && m.hp > 0 && m.x === x && m.y === y) ||
   f.fossils.some((e) => e.x === x && e.y === y) ||
   (!!comp && comp.x === x && comp.y === y) ||
-  (!!f.downed && f.downed.x === x && f.downed.y === y);
+  (!!f.downed && f.downed.x === x && f.downed.y === y) ||
+  (!!f.delver && f.delver.x === x && f.delver.y === y);
 
 /** 各モンスターの次手を決め、intent に予告として書く（プレイヤーが見て動ける）。
  *  覚醒判定もここで行う：新たに気づいた敵はまず予告し、実行は次ターン（理不尽な不意打ちを排す）。

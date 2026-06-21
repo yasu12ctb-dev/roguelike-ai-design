@@ -12,7 +12,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf-8");
 
 // ---- エンジンのスキーマ（types.ts と同期。enum は安定。消耗品キーは items.ts から動的取得）----
-const CONTEXTS = new Set(["encounter", "dungeon", "street", "tavern", "guild", "shop", "quest", "chest"]);
+const CONTEXTS = new Set(["encounter", "dungeon", "street", "tavern", "guild", "shop", "quest", "chest", "delver"]);
 const TOWN = new Set(["street", "tavern", "guild", "shop", "quest"]);
 const PREREQ_KEYS = new Set(["tone", "stage", "finalAct", "kind", "minBond", "unfinished", "minExposure", "minLevel", "minDepth", "maxDepth", "hasCatchphrase", "depthBand", "flag", "notFlag", "arc", "arcStep", "arcPick", "arcActor", "actorId", "notArc"]);
 const EFFECT_KEYS = new Set(["bond", "closeUnfinished", "exposure", "trait", "chronicle", "plant", "arc", "gold", "item"]);
@@ -33,7 +33,7 @@ const SLOTS = {
   encounter: new Set(["origin_name", "origin_gear", "origin_epithet", "origin_catchphrase", "depth"]),
   street: new Set(["origin_name", "origin_gear", "origin_epithet"]),
 };
-for (const c of ["tavern", "guild", "shop", "quest"]) SLOTS[c] = SLOTS.street;
+for (const c of ["tavern", "guild", "shop", "quest", "delver"]) SLOTS[c] = SLOTS.street;
 
 const errors = [];
 const warn = [];
