@@ -37,7 +37,10 @@ import {
   buildTownGrid, buildInterior, spawnCrowd, wanderCrowd, crowdAt, townTileAt, interiorActorAt,
   type TownData, type TownGrid, type Interior, type CrowdActor, type InteriorActor, type GuardDef,
 } from "../townscene.ts";
-import { ensureAudio, sfx, setAmbient, setMuted, isMuted, loadMutePref } from "./audio.ts";
+import {
+  ensureAudio, sfx, setAmbient, setMuted, isMuted, loadMutePref,
+  setBgm, setBgmDepth, setBgmEnabled, isBgmOn, setBgmVolume, bgmVolume, loadBgmPref,
+} from "./audio.ts";
 import {
   genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx, spawnPursuer,
   planCompanion, resolveCompanion, randomFloorAway, inBounds, companionMaxHp, companionDmg,
@@ -48,8 +51,8 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.9.4";
-export const APP_BUILD = "2026-06-20";
+export const APP_VERSION = "0.10.0";
+export const APP_BUILD = "2026-06-21";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
 const db = makeContentDb(
@@ -1652,7 +1655,7 @@ async function monumentScene() {
 function townLoop(): Promise<void> {
   return new Promise((resolve) => {
     townDescendResolve = resolve;
-    mode = "town"; floor = null; setAmbient(false);
+    mode = "town"; floor = null; setAmbient(false); setBgm("town");
     const t = world.town;
     crowd = spawnCrowd(townGrid, rng, t.pos ?? townGrid.data.start);
     refreshAscendMonument(); // 奉献の碑をこの来訪の最新状態に（4-13D Phase4）
@@ -1714,6 +1717,8 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
   planMonsters(floor, player, rng, companion); // 入った瞬間に見えている敵は予告を出す
   if (companion) planCompanion(floor, player, companion, rng);
   setAmbient(true, depth); // 環境ドローン（深いほど低い）
+  // 場面 BGM：深淵帯=③沈淵／通常迷宮=②冷たい石の広間（深度連動で暗く低くなる）
+  if (abyss) setBgm("abyss", depth); else { setBgm("dungeon", depth); setBgmDepth(depth); }
   draw();
   log(`── 深度${depth} ──`, "dim");
   for (const l of onReachDepth(world, depth)) { log(l, "cue"); save(); } // 到達系の依頼達成
@@ -3164,7 +3169,7 @@ async function chestScene(ce: Chest) {
 // ---------- 死 → 最後の一手（4-10B）→ 世代交代 ----------
 async function deathFlow() {
   busy = true;
-  sfx("death"); setAmbient(false);
+  sfx("death"); setAmbient(false); setBgm("death");
   companion = null; // 盤上の相棒は ephemeral。
   if (world.companion?.alive) { // 契約モデル（4-14C）：プレイヤー死＝契約終了。相棒は生き延びて街へ（再雇用可）。
     persistCompanionRecord();   // 等級/絆/偉業を生者NPCへ書き戻し＝次代が雇い直せる
@@ -3223,8 +3228,11 @@ const ARC_KEY_LABEL: Record<string, string> = { noble: "封鎖区の大命「原
 
 async function settingsSheet() {
   busy = true;
+  const bgmVolJp = bgmVolume() < 0.45 ? "小" : bgmVolume() < 0.72 ? "中" : "大";
   const opts = [
     isMuted() ? "♪ 音を出す" : "🔇 音を消す",
+    isBgmOn() ? "🎵 BGM：オン → オフ" : "🎵 BGM：オフ → オン",
+    `🎵 BGM音量：${bgmVolJp}（小→中→大）`,
     dpadOn ? "方向パッド：オン → オフ" : "方向パッド：オフ → オン",
     `方向パッドの位置：${dpadPos === "right" ? "右下 → 左下" : "左下 → 右下"}`,
     `方向パッドの大きさ：${SZJP[dpadSize]}（大→中→小）`,
@@ -3236,12 +3244,14 @@ async function settingsSheet() {
   const r = await sheet({ text: `音・操作・表示を整える。\n\nバージョン ${APP_VERSION}（build ${APP_BUILD}）`, meta: "設定", options: opts });
   busy = false;
   if (r.pick === 1) { ensureAudio(); setMuted(!isMuted()); await settingsSheet(); }
-  else if (r.pick === 2) { setDpad(!dpadOn); await settingsSheet(); }
-  else if (r.pick === 3) { setDpadPos(dpadPos === "right" ? "left" : "right"); await settingsSheet(); }
-  else if (r.pick === 4) { setDpadSize(dpadSize === "lg" ? "md" : dpadSize === "md" ? "sm" : "lg"); await settingsSheet(); }
-  else if (r.pick === 5) { setLogSize(logSize === "sm" ? "md" : logSize === "md" ? "lg" : "sm"); await settingsSheet(); }
-  else if (r.pick === 6) { await testSheet(); }
-  else if (r.pick === 7) { await resetWorld(); }
+  else if (r.pick === 2) { ensureAudio(); setBgmEnabled(!isBgmOn()); await settingsSheet(); }
+  else if (r.pick === 3) { ensureAudio(); setBgmVolume(bgmVolume() < 0.45 ? 0.6 : bgmVolume() < 0.72 ? 0.85 : 0.35); await settingsSheet(); }
+  else if (r.pick === 4) { setDpad(!dpadOn); await settingsSheet(); }
+  else if (r.pick === 5) { setDpadPos(dpadPos === "right" ? "left" : "right"); await settingsSheet(); }
+  else if (r.pick === 6) { setDpadSize(dpadSize === "lg" ? "md" : dpadSize === "md" ? "sm" : "lg"); await settingsSheet(); }
+  else if (r.pick === 7) { setLogSize(logSize === "sm" ? "md" : logSize === "md" ? "lg" : "sm"); await settingsSheet(); }
+  else if (r.pick === 8) { await testSheet(); }
+  else if (r.pick === 9) { await resetWorld(); }
 }
 
 // ---------- 🔧 テストモード（開発用・web限定）。設定→テスト。レベル/深度を即変更しバランス検証を加速。 ----------
@@ -3648,6 +3658,8 @@ addEventListener("resize", () => {
 // ---------- 起動 ----------
 async function boot() {
   loadMutePref();
+  loadBgmPref();
+  setBgm("title"); // タイトル/世代の始まり＝④追憶（最初の操作で鳴り始める）
   loadDpadPref();
   applyLogSize();
   applyChrome();
