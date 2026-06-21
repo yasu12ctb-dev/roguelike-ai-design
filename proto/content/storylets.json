@@ -4377,7 +4377,7 @@
    "context": "dungeon",
    "prerequisites": {
     "depthBand": "deep",
-    "minExposure": 1.0
+    "minExposure": 1
    },
    "weight": 2,
    "text": "空気がふいに澄む一角。ここだけ、深みの囁きが届かない。なぜか、地上の朝を思い出す。",
@@ -5119,7 +5119,7 @@
    "id": "tv_drown",
    "context": "tavern",
    "prerequisites": {
-    "minExposure": 1.0
+    "minExposure": 1
    },
    "weight": 2,
    "text": "#origin_name# が杯を呷っている。「飲まなきゃ、底で見た顔がちらつく」。#origin_gear# が足元に転がっていた。",
@@ -8241,7 +8241,7 @@
    "id": "sp_relic_warning",
    "context": "shop",
    "prerequisites": {
-    "minExposure": 1.0
+    "minExposure": 1
    },
    "weight": 2,
    "text": "品を渡そうとした#origin_name# の手が、ふと止まった。「お前さん……ちょっと、深みの匂いがするぞ。気をつけな。あれは、商品より高くつく」。",
@@ -10938,6 +10938,1348 @@
      ]
     }
    ]
+  },
+  {
+   "id": "dg_x_deep_choir",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "どこか遠くから、低い合唱のような唸りが幾重にも重なって届く。言葉のようで、言葉ではない。",
+   "choices": [
+    {
+     "label": "声に耳を澄ます",
+     "text": "聴き入るうち、自分の名を呼ばれた気がした。慌てて耳を塞ぐ。",
+     "effects": [
+      {
+       "exposure": 0.08
+      },
+      {
+       "trait": "聞いた話:底の合唱"
+      },
+      {
+       "chronicle": "深度#depth#で、底から湧く合唱に名を呼ばれた。"
+      }
+     ]
+    },
+    {
+     "label": "鼻歌でかき消す",
+     "text": "故郷の節を口ずさむと、合唱は遠ざかった。震える唇を噛む。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "深度#depth#で、底の合唱を鼻歌でかき消した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_deep_handprints",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "壁一面に、おびただしい数の手形が押されている。どれも、ここから出ようと外へ向いている。",
+   "choices": [
+    {
+     "label": "自分の手を重ねる",
+     "text": "冷たい石の凹みに掌が吸い込まれる。先に死んだ誰かの大きさと、ぴたりと合った。",
+     "effects": [
+      {
+       "exposure": 0.06
+      },
+      {
+       "trait": "見たもの:出口を求めた手形"
+      },
+      {
+       "chronicle": "深度#depth#の壁の手形に、己の掌を重ねた。"
+      }
+     ]
+    },
+    {
+     "label": "手を背に組む",
+     "text": "触れずにいた。だが、視界の隅でいつまでも手形がこちらを呼んでいる。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、出口を求めた手形の壁を素通りした。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_deep_lantern",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "通路の真ん中に、消えかけたランタンがぽつんと置かれている。芯はまだ、かすかに赤い。",
+   "choices": [
+    {
+     "label": "油を足して灯す",
+     "text": "炎が息を吹き返し、闇を少し押し返した。持ち主は、もう取りに来ないだろう。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "trait": "看取り:誰かのランタン"
+      },
+      {
+       "chronicle": "深度#depth#で、見知らぬ誰かのランタンを灯し直した。"
+      }
+     ]
+    },
+    {
+     "label": "そのままにする",
+     "text": "他人の灯に油を割く余裕はない。赤い芯を背に、闇へ進んだ。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、消えかけたランタンを置き去りにした。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_deep_namewall",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "壁に、無数の名が刻まれている。最後の数行は、刻む手が震えていたのか、ひどく歪んでいる。",
+   "choices": [
+    {
+     "label": "末尾に己の名を刻む",
+     "text": "短刀の先で、自分の名を加えた。ここまで来た証が、ひとつ増えただけだ。",
+     "effects": [
+      {
+       "exposure": 0.05
+      },
+      {
+       "trait": "心に刻んだ:名の壁の末尾"
+      },
+      {
+       "chronicle": "深度#depth#の名の壁に、己の名を書き足した。"
+      }
+     ]
+    },
+    {
+     "label": "黙して読む",
+     "text": "ひとつひとつ、声に出さず読んだ。みな、ここまでは来た者たちだ。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、先達の名を壁に読んだ。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_deep_stillwater",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "床に黒い水を湛えた石盤。足音にも、息にも、水面はさざ波ひとつ立てない。",
+   "choices": [
+    {
+     "label": "指を浸す",
+     "text": "ひやりと重い感触。引き抜いた指先に、見覚えのない古い指輪の跡が残っていた。",
+     "effects": [
+      {
+       "exposure": 0.09
+      },
+      {
+       "trait": "見たもの:波立たぬ黒水"
+      },
+      {
+       "chronicle": "深度#depth#の波立たぬ黒水に、指を浸してしまった。"
+      }
+     ]
+    },
+    {
+     "label": "迂回する",
+     "text": "あれは水ではない。本能がそう告げた。壁伝いに回り込む。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、波立たぬ黒水を避けて通った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_deep_warmstone",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "一角の石壁だけが、生き物の肌のように温かい。耳を当てると、遠い鼓動のような響きがある。",
+   "choices": [
+    {
+     "label": "壁に背を預けて休む",
+     "text": "ぬくもりに、強張った体が少しほどけた。だが、鼓動は確かに、ひとつだけ速くなった。",
+     "effects": [
+      {
+       "exposure": 0.04
+      },
+      {
+       "trait": "看取り:鼓動する壁の温み"
+      },
+      {
+       "chronicle": "深度#depth#で、鼓動する温かい壁に背を預けた。"
+      }
+     ]
+    },
+    {
+     "label": "離れて休む",
+     "text": "温もりに甘えてはいけない。冷たい床を選んで腰を下ろした。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "深度#depth#で、鼓動する壁から離れて息を整えた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_deep_secondshadow",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "灯を掲げると、足元から影が二つ伸びた。光源はひとつのはずなのに。",
+   "choices": [
+    {
+     "label": "もう一つの影に話しかける",
+     "text": "「お前は、誰だ」。影は答えず、ただこちらの仕草を一拍遅れでなぞった。",
+     "effects": [
+      {
+       "exposure": 0.1
+      },
+      {
+       "trait": "見たもの:もう一つの影"
+      },
+      {
+       "chronicle": "深度#depth#で、もう一つの己の影と言葉を交わそうとした。"
+      }
+     ]
+    },
+    {
+     "label": "灯を伏せる",
+     "text": "光を覆うと、影は二つとも消えた。何も、見なかったことにする。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、二つに増えた己の影から目を逸らした。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_deep_offering",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "壁の窪みに、古い供物の跡。乾いた花、欠けた硬貨、そして名の消えた小さな木札が並んでいる。",
+   "choices": [
+    {
+     "label": "硬貨を一枚供える",
+     "text": "持ち合わせの金貨を一枚、窪みに置いた。誰のためでもない祈りが、口をついて出る。",
+     "effects": [
+      {
+       "gold": -1
+      },
+      {
+       "exposure": -0.05
+      },
+      {
+       "trait": "心に刻んだ:名なき供物への祈り"
+      },
+      {
+       "chronicle": "深度#depth#の名なき供物に、硬貨を一枚添えた。"
+      }
+     ]
+    },
+    {
+     "label": "木札を読む",
+     "text": "消えかけた札に、辛うじて「待つ」の一字。誰が、誰を待っていたのか。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#の古い供物に「待つ」の一字を読んだ。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_mid_brokenbridge",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 1,
+   "text": "裂け目に架かっていた石橋が、半ばで崩れ落ちている。残った半分が、足を誘うように突き出している。",
+   "choices": [
+    {
+     "label": "跳んで渡る",
+     "text": "助走をつけ、崩れた縁を蹴って跳んだ。爪先が、向こうの石を掠めて掴む。",
+     "effects": [
+      {
+       "trait": "心に刻んだ:崩れ橋を跳んだ脚"
+      },
+      {
+       "chronicle": "深度#depth#で、崩れた石橋を跳び越えた。"
+      }
+     ]
+    },
+    {
+     "label": "回り道を探す",
+     "text": "無理は禁物だ。来た道を戻り、別の通路を探す。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、崩れ橋を諦めて回り道を選んだ。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_mid_singingvein",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 1,
+   "text": "壁を走る鉱脈が、風もないのに細く鳴いている。耳に心地よく、つい足が止まる。",
+   "choices": [
+    {
+     "label": "鉱脈を一片削る",
+     "text": "短刀で薄く剥がすと、鳴き声がぴたりと止んだ。手の中で、欠片はただの冷たい石になる。",
+     "effects": [
+      {
+       "gold": 3
+      },
+      {
+       "exposure": 0.03
+      },
+      {
+       "chronicle": "深度#depth#で、鳴く鉱脈を削り取った。"
+      }
+     ]
+    },
+    {
+     "label": "聴くだけにする",
+     "text": "壊すのは惜しい。しばらく、その細い歌に耳を傾けた。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "深度#depth#で、鳴く鉱脈の歌を聴いた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_mid_oldcamp",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 1,
+   "text": "焚き火の跡と、丁寧に畳まれた毛布。先客の野営跡だ。立った様子はなく、ただ静かに残されている。",
+   "choices": [
+    {
+     "label": "残り物を検める",
+     "text": "毛布の下に、封の切れていない治癒の膏薬がひと包み。誰かの最後の備えを、ありがたく受け取る。",
+     "effects": [
+      {
+       "item": "salve"
+      },
+      {
+       "chronicle": "深度#depth#の野営跡で、先客の残した膏薬を見つけた。"
+      }
+     ]
+    },
+    {
+     "label": "灰に手を合わせる",
+     "text": "持ち主は、立ち上がらなかったのだろう。冷えた灰に、短く黙祷した。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "trait": "看取り:立ち上がらなかった先客"
+      },
+      {
+       "chronicle": "深度#depth#の野営跡の灰に、手を合わせた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_mid_trappeddoor",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 1,
+   "text": "壁に嵌め込まれた仕掛け扉。把手の周りに、引っ掻いたような細かい傷が無数についている。",
+   "choices": [
+    {
+     "label": "慎重にこじ開ける",
+     "text": "息を詰め、針の先で機構を探る。小さな音とともに、扉は何事もなく開いた。中に、銀貨が幾枚か。",
+     "effects": [
+      {
+       "gold": 8
+      },
+      {
+       "trait": "心に刻んだ:傷だらけの扉を開けた指"
+      },
+      {
+       "chronicle": "深度#depth#の仕掛け扉を、慎重に開けた。"
+      }
+     ]
+    },
+    {
+     "label": "見送る",
+     "text": "把手の傷が、開けようとした者たちの末路を語っている。手を引いた。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、傷だらけの仕掛け扉を見送った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_mid_mossglyph",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 1,
+   "text": "苔むした壁を払うと、下から古い刻印が現れた。半ばまで読んで、続きが苔に隠れている。",
+   "choices": [
+    {
+     "label": "苔を剥がして読み切る",
+     "text": "残りを露わにすると、それは引き返す道筋を示す道標だった。ひとつ、賢くなる。",
+     "effects": [
+      {
+       "trait": "遺品:苔の下の道標"
+      },
+      {
+       "chronicle": "深度#depth#で、苔の下に隠れた古い道標を読み解いた。"
+      }
+     ]
+    },
+    {
+     "label": "苔を戻しておく",
+     "text": "誰かが隠したものかもしれない。剥がした苔を、そっと元へ戻した。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、苔の下の刻印をまた覆い隠した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_sh_dripwell",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "shallow"
+   },
+   "weight": 1,
+   "text": "壁の窪みから、ぽつ、ぽつ、と水が滴っている。下の小さな窪みに、澄んだ雫が溜まりつつある。",
+   "choices": [
+    {
+     "label": "雫で喉を潤す",
+     "text": "冷たく清らかな水が、喉を伝う。地上の井戸と、変わらない味がした。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "深度#depth#の滴る雫で、喉を潤した。"
+      }
+     ]
+    },
+    {
+     "label": "顔を洗い、息を整える",
+     "text": "両手に受けた雫で顔を洗うと、強張っていた肩が少しほどけた。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "深度#depth#の滴る雫で顔を洗い、息を整えた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_sh_birdbones",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "shallow"
+   },
+   "weight": 1,
+   "text": "通路の隅に、小鳥の骨。こんな地の底に、いったいどうやって迷い込んだのか。",
+   "choices": [
+    {
+     "label": "土に埋めてやる",
+     "text": "床の砂を少し掘り、小さな骨を寝かせた。ここにも、空を知る者がいた。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "trait": "看取り:地底に迷った小鳥"
+      },
+      {
+       "chronicle": "深度#depth#で、地底に迷い込んだ小鳥の骨を埋めた。"
+      }
+     ]
+    },
+    {
+     "label": "先を急ぐ",
+     "text": "感傷に浸る場所ではない。骨を踏まぬよう、よけて進んだ。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、小鳥の骨をよけて先を急いだ。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_sh_chalkmark",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "shallow"
+   },
+   "weight": 1,
+   "text": "分かれ道の壁に、誰かのチョーク印。片方の道に矢印、もう片方に大きな×印が描かれている。",
+   "choices": [
+    {
+     "label": "矢印に従う",
+     "text": "先達の助言に従って進む。少し行くと、確かに開けた安全な小部屋に出た。",
+     "effects": [
+      {
+       "trait": "聞いた話:先達のチョーク印"
+      },
+      {
+       "chronicle": "深度#depth#で、先達のチョーク印に従って道を選んだ。"
+      }
+     ]
+    },
+    {
+     "label": "印を信じず×の道へ",
+     "text": "罠かもしれない。あえて×の道を選んだ。今のところ、何も起きてはいない。",
+     "effects": [
+      {
+       "exposure": 0.02
+      },
+      {
+       "chronicle": "深度#depth#で、チョーク印に逆らって道を選んだ。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_sh_brokenflask",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "shallow"
+   },
+   "weight": 1,
+   "text": "床に割れた薬瓶。中身はとうに乾いているが、底のほうに、まだ封の切れていない小瓶が転がっている。",
+   "choices": [
+    {
+     "label": "無事な小瓶を拾う",
+     "text": "栓を確かめると、しっかり封がされている。誰かが落とした薬を、ありがたく頂戴した。",
+     "effects": [
+      {
+       "item": "salve"
+      },
+      {
+       "chronicle": "深度#depth#で、割れた薬瓶の傍に無事な小瓶を拾った。"
+      }
+     ]
+    },
+    {
+     "label": "破片を片付ける",
+     "text": "後から来る者が踏まぬよう、ガラスの破片を端へ寄せた。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、割れた薬瓶の破片を片付けた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_sh_draft",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "shallow"
+   },
+   "weight": 1,
+   "text": "閉じた通路のはずなのに、頬に微かな風を感じる。どこかに、外へ通じる隙間があるらしい。",
+   "choices": [
+    {
+     "label": "風上を探る",
+     "text": "風をたどると、小さな抜け穴の奥に、わずかな星明かりが見えた。地上は、まだ遠くない。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "trait": "心に刻んだ:地底に届いた星明かり"
+      },
+      {
+       "chronicle": "深度#depth#で、隙間風をたどって星明かりを見つけた。"
+      }
+     ]
+    },
+    {
+     "label": "深呼吸して進む",
+     "text": "外の風を肺いっぱいに吸い込み、また闇へ向き直った。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、隙間風を吸い込んで先へ進んだ。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_lantern1",
+   "context": "dungeon",
+   "prerequisites": {
+    "minDepth": 2,
+    "maxDepth": 9,
+    "notArc": "lantern_keeper"
+   },
+   "weight": 1,
+   "text": "壁龕に、油の満ちたランタンが整然と並んでいる。誰かが、絶やさず灯を継いできた跡だ。一つだけ、灯が消えている。",
+   "choices": [
+    {
+     "label": "消えた一つを灯し直す",
+     "text": "火を移すと、列の灯が揃った。ふと、ここを守る者がもっと下にいる気がした。",
+     "effects": [
+      {
+       "arc": {
+        "key": "lantern_keeper",
+        "step": 1
+       }
+      },
+      {
+       "exposure": -0.03
+      },
+      {
+       "trait": "心に刻んだ:絶やされぬ灯の列"
+      },
+      {
+       "chronicle": "深度#depth#で、誰かが絶やさず継いできた灯の列を、揃え直した。"
+      }
+     ]
+    },
+    {
+     "label": "そのまま進む",
+     "text": "他人の務めに、手を出すまい。灯の列を背に、奥へ向かった。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、絶やされぬ灯の列を素通りした。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_lantern2",
+   "context": "dungeon",
+   "prerequisites": {
+    "arc": "lantern_keeper",
+    "arcStep": 1,
+    "minDepth": 11
+   },
+   "weight": 1,
+   "text": "行き止まりの小部屋。油壺を抱えたまま事切れた老人の骸が、壁にもたれている。傍らのランタンは、まだ灯っていた。",
+   "choices": [
+    {
+     "label": "灯を引き継ぐと誓う",
+     "text": "「あなたの灯は、私が継ぐ」。骸の手から壺を取り、ランタンに油を足した。炎が、ほっと安堵したように揺れる。",
+     "effects": [
+      {
+       "arc": {
+        "key": "lantern_keeper",
+        "step": 2,
+        "done": true
+       }
+      },
+      {
+       "exposure": -0.05
+      },
+      {
+       "trait": "看取り:灯を継いだ約束"
+      },
+      {
+       "chronicle": "深度#depth#で、灯を守り続けた老人を看取り、その務めを引き継ぐと誓った。"
+      }
+     ]
+    },
+    {
+     "label": "油壺だけ受け取る",
+     "text": "務めまでは背負えない。せめて油壺だけ頂き、骸に頭を下げた。ランタンの灯は、いつか尽きるだろう。後で街に売れば、いくらかにはなる。",
+     "effects": [
+      {
+       "arc": {
+        "key": "lantern_keeper",
+        "step": 2,
+        "done": true
+       }
+      },
+      {
+       "gold": 6
+      },
+      {
+       "exposure": 0.03
+      },
+      {
+       "chronicle": "深度#depth#で、灯を守り続けた老人の油壺だけを受け取った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_song1",
+   "context": "dungeon",
+   "prerequisites": {
+    "minDepth": 4,
+    "maxDepth": 14,
+    "notArc": "lost_song"
+   },
+   "weight": 1,
+   "text": "壁に、楽譜のような刻線が長く続いている。途中で、彫る者の力尽きたように、線がふつりと途切れている。",
+   "choices": [
+    {
+     "label": "節を口ずさんで覚える",
+     "text": "刻まれた音を辿って小さく歌う。不思議と、続きが喉の奥で疼いた。この旋律の終わりを、どこかで見る気がする。",
+     "effects": [
+      {
+       "arc": {
+        "key": "lost_song",
+        "step": 1
+       }
+      },
+      {
+       "trait": "聞いた話:途切れた壁の旋律"
+      },
+      {
+       "chronicle": "深度#depth#で、壁に途切れた旋律を口ずさんで覚えた。"
+      }
+     ]
+    },
+    {
+     "label": "刻線を撫でて進む",
+     "text": "冷たい溝を指でなぞり、彫り手の無念を思った。歌は、ここで終わっている。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、途切れた壁の旋律を指でなぞった。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_x_song2",
+   "context": "dungeon",
+   "prerequisites": {
+    "arc": "lost_song",
+    "arcStep": 1,
+    "minDepth": 16
+   },
+   "weight": 1,
+   "text": "彫りかけの楽譜が、また壁に現れた。今度は、最後まで彫り切られている。傍らに、鑿を握ったままの白骨が座していた。",
+   "choices": [
+    {
+     "label": "続きを歌い、最後まで届ける",
+     "text": "覚えた節に、刻まれた終わりを継いで歌う。旋律が、初めてひとつに繋がった。白骨が、安らいだように見えた。",
+     "effects": [
+      {
+       "arc": {
+        "key": "lost_song",
+        "step": 2,
+        "done": true
+       }
+      },
+      {
+       "exposure": -0.06
+      },
+      {
+       "trait": "看取り:歌い終えた旋律"
+      },
+      {
+       "chronicle": "深度#depth#で、途切れた旋律の続きを見つけ、彫り手の代わりに歌い終えた。"
+      }
+     ]
+    },
+    {
+     "label": "終わりを書き写すだけにする",
+     "text": "歌う資格は己にない気がした。終わりの数小節を、ただ手控えに写し取る。",
+     "effects": [
+      {
+       "arc": {
+        "key": "lost_song",
+        "step": 2,
+        "done": true
+       }
+      },
+      {
+       "trait": "遺品:歌の終わりの写し"
+      },
+      {
+       "chronicle": "深度#depth#で、途切れた旋律の終わりを書き写した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ex_x_loss_lullaby",
+   "prerequisites": {
+    "tone": "loss"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の#origin_gear# の内張りに、子守唄の歌詞が縫い取られている。糸はもう、ところどころ解けかけていた。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "見たもの:#origin_name#の子守唄"
+     },
+     {
+      "chronicle": "#origin_name# が縫い取った子守唄を見つけた。歌う相手は、待っていたのだろうか。"
+     }
+    ]
+   },
+   "search": {
+    "text": "亡骸の懐から、片方だけの小さな靴が出てきた。子のものだ。ずっと、握りしめていたらしい。",
+    "effects": [
+     {
+      "trait": "遺品:#origin_name#の遺した小さな靴"
+     },
+     {
+      "chronicle": "#origin_name# が握りしめていた、子の小さな靴を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_x_myth_banner",
+   "prerequisites": {
+    "tone": "myth",
+    "hasCatchphrase": true
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "倒れてなお、#origin_name# は古い軍旗を高く掲げ続けていた。布には誇らしげに「#origin_catchphrase#」の一節が縫われている。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "聞いた話:#origin_name#の軍旗"
+     },
+     {
+      "chronicle": "#origin_name# が最期まで掲げた軍旗を見た。「#origin_catchphrase#」――その言葉のままに。"
+     }
+    ]
+   },
+   "search": {
+    "text": "旗竿の根元に、無数の戦友の名が刻まれていた。#origin_epithet# は、その全員を背負って立っていたのだ。",
+    "effects": [
+     {
+      "trait": "聞いた話:#origin_name#が背負った名"
+     },
+     {
+      "chronicle": "#origin_name# の旗竿に刻まれた、戦友たちの名を読んだ。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_x_grudge_tally",
+   "prerequisites": {
+    "tone": "grudge"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の#origin_gear# には、刃で刻んだ正の字がびっしりと並んでいた。最後の一画は、刻まれないままだ。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "見たもの:#origin_name#の数え傷"
+     },
+     {
+      "chronicle": "#origin_name# が刻み続けた数え傷を見た。最後の一画は、永遠に刻まれない。"
+     }
+    ]
+   },
+   "search": {
+    "text": "握られた拳の中に、すり減った誰かの紋章。憎しみの相手すら、もう先に逝ってしまったらしい。",
+    "effects": [
+     {
+      "exposure": 0.04
+     },
+     {
+      "trait": "遺品:#origin_name#が握り続けた紋章"
+     },
+     {
+      "chronicle": "#origin_name# が握り続けた、憎き相手の紋章を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_x_alien_husk",
+   "prerequisites": {
+    "stage": "alien"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "もはや#origin_name# だった面影は薄い。皮膚は鉱物のように硬化し、内側から見知らぬ結晶が芽吹いている。だが、その配列は、奇妙に美しい。",
+    "effects": [
+     {
+      "exposure": 0.06
+     },
+     {
+      "trait": "見たもの:#origin_name#から芽吹いた結晶"
+     },
+     {
+      "chronicle": "#origin_name# だったものから芽吹く、美しい結晶を見てしまった。"
+     }
+    ]
+   },
+   "search": {
+    "text": "結晶の隙間に、辛うじて人だった頃の指輪が埋もれている。引き抜くと、薄く脈打つような熱を帯びていた。",
+    "effects": [
+     {
+      "exposure": 0.05
+     },
+     {
+      "trait": "遺品:#origin_name#の脈打つ指輪"
+     },
+     {
+      "chronicle": "#origin_name# の変じた体から、脈打つ指輪を取り出した。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_x_twisting_roots",
+   "prerequisites": {
+    "stage": "twisting"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の四肢から、青白い根のようなものが床へ伸び始めている。まだ、人の輪郭は保っているが――時間の問題だ。",
+    "effects": [
+     {
+      "exposure": 0.04
+     },
+     {
+      "trait": "見たもの:#origin_name#から伸びる根"
+     },
+     {
+      "chronicle": "#origin_name# の体から床へ伸びる、青白い根を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "根の張った床下から、まだ温かい灯火石が出てきた。変質が、その熱を吸い上げて進んでいるらしい。",
+    "effects": [
+     {
+      "trait": "遺品:#origin_name#の灯火石"
+     },
+     {
+      "chronicle": "#origin_name# の根の下から、温かい灯火石を掘り出した。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_x_weathered_ring",
+   "prerequisites": {
+    "stage": "weathered"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の遺骸は、もうずいぶんと風化していた。だが、#origin_gear# を抱える腕の形だけは、頑なに崩れずに残っている。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "看取り:#origin_name#の崩れぬ腕"
+     },
+     {
+      "chronicle": "#origin_name# が抱えたまま崩れずにいる、腕の形を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "風化した指の間から、古い婚約の輪がこぼれ落ちた。誰に渡すはずだったのか、もう知る者はいない。",
+    "effects": [
+     {
+      "trait": "遺品:#origin_name#の婚約の輪"
+     },
+     {
+      "chronicle": "#origin_name# の風化した指から、古い婚約の輪を拾った。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "tv_x_dicegame",
+   "context": "tavern",
+   "prerequisites": {
+    "notFlag": "tv_dice"
+   },
+   "weight": 2,
+   "text": "卓の隅で、#origin_name# が骨の賽を転がしている。「運試しはどうだ、旅の人。掛けるのは、銅貨一枚でいい」。",
+   "choices": [
+    {
+     "label": "一勝負に乗る",
+     "text": "賽は気まぐれに転がり、目はこちらに微笑んだ。#origin_name# は肩をすくめ、銅貨を数枚押しやった。",
+     "effects": [
+      {
+       "plant": "tv_dice"
+      },
+      {
+       "gold": 4
+      },
+      {
+       "chronicle": "酒場で#origin_name# と賽を振り、わずかに勝ち越した。"
+      }
+     ]
+    },
+    {
+     "label": "見物に徹する",
+     "text": "金を賭けはしないが、勝負の行方を眺めるのは楽しい。#origin_name# の手際に、思わず唸った。",
+     "effects": [
+      {
+       "plant": "tv_dice"
+      },
+      {
+       "chronicle": "酒場で#origin_name# の賽遊びを見物した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_x_songrequest",
+   "context": "tavern",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "隅で竪琴を爪弾く#origin_name# が、ふとこちらを見た。「何か、聴きたい曲はあるかね。地上の歌でも、地下の歌でも」。",
+   "choices": [
+    {
+     "label": "故郷の歌を頼む",
+     "text": "おぼろげな旋律を口で伝えると、#origin_name# は器用に拾い上げて奏でた。胸の奥の、固いものがほどけていく。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "trait": "聞いた話:#origin_name#が奏でた故郷の歌"
+      },
+      {
+       "chronicle": "酒場で#origin_name# に、故郷の歌を奏でてもらった。"
+      }
+     ]
+    },
+    {
+     "label": "迷宮の歌をと頼む",
+     "text": "「物好きだな」と#origin_name# は笑い、底知れぬ旋律を爪弾いた。聴くほどに、また潜りたくなる自分がいる。",
+     "effects": [
+      {
+       "exposure": 0.02
+      },
+      {
+       "chronicle": "酒場で#origin_name# に、迷宮の歌をせがんだ。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_x_oldcontract",
+   "context": "guild",
+   "prerequisites": {
+    "notFlag": "gl_oldcon"
+   },
+   "weight": 2,
+   "text": "受付の#origin_name# が、埃をかぶった古い依頼書の束を整理している。「期限の切れたものばかりさ。依頼主も、果たした者も、もういない」。",
+   "choices": [
+    {
+     "label": "古い依頼に目を通す",
+     "text": "黄ばんだ紙片には、叶わなかった願いが並んでいた。ひとつひとつが、誰かの帰りを待っていた証だ。",
+     "effects": [
+      {
+       "plant": "gl_oldcon"
+      },
+      {
+       "trait": "聞いた話:果たされなかった古い依頼"
+      },
+      {
+       "chronicle": "ギルドで#origin_name# から、果たされなかった古い依頼書を見せてもらった。"
+      }
+     ]
+    },
+    {
+     "label": "束ねて供養を頼む",
+     "text": "「いい考えだ」と#origin_name# は頷き、依頼書を慰霊堂へ回すと約束した。せめて、紙の上の願いだけでも。",
+     "effects": [
+      {
+       "plant": "gl_oldcon"
+      },
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "ギルドで、果たされなかった古い依頼書の供養を頼んだ。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_x_mentor",
+   "context": "guild",
+   "prerequisites": {
+    "minLevel": 6
+   },
+   "weight": 2,
+   "text": "若い見習いを連れた#origin_name# が、こちらに気づいて会釈した。「この子に、潜る者の心得を一つ授けてやってくれないか。あんたの言葉なら、効く」。",
+   "choices": [
+    {
+     "label": "生き残る心得を説く",
+     "text": "「欲を出した一歩が、命取りになる」。見習いは神妙に頷いた。語るうち、己の戒めにもなる。",
+     "effects": [
+      {
+       "trait": "心に刻んだ:見習いに説いた戒め"
+      },
+      {
+       "chronicle": "ギルドで#origin_name# の見習いに、生き残る心得を授けた。"
+      }
+     ]
+    },
+    {
+     "label": "弔いを忘れるなと説く",
+     "text": "「下で誰かを見たら、手を合わせてやれ」。見習いの目が、少し変わった。#origin_name# が、静かに礼をした。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "ギルドで見習いに、弔いを忘れるなと説いた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_x_haggle",
+   "context": "shop",
+   "prerequisites": {
+    "notFlag": "sp_haggle"
+   },
+   "weight": 2,
+   "text": "#origin_name# が、こちらの値踏みを見透かしたように笑う。「掛け合うのは構わんよ。ただし、的を射た一言でなけりゃ、一銭も引かんがね」。",
+   "choices": [
+    {
+     "label": "品の傷を指摘する",
+     "text": "柄の小さなひびを突くと、#origin_name# は渋々値を下げた。「目が利くじゃないか」と、まんざらでもない顔で。",
+     "effects": [
+      {
+       "plant": "sp_haggle"
+      },
+      {
+       "gold": 3
+      },
+      {
+       "chronicle": "店で#origin_name# 相手に値切り、わずかに得をした。"
+      }
+     ]
+    },
+    {
+     "label": "正価で気持ちよく買う",
+     "text": "「値切らんのかい」と#origin_name# は意外そうに、治癒の膏薬をひと包みおまけしてくれた。商いは、情でも回る。",
+     "effects": [
+      {
+       "plant": "sp_haggle"
+      },
+      {
+       "item": "salve"
+      },
+      {
+       "chronicle": "店で#origin_name# から正価で買い、膏薬のおまけをもらった。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "st_x_lostchild",
+   "context": "street",
+   "prerequisites": {
+    "notFlag": "st_child"
+   },
+   "weight": 2,
+   "text": "路地の角で、迷子の子がべそをかいている。通りすがりの#origin_name# が、困った顔でこちらを振り返った。「親を探しているらしいんだが……」。",
+   "choices": [
+    {
+     "label": "一緒に親を探す",
+     "text": "#origin_name# と手分けして広場を巡り、半泣きの母親を見つけ出した。礼の言葉が、妙に胸に染みる。",
+     "effects": [
+      {
+       "plant": "st_child"
+      },
+      {
+       "exposure": -0.03
+      },
+      {
+       "trait": "心に刻んだ:取り戻した迷子の手"
+      },
+      {
+       "chronicle": "街角で#origin_name# と協力し、迷子を親元へ帰した。"
+      }
+     ]
+    },
+    {
+     "label": "飴を渡してあやす",
+     "text": "懐の干し果実を握らせると、子はようやく泣き止んだ。#origin_name# が、ほっと息をつく。",
+     "effects": [
+      {
+       "plant": "st_child"
+      },
+      {
+       "chronicle": "街角で迷子に干し果実を渡し、泣き止ませた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ch_x_falsebottom",
+   "context": "chest",
+   "prerequisites": {},
+   "weight": 2,
+   "result": {
+    "text": "宝箱の底が、妙に浅い。指で探ると、二重底だ。下段から、油紙に包まれた金貨がこぼれ出た。",
+    "effects": [
+     {
+      "gold": 12
+     },
+     {
+      "chronicle": "深度#depth#の宝箱に隠された二重底から、金貨を見つけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_x_pressed_flower",
+   "context": "chest",
+   "prerequisites": {
+    "maxDepth": 12
+   },
+   "weight": 1,
+   "result": {
+    "text": "箱の中は、ほとんど空だった。ただ、蓋の裏に、押し花が一輪、丁寧に貼り付けられている。地上の、春の花だ。",
+    "effects": [
+     {
+      "exposure": -0.04
+     },
+     {
+      "trait": "遺品:宝箱の蓋裏の押し花"
+     },
+     {
+      "chronicle": "深度#depth#の宝箱の蓋裏に、地上の押し花を見つけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_x_coiled_rope",
+   "context": "chest",
+   "prerequisites": {},
+   "weight": 2,
+   "result": {
+    "text": "宝物のかわりに、しっかりと巻かれた丈夫な縄。それと、治癒の膏薬が幾包みか。誰かの、生還のための備えだったらしい。",
+    "effects": [
+     {
+      "item": "salve"
+     },
+     {
+      "chronicle": "深度#depth#の宝箱から、生還の備えだった縄と膏薬を見つけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_x_others_share",
+   "context": "chest",
+   "prerequisites": {
+    "minDepth": 10
+   },
+   "weight": 1,
+   "result": {
+    "text": "金貨の上に、震える字の書き置き。「見つけた者へ。半分は、おれの分も使ってくれ」。署名は、滲んで読めない。",
+    "effects": [
+     {
+      "gold": 9
+     },
+     {
+      "exposure": 0.03
+     },
+     {
+      "trait": "遺品:見知らぬ先達の取り分"
+     },
+     {
+      "chronicle": "深度#depth#の宝箱で、見知らぬ先達が遺した取り分と書き置きを受け取った。"
+     }
+    ]
+   }
   }
  ]
 }
