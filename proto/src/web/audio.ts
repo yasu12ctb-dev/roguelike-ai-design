@@ -220,10 +220,14 @@ export function sfx(kind: Sfx, delaySec = 0): void {
     case "stairs_up": tone(300, 0.26, "sine", 0.12, 680); setTimeout(() => tone(540, 0.22, "sine", 0.1, 840), 90); break; // 浮上＝上行＝安堵
 
     // ── 戦闘（討つ＝高く鋭い／被弾＝低く重い。聞き分け重視で音域を離す）──
-    case "hit": transient(0.18, 1800); tone(640, 0.06, "square", 0.1, 320); break;
-    case "crit": transient(0.28, 1400); tone(760, 0.08, "square", 0.14, 240); thud(120, 0.22, 0.18); break; // 会心/ボス打撃＝層を厚く
-    case "kill": transient(0.16, 900); thud(180, 0.18, 0.14); tone(300, 0.12, "sawtooth", 0.07, 90); break; // 撃破＝砕ける手応え
-    case "hurt": transient(0.13, 500); thud(135, 0.26, 0.24); break;
+    // 攻撃＝候補③「重い一撃」：低い基音＋深く長いサブを重ねたずっしりした打撃。
+    case "hit": transient(0.18, 1300, 0.05); thud(150, 0.28, 0.30); tone(420, 0.06, "square", 0.12, 150); tone(55, 0.24, "sine", 0.20, 34); tone(92, 0.16, "triangle", 0.12, 48); break;
+    // 会心/ボス打撃＝③をさらに厚く深く。
+    case "crit": transient(0.26, 1500, 0.055); thud(170, 0.34, 0.34); tone(440, 0.07, "square", 0.14, 150); tone(50, 0.32, "sine", 0.24, 30); tone(100, 0.18, "triangle", 0.14, 50); break;
+    // 撃破＝③の重さ＋砕け落ちる下降。
+    case "kill": transient(0.2, 1100, 0.05); thud(150, 0.26, 0.30); tone(300, 0.14, "sawtooth", 0.1, 70); tone(55, 0.22, "sine", 0.18, 32); break;
+    // 被弾＝候補⑦「うめき＋衝撃」：中域の衝撃＋低く沈む呻き。BGM の低音を抜けて分かる。
+    case "hurt": noise(0.05, 0.16, 700); thud(130, 0.22, 0.24); tone(260, 0.32, "sawtooth", 0.12, 90); break;
     case "drain": tone(220, 0.5, "sine", 0.1, 70); noise(0.4, 0.05, 320); break; // 深蝕の牙＝沈む不協和
     case "boss": thud(70, 1.1, 0.2, 0.4); tone(110, 1.0, "sawtooth", 0.06, 70); break; // ボス出現＝圧
     case "boss_down": arp([48, 55, 60, 67], 110, "triangle", 0.14, 0.5); thud(90, 0.5, 0.16, 0.4); break; // 撃破＝荘厳なファンファーレ
