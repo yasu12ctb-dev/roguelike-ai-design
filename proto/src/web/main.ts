@@ -24,7 +24,7 @@ import {
 } from "../render.ts";
 import { rollEncounter } from "../weights.ts";
 import { filterByTags } from "../content.ts";
-import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, selectTownStorylet, applyActorEffects, rollChestOutcome } from "../storylets.ts";
+import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, selectTownStorylet, selectDelverStorylet, applyActorEffects, rollChestOutcome } from "../storylets.ts";
 import { meetActor, mintActor, rememberActor, pickRosterActor } from "../actors.ts";
 import {
   generateOffers, generateNobleOffers, acceptQuest, activeQuests, doneQuests, claimQuest,
@@ -44,14 +44,14 @@ import {
 import {
   genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx, spawnPursuer,
   planCompanion, resolveCompanion, randomFloorAway, inBounds, companionMaxHp, companionDmg,
-  VIEW_W, VIEW_H, type Floor, type Pos, type Chest, type Monster, type CompanionEntity, type DownedActor, type Shrine,
+  VIEW_W, VIEW_H, type Floor, type Pos, type Chest, type Monster, type CompanionEntity, type DownedActor, type DelverActor, type Shrine,
 } from "../dungeon.ts";
 import type { Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, LivingActor, RosterActor, SetPiece, Storylet, TownContext, World } from "../types.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.12.1";
+export const APP_VERSION = "0.12.2";
 export const APP_BUILD = "2026-06-21";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -322,6 +322,7 @@ function draw() {
       const ce = floor.chests.find((c) => c.x === x && c.y === y);
       if (ce) { glyph = "▭"; cls = ce.opened ? "g-chest-open" : "g-chest"; }
       if (floor.downed && floor.downed.x === x && floor.downed.y === y) { glyph = "&"; cls = "g-downed"; } // 手負いの冒険者（4-14C）
+      if (floor.delver && floor.delver.x === x && floor.delver.y === y) { glyph = "@"; cls = "g-delver"; } // 同時に潜る生者の冒険者（すれ違い）
       const m = floor.monsters.find((m) => m.hp > 0 && m.x === x && m.y === y);
       if (m) {
         glyph = m.kind.glyph;
@@ -1739,6 +1740,19 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
           : { id: `downed_${depth}_${world.generation}`, actor: mintActor(db, rng), x: at.x, y: at.y };
       }
     }
+    // 入口C：同時に潜る生者の冒険者（4-14・すれ違いの軽イベント）。相棒の有無に関わらず時々／深度2以降／初訪のみ。
+    floor.delver = null;
+    if (depth >= 2 && rng.next() < DELVER_CHANCE) {
+      const at = randomFloorAway(floor, rng, player, 5);
+      // 手負いと同じマスを避ける（randomFloorAway は downed を見ないため）。
+      if (at && !(floor.downed && floor.downed.x === at.x && floor.downed.y === at.y)) {
+        // 時々★中核の本人（名簿）＝後で街で見かける「また会えそう」の余韻になりうる（4-14・E）。
+        const rosterLa = rng.next() < ROSTER_DELVER_CHANCE ? pickRosterActor(world, db, rng) : null;
+        floor.delver = rosterLa
+          ? { id: rosterLa.id, actor: rosterLa.actor, x: at.x, y: at.y }
+          : { id: `delver_${depth}_${world.generation}_${world.diveCount ?? 0}`, actor: mintActor(db, rng), x: at.x, y: at.y };
+      }
+    }
   }
   // 同行（4-14C）：相棒がいれば @ の隣に展開（階段は隣接で同行降下）。ephemeral＝再訪でも再展開。
   companion = null;
@@ -1766,6 +1780,8 @@ const COMPANION_ERRATIC_AT = 0.6;  // この連帯深蝕から挙動がぶれ始
 const COMPANION_DANGER_AT = 1.2;   // この連帯深蝕で危険化＝生者のうちに決断（プレイヤーの蝕み閾値と対称）
 const COMPANION_QUIRK_AT = [0.6, 1.2]; // 相棒の奇癖が刻まれる深蝕段（erratic 開始／危険化に対応）
 const ROSTER_DOWNED_CHANCE = 0.5; // 手負いが出るとき、★中核の本人（名簿）である確率（4-14・B）。0で従来=無名のみ
+const DELVER_CHANCE = 0.22;        // 生者の冒険者が同じフロアにいる確率（初訪・深度2+・すれ違いの軽イベント）。要テストプレイ調整
+const ROSTER_DELVER_CHANCE = 0.4;  // すれ違う冒険者が★名簿員（後で街で見かける余韻になりうる）である確率
 const companionErraticRate = (exposure: number) =>
   exposure < COMPANION_ERRATIC_AT ? 0 : Math.min(0.5, (exposure - COMPANION_ERRATIC_AT) * 0.4);
 /** 相棒の名前付き奇癖（Phase B）：連帯深蝕の段ごとに「奇癖:…」を相棒の traits に刻む（プレイヤー機構の転用）。 */
@@ -1789,7 +1805,8 @@ function spawnCompanionNear(at: Pos): void {
   const occupied = (x: number, y: number) =>
     (x === at.x && y === at.y) || floor!.monsters.some((m) => m.hp > 0 && m.x === x && m.y === y) ||
     floor!.fossils.some((e) => e.x === x && e.y === y) || floor!.chests.some((c) => c.x === x && c.y === y) ||
-    (!!floor!.downed && floor!.downed.x === x && floor!.downed.y === y);
+    (!!floor!.downed && floor!.downed.x === x && floor!.downed.y === y) ||
+    (!!floor!.delver && floor!.delver.x === x && floor!.delver.y === y);
   for (let r = 1; r <= 4; r++) {
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       const x = at.x + dx, y = at.y + dy;
@@ -1960,6 +1977,43 @@ async function rescueScene(d: DownedActor): Promise<void> {
     // 見捨てる：その場で怨念極の化石を執筆＝後世で grudge_hunt の宿敵として確実に還る（4-14C・B／「宿敵を自分で書く」）。
     if (downed) fossilizeAbandoned(world, downed.actor, { depth: floor?.depth ?? 1 });
     log(`${d.actor.name}を残して先へ進んだ。背に張りつく沈黙が、いつまでも追ってくる。`, "warn");
+  }
+  save();
+  busy = false;
+  draw();
+}
+
+/** 同時に潜る生者の冒険者とのすれ違い（4-14・軽イベント）。会話／アイテムや金貨の分け合い等＝一度きり。
+ *  街と同じ生者アンカーの仕組み（selectDelverStorylet → applyActorEffects）を流用。bond/plant が立てば
+ *  rememberActor で永続化＝後で街で見かける「また会えそう」の余韻になりうる（4-14・E）。相棒勧誘はしない（軽さ優先）。 */
+async function delverScene(d: DelverActor): Promise<void> {
+  if (busy) return;
+  busy = true;
+  const ch = world.current!;
+  if (floor) floor.delver = null; // すれ違いは一度きり（盤上から消す）
+  markEventFired(); // 4-10H 第二層：人に出会う＝イベントが起きた＝凪を解除
+  sfx("ui");
+  const head = `${d.actor.epithet ?? ""}${d.actor.name}（${d.actor.archetype}）`;
+  // 名簿員（adv_*）は安定idのまま＝再会/余韻が本人に紐づく。無名は世代付きid。
+  const laId = d.id.startsWith("adv_") ? d.id : `npc_${world.generation}_${d.id}`;
+  const la: LivingActor = { id: laId, actor: d.actor, metGeneration: world.generation };
+  const sl = selectDelverStorylet(db, world, ch, la, rng, recentSet());
+  if (sl && sl.choices && sl.choices.length) {
+    noteEvent(sl.id);
+    const c = await sheet({
+      text: `${head}\n\n${fillActorText(la.actor, sl.text ?? "")}`,
+      meta: `深度${floor?.depth ?? 1} ── すれ違う冒険者`, options: sl.choices.map((o) => o.label),
+    });
+    const choice = sl.choices[c.pick - 1];
+    const lines = applyActorEffects(world, ch, la, choice.effects);
+    const body = [choice.text ? fillActorText(la.actor, choice.text) : "", ...lines].filter(Boolean).join("\n");
+    if (body) log(body);
+  } else {
+    // 候補が無ければ素っ気ない会釈で別れる（破綻させない）。
+    await sheet({
+      text: `${head}\n\n通路の角ですれ違った。互いに無言で会釈を交わし、また別々の闇へ消えていく。`,
+      meta: `深度${floor?.depth ?? 1} ── すれ違う冒険者`, options: ["先へ進む"],
+    });
   }
   save();
   busy = false;
@@ -2876,6 +2930,9 @@ function moveOrInteract(nx: number, ny: number): boolean {
 
   // 手負いの冒険者（4-14C 入口B）：救助＝相棒化／見捨てる
   if (f.downed && f.downed.x === nx && f.downed.y === ny) { void rescueScene(f.downed); return true; }
+
+  // 同時に潜る生者の冒険者（4-14・すれ違い）：接触で軽い会話（一度きり）
+  if (f.delver && f.delver.x === nx && f.delver.y === ny) { void delverScene(f.delver); return true; }
 
   // 相棒のマスへ踏み込む＝位置を入れ替える（相棒が @ の元いたマスへ）。手番は消費。
   if (companion && companion.x === nx && companion.y === ny) {

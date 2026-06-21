@@ -12280,6 +12280,416 @@
      }
     ]
    }
+  },
+  {
+   "id": "dv_greet",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "通路の角で、別の冒険者とばったり鉢合わせた。互いに武器の柄から手を離し、ほっと息をつく。「驚かせたな。生きてる人間に会うと、なぜか安心する」。",
+   "choices": [
+    {
+     "label": "近況を交わす",
+     "text": "下の様子をひとしきり報告し合った。一人で抱えていた不安が、少しだけ軽くなる。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "trait": "聞いた話:#origin_name#の道中"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# とすれ違い、互いの道中を報告し合った。"
+      }
+     ]
+    },
+    {
+     "label": "会釈して別れる",
+     "text": "言葉は交わさず、目礼だけ。それで十分、通じるものがある。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# と無言の目礼を交わした。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_share_salve",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "#origin_name# が、こちらの傷だらけの様子を見て足を止めた。「ひどい有様だな。…ほら、余分がある。持っていけ」と、#origin_gear# の物入れを探る。",
+   "choices": [
+    {
+     "label": "ありがたく受け取る",
+     "text": "差し出された治癒の膏薬を、礼を言って受け取った。見ず知らずの情けが、やけに沁みる。",
+     "effects": [
+      {
+       "item": "salve"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# から、治癒の膏薬を分けてもらった。"
+      }
+     ]
+    },
+    {
+     "label": "自分の分は足りていると断る",
+     "text": "「そうか、達者でな」と#origin_name# は物入れを閉じた。互いの無事を、短く祈り合う。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "迷宮で#origin_name# の施しを断り、互いの無事を祈った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_split_gold",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "#origin_name# が、崩れた壁の奥から見つけた硬貨の山を数えている。「ちょうどよかった。一人で運ぶには重い。半分、持つか？」。",
+   "choices": [
+    {
+     "label": "分け前を受け取る",
+     "text": "山分けの硬貨を懐に収めた。「貸し借りなしだ」と#origin_name# は笑った。",
+     "effects": [
+      {
+       "gold": 7
+      },
+      {
+       "chronicle": "迷宮で#origin_name# と、見つけた硬貨を山分けした。"
+      }
+     ]
+    },
+    {
+     "label": "全部譲る",
+     "text": "「気前がいいな。覚えておく」と#origin_name# は深く頷いた。いつか、巡って返ってくる気がする。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "plant": "dv_gave"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# に、見つけた硬貨を譲った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_warning",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "すれ違いざま、#origin_name# が早口で囁いた。「この先の広間はよせ。…妙な気配がある。俺は引き返す」。",
+   "choices": [
+    {
+     "label": "忠告を心に留める",
+     "text": "先達の勘は侮れない。気を引き締め、足取りを慎重に切り替えた。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "trait": "聞いた話:#origin_name#の忠告"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# から、この先の異変を警告された。"
+      }
+     ]
+    },
+    {
+     "label": "礼を言って先へ進む",
+     "text": "「忠告は受け取った」と頷き、なお奥を目指す。背に、#origin_name# の小さな溜息が聞こえた。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# の警告を聞きつつ、なお奥へ進んだ。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_rumor",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "#origin_name# が壁にもたれ、水筒を傾けながら世間話を始めた。「そういえば、この階層には昔、ひとつの隊がまるごと消えたって噂があってな……」。",
+   "choices": [
+    {
+     "label": "話の続きを聞く",
+     "text": "とりとめのない迷宮の噂を、しばし聞き入った。役に立つかは分からないが、心は少しほぐれた。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "trait": "聞いた話:#origin_name#の噂話"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# から、消えた隊の噂を聞いた。"
+      }
+     ]
+    },
+    {
+     "label": "長居はせず切り上げる",
+     "text": "「だな、油断は禁物だ」と#origin_name# は水筒を仕舞った。短い邂逅が、また闇に分かれる。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# と短い世間話を交わした。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_lost_partner",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "#origin_name# は、二人分の荷を背負っていた。「相棒とはぐれてな……いや、たぶん、もう」。言葉が途切れ、#origin_gear# を握る手に力がこもる。",
+   "choices": [
+    {
+     "label": "黙って肩に手を置く",
+     "text": "かける言葉は見つからない。ただ、しばらく傍に立った。#origin_name# は小さく頷き、また歩き出した。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "plant": "dv_grief"
+      },
+      {
+       "exposure": -0.03
+      },
+      {
+       "trait": "看取り:#origin_name#のはぐれた相棒"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# の、はぐれた相棒の話を聞いた。"
+      }
+     ]
+    },
+    {
+     "label": "捜索を手伝うと申し出る",
+     "text": "「いや…気持ちだけ受け取る。あんたも、無事に還れ」。#origin_name# は断り、深く頭を下げた。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "plant": "dv_grief"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# に相棒の捜索を申し出た（断られた）。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_give_gift",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "若い#origin_name# が、心細げに装備を点検している。明らかに、備えが足りていない。",
+   "choices": [
+    {
+     "label": "膏薬を分けてやる",
+     "text": "手持ちの膏薬をひと包み握らせた。「…恩に着る。この借りは、必ず」。#origin_name# の目に、光が戻る。",
+     "effects": [
+      {
+       "item": "salve"
+      },
+      {
+       "bond": 1
+      },
+      {
+       "plant": "dv_helped"
+      },
+      {
+       "chronicle": "迷宮で備えの足りない#origin_name# に、膏薬を分けてやった。"
+      }
+     ]
+    },
+    {
+     "label": "助言だけ与える",
+     "text": "深入りせず引き際を見極めろ、と要点だけ伝えた。#origin_name# は神妙に頷いた。",
+     "effects": [
+      {
+       "trait": "心に刻んだ:#origin_name#に説いた引き際"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# に、生き残る助言を授けた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_veteran",
+   "context": "delver",
+   "prerequisites": {
+    "minLevel": 8
+   },
+   "weight": 2,
+   "text": "歴戦の風格を纏った#origin_epithet##origin_name# が、こちらを値踏みするように見た。「お前、いい目をしている。…ひとつ、深みでの心得をくれてやる」。",
+   "choices": [
+    {
+     "label": "教えを請う",
+     "text": "深層を生き抜く呼吸のこつを、簡潔に授けられた。一段、自分が研がれた気がする。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "trait": "心に刻んだ:#origin_name#の深みの心得"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# から、深層を生き抜く心得を授かった。"
+      }
+     ]
+    },
+    {
+     "label": "好敵手として一礼する",
+     "text": "言葉ではなく、互いに獲物を構え直し、敬意の一礼。「いつか、深いところで」。#origin_name# は不敵に笑った。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "plant": "dv_rival"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# と、好敵手として礼を交わした。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_name_exchange",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "ひとしきり言葉を交わしたあと、#origin_name# が手を差し出した。「名乗っておこう。生きて街で会えたら、一杯おごる」。",
+   "choices": [
+    {
+     "label": "名を交わして約束する",
+     "text": "固い握手を交わした。地上での再会を、互いに口約束する。きっと、忘れない顔だ。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "plant": "dv_promise"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# と名を交わし、街での再会を約した。"
+      }
+     ]
+    },
+    {
+     "label": "名は伏せて健闘を祈る",
+     "text": "「詮索はなしだな。…達者で」。名は告げぬまま、互いの健闘だけを祈った。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# と、名を伏せたまま健闘を祈り合った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_trade_tip",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "#origin_name# が、拾った地図の切れ端を広げて見せた。「この先の分かれ道、左は行き止まりだ。右へ行け。…なに、礼はいい」。",
+   "choices": [
+    {
+     "label": "助言に従う",
+     "text": "余計な遠回りを省けた。見知らぬ親切が、足取りを軽くする。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "trait": "遺品:#origin_name#の道案内"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# に、先の道筋を教わった。"
+      }
+     ]
+    },
+    {
+     "label": "自分の目で確かめると返す",
+     "text": "「頑固だな。まあ、それも冒険者だ」と#origin_name# は肩をすくめ、地図を仕舞った。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# の道案内を、丁重に断った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_quiet_pass",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# は口数が少なかった。すれ違う一瞬、目だけで「無事を」と告げ、足早に闇へ消えていく。",
+   "choices": [
+    {
+     "label": "同じ目礼を返す",
+     "text": "言葉はいらない。互いの背を、しばし見送った。",
+     "effects": [
+      {
+       "chronicle": "迷宮で寡黙な#origin_name# と、目礼だけを交わした。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_share_meal",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "開けた小部屋で、#origin_name# が小さく火を熾していた。「ちょうど一服するところだ。あんたも、少し休んでいけ」と場所を空ける。",
+   "choices": [
+    {
+     "label": "火を囲んで休む",
+     "text": "見知らぬ者同士、無言で火を囲んだ。温もりと人の気配に、強張っていた何かがほどけていく。",
+     "effects": [
+      {
+       "exposure": -0.05
+      },
+      {
+       "trait": "心に刻んだ:#origin_name#と囲んだ小さな火"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# と、小さな火を囲んでひと息ついた。"
+      }
+     ]
+    },
+    {
+     "label": "礼だけ言って先を急ぐ",
+     "text": "「無理はするなよ」と#origin_name# は火に向き直った。その背を、心の中で拝んで先へ進む。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# の焚き火に誘われたが、先を急いだ。"
+      }
+     ]
+    }
+   ]
   }
  ]
 }

@@ -232,6 +232,17 @@ export function selectTownStorylet(
   return pickPreferArc(pool, rng, avoid);
 }
 
+/**
+ * 迷宮で出会う生者の冒険者（context="delver"）に合うストーリーレットを重み付きで1つ選ぶ（無ければ null）。
+ * 街と同じ生者アンカーの照合（`townMatches`）を流用しつつ、プールは "delver" 限定。結果還流は `applyActorEffects`。
+ */
+export function selectDelverStorylet(
+  db: ContentDb, world: World, ch: Character, la: LivingActor, rng: Rng, avoid?: Set<string>,
+): Storylet | null {
+  const pool = db.storylets.filter((s) => s.context === "delver" && townMatches(s.prerequisites, world, ch, la));
+  return pickPreferArc(pool, rng, avoid);
+}
+
 /** 街イベントの選択結果を還流（生者アクターにアンカー）。bond/plant が立つと lazy に永続化する。 */
 export function applyActorEffects(world: World, ch: Character, la: LivingActor, effects: Effect[]): string[] {
   const logs: string[] = [];
