@@ -19,7 +19,7 @@ import {
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
 import { rollItem, rollItemOfSlot, itemByName, enchantUp, itemPower, itemLabel, itemValue, SLOT_LABEL, CONSUMABLES, consumableByKey, grantConsumable } from "../items.ts";
 import {
-  renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, matchSetPiece, fillStoryletText, fillDungeonText, fillActorText,
+  renderDeathLine, renderRediscovery, renderRumor, renderArcBeat, renderSetPieceIfAny, matchSetPiece, fillStoryletText, fillDungeonText, fillActorText,
   requiemLine, leaveLine, inheritLine, REQUIEM_RELIEF,
 } from "../render.ts";
 import { rollEncounter } from "../weights.ts";
@@ -51,7 +51,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.13.1";
+export const APP_VERSION = "0.14.0";
 export const APP_BUILD = "2026-06-21";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -514,6 +514,16 @@ function leaveBuilding() {
 
 async function rumorScene() {
   busy = true;
+  // 運命の弧（4-6C）：又聞きで「目を離した隙に世界が動いた」を拾わせる。進行した tracked を優先。
+  const arcPool = world.tracked.filter((t) => (t.beat ?? 0) >= 1);
+  if (arcPool.length && rng.next() < 0.5) {
+    const t = rng.pick(arcPool);
+    await sheet({ text: `酒場の喧噪のなか、誰かが言う──\n\n${renderArcBeat(db, rng, t)}`, options: ["席を立つ"] });
+    chronicle(world, "rumor", `酒場で${t.name}の行く末が囁かれる。`, [t.id]);
+    save();
+    busy = false;
+    return;
+  }
   const pool = world.fossils.filter((f) => f.kind === "character" || f.bondAtDeath > 0);
   const target = pool.length ? rng.pick(pool) : (world.fossils.length ? rng.pick(world.fossils) : null);
   if (target) {
@@ -1137,6 +1147,18 @@ async function homeView() {
 // ---------- 書記＝伝説化承認／系譜（4-4）・ギルド＝等級・英雄譜（4-4） ----------
 const TRACK_SOURCE_LABEL: Record<string, string> = { seeded: "街の古い伝説", player_legend: "あなたが遺した伝説", nemesis: "因縁の相手" };
 const ARC_LABEL: Record<string, string> = { retire: "静かなる昇華", doom: "破滅の弧", fall: "堕ちゆく弧", lore_drift: "伝承の漂い" };
+// 弧の現在段（4-6・英雄譜に併記＝世代ごとに進むのが一目で分かる）。index=beat(0..3)。
+const ARC_BEAT_STAGE_LABEL: Record<string, string[]> = {
+  doom:       ["健在", "深みへの執着", "歪み始めた噂", "深淵に呑まれた"],
+  retire:     ["現役", "第一線を退く", "街の守護者", "静かな伝説"],
+  fall:       ["絶頂", "慢心の兆し", "孤立", "成れの果て"],
+  lore_drift: ["史実", "食い違い", "別人と混濁", "原型の喪失"],
+};
+function arcStageLabel(t: { arcType: string; beat?: number; pick?: string }): string {
+  const stages = ARC_BEAT_STAGE_LABEL[t.arcType];
+  const stage = stages ? stages[Math.min(t.beat ?? 0, stages.length - 1)] : "";
+  return t.pick === "warped" ? `${stage}（歪んだ末路）` : stage;
+}
 /** 金属6等級のラベルと契約ロジックは companion.ts（ブラウザセーフ・純粋）に集約（式のドリフト防止）。 */
 import {
   GRADE_LABELS, LIVING_GRADE_CAP, levelGrade, rankLabel, companionGradeFor,
@@ -1241,7 +1263,7 @@ async function heroRoll() {
   const ch = world.current!;
   const legends = world.tracked.filter((t) => t.source === "player_legend").length;
   const roll = world.tracked.length
-    ? world.tracked.map((t) => `・${t.name}（${TRACK_SOURCE_LABEL[t.source] ?? t.source}／${ARC_LABEL[t.arcType] ?? t.arcType}）`).join("\n")
+    ? world.tracked.map((t) => `・${t.name}（${TRACK_SOURCE_LABEL[t.source] ?? t.source}／${ARC_LABEL[t.arcType] ?? t.arcType}）── 現在：${arcStageLabel(t)}`).join("\n")
     : "・（まだ誰の名もない）";
   // 相棒の等級（4-4E ⤴）：雇用中の相棒がいれば等級を併記し、ここから解散もできる（4-14C 契約）。
   const hired = world.companion?.alive ? world.companion : null;

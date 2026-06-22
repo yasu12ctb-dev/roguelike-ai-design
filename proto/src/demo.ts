@@ -9,7 +9,7 @@ import {
 } from "./world.ts";
 import { saveWorld, loadWorld } from "./persist-node.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "./variation.ts";
-import { renderDeathLine, renderRediscovery, renderRumor, renderSetPieceIfAny, fillStoryletText, fillDungeonText, fillActorText } from "./render.ts";
+import { renderDeathLine, renderRediscovery, renderRumor, renderArcBeat, renderSetPieceIfAny, fillStoryletText, fillDungeonText, fillActorText } from "./render.ts";
 import { selectStorylet, applyEffects, candidateStorylets, selectDungeonStorylet, applyDungeonEffects, rollChestOutcome, selectTownStorylet, applyActorEffects } from "./storylets.ts";
 import { meetActor } from "./actors.ts";
 import { rollEncounter } from "./weights.ts";
@@ -106,6 +106,19 @@ for (const name of ["トト", "ミラ", "ジグ", "ナム"]) {
   fossilizeCurrent(world, "anonymous", { choice: "accept" });
 }
 say(`現在: 第${world.generation}世代`);
+
+// ---------- 運命の弧（4-6B）：目を離した隙に、tracked の弧が世代分だけ進んでいた ----------
+hr("運命の弧（4-6）── 観測しない間も“進んだことになる”");
+const silver = world.tracked.find((t) => t.name === "銀の三人")!;
+say(`シード追跡対象「${silver.name}」（${silver.arcType}）：beat=${silver.beat}${silver.terminal ? "（終端）" : ""}`);
+say(`  酒場でその行く末を聞く ── ${renderArcBeat(db, rng, silver)}`);
+// 全 arcType × 全 beat で renderArcBeat の充填漏れ（unfilled slot throw）が無いことを保証＝回帰固定
+for (const arcType of ["doom", "retire", "fall", "lore_drift"] as const) {
+  for (let beat = 1; beat <= 3; beat++) {
+    renderArcBeat(db, rng, { id: "t", name: "試験者", source: "seeded", arcType, beat, lastObservedGeneration: 1 });
+  }
+}
+say("  （全 arcType × 全 beat の伝聞生成にスロット欠落なし＝痕跡 ASSERT 相当）");
 
 // ---------- 第6世代：干渉の意味の実証 ----------
 hr("第6世代：ハル ── 放置と鎮魂の対比（4-1C）");
