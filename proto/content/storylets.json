@@ -15866,6 +15866,1090 @@
      }
     ]
    }
+  },
+  {
+   "id": "dv_b10_collapsed_warn",
+   "context": "delver",
+   "prerequisites": {
+    "minDepth": 3
+   },
+   "weight": 2,
+   "text": "#origin_name# が、来た道を親指で示した。「向こうの床、抜けてる。落ちたら最下層まで真っ逆さまだ。気をつけろよ」。",
+   "choices": [
+    {
+     "label": "礼を言う",
+     "text": "危うい近道を避けられた。見知らぬ相手の一言が、骨を拾わずに済ませてくれる。",
+     "effects": [
+      {
+       "trait": "聞いた話:#origin_name#の床崩れ警告"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# に崩落床の在処を教わった。"
+      }
+     ]
+    },
+    {
+     "label": "自分の道を行く",
+     "text": "忠告に頷きつつ、別の道を選んだ。それぞれの勘で、それぞれが生き延びる。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# と道を分けた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_b10_share_ration",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "#origin_name# が干し肉をちぎって差し出した。「腹が減っては、判断が鈍る。食っとけ。下じゃ、それが命取りだ」。",
+   "choices": [
+    {
+     "label": "分けてもらう",
+     "text": "わずかな食料を分け合い、二人で噛みしめた。こんな所で、人の温もりに触れるとは。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "迷宮で#origin_name# と食料を分け合った。"
+      }
+     ]
+    },
+    {
+     "label": "自分のを分ける",
+     "text": "こちらの分も差し出すと、#origin_name# は笑った。「物好きだな。だが、ありがたい」。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "迷宮で#origin_name# に食料を分けた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_b10_lineage_nod",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# が、こちらの得物をまじまじと見た。「その構え……どこかで見た。あんた、誰かの血を引いてるな。いい師についた」。",
+   "choices": [
+    {
+     "label": "系譜を語る",
+     "text": "継いだものについて、少しだけ話した。先人の影が、見知らぬ相手の目にも映っているらしい。",
+     "effects": [
+      {
+       "trait": "覚え書き:#origin_name#に見抜かれた血筋"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# に、継いだ血筋を見抜かれた。"
+      }
+     ]
+    },
+    {
+     "label": "はぐらかす",
+     "text": "さあな、と肩をすくめた。#origin_name# は深追いせず、「まあいい」と背を向けた。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# に血筋を問われ、はぐらかした。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_b10_bandage",
+   "context": "delver",
+   "prerequisites": {
+    "minDepth": 4
+   },
+   "weight": 2,
+   "text": "#origin_name# が壁にもたれ、脇腹を押さえていた。「かすり傷だ……と言いたいが、血が止まらん。すまんが、手を貸してくれ」。",
+   "choices": [
+    {
+     "label": "手当てする",
+     "text": "布を裂いて傷を縛ってやった。#origin_name# は息をつき、「恩に着る。あんたの名は、忘れん」と呟いた。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "trait": "覚え書き:傷を手当てした#origin_name#"
+      },
+      {
+       "chronicle": "迷宮で手負いの#origin_name# を手当てした。"
+      }
+     ]
+    },
+    {
+     "label": "膏薬を渡す",
+     "text": "持っていた膏薬を握らせた。「……こんな貴重なものを」。#origin_name# の声が、わずかに震えた。",
+     "effects": [
+      {
+       "item": "salve"
+      },
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "迷宮で手負いの#origin_name# に膏薬を渡した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_b10_charm_swap",
+   "context": "delver",
+   "prerequisites": {
+    "minDepth": 2
+   },
+   "weight": 1,
+   "text": "#origin_name# が、首から下げた小さな護符を外した。「縁起物だ。交換しないか。同じ深さを歩く者同士、無事を祈り合おう」。",
+   "choices": [
+    {
+     "label": "交換する",
+     "text": "互いの護符を取り替えた。見ず知らずの祈りを身につけて歩くのは、不思議と心強い。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "trait": "遺品:#origin_name#と交わした護符"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# と護符を交換し、無事を祈り合った。"
+      }
+     ]
+    },
+    {
+     "label": "気持ちだけ受け取る",
+     "text": "護符は遠慮し、無事を祈る言葉だけ交わした。それで十分、通じ合えた。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# と、互いの無事を祈った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_b10_silent_pass",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "狭い通路で#origin_name# とすれ違う。言葉はない。ただ、互いに武器を持つ手を下げ、目だけで「無事でな」と告げ合った。",
+   "choices": [
+    {
+     "label": "目礼して通る",
+     "text": "それぞれの闇へと、静かに別れた。生者と行き会うたび、自分もまだ生者だと思い出す。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "迷宮で#origin_name# と無言ですれ違った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_b10_apprentice",
+   "context": "shop",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "店の隅で、#origin_name# の見習いらしい子供が、慣れない手つきで品を磨いていた。客のこちらに気づき、ぎこちなく頭を下げる。",
+   "choices": [
+    {
+     "label": "励ます",
+     "text": "いい手つきだ、と声をかけた。子供ははにかみ、#origin_name# が「将来は、こいつに継がせる」と目を細めた。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "店で#origin_name# の見習いを励ました。"
+      }
+     ]
+    },
+    {
+     "label": "そっと見守る",
+     "text": "邪魔をせぬよう、静かに品を選んだ。次の世代が、こうして育っていく。",
+     "effects": [
+      {
+       "chronicle": "店で#origin_name# の見習いの働きを見た。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_b10_debt_worry",
+   "context": "shop",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# が帳簿を睨んで溜息をついた。「正直に言う。商売はあがったりだ。潜る奴が減れば、街も痩せる。……あんたみたいな客が、頼みの綱でな」。",
+   "choices": [
+    {
+     "label": "何か買って帰る",
+     "text": "せめてもと、入用の品を見繕った。#origin_name# の顔が、少しだけ晴れる。",
+     "effects": [
+      {
+       "chronicle": "店で#origin_name# の商売を、買い物で支えた。"
+      }
+     ]
+    },
+    {
+     "label": "励ましの言葉をかける",
+     "text": "街は続く、と告げた。#origin_name# は苦笑し、「あんたが還り続ける限り、な」と返した。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "店で#origin_name# を、商売の憂いに寄り添って励ました。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_b10_returned_ware",
+   "context": "shop",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "#origin_name# が、棚に戻ったばかりの品を手に取った。「これを質に入れた男は、結局買い戻しに来なかった。……また、誰かの手に渡るんだ。物は、人より長く生きる」。",
+   "choices": [
+    {
+     "label": "その品を検める",
+     "text": "持ち主の消えた品を手に取った。使い込まれた跡に、見知らぬ誰かの旅路が刻まれている。",
+     "effects": [
+      {
+       "trait": "見たもの:#origin_name#の店の流転の品"
+      },
+      {
+       "chronicle": "店で#origin_name# から、流転する品の話を聞いた。"
+      }
+     ]
+    },
+    {
+     "label": "棚に戻す",
+     "text": "そっと棚へ返した。次の持ち主を、この品は静かに待つのだろう。",
+     "effects": [
+      {
+       "chronicle": "店で#origin_name# の棚の品に、しばし想いを馳せた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_b10_bulk_deal",
+   "context": "shop",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "#origin_name# がそろばんを弾いた。「まとめて買ってくれるなら、端数は負けとくぜ。常連を逃す手はないからな」。",
+   "choices": [
+    {
+     "label": "まとめ買いする",
+     "text": "いくつか見繕い、色をつけてもらった。商人の機嫌と財布、双方が少しだけ潤う。",
+     "effects": [
+      {
+       "gold": 4
+      },
+      {
+       "chronicle": "店で#origin_name# のまとめ買いの値引きに与った。"
+      }
+     ]
+    },
+    {
+     "label": "今日は一つだけ",
+     "text": "入用の一つだけ買い求めた。「堅実だな」と#origin_name# は笑った。",
+     "effects": [
+      {
+       "chronicle": "店で#origin_name# と、買い物の駆け引きを交わした。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_b10_charm_seller",
+   "context": "shop",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# が、棚の下から小さな御守りを出した。「気休めだがな。深みで心が挫けそうになったら、握れ。……不思議と、効く奴には効く」。",
+   "choices": [
+    {
+     "label": "受け取る",
+     "text": "安物の御守りを懐にしまった。理屈ではない何かが、確かに背を押してくれる気がする。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "trait": "遺品:#origin_name#の御守り"
+      },
+      {
+       "chronicle": "店で#origin_name# から、心を支える御守りをもらった。"
+      }
+     ]
+    },
+    {
+     "label": "気持ちだけ受け取る",
+     "text": "御守りは断り、心遣いに礼を述べた。#origin_name# は「縁があれば、また」と笑った。",
+     "effects": [
+      {
+       "chronicle": "店で#origin_name# の御守りの心遣いに触れた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_b10_lost_partner",
+   "context": "guild",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "依頼板に、手書きの貼り紙があった。#origin_name# が読み上げる。「『相棒を探しています。深度十二で、はぐれました』……。こういう紙が、毎月のように増える」。",
+   "choices": [
+    {
+     "label": "貼り紙に目を通す",
+     "text": "はぐれた者を探す紙の数だけ、還らなかった者がいる。胸の奥が、静かに重くなる。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "ギルドで、はぐれた相棒を探す貼り紙を読んだ。"
+      }
+     ]
+    },
+    {
+     "label": "心当たりを伝える",
+     "text": "見たかもしれぬ亡骸の場所を、#origin_name# に伝えた。せめて、報せだけでも届けばいい。",
+     "effects": [
+      {
+       "trait": "覚え書き:#origin_name#に託した手がかり"
+      },
+      {
+       "chronicle": "ギルドで#origin_name# に、はぐれ者の手がかりを託した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_b10_medal",
+   "context": "guild",
+   "prerequisites": {
+    "minLevel": 8
+   },
+   "weight": 2,
+   "text": "#origin_name# が、古びた勲章を見せた。「これはな、五十人を率いて深淵を見た男のものだ。本人は、還らなかった。勲章だけが、ここに残っている」。",
+   "choices": [
+    {
+     "label": "勲章に触れる",
+     "text": "色褪せた金属に指を這わせた。栄誉とは、しばしば不在の者にだけ与えられる。",
+     "effects": [
+      {
+       "trait": "見たもの:#origin_name#の見せた英雄の勲章"
+      },
+      {
+       "chronicle": "ギルドで#origin_name# から、還らなかった英雄の勲章を見せられた。"
+      }
+     ]
+    },
+    {
+     "label": "黙礼する",
+     "text": "勲章へ静かに頭を垂れた。名も知らぬ先達の道のりに、敬意を捧げる。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "ギルドで、還らなかった英雄の勲章に黙礼した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_b10_promotion",
+   "context": "guild",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "ギルドの一角が、珍しく賑わっていた。#origin_name# が杯を掲げる。「今日は祝い事だ。若いのが一人、無事に等級を上げた。生きて昇進する――それが、何より目出度い」。",
+   "choices": [
+    {
+     "label": "祝杯に加わる",
+     "text": "見知らぬ若者の昇進を、共に祝った。死がありふれた街では、生きた祝い事こそ得難い。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "chronicle": "ギルドで、若い冒険者の昇進を祝った。"
+      }
+     ]
+    },
+    {
+     "label": "会釈して見守る",
+     "text": "輪の外から、静かに祝意を送った。次は自分が祝われる側かもしれない。",
+     "effects": [
+      {
+       "chronicle": "ギルドで、若手の昇進の祝いを見守った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_b10_ledger_filing",
+   "context": "guild",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# が、分厚い綴りに新たな一枚を挟んだ。「依頼の控えだ。達成も、未達も、すべて綴じる。この紙の山が、街の歩んだ証になる」。",
+   "choices": [
+    {
+     "label": "綴りを覗く",
+     "text": "無数の依頼の記録を眺めた。誰かが受け、誰かが果たし、誰かが還らなかった――その層の厚みに、街の年月が宿る。",
+     "effects": [
+      {
+       "trait": "見たもの:#origin_name#の綴る依頼の記録"
+      },
+      {
+       "chronicle": "ギルドで#origin_name# の、依頼の記録の綴りを見た。"
+      }
+     ]
+    },
+    {
+     "label": "自分の控えを確かめる",
+     "text": "自分の果たした依頼の控えを探した。確かにそこに、歩いた跡が残っている。",
+     "effects": [
+      {
+       "chronicle": "ギルドで、自分の依頼の記録を確かめた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_b10_brawl",
+   "context": "guild",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "酔った冒険者二人が、依頼の取り合いで掴み合いかけていた。#origin_name# が割って入る。「やめろ。仲間内で潰し合ってどうする。敵は、下にいくらでもいるだろうが」。",
+   "choices": [
+    {
+     "label": "仲裁に加勢する",
+     "text": "二人をなだめるのに手を貸した。やがて互いに頭を下げ、奢り合うことで手打ちとなった。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "ギルドで、冒険者同士の諍いを#origin_name# と鎮めた。"
+      }
+     ]
+    },
+    {
+     "label": "成り行きを見る",
+     "text": "#origin_name# の一喝で、諍いは収まった。荒くれ者をまとめる、古参の貫禄だ。",
+     "effects": [
+      {
+       "trait": "見たもの:#origin_name#の貫禄"
+      },
+      {
+       "chronicle": "ギルドで#origin_name# が、冒険者の諍いを収めるのを見た。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_b10_drink_contest",
+   "context": "tavern",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "#origin_name# が空の杯を逆さにして見せた。「飲み比べだ。負けた方が次の一杯を持つ。命を賭ける夜の合間くらい、馬鹿をやろうぜ」。",
+   "choices": [
+    {
+     "label": "受けて立つ",
+     "text": "杯を重ね、しまいには二人とも上機嫌で笑い転げた。明日また潜るとしても、今夜は今夜だ。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "chronicle": "酒場で#origin_name# と飲み比べ、夜を笑い飛ばした。"
+      }
+     ]
+    },
+    {
+     "label": "ほどほどに付き合う",
+     "text": "一杯だけ付き合った。深酒は明日に障る――その分別も、生き延びる術のうちだ。",
+     "effects": [
+      {
+       "chronicle": "酒場で#origin_name# の飲み比べに、ほどよく付き合った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_b10_love_tale",
+   "context": "tavern",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "#origin_name# が、ぽつりと打ち明けた。「街で、待っててくれる人がいてな。だから俺は、必ず還る。……笑うか?」。その目は、存外に真剣だった。",
+   "choices": [
+    {
+     "label": "還れと励ます",
+     "text": "必ず還れ、と肩を叩いた。待つ人がいる――それは、深みに抗う何よりの錨だ。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "酒場で#origin_name# の、待つ人の話を聞き、還れと励ました。"
+      }
+     ]
+    },
+    {
+     "label": "静かに聞く",
+     "text": "茶化さず、ただ頷いた。#origin_name# は照れたように杯をあおった。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "酒場で#origin_name# の、街で待つ人の話を聞いた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_b10_retired_advice",
+   "context": "tavern",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "片足を引きずる#origin_name# が、隣に腰を下ろした。「もう潜れん体だ。だが、一つだけ教えてやる。欲を出した一歩で、人は死ぬ。引き返す勇気を、いつも懐に持っておけ」。",
+   "choices": [
+    {
+     "label": "心に刻む",
+     "text": "引き返す勇気――その言葉を、深く胸に納めた。引退した者の言葉には、生き延びた重みがある。",
+     "effects": [
+      {
+       "trait": "心得:#origin_name#の引き返す勇気"
+      },
+      {
+       "chronicle": "酒場で引退した#origin_name# から、引き際の心得を授かった。"
+      }
+     ]
+    },
+    {
+     "label": "一杯おごる",
+     "text": "教えの礼にと一杯送った。#origin_name# は「達者でな、若いの」と杯を掲げた。",
+     "effects": [
+      {
+       "gold": -2
+      },
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "酒場で引退した#origin_name# に、一杯を捧げた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_b10_song_request",
+   "context": "tavern",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "吟遊人が「次は何を?」と店内に問うた。#origin_name# がこちらを肘でつつく。「あんたが選べよ。今夜、生きて還った者の特権だ」。",
+   "choices": [
+    {
+     "label": "凱旋の歌を頼む",
+     "text": "勇ましい凱旋歌を所望した。店じゅうが手拍子に沸き、束の間、誰もが英雄になる。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "酒場で凱旋の歌を選び、店を沸かせた。"
+      }
+     ]
+    },
+    {
+     "label": "鎮魂の歌を頼む",
+     "text": "還らぬ者への鎮魂歌を願った。喧噪が静まり、皆がそれぞれの死者を想って杯を伏せた。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "chronicle": "酒場で鎮魂の歌を選び、亡き者を悼んだ。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_b10_noble_gossip",
+   "context": "tavern",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# が声を潜めた。「知ってるか。貴族街の連中、奉献の試練に挑む者を探してるらしいぜ。表向きは封鎖だが、裏で何か企んでる。……まあ、俺らには関係ない話だがな」。",
+   "choices": [
+    {
+     "label": "噂を覚えておく",
+     "text": "封鎖された貴族街の思惑――その断片を、頭の隅に留めた。いつか、繋がる日が来るかもしれない。",
+     "effects": [
+      {
+       "trait": "聞いた話:#origin_name#の語る貴族の思惑"
+      },
+      {
+       "chronicle": "酒場で#origin_name# から、貴族街の不穏な噂を聞いた。"
+      }
+     ]
+    },
+    {
+     "label": "与太話と流す",
+     "text": "貴族の話など雲の上だと笑い流した。#origin_name# も「違いない」と杯を傾けた。",
+     "effects": [
+      {
+       "chronicle": "酒場で#origin_name# と、貴族街の噂を肴にした。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "st_b10_performer",
+   "context": "street",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "広場で、#origin_name# が大道芸を披露していた。剣を呑み、炎を吐く。集まった子供らが歓声を上げる。かつては潜る者だった、という噂もある。",
+   "choices": [
+    {
+     "label": "投げ銭をする",
+     "text": "芸の礼に小銭を投げた。#origin_name# は大仰に一礼し、「あんたの旅に、幸運を!」と声を張った。",
+     "effects": [
+      {
+       "gold": -1
+      },
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "街角で#origin_name# の大道芸に投げ銭をした。"
+      }
+     ]
+    },
+    {
+     "label": "足を止めて見入る",
+     "text": "しばし芸に見とれた。喧噪と笑いが、潜行の張りつめた記憶を、つかの間ほどいてくれる。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "街角で#origin_name# の大道芸に見入った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "st_b10_lost_child",
+   "context": "street",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "べそをかいた幼子が、#origin_name# の袖を握っていた。「親とはぐれたらしい。あんた、人探しは慣れてるだろ。手伝ってくれんか」と#origin_name#。",
+   "choices": [
+    {
+     "label": "親を探してやる",
+     "text": "街路を巡り、ほどなく半狂乱の母親を見つけた。再会の涙に、なぜか自分の胸まで熱くなる。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "chronicle": "街角で#origin_name# と、はぐれた幼子を親元へ帰した。"
+      }
+     ]
+    },
+    {
+     "label": "番屋へ連れて行く",
+     "text": "子供を番屋に託した。「ここなら安心だ」と#origin_name# が頭を撫でた。",
+     "effects": [
+      {
+       "chronicle": "街角で迷子を、#origin_name# と番屋へ送った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "st_b10_caravan",
+   "context": "street",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# が、到着したばかりの隊商の荷を眺めていた。「遠い街から来たらしい。迷宮の噂は、こんな辺境まで届いてるんだとよ。皆、一攫千金を夢見てやってくる」。",
+   "choices": [
+    {
+     "label": "隊商の話を聞く",
+     "text": "よその街の様子を聞いた。迷宮の名は、思いのほか遠くまで轟いている。光に群がる蛾のように、人が集う。",
+     "effects": [
+      {
+       "trait": "聞いた話:#origin_name#の語る隊商の噂"
+      },
+      {
+       "chronicle": "街角で#origin_name# から、遠い街の隊商の話を聞いた。"
+      }
+     ]
+    },
+    {
+     "label": "通り過ぎる",
+     "text": "賑わいを横目に、先を急いだ。新参者がどれだけ来ても、底の深さは変わらない。",
+     "effects": [
+      {
+       "chronicle": "街角で、到着した隊商の賑わいを見た。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "st_b10_funeral",
+   "context": "street",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "ささやかな葬列が、街路を静かに進んでいた。#origin_name# が帽子を取る。「また一人、還らなかった。せめて亡骸が戻っただけ、ましな方だ」。",
+   "choices": [
+    {
+     "label": "立ち止まり弔う",
+     "text": "葬列が過ぎるまで、頭を垂れて見送った。名も知らぬ同業の死が、いつか来る自分の姿に重なる。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "chronicle": "街角で、還らなかった者の葬列を見送った。"
+      }
+     ]
+    },
+    {
+     "label": "道を譲る",
+     "text": "そっと脇に寄り、列に道を譲った。死者への礼節だけは、この街でも失われていない。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "街角で、葬列に静かに道を譲った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ex_b10_loss_toy",
+   "prerequisites": {
+    "tone": "loss"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の#origin_gear# の傍らに、木彫りの小さな人形が落ちていた。子供のための土産だったのだろう。彩色は、半分も塗られていない。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "見たもの:#origin_name#の彫りかけの人形"
+     },
+     {
+      "chronicle": "#origin_name# が遺した、彫りかけの人形を見つけた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "亡骸の懐から、宛名の書かれた手紙が出てきた。『もうすぐ帰る』と、何度も書き直した跡がある。投函されることは、なかった。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "chronicle": "#origin_name# の、出されなかった『もうすぐ帰る』の手紙を読んだ。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_b10_myth_cairn",
+   "prerequisites": {
+    "tone": "myth",
+    "stage": "weathered"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の亡骸は、積み石の塚の下に丁重に葬られていた。#origin_gear# が墓標代わりに立てられている。後の冒険者たちが、敬意を込めて弔ったのだ。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の積み石の塚"
+     },
+     {
+      "chronicle": "#origin_name# を弔う、後人の積み石の塚を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "塚の石の一つ一つに、訪れた者の短い言葉が刻まれていた。『あなたのおかげで還れた』『道を教わった』――名も知らぬ感謝が、層を成している。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "trait": "見たもの:#origin_name#へ捧げられた感謝の刻み"
+     },
+     {
+      "chronicle": "#origin_name# の塚に刻まれた、無数の感謝を読んだ。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_b10_grudge_circle",
+   "prerequisites": {
+    "tone": "grudge",
+    "stage": "twisting"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の周りの床に、何かの紋様が血で描かれていた。歪んだ円環。深みに何かを乞い、応えられぬまま朽ちた、その執着の跡だ。",
+    "effects": [
+     {
+      "exposure": 0.04
+     },
+     {
+      "trait": "見たもの:#origin_name#の描いた血の円環"
+     },
+     {
+      "chronicle": "#origin_name# が描いた、応えられぬ祈りの血の円環を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "#origin_gear# は、自らを縛る鎖のように亡骸へ巻きついていた。逃げぬよう、墜ちぬよう――最期まで、何かと闘っていたのだ。",
+    "effects": [
+     {
+      "exposure": 0.03
+     },
+     {
+      "chronicle": "#origin_name# が、最期まで自らを縛って闘った跡を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_b10_alien_song",
+   "prerequisites": {
+    "stage": "alien"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# だったものから、絶え間ない微かな旋律が漏れていた。亡骸が、深みの一部となって歌っている。聞き続ければ、こちらも溶けてしまいそうだ。",
+    "effects": [
+     {
+      "exposure": 0.04
+     },
+     {
+      "trait": "見たもの:#origin_name#の歌う亡骸"
+     },
+     {
+      "chronicle": "#origin_name# の、深みと化して歌う亡骸に出会った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "#origin_gear# に触れると、旋律が一瞬高まり、頭の奥に直接響いた。意味は分からない。だが、確かに「おいで」と誘っている。",
+    "effects": [
+     {
+      "exposure": 0.04
+     },
+     {
+      "chronicle": "#origin_name# の亡骸の旋律に、危うく誘い込まれかけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "dg_b10_shallow_moss",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "shallow"
+   },
+   "weight": 1,
+   "text": "壁一面に、淡く光る苔が広がっていた。地上の星空を、誰かが懐かしんで描いたかのように瞬いている。",
+   "choices": [
+    {
+     "label": "しばし見上げる",
+     "text": "作り物の星々を見上げ、ひとときの安らぎを得た。深みにも、ささやかな美はある。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "深度#depth#で、星空のような光苔に見入った。"
+      }
+     ]
+    },
+    {
+     "label": "先へ進む",
+     "text": "束の間の星空に背を向け、闇の奥へ歩を進めた。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、光苔の壁を通り過ぎた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_b10_mid_idol",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 1,
+   "text": "通路の窪みに、古びた小さな偶像が祀られていた。眼窩には、まだ宝玉が嵌ったままだ。誰も、手をつけなかったらしい。",
+   "choices": [
+    {
+     "label": "宝玉を抜き取る",
+     "text": "宝玉を引き抜いた。途端、偶像の眼窩が虚ろにこちらを睨んだ気がして、背筋が冷えた。実入りには、いつも代償がつく。",
+     "effects": [
+      {
+       "gold": 8
+      },
+      {
+       "exposure": 0.05
+      },
+      {
+       "chronicle": "深度#depth#の偶像から宝玉を抜き、深蝕を招いた。"
+      }
+     ]
+    },
+    {
+     "label": "手を合わせる",
+     "text": "宝玉には触れず、静かに手を合わせた。欲を退けた心が、すっと軽くなる。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "chronicle": "深度#depth#の偶像に手を合わせ、欲を退けた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_b10_deep_mirror",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "磨かれた黒い石の面が、鏡のようにこちらを映していた。だが、映る自分の表情が、ほんの少し――こちらと違って、嗤っている。",
+   "choices": [
+    {
+     "label": "目を逸らす",
+     "text": "鏡像から視線を外し、足早に立ち去った。深みが見せる「もう一人の自分」は、見つめてはならない。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "深度#depth#で、嗤う鏡像から目を逸らした。"
+      }
+     ]
+    },
+    {
+     "label": "見つめ返す",
+     "text": "嗤う自分を、正面から睨み返した。瞬間、鏡面に無数の亀裂が走り、頭の芯が冷たく軋む。",
+     "effects": [
+      {
+       "exposure": 0.05
+      },
+      {
+       "chronicle": "深度#depth#で嗤う鏡像を睨み返し、深く蝕まれた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_b10_mid_spring",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 1,
+   "text": "岩肌の割れ目から、細い清水が滴っていた。掌に受けると、驚くほど冷たく澄んでいる。",
+   "choices": [
+    {
+     "label": "喉を潤す",
+     "text": "ひと口飲むと、凍えるような清涼が全身を巡った。張りつめていた神経が、すっとほどける。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "chronicle": "深度#depth#の清水で、深く息をついた。"
+      }
+     ]
+    },
+    {
+     "label": "水筒を満たす",
+     "text": "先のために水筒を満たした。備えがあるという安心が、また一歩を支える。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "深度#depth#の清水を、水筒に蓄えた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ch_b10_pressed_flower",
+   "context": "chest",
+   "prerequisites": {},
+   "weight": 2,
+   "result": {
+    "text": "箱の底に、押し花の挟まった古い本が一冊。地上の花だ。持ち主は、こんな深みでも、陽の下の野を忘れずにいたらしい。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "chronicle": "深度#depth#の宝箱で、押し花の本を見つけた。"
+     }
+    ]
+   }
   }
  ]
 }
