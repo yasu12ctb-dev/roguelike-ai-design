@@ -317,7 +317,13 @@ export function advanceArcs(world: World): void {
   for (const t of world.tracked) {
     if (t.terminal) continue;                              // 終端済みは動かない
     if (world.generation <= t.lastObservedGeneration) continue; // この世代は反映済み（防御的）
+    const gens = world.generation - t.lastObservedGeneration;   // 経過世代（通常1）
     t.lastObservedGeneration = world.generation;
+    // 4-1 主クロック：放置（時間×深度）の連続積分で warp を進める（深いほど速い＝理が緩い）。
+    if (t.originRef) {
+      const f = world.fossils.find((x) => x.id === t.originRef);
+      if (f) t.drift = Math.max(0, (t.drift ?? 0) + warpRate(f.laidDepth) * gens);
+    }
     t.beat = Math.min(ARC_MAX_BEAT, (t.beat ?? 0) + 1);    // 1世代1ビート
     const table = ARC_BEAT_LINE[t.arcType];
     const warped = (t.drift ?? 0) >= ARC_DRIFT_WARP;
@@ -357,15 +363,28 @@ function fossilizeTracked(world: World, t: TrackedEntity): void {
   t.originRef = fossil.id;
 }
 
-/** 法則順守（4-2「最も偉大な者すら深淵に変えられる」）：深層(laidDepth>=18)の原型化石に
- *  プレイヤーが関与した世代は、その化石を originRef に持つ tracked の drift を進める。
- *  drift が閾値に達すると、弧の終端が破滅側（warped）へ寄る。seeded は originRef を持たず影響を受けない。 */
-const ARC_DRIFT_DEPTH = 18;
-export function markArcDrift(world: World, fossilId: string): void {
+/** 4-1 変質の時間軸＝「歪み = 深度 × 時間」の連続積分。
+ *  ・主クロック（放置）＝世代交代ごとに warpRate(laidDepth)×経過世代 を累積（深いほど速い＝理が緩い）。
+ *  ・関与の微加（ハイブリッド）＝深層の原型との再会で warp を僅かに進める。
+ *  ・干渉（鎮魂/継承/供養）＝時計を巻き戻す＝warp を減算（4-1C「放置こそ変質を進め、干渉で止まる」）。
+ *  warp（＝`drift` フィールド・連続値）が閾値に達すると終端が破滅側（warped）へ寄る。 */
+const ARC_DRIFT_DEPTH = 18;        // 成れの果ての化石を眠らせる深度（fossilizeTracked 用）
+const WARP_DEPTH_MIN = 12;         // これより浅い laidDepth は理が固く、放置でも歪まない
+const WARP_RATE_DIV = 24;          // 深度→「世代あたり warp 速度」の除数（深いほど速い）
+const WARP_RATE_CAP = 1.25;        // 世代あたり warp 速度の上限
+const WARP_ENGAGE = 0.5;           // 非-干渉の再会で warp を微加（ハイブリッド：関与も深みを掻き乱す）
+const WARP_INTERVENE_HEAL = 1.0;   // 干渉（鎮魂/継承/供養）で巻き戻す warp 量（4-1C）
+/** 放置の連続積分レート（世代あたり）＝深いほど速い。WARP_DEPTH_MIN 以浅は 0。 */
+function warpRate(depth: number): number {
+  return Math.max(0, Math.min(WARP_RATE_CAP, (depth - WARP_DEPTH_MIN) / WARP_RATE_DIV));
+}
+/** 深層(laidDepth>=WARP_DEPTH_MIN)の原型化石を originRef に持つ未終端 tracked の warp を amount だけ動かす（0で床）。
+ *  関与＝正（再会で微加）／干渉＝負（巻き戻し）。seeded は originRef を持たず影響を受けない。 */
+export function accrueArcWarp(world: World, fossilId: string, amount: number): void {
   const fossil = world.fossils.find((f) => f.id === fossilId);
-  if (!fossil || fossil.laidDepth < ARC_DRIFT_DEPTH) return;
+  if (!fossil || fossil.laidDepth < WARP_DEPTH_MIN) return;
   for (const t of world.tracked) {
-    if (t.originRef === fossilId && !t.terminal) t.drift = (t.drift ?? 0) + 1;
+    if (t.originRef === fossilId && !t.terminal) t.drift = Math.max(0, (t.drift ?? 0) + amount);
   }
 }
 
@@ -390,7 +409,7 @@ export function intervene(world: World, fossilId: string, type: "requiem" | "inh
     [fossilId]);
   // 奉献の試練・印②：因縁（怨念極の化石）を鎮魂（4-13A）。鎮魂の全経路（慰霊堂/戦闘/遭遇）を捕捉。
   if (type === "requiem" && fossil.tonePole === "grudge") awardSeal(world, "requiem", [fossilId]);
-  markArcDrift(world, fossilId); // 深層の原型に干渉＝弧を歪める一因（4-6 法則順守）
+  accrueArcWarp(world, fossilId, -WARP_INTERVENE_HEAL); // 4-1C：干渉＝時計を巻き戻す＝warp を減算（弧を守る）
 }
 
 // ---------- 残響召喚の遺灰（4-10I・snapshot 524：鎮魂＝種／Elden Ring 遺灰型） ----------
@@ -431,7 +450,7 @@ export function recordRediscovery(world: World, fossilId: string): void {
     if (bond) bond.value += 1;
     else ch.bonds.push({ entityRef: fossilId, value: 1, unfinished: false });
   }
-  markArcDrift(world, fossilId); // 深層の原型と再会＝弧を歪める一因（4-6 法則順守）
+  accrueArcWarp(world, fossilId, WARP_ENGAGE); // ハイブリッド：深層の原型との再会も warp を微かに進める（4-6 法則順守）
 }
 
 export function chronicle(world: World, kind: ChronicleEntry["kind"], text: string, refs: string[]): void {
