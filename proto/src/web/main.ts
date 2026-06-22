@@ -51,8 +51,8 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.15.0";
-export const APP_BUILD = "2026-06-21";
+export const APP_VERSION = "0.15.1";
+export const APP_BUILD = "2026-06-22";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
 const db = makeContentDb(
@@ -3310,7 +3310,9 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   if (spType) setPieceCooldown = SETPIECE_COOLDOWN; // 山場を見せる＝以後 N 手は次の山場を抑制
   const baseText = setPiece ?? renderRediscovery(db, rng, fossil, v);
   // 相棒由来の化石は「相棒だと分かる」一言を添える（4-14C Phase C・固有性）。
-  const text = fossil.wasCompanion
+  // 〈調べる〉〈捜索〉の結果はシート自体に反映する（可変）。log() だけだとオーバーレイの裏に隠れ、
+  // 「押しても同じ文面のまま何も起きない」ように見えるため（テストプレイFB 2026-06-22）。
+  let text = fossil.wasCompanion
     ? `${fossil.death.manner === "betrayed" ? "――見捨てたあの者が、宿敵となって還った。" : "――かつて共に歩いた相棒の、亡骸だ。"}\n${baseText}`
     : baseText;
   recordRediscovery(world, fossil.id);
@@ -3345,15 +3347,21 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
 
     if (label === "調べる" && storylet?.investigate) {
       done.add("investigate");
-      log(fillStoryletText(fossil, storylet.investigate.text));
-      for (const line of applyEffects(world, ch, fossil, storylet.investigate.effects)) log(line, "dim");
+      const t = fillStoryletText(fossil, storylet.investigate.text);
+      log(t);
+      const fx = applyEffects(world, ch, fossil, storylet.investigate.effects);
+      for (const line of fx) log(line, "dim");
+      text = t + (fx.length ? `\n\n${fx.join("\n")}` : ""); // シートに反映＝掘り下げが見える
       save();
       continue;
     }
     if (label === "周辺を捜索する" && storylet?.search) {
       done.add("search");
-      log(fillStoryletText(fossil, storylet.search.text));
-      for (const line of applyEffects(world, ch, fossil, storylet.search.effects)) log(line, "dim");
+      const t = fillStoryletText(fossil, storylet.search.text);
+      log(t);
+      const fx = applyEffects(world, ch, fossil, storylet.search.effects);
+      for (const line of fx) log(line, "dim");
+      text = t + (fx.length ? `\n\n${fx.join("\n")}` : ""); // シートに反映＝掘り下げが見える
       save();
       continue;
     }
