@@ -52,7 +52,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.19.0";
+export const APP_VERSION = "0.20.0";
 export const APP_BUILD = "2026-06-22";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1273,6 +1273,27 @@ async function legendApprove() {
   log(`${f.origin.name} を伝説として承認した。英雄譜に名が刻まれる。`, "warn");
   // 奉献の試練・印④：旧キャラを伝説化（4-13A）
   if (awardSeal(world, "legend", [f.id])) { sfx("seal"); log("◆ 「伝説の承認」の印を得た。", "warn"); }
+  // 伝承の漂い（4-6・lore_drift の源）：伝説を重ねるほど、最も古い伝説の「物語」が漂い始める
+  // （史実→食い違い→混濁→原型の喪失）。retire（その人の生の弧）とは別軸で共存＝人は静かな伝説、
+  // だが語りは世代を経て歪む。同一人物の lore_drift は一度きり（重複抱録防止）。advanceArcs が世代で進める。
+  const otherLegends = world.tracked.filter(
+    (t) => t.source === "player_legend" && t.arcType === "retire" && t.originRef && t.originRef !== f.id,
+  );
+  if (otherLegends.length >= 1) { // 新たな伝説を加えて計≥2＝古い伝説の語りが漂い始める
+    const oldest = otherLegends
+      .filter((t) => !world.tracked.some((d) => d.arcType === "lore_drift" && d.originRef === t.originRef))
+      .sort((a, b) =>
+        (world.fossils.find((x) => x.id === a.originRef)?.death.generationCreated ?? 0) -
+        (world.fossils.find((x) => x.id === b.originRef)?.death.generationCreated ?? 0))[0];
+    if (oldest?.originRef) {
+      world.tracked.push({
+        id: `loredrift_${oldest.originRef}`, name: oldest.name, source: "player_legend",
+        arcType: "lore_drift", beat: 0, lastObservedGeneration: world.generation, originRef: oldest.originRef,
+      });
+      chronicle(world, "rumor", `${oldest.name}の武勇伝が、語り手によって少しずつ食い違い始めた。`, [oldest.originRef]);
+      log(`${oldest.name} の伝説が、語り継がれるうちに揺らぎ始めている……。`, "dim");
+    }
+  }
   save();
 }
 // 書記 act2「系譜をたどる」：現キャラの系譜（先代→現キャラ）と継いだものを表示。
