@@ -1,7 +1,7 @@
 // 世界の生成・化石化・干渉・年代記・永続化（prototype-spec.md §2 / §5）
 
 import type {
-  Actor, ArcEffect, ArcState, Character, ChronicleEntry, Companion, DeathManner, FinalAct, Fossil, Lineage, SealKey, TrackedEntity, World,
+  Actor, ArcEffect, ArcState, Character, ChronicleEntry, Companion, DeathManner, EchoAsh, FinalAct, Fossil, Lineage, SealKey, TrackedEntity, World,
 } from "./types.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "./types.ts";
 import { resolveTonePole } from "./variation.ts";
@@ -382,6 +382,34 @@ export function intervene(world: World, fossilId: string, type: "requiem" | "inh
   // 奉献の試練・印②：因縁（怨念極の化石）を鎮魂（4-13A）。鎮魂の全経路（慰霊堂/戦闘/遭遇）を捕捉。
   if (type === "requiem" && fossil.tonePole === "grudge") awardSeal(world, "requiem", [fossilId]);
   markArcDrift(world, fossilId); // 深層の原型に干渉＝弧を歪める一因（4-6 法則順守）
+}
+
+// ---------- 残響召喚の遺灰（4-10I・snapshot 524：鎮魂＝種／Elden Ring 遺灰型） ----------
+
+/** 残響の遺灰を展開するときの代償＝深蝕＋（乱用を抑える＝snapshot「稀・代償つき」）。 */
+export const ECHO_DEPLOY_COST = 0.3;
+
+/** 鎮魂による残響召喚の種付与（4-10I）。**必ず intervene(world, fossil.id, "requiem") の後に呼ぶ**
+ *  （requiem が interventions に push 済み＝初回なら requiem は1件）。
+ *  神話極の化石の初回鎮魂のみ「残響の遺灰」を1つ得る（farm 防止＝1化石1遺灰・世代越え再鎮魂で増えない）。
+ *  威力は鎮魂時の深度をスナップショット。条件を満たさなければ何もせず null。 */
+export function grantEchoOnRequiem(world: World, fossil: Fossil, depth: number): EchoAsh | null {
+  const firstRequiem = fossil.interventions.filter((iv) => iv.type === "requiem").length === 1;
+  if (fossil.tonePole !== "myth" || !firstRequiem) return null;
+  const echoDmg = Math.max(5, Math.round(4 + depth * 0.7));
+  const ash: EchoAsh = { fossilId: fossil.id, name: fossil.origin.name, dmg: echoDmg };
+  (world.echoes ??= []).push(ash);
+  return ash;
+}
+
+/** 残響の遺灰を1つ消費（4-10I）。index の遺灰を取り出し、展開の代償（深蝕＋ECHO_DEPLOY_COST）を ch に適用して返す。
+ *  範囲外/空なら null（副作用なし）。盤面への召喚展開・音・手番消費は呼び出し側（web/main.ts deployEcho）が担う。 */
+export function consumeEcho(world: World, ch: Character, index: number): EchoAsh | null {
+  const echoes = world.echoes ?? [];
+  if (index < 0 || index >= echoes.length) return null;
+  const [ash] = echoes.splice(index, 1);
+  ch.exposure += ECHO_DEPLOY_COST;
+  return ash;
 }
 
 export function recordRediscovery(world: World, fossilId: string): void {

@@ -8,6 +8,7 @@ import { makeRng, type Rng } from "../rng.ts";
 import {
   newWorld, createCharacter, fossilizeCurrent, fossilizeCompanion, fossilizeAbandoned, intervene, recordRediscovery,
   chronicle, poleLabel, finalActLabel, migrateWorld, awardSeal, abyssUnlocked, setArc, getArc,
+  grantEchoOnRequiem, consumeEcho, ECHO_DEPLOY_COST,
 } from "../world.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
 import {
@@ -2151,7 +2152,6 @@ const curLevel = (): number => world.current?.level ?? 1;
 const SETPIECE_COOLDOWN = 12; // 山場連発防止：山場を見せたら N 手は次の山場演出を抑制（ダイブを跨ぐ）。
 const PITY_STEP = 0.15;       // 凪検知（ピティ）：無風の降下1回ごとに迷宮イベント率へ加点。
 const PITY_BOND_AT = 2;       // 凪が PITY_BOND_AT 降下続き、未完の絆を持つなら因縁化石を1体上乗せ（因縁を浮上）。
-const ECHO_DEPLOY_COST = 0.3; // 残響召喚の遺灰（4-10I）を展開するときの代償＝深蝕＋。乱用を抑える（snapshot：稀・代償つき）。
 let setPieceCooldown = 0;     // >0 の間、山場（legend_return/grudge_hunt）演出を抑え通常遭遇へ。endTurn で毎手減算。
 let mendTick = 0;             // 遺物 mending の回復タイマー（endTurn で加算・MEND_EVERY 手ごとに +1HP）。
 const MEND_EVERY = 5;        // mending：この手数ごとに +1HP（要テストプレイ調整）。
@@ -2596,8 +2596,7 @@ async function deployEcho(ch: Character) {
   const e = echoes[i];
   const ok = spawnSummon(player, "Ψ", `${e.name}の残響`, e.dmg, 8, true); // 術 echo（6手）より強め・長寿命（8手）
   if (!ok) { log("残響の立つ隙間がない。", "dim"); return; } // 隙間なし＝遺灰は消費しない
-  echoes.splice(i, 1);
-  ch.exposure += ECHO_DEPLOY_COST; // 代償（snapshot 4-10I：稀・代償つき）
+  consumeEcho(world, ch, i); // 遺灰を1つ消費＋展開の代償（深蝕＋ECHO_DEPLOY_COST）＝純関数・world.ts
   sfx("spell_summon"); flashFx("warp", { x: player.x, y: player.y });
   log(`${e.name}の残響が、傍らに立った（威力${e.dmg}・8手・深蝕＋${ECHO_DEPLOY_COST}）。`, "cue");
   save(); updateStatus();
@@ -3447,17 +3446,10 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       ch.exposure = Math.max(0, ch.exposure - REQUIEM_RELIEF); // 人間性の回復弁（4-12B）
       log(requiemLine(fossil, rng));
       if (ch.exposure < before) log(`深みに削られた芯が、少し人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
-      // 残響召喚の種（4-10I・snapshot 524）：神話極の化石を鎮魂すると「残響の遺灰」を得る。
-      // 潜行中に1回だけ強めの一時味方として展開できる（術ボタン→「残響の遺灰を使う」）。神話極の鎮魂は稀ゆえ自然に希少。
-      // farm防止＝1化石1遺灰（intervene が requiem を push 済み＝今回が初回なら requiem は1件）。世代越えで再鎮魂しても増えない。
-      const firstRequiem = fossil.interventions.filter((iv) => iv.type === "requiem").length === 1;
-      if (fossil.tonePole === "myth" && firstRequiem) {
-        const depth = floor?.depth ?? fossil.death.depth ?? 1;
-        const echoDmg = Math.max(5, Math.round(4 + depth * 0.7));
-        (world.echoes ??= []).push({ fossilId: fossil.id, name: fossil.origin.name, dmg: echoDmg });
-        log(`${fossil.origin.name}の残響が、遺灰となって掌に宿った。いつか、傍らに喚び出せる。`, "cue");
-        sfx("seal");
-      }
+      // 残響召喚の種（4-10I・snapshot 524）：神話極の化石を鎮魂すると「残響の遺灰」を得る（grantEchoOnRequiem＝純関数・world.ts）。
+      // 潜行中に1回だけ強めの一時味方として展開できる（術ボタン→「残響の遺灰を使う」）。farm防止＝1化石1遺灰（神話極の初回鎮魂のみ）。
+      const ash = grantEchoOnRequiem(world, fossil, floor?.depth ?? fossil.death.depth ?? 1);
+      if (ash) { log(`${ash.name}の残響が、遺灰となって掌に宿った。いつか、傍らに喚び出せる。`, "cue"); sfx("seal"); }
     } else if (label.startsWith("遺されたもの")) {
       sfx("intervene");
       intervene(world, fossil.id, "inherit"); // 未完の目的を負う（4-12B）
