@@ -14023,6 +14023,701 @@
      }
     ]
    }
+  },
+  {
+   "id": "dg_shallow_birdbone",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "shallow"
+   },
+   "weight": 1,
+   "text": "足元に、小鳥の骨が落ちている。こんな地の底に、どうやって迷い込んだのか。羽は、とうに塵になっていた。",
+   "choices": [
+    {
+     "label": "そっと脇へ寄せる",
+     "text": "踏まぬよう、骨を壁際へ寄せた。命の軽さが、なぜか胸に残る。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "深度#depth#で、迷い込んだ小鳥の骨を弔った。"
+      }
+     ]
+    },
+    {
+     "label": "先を急ぐ",
+     "text": "感傷に浸る場所ではない。骨を跨いで、奥へ。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、小鳥の骨を通り過ぎた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_shallow_chalk",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "shallow"
+   },
+   "weight": 1,
+   "text": "分かれ道の壁に、白墨で矢印が描かれている。片方は太く、もう片方は震えた線。迷った末に、誰かが選んだ跡だ。",
+   "choices": [
+    {
+     "label": "太い矢印に従う",
+     "text": "確信のある線を信じた。先客の決断に、己の運を重ねる。",
+     "effects": [
+      {
+       "trait": "心得:先客の矢印"
+      },
+      {
+       "chronicle": "深度#depth#で、先客の白墨の矢印に従った。"
+      }
+     ]
+    },
+    {
+     "label": "自分の勘で進む",
+     "text": "他人の道が、己の道とは限らない。矢印に背を向け、勘の赴くほうへ。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、先客の矢印を無視して進んだ。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_shallow_warmstone",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "shallow"
+   },
+   "weight": 1,
+   "text": "壁の一画だけが、ほのかに温かい。地の底に、まだ生きた熱が巡っているのか。手のひらを当てると、心地よかった。",
+   "choices": [
+    {
+     "label": "しばし暖を取る",
+     "text": "わずかな温もりに、強張った指がほどける。迷宮にも、稀に優しさはある。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "深度#depth#で、温かい壁にひととき暖を取った。"
+      }
+     ]
+    },
+    {
+     "label": "不自然だと警戒する",
+     "text": "理由のない温もりは、罠の匂いがする。手を引き、足早に離れた。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、温かい壁を警戒して離れた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_mid_broken_bridge",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 1,
+   "text": "裂け目に渡された石橋が、半ばで砕けている。向こう岸に、引き返せなかった者の荷が、ぽつんと残されていた。",
+   "choices": [
+    {
+     "label": "跳んで渡る",
+     "text": "助走をつけ、裂け目を跳び越えた。爪先が縁を掻く。向こうの荷から、わずかな路銀を得た。",
+     "effects": [
+      {
+       "gold": 5
+      },
+      {
+       "chronicle": "深度#depth#で、砕けた橋を跳び越えた。"
+      }
+     ]
+    },
+    {
+     "label": "迂回路を探す",
+     "text": "無茶はしない。時を食っても、確実な道を選ぶ。荷は、向こう岸に置いたままにした。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "深度#depth#で、砕けた橋を避けて迂回した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_mid_echo_steps",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 1,
+   "text": "自分の足音に、半拍遅れて別の足音が重なる。立ち止まると、それも止まる。気のせいだと、言い切れない。",
+   "choices": [
+    {
+     "label": "振り返って確かめる",
+     "text": "通路には、誰もいない。ただ、冷たい空気が揺れていた。深みは、こうして心を試してくる。",
+     "effects": [
+      {
+       "exposure": 0.03
+      },
+      {
+       "chronicle": "深度#depth#で、己の影に追われる心地を味わった。"
+      }
+     ]
+    },
+    {
+     "label": "気に留めず歩き続ける",
+     "text": "いちいち振り返れば、足が止まる。足音の二重奏を、ただの反響と決めて進んだ。",
+     "effects": [
+      {
+       "trait": "心得:反響に惑わされぬこと"
+      },
+      {
+       "chronicle": "深度#depth#で、追う足音を反響と断じて進んだ。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_mid_root_veil",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 1,
+   "text": "天井から、白い根が幕のように垂れている。地上の木の根が、ここまで伸びてきたのか。指で払うと、土の匂いがした。",
+   "choices": [
+    {
+     "label": "根に触れて地上を思う",
+     "text": "遥か頭上に、空がある。そのことを、根の手触りが思い出させた。帰る理由を、ひとつ握りしめる。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "chronicle": "深度#depth#で、地上から伸びた根に触れ、空を思った。"
+      }
+     ]
+    },
+    {
+     "label": "根を払って進む",
+     "text": "感傷は重荷だ。垂れた根を払い、その奥の闇へ踏み込んだ。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、垂れた根を払って奥へ進んだ。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_mid_coin_pile",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 1,
+   "text": "床の窪みに、硬貨が散らばっている。誰かが落とし、拾う暇もなく去った――あるいは、去れなかったのだろう。",
+   "choices": [
+    {
+     "label": "拾い集める",
+     "text": "屈んで硬貨をかき集めた。死者の取りこぼしが、こちらの路銀になる。生きている者の特権だ。",
+     "effects": [
+      {
+       "gold": 7
+      },
+      {
+       "chronicle": "深度#depth#で、散らばった硬貨を拾い集めた。"
+      }
+     ]
+    },
+    {
+     "label": "半分だけ拾う",
+     "text": "全部は、取らなかった。次に通る誰かのために、いくらか残す。迷宮の不文律だ。",
+     "effects": [
+      {
+       "gold": 3
+      },
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "深度#depth#で、硬貨を半分だけ拾い、残りを後の者に遺した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_mid_carved_name",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 1,
+   "text": "壁に、深く名が彫り込まれている。「ここまで来た」と添えられた、たった一人の到達の記録。続きはない。",
+   "choices": [
+    {
+     "label": "己の名も並べて彫る",
+     "text": "短刀の先で、己の名を隣に刻んだ。いつか誰かが、この二つの名を見るだろう。生きた証は、こうして堆積する。",
+     "effects": [
+      {
+       "trait": "刻んだ:壁の到達記録"
+      },
+      {
+       "chronicle": "深度#depth#の壁に、己の名を刻んだ。"
+      }
+     ]
+    },
+    {
+     "label": "指でなぞるだけにする",
+     "text": "刻む代わりに、先人の名を指でなぞった。「あなたは、確かにここにいた」。それで、十分だった。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "深度#depth#で、先人の彫った名を指でなぞった。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_deep_cold_lake",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "黒い水を湛えた地底湖が、音もなく広がっている。水面は鏡のように凪ぎ、底は見えない。覗き込むと、引き込まれそうになる。",
+   "choices": [
+    {
+     "label": "縁から一歩下がる",
+     "text": "踵を返し、湖から距離を取った。底知れぬものに、近づきすぎてはいけない。理性が、辛うじて勝つ。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "trait": "心得:底知れぬものに近づくな"
+      },
+      {
+       "chronicle": "深度#depth#の地底湖から、理性で身を引いた。"
+      }
+     ]
+    },
+    {
+     "label": "水面に触れてみる",
+     "text": "指先で水に触れた瞬間、凍えるような何かが腕を這い上がる。慌てて手を引いたが、悪寒は残った。",
+     "effects": [
+      {
+       "exposure": 0.06
+      },
+      {
+       "chronicle": "深度#depth#の地底湖に触れ、底冷えする何かを感じた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_deep_frozen_one",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "通路の半ばで、一人の探索者が立ったまま事切れていた。岩と同化しかけ、なお前へ進む姿勢のまま、時に固められている。",
+   "choices": [
+    {
+     "label": "その意志を受け継ぐと誓う",
+     "text": "最期まで前を向いていた。その姿勢に、頭が下がる。「あなたの先を、私が歩く」。誓いが、足に力を与えた。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "exposure": -0.03
+      },
+      {
+       "trait": "誓い:斃れた先達の先を歩む"
+      },
+      {
+       "chronicle": "深度#depth#で、前を向いたまま斃れた先達に誓いを立てた。"
+      }
+     ]
+    },
+    {
+     "label": "そっと目を閉じてやる",
+     "text": "見開かれたままの目を、指で閉じてやった。せめて、安らかに。底では、それが手向けのすべてだ。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "深度#depth#で、斃れた先達の目を閉じてやった。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_deep_humming_dark",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "闇そのものが、低く唸っているように感じる。耳ではなく、骨が震えて聞き取る音。底が、近い。",
+   "choices": [
+    {
+     "label": "歯を食いしばって進む",
+     "text": "唸りに飲まれぬよう、奥歯を噛む。一歩ごとに、人であろうとする意志を確かめながら進んだ。",
+     "effects": [
+      {
+       "exposure": 0.04
+      },
+      {
+       "trait": "心得:底の唸りに抗う"
+      },
+      {
+       "chronicle": "深度#depth#で、闇の唸りに抗いながら進んだ。"
+      }
+     ]
+    },
+    {
+     "label": "耳を澄ませてしまう",
+     "text": "唸りに、つい意識を向けてしまう。音の中に、言葉のようなものが混じっていた気がして、背筋が凍った。",
+     "effects": [
+      {
+       "exposure": 0.07
+      },
+      {
+       "chronicle": "深度#depth#で、闇の唸りに言葉を聞いた気がした。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_deep_last_lantern",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "岩棚に、油の尽きた角灯が置かれている。底を目指した誰かが、最後にここで灯りを諦めたのだ。芯は、焼け落ちていた。",
+   "choices": [
+    {
+     "label": "己の油を分けて灯す",
+     "text": "わずかな油を注ぎ、火を移した。小さな炎が、闇に灯る。誰かが諦めた場所に、もう一度、灯りを返す。",
+     "effects": [
+      {
+       "gold": -2
+      },
+      {
+       "exposure": -0.05
+      },
+      {
+       "chronicle": "深度#depth#で、尽きた角灯に己の火を分け与えた。"
+      }
+     ]
+    },
+    {
+     "label": "角灯を持って進む",
+     "text": "使える部品を外し、懐に収めた。死者の遺したものは、生者の道を照らすために使う。",
+     "effects": [
+      {
+       "gold": 4
+      },
+      {
+       "chronicle": "深度#depth#で、尽きた角灯から使える物を得た。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_deep_warm_voice",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "底の冷気の中、ふいに温かい声が背を撫でた。「もう、頑張らなくていい」。優しい。優しすぎて、危うい。",
+   "choices": [
+    {
+     "label": "その声を拒む",
+     "text": "「まだだ」と、声に出して言い返した。優しさの皮を被った誘いを、振り払う。芯が、わずかに削れたが、まだ折れていない。",
+     "effects": [
+      {
+       "exposure": 0.05
+      },
+      {
+       "trait": "心得:底の優しさを拒む"
+      },
+      {
+       "chronicle": "深度#depth#で、底の甘い誘いを声に出して拒んだ。"
+      }
+     ]
+    },
+    {
+     "label": "足を止めてしまう",
+     "text": "ほんの一瞬、力が抜けた。気づけば、膝が地に着いていた。慌てて立ち上がる。あと少しで、戻れなくなるところだった。",
+     "effects": [
+      {
+       "exposure": 0.08
+      },
+      {
+       "chronicle": "深度#depth#で、底の誘いに膝を折りかけた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_deep_two_roads",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "道が二つに分かれている。片方からは冷たい風が、もう片方からは、かすかに人の気配がする。だが、底でいう「人の気配」ほど、当てにならぬものはない。",
+   "choices": [
+    {
+     "label": "風の道を選ぶ",
+     "text": "気配より、風を信じた。空気が流れる先には、たいてい出口か広間がある。経験が、足を導く。",
+     "effects": [
+      {
+       "trait": "心得:風を読んで道を選ぶ"
+      },
+      {
+       "chronicle": "深度#depth#で、風の流れを頼りに道を選んだ。"
+      }
+     ]
+    },
+    {
+     "label": "気配の道を選ぶ",
+     "text": "人恋しさが、足を気配のほうへ向けた。底で人を求めるのは、危うい本能だ。それでも、独りよりはと願ってしまう。",
+     "effects": [
+      {
+       "exposure": 0.03
+      },
+      {
+       "chronicle": "深度#depth#で、人の気配を頼りに道を選んだ。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ex_loss_toy_soldier",
+   "prerequisites": {
+    "tone": "loss"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の手の中に、木彫りの兵隊人形が握られていた。我が子の物だろうか。最期に思ったのは、戦いではなく、帰りを待つ誰かだったのだ。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "見たもの:#origin_name#の子の人形"
+     },
+     {
+      "chronicle": "#origin_name# が握りしめていた、子の人形を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "亡骸の傍に、何度も書き直した手紙の下書きが散らばっている。「すぐ帰る」――その一行だけが、どの紙にも残されていた。",
+    "effects": [
+     {
+      "exposure": 0.03
+     },
+     {
+      "trait": "遺品:#origin_name#の帰るという約束"
+     },
+     {
+      "chronicle": "#origin_name# が果たせなかった「すぐ帰る」の約束を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_loss_quiet_sit",
+   "prerequisites": {
+    "tone": "loss",
+    "stage": "weathered"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# は、壁に背を預けて座ったまま朽ちていた。苦悶の跡はない。ただ、静かに力尽きるのを待ったかのようだ。#origin_gear# は、膝の上に丁寧に置かれていた。",
+    "effects": [
+     {
+      "exposure": 0.02
+     },
+     {
+      "trait": "見たもの:#origin_name#の静かな最期"
+     },
+     {
+      "chronicle": "#origin_name# の、争わず受け入れた最期の跡を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_myth_stone_throne",
+   "prerequisites": {
+    "tone": "myth"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "崩れた岩が、まるで玉座のように#origin_name# を抱いていた。生前、幾多の伝説を残した者だ。底は、英雄をも、ただ静かに座らせる。",
+    "effects": [
+     {
+      "exposure": 0.04
+     },
+     {
+      "trait": "見たもの:#origin_name#の石の玉座"
+     },
+     {
+      "chronicle": "伝説の#origin_name# が、石の玉座に抱かれて眠るのを見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "玉座の足元に、#origin_name# を慕った者たちが供えたらしい品が積まれている。死してなお、慕われる者がいる。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "遺品:#origin_name#への手向けの品"
+     },
+     {
+      "chronicle": "#origin_name# の亡骸に手向けられた、無数の品を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_myth_relic_light",
+   "prerequisites": {
+    "tone": "myth",
+    "stage": "twisting"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "変じ始めた#origin_name# の胸元で、#origin_gear# だけが今も淡く光を保っている。持ち主が伝説たりえたのは、この一振りゆえか、あるいは――この一振りが、伝説を求めたのか。",
+    "effects": [
+     {
+      "exposure": 0.04
+     },
+     {
+      "trait": "見たもの:#origin_name#の光る遺物"
+     },
+     {
+      "chronicle": "変じゆく#origin_name# の胸で、なお光る遺物を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_grudge_clenched",
+   "prerequisites": {
+    "tone": "grudge"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の拳は、固く握られたまま岩と化していた。掌に食い込んだ爪の痕が、今も怒りを語っている。許せなかった何かが、この人を底まで連れてきた。",
+    "effects": [
+     {
+      "exposure": 0.05
+     },
+     {
+      "trait": "見たもの:#origin_name#の握られた拳"
+     },
+     {
+      "chronicle": "#origin_name# が握りしめたまま固まった、怒りの拳を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "亡骸の下から、引き裂かれた誓約書のような紙片が出てきた。署名のひとつは、乱暴に塗り潰されている。裏切りか、裏切られか。",
+    "effects": [
+     {
+      "closeUnfinished": true
+     },
+     {
+      "trait": "遺品:#origin_name#の破られた誓約"
+     },
+     {
+      "chronicle": "#origin_name# が抱えた、破られた誓約の片鱗を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_grudge_facing_back",
+   "prerequisites": {
+    "tone": "grudge",
+    "stage": "alien"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "変わり果てた#origin_name# は、来た道のほうを睨んで固まっていた。追ってきた何かを、あるいは――追っていた誰かを、最期まで見据えていたのだ。",
+    "effects": [
+     {
+      "exposure": 0.06
+     },
+     {
+      "trait": "見たもの:#origin_name#の睨み続ける目"
+     },
+     {
+      "chronicle": "異形と化してなお、#origin_name# が睨み続ける先を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_loss_shared_cloak",
+   "prerequisites": {
+    "tone": "loss",
+    "stage": "twisting"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "歪みかけた#origin_name# は、一枚の外套で二人ぶんを庇うように身を丸めていた。傍らに、もう骨も残らぬ小さな影。最期まで、誰かを温めようとしていた。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.03
+     },
+     {
+      "trait": "見たもの:#origin_name#の庇った外套"
+     },
+     {
+      "chronicle": "#origin_name# が最期まで誰かを庇った、外套の跡を見た。"
+     }
+    ]
+   }
   }
  ]
 }
