@@ -380,8 +380,8 @@ function route(node: AudioNode, wet: number): void {
   const w = ctx!.createGain(); w.gain.value = wet; node.connect(w); w.connect(wetBus!);
 }
 
-interface PadOpts { wave: OscillatorType; detune: number; amp: number; lpf: number; lfoRate: number; spread: number; wet: number; depthReact?: boolean; }
-interface Pad { setChord(notes: number[], ramp: number): void; stop(): void; }
+interface PadOpts { wave: OscillatorType; detune: number; amp: number; lpf: number; lfoRate: number; spread: number; wet: number; depthReact?: boolean; manualLevel?: boolean; }
+interface Pad { setChord(notes: number[], ramp: number): void; setLevel(v: number, ramp: number): void; stop(): void; }
 
 // 持続パッド：和音を周波数ランプで推移＋呼吸LFO＋デチューン重ね＋ステレオ拡げ。
 function padChord(initNotes: number[], o: PadOpts): Pad {
@@ -405,7 +405,15 @@ function padChord(initNotes: number[], o: PadOpts): Pad {
     return { all, carriers };
   });
   out.gain.setValueAtTime(0.0001, Tn());
-  out.gain.linearRampToValueAtTime(1, Tn() + 4.2); // 長フェードイン
+  // manualLevel=外部 setLevel が音量を握る（深度クロスフェード用）。既定は従来どおり 0→1 の長フェードイン。
+  if (!o.manualLevel) out.gain.linearRampToValueAtTime(1, Tn() + 4.2); // 長フェードイン
+  // パッドのマスター音量を平滑に動かす（2層クロスフェードのレバー）。
+  function setLevel(v: number, ramp: number): void {
+    const t = Tn();
+    out.gain.cancelScheduledValues(t);
+    out.gain.setValueAtTime(Math.max(0.0001, out.gain.value), t);
+    out.gain.linearRampToValueAtTime(Math.max(0.0001, v), t + Math.max(0.01, ramp));
+  }
   function setChord(notes: number[], ramp: number): void {
     const tr = o.depthReact ? -Math.floor(curDepth / 5) : 0;
     voices.forEach((v, i) => {
@@ -420,7 +428,7 @@ function padChord(initNotes: number[], o: PadOpts): Pad {
     const s = Tn() + 2.4;
     voices.forEach((v) => v.all.forEach((n) => { try { n.stop(s); } catch { /* ignore */ } }));
   }
-  return { setChord, stop };
+  return { setChord, setLevel, stop };
 }
 
 // 柔らかい単音（鐘/旋律）：長アタック/減衰＝クリックなし。オクターブ上の倍音で質感。
@@ -467,12 +475,20 @@ function makeTrack(scene: BgmScene): Track {
     every(5200, () => bnote(62 + bgPick(PENT_MINOR), 0.6, 0.2, 2.4, 0.035, "sine", 0.7));
     return { stop() { clearAll(); pad.stop(); }, setDepth() { /* noop */ } };
   }
-  if (scene === "dungeon") { // ②冷たい石の広間：疎な空虚5度＋遠い鐘・深度連動
-    const pad = padChord([38, 45, 50], { wave: "sine", detune: 6, amp: 0.04, lpf: 650, lfoRate: 0.045, spread: 0.7, wet: 1.0, depthReact: true });
-    const chords = [[38, 45, 50], [36, 43, 48], [40, 47, 52]];
-    let i = 0; every(19000, () => { i = (i + 1) % chords.length; pad.setChord(chords[i], 10); });
+  if (scene === "dungeon") { // 深度クロスフェード：浅層=①悼みのドローン → 深層=②冷たい石の広間（深度1→12・等パワー）
+    // ②冷たい石の広間（深層＝非人間的な冷たさ）：疎な空虚5度＋遠い鐘・深度連動
+    const hall = padChord([38, 45, 50], { wave: "sine", detune: 6, amp: 0.04, lpf: 650, lfoRate: 0.045, spread: 0.7, wet: 1.0, depthReact: true, manualLevel: true });
+    const hChords = [[38, 45, 50], [36, 43, 48], [40, 47, 52]];
+    // ①悼みのドローン（浅層＝死者はまだ「人」＝哀切で温かい短調パッド）
+    const drone = padChord([45, 52, 57, 64], { wave: "triangle", detune: 5, amp: 0.034, lpf: 1300, lfoRate: 0.05, spread: 0.6, wet: 0.9, manualLevel: true });
+    const dChords = [[45, 52, 57, 64], [43, 50, 55, 62], [41, 48, 53, 60]];
+    const mix = () => Math.max(0, Math.min(1, (curDepth - 1) / (12 - 1))); // 0=浅(ドローン) 1=深(石の広間)・中間点≈深度6
+    const apply = (ramp: number) => { const m = mix(); drone.setLevel(Math.cos(m * Math.PI / 2), ramp); hall.setLevel(Math.sin(m * Math.PI / 2), ramp); };
+    apply(3.4); // 初期フェードイン（深度に応じた配合で立ち上げ）
+    let hi = 0; every(19000, () => { hi = (hi + 1) % hChords.length; hall.setChord(hChords[hi], 10); });
+    let di = 0; every(16000, () => { di = (di + 1) % dChords.length; drone.setChord(dChords[di], 9); });
     every(7000, () => bnote(57 + bgPick(PENT_MINOR) + 12 * bgPick([0, 1]) - Math.floor(curDepth / 5), 1.8, 0.4, 6.0, 0.05, "sine", 1.0));
-    return { stop() { clearAll(); pad.stop(); }, setDepth() { pad.setChord(chords[i], 2); } };
+    return { stop() { clearAll(); hall.stop(); drone.stop(); }, setDepth() { apply(2.6); hall.setChord(hChords[hi], 2); } };
   }
   if (scene === "abyss") { // ③沈淵：最低域サブ＋不協和クラスタ・深度連動
     const pad = padChord([26, 38, 39, 44], { wave: "sine", detune: 4, amp: 0.05, lpf: 380, lfoRate: 0.035, spread: 0.5, wet: 0.85, depthReact: true });
