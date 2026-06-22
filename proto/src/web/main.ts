@@ -51,7 +51,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.16.0";
+export const APP_VERSION = "0.17.0";
 export const APP_BUILD = "2026-06-22";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1480,6 +1480,7 @@ function townAct(dx: number, dy: number) {
   const p = townGrid.propMap.get(`${nx},${ny}`);
   if (p && monumentKey === `${nx},${ny}`) { void monumentScene(); return; } // 奉献の像＝専用シート（Phase4）
   if (p && guardianKeys.has(`${nx},${ny}`)) { void guardianScene(guardianKeys.get(`${nx},${ny}`)!); return; } // 引退した英雄＝会話（運命の弧 4-6D）
+  if (p && cenotaphKey === `${nx},${ny}`) { void memorialScene(); return; } // 慰霊碑＝歴代の死者を読む（街の差分 4-6C）
   if (t !== "floor" && t !== "gate") { if (p?.line) log(p.line, "dim"); return; }
   if (p && t !== "gate") { if (p.line) log(p.line, "dim"); return; } // 景物（木・井戸・碑）は塞ぐ
   townPlayer = { x: nx, y: ny };
@@ -1796,6 +1797,67 @@ async function guardianScene(trackedId: string) {
   busy = false;
 }
 
+// ---------- 街の差分（4-6C／4-4 パリンプセスト）：慰霊碑＝歴代の死者で街が自分の史に塗り替わる ----------
+// 既存の静的「碑」（town.json props）を生きた記念碑にする。悼んだ先人（world.town.memorials）と
+// 歴代の自キャラ化石が層を成し、堆積に応じて広場に供花（見た目の差分）が増える。
+let cenotaphKey: string | null = null;
+const memorialKeys = new Set<string>();
+/** 慰霊碑に刻まれる名（悼んだ先人＋歴代の自キャラ・重複排除）。 */
+function rememberedDead(): { names: string[]; mourned: Set<string> } {
+  const mourned = new Set(world.town?.memorials ?? []);
+  const ownFallen = world.fossils.filter((f) => f.kind === "character").map((f) => f.origin.name);
+  const names = Array.from(new Set([...(world.town?.memorials ?? []), ...ownFallen]));
+  return { names, mourned };
+}
+function refreshMemorialSites() {
+  for (const k of memorialKeys) townGrid.propMap.delete(k);
+  memorialKeys.clear();
+  if (!cenotaphKey) { // 静的な慰霊碑（glyph「碑」）の位置を一度だけ特定
+    for (const [k, pr] of townGrid.propMap) if (pr.glyph === "碑") { cenotaphKey = k; break; }
+  }
+  const count = rememberedDead().names.length;
+  if (cenotaphKey) { // 碑の説明文を堆積に応じて更新（静的 prop を動的に上書き）
+    const c = townGrid.propMap.get(cenotaphKey);
+    if (c) c.line = count > 0
+      ? `慰霊碑。迷宮に還らなかった者たちの名が、層を成して刻まれている（${count}名）。`
+      : "慰霊碑。迷宮に還らなかった者たちの名が刻まれている。";
+  }
+  // 堆積に応じて供花を足す（見た目の差分・上限6）。碑(28,31)まわりの空き床へ。占有/非床は自動回避。
+  const cands: [number, number][] = [[27, 31], [29, 31], [27, 30], [29, 30], [26, 30], [30, 30]];
+  const n = Math.min(Math.floor(count / 2), cands.length); // 2名ごとに供花ひとつ
+  for (let i = 0; i < n; i++) {
+    const [x, y] = cands[i];
+    const key = `${x},${y}`;
+    if (townTileAt(townGrid, x, y) === "floor" && !townGrid.propMap.has(key) &&
+        !townGrid.doorMap.has(key) && !townGrid.guardMap.has(key)) {
+      townGrid.propMap.set(key, { x, y, glyph: "花", color: "#d8a8e8", glow: true, line: "供花。誰かが手向けた、祈りの痕跡。" });
+      memorialKeys.add(key);
+    }
+  }
+}
+/** 慰霊碑を読む＝街の記憶（パリンプセスト）。悼んだ先人と歴代の自キャラが層を成す。 */
+async function memorialScene() {
+  if (busy) return;
+  busy = true;
+  const { names, mourned } = rememberedDead();
+  if (!names.length) {
+    await sheet({
+      text: "真新しい慰霊碑。まだ、刻まれた名はない。\nいずれ、お前自身もここに名を連ねるのだろう。",
+      meta: "慰霊碑 ── 街の記憶", options: ["黙礼する"],
+    });
+    busy = false;
+    return;
+  }
+  const shown = names.slice(-12); // 直近12名（古い層は碑の底に沈む）
+  const roll = shown.map((nm) => `　・${nm}${mourned.has(nm) ? "（悼）" : ""}`).join("\n");
+  const more = names.length > shown.length ? `\n　…ほか${names.length - shown.length}名、碑の底に沈んでいる` : "";
+  await sheet({
+    text: `慰霊碑の前に立つ。迷宮に還らなかった者たちの名が、層を成して刻まれている。\n\n〔ここに眠る者たち〕\n${roll}${more}\n\nあなたが世代を重ねるほど、この碑は深くなる。（悼）＝慰霊堂で悼んだ先人。`,
+    meta: `慰霊碑 ── 街の記憶（全${names.length}名）`, options: ["黙礼する"],
+  });
+  busy = false;
+}
+
 function townLoop(): Promise<void> {
   return new Promise((resolve) => {
     townDescendResolve = resolve;
@@ -1804,6 +1866,7 @@ function townLoop(): Promise<void> {
     crowd = spawnCrowd(townGrid, rng, t.pos ?? townGrid.data.start);
     refreshAscendMonument(); // 奉献の碑をこの来訪の最新状態に（4-13D Phase4）
     refreshRetireGuardians(); // 引退した英雄を街角に常駐（運命の弧 4-6D・retire 終端）
+    refreshMemorialSites(); // 慰霊碑を堆積に応じて生きた記念碑に（街の差分 4-6C）
     sceneActorKeys = new Set(); // 来訪ごとに出会い記録をリセット（同一来訪内での重複だけ防ぐ）
     if (t.scene === "interior" && t.interiorKind && townGrid.data.keepers[t.interiorKind]) {
       townReturn = t.pos ? { x: t.pos.x, y: t.pos.y } : null;
