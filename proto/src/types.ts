@@ -28,6 +28,14 @@ export interface World {
   memorialCooldown?: number;    // 追悼の日（祭礼）の冷却＝アンビエント街イベント（4-12 J）。任意＝旧セーブ非破壊。
   plagueCooldown?: number;      // 深蝕の瘴気（疫病）の冷却＝街の災厄（4-12 J）。任意＝旧セーブ非破壊。
   diveCount?: number;           // 潜行回数（startDive ごと+1）。genFloor のseedに混ぜて潜行ごとに別ダンジョン＝再潜行farm防止。任意＝旧セーブ非破壊。
+  echoes?: EchoAsh[];           // 残響召喚の遺灰（4-10I）：神話極の化石を鎮魂して得る。潜行で1回展開＝強めの一時味方。世代越え。任意＝旧セーブ非破壊。
+}
+
+/** 残響召喚の遺灰（4-10I・Elden Ring の遺灰型）。神話極の化石の鎮魂で得て、潜行中に1回だけ展開して消費する。 */
+export interface EchoAsh {
+  fossilId: string;             // 由来の化石（神話極）。逆参照＝誰の残響かを表示するため。
+  name: string;                 // 由来の英雄名（origin.name のスナップショット＝化石が失われても表示できる）。
+  dmg: number;                  // 残響のダメージ（鎮魂時の深度に応じてスナップショット）。
 }
 
 /** 同行（相棒）の永続状態（4-14C）。潜行開始時にグリッドの相棒エンティティへ展開される。 */
