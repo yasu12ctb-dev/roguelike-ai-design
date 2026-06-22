@@ -52,7 +52,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.17.1";
+export const APP_VERSION = "0.18.0";
 export const APP_BUILD = "2026-06-22";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -466,6 +466,7 @@ function drawInterior() {
     const a = interiorActorAt(interior.actors, x, y);
     if (a) {
       if (a.role === "keeper") { const d = townGrid.data.keepers[a.kind]; glyph = d.sign; color = d.color; shadow = `0 0 10px ${d.color}99`; }
+      else if (a.regular) { const ck = kinds[a.kind]; glyph = ck.glyph; color = "#9fe6b0"; shadow = "0 0 11px #9fe6b0cc"; } // 馴染みの常連＝生者の緑系で明るく（街差分）
       else { const ck = kinds[a.kind]; glyph = ck.glyph; color = ck.color; shadow = `0 0 7px ${ck.color}66`; }
     }
     if (x === townPlayer.x && y === townPlayer.y) { glyph = "@"; color = "#ffd87a"; shadow = "0 0 12px rgba(255,216,122,.9)"; }
@@ -492,9 +493,37 @@ function startWander() {
 }
 function stopWander() { if (wanderTimer) { clearInterval(wanderTimer); wanderTimer = null; } }
 
+// ---------- 常連の入れ替わり（街差分・4-4/4-6C・Web限定・engine無改修・2026-06-22 ユーザー承認）----------
+// 縁を結んだ生者NPC（world.actors＝bond/plant/arc で referenced→rememberActor された者）が、
+// 酒場/ギルドの常連として現れる。直近に出会った顔が新常連になり、古い顔は世代で「卒業」して消える。
+// → delver/遭遇で出会う → 街で常連として再会 → やがて去る、の堆積が街に滲む。
+const REGULAR_SLOTS = 2;   // 1屋内あたり常連で埋める席（残りは随時の顔に残す）
+const REGULAR_TENURE = 4;  // 何世代いれば「卒業」して街から去るか
+/** 生者NPCを酒場/ギルドのどちらの常連にするか（id で安定割り当て＝同じ顔は同じ店に通う）。 */
+function regularVenue(id: string): "tavern" | "guild" {
+  let h = 0; for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  return (h & 1) ? "guild" : "tavern";
+}
+/** その屋内に現れる常連（直近に出会った顔・最大 REGULAR_SLOTS・世代で卒業）。 */
+function townRegularsFor(kind: string): LivingActor[] {
+  if (kind !== "tavern" && kind !== "guild") return [];
+  const gen = world.generation;
+  return (world.actors ?? [])
+    .filter((a) => gen - (a.metGeneration ?? gen) < REGULAR_TENURE) // 在籍中（卒業前）のみ
+    .filter((a) => regularVenue(a.id) === kind)
+    .sort((a, b) => (b.metGeneration ?? 0) - (a.metGeneration ?? 0) || (a.id < b.id ? -1 : 1)) // 直近の顔を優先
+    .slice(0, REGULAR_SLOTS);
+}
+
 function enterBuilding(kind: string, restore = false) {
   if (!restore) townReturn = { ...townPlayer };
   interior = buildInterior(kind, townGrid.data);
+  // 馴染みの常連を patron 席へ注入（refresh* と同じ web 注入パターン・engine 無改修）。
+  const regs = townRegularsFor(kind);
+  const patronSlots = interior.actors.filter((a) => a.role === "patron");
+  for (let i = 0; i < regs.length && i < patronSlots.length; i++) {
+    patronSlots[i].npc = regs[i]; patronSlots[i].regular = true; patronSlots[i].bgLine = undefined;
+  }
   mode = "interior";
   townPlayer = { x: interior.exitPos.x, y: interior.exitPos.y - 1 };
   stopWander();
@@ -1389,14 +1418,30 @@ async function talkCrowd(a: CrowdActor) {
   // 生者NPC（アクター記述子）との出会い＝旧「旅の者と語らう」（4-12G）
   if (ch && a.npc) {
     const la = a.npc;
-    const head = `${la.actor.epithet ?? ""}${la.actor.name}（${la.actor.archetype}）`;
+    const isRegular = (a as { regular?: boolean }).regular === true;
+    const head = `${la.actor.epithet ?? ""}${la.actor.name}（${la.actor.archetype}）${isRegular ? " ── 馴染みの顔" : ""}`;
+    // 馴染みの常連との再会（街差分・4-4/4-6C）：世代に一度だけ温かい一言＋小さな手向け（farm防止＝flag冪等）。
+    const reunion: string[] = [];
+    if (isRegular) {
+      const fkey = `reg_seen_${la.id}_g${world.generation}`;
+      if (!(world.flags ?? []).includes(fkey)) {
+        (world.flags ??= []).push(fkey);
+        const bond = ch.bonds.find((b) => b.entityRef === la.id);
+        if (bond) bond.value += 1; else ch.bonds.push({ entityRef: la.id, value: 1, unfinished: false });
+        ch.exposure = Math.max(0, ch.exposure - 0.03);
+        reunion.push("「また会えたな。あんたが生きて還るたび、こっちも少し安心するよ」。見知った顔が迷宮の外にもいる――それだけで、強張りがほどけていく。");
+      } else {
+        reunion.push("「よう、また来たか」。馴染みの顔が、軽く杯を掲げてみせた。");
+      }
+    }
     const sl = selectTownStorylet(db, world, ch, la, rng, townContextsHere(), recentSet());
     if (sl) noteEvent(sl.id);
     // 同行の勧誘（4-14C 入口）：相棒が居らず、迷宮の話が通じる相手なら「同行を頼む」を添える。
     const canRecruit = !world.companion?.alive;
     const recruitOpt = "同行を頼む";
     if (sl && sl.choices) {
-      const c = await sheet({ text: `${head}\n\n${fillActorText(la.actor, sl.text ?? "")}`, options: sl.choices.map((o) => o.label) });
+      const intro = [head, ...reunion, fillActorText(la.actor, sl.text ?? "")].filter(Boolean).join("\n\n");
+      const c = await sheet({ text: intro, options: sl.choices.map((o) => o.label) });
       const choice = sl.choices[c.pick - 1];
       const lines = applyActorEffects(world, ch, la, choice.effects);
       // 閉じる語は場面に合わせる（酒場の屋内なら「席を立つ」、それ以外＝立ち話なら「話を切り上げる」）。
@@ -1409,8 +1454,8 @@ async function talkCrowd(a: CrowdActor) {
       save();
     } else {
       const r = await sheet({
-        text: `${head}\n\n「……」と、ことば少なに会釈を返された。`,
-        meta: "街路の出会い", options: canRecruit ? ["うなずいて別れる", recruitOpt] : ["うなずいて別れる"],
+        text: [head, ...reunion, "「……」と、ことば少なに会釈を返された。"].filter(Boolean).join("\n\n"),
+        meta: isRegular ? "馴染みの常連" : "街路の出会い", options: canRecruit ? ["うなずいて別れる", recruitOpt] : ["うなずいて別れる"],
       });
       if (canRecruit && r.pick === 2) await offerCompanion(la);
     }
