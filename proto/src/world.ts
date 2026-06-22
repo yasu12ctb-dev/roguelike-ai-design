@@ -270,8 +270,9 @@ export function setArc(world: World, e: ArcEffect): void {
 // ---------- 運命の弧（4-6B：tracked が世代をビートに辿る原型的軌道。M3 第一スライス） ----------
 /** 弧の段数（一律3段＝終端）。後で arcType ごとに変えられる。 */
 export const ARC_MAX_BEAT = 3;
-/** 法則順守（4-2）：drift がこの値に達した tracked は、終端で破滅側へ歪んだ末路をたどる。 */
-const ARC_DRIFT_WARP = 2;
+/** 法則順守（4-2）：warp がこの値に達した tracked は、終端で破滅側へ歪んだ末路をたどる。
+ *  2.5＝「両極は稀に保つ」（4-2）に寄せた閾値＝平穏が既定・深く放置/掻き乱した少数のみ warped。 */
+const ARC_DRIFT_WARP = 2.5;
 
 /** 弧の段ごとの年代記行（伝聞＝又聞きで「目を離した隙に世界が動いた」を必ず拾わせる）。
  *  beat 1..3。warped は終端(beat3)の歪み分岐のみ差し替える。#name# に tracked.name を差す。 */
@@ -370,7 +371,7 @@ function fossilizeTracked(world: World, t: TrackedEntity): void {
  *  warp（＝`drift` フィールド・連続値）が閾値に達すると終端が破滅側（warped）へ寄る。 */
 const ARC_DRIFT_DEPTH = 18;        // 成れの果ての化石を眠らせる深度（fossilizeTracked 用）
 const WARP_DEPTH_MIN = 12;         // これより浅い laidDepth は理が固く、放置でも歪まない
-const WARP_RATE_DIV = 24;          // 深度→「世代あたり warp 速度」の除数（深いほど速い）
+const WARP_RATE_DIV = 30;          // 深度→「世代あたり warp 速度」の除数（深いほど速い・大きいほど緩い）
 const WARP_RATE_CAP = 1.25;        // 世代あたり warp 速度の上限
 const WARP_ENGAGE = 0.5;           // 非-干渉の再会で warp を微加（ハイブリッド：関与も深みを掻き乱す）
 const WARP_INTERVENE_HEAL = 1.0;   // 干渉（鎮魂/継承/供養）で巻き戻す warp 量（4-1C）
