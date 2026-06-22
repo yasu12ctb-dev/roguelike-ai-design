@@ -235,6 +235,14 @@ export function fossilizeAbandoned(
     wasCompanion: true,
   };
   world.fossils.push(fossil);
+  // 堕ちゆく弧（4-6D・fall の源）：見捨てられた相棒は、世代を越えて「堕ちていく」弧を辿る
+  // ＝栄光の影→孤立→成れの果て、を又聞き（年代記/酒場の噂）で拾わせ、終端で宿敵として深みに巣食う。
+  // 既存の grudge 化石を originRef に結ぶ＝終端で別途 mint しない（fossilizeTracked は originRef 有りで skip・
+  // grudge_hunt にそのまま合流）。advanceArcs が世代交代ごとに fall ビートを1段刻む（1世代1ビート）。
+  (world.tracked ??= []).push({
+    id: `nemesis_${fossil.id}`, name: actor.name, source: "nemesis",
+    arcType: "fall", beat: 0, lastObservedGeneration: world.generation, originRef: fossil.id,
+  });
   chronicle(world, "death",
     `${actor.name}を深度${opts.depth}に見捨てた。その怨みは、いつか宿敵となって還るだろう。`,
     [fossil.id]);
