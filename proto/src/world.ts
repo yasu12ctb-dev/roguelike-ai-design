@@ -56,6 +56,7 @@ export function migrateWorld(w: World): World {
   if (typeof w.ascended !== "number") w.ascended = 0; // 奉献の試練・クリア回数（4-13D）
   if (!Array.isArray(w.bestiary)) w.bestiary = []; // 敵図鑑（遭遇種）：欠落は空で補完
   if (w.town) { // 歩ける街（4-4B）：旧セーブに欠落するサブシーン状態を補完
+    if (!Array.isArray(w.town.memorials)) w.town.memorials = []; // 慰霊碑（4-6C）：供養した先人の名。欠落は空で補完
     if (w.town.scene !== "town" && w.town.scene !== "interior") w.town.scene = "town";
     if (w.town.interiorKind === undefined) w.town.interiorKind = null;
     // w.town.pos は未設定のまま＝描画側で town.json の start を既定にする
