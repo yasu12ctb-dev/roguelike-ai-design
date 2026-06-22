@@ -316,12 +316,35 @@ export function advanceArcs(world: World): void {
       t.terminal = true;
       if (warped) t.pick = "warped";
       line = warped ? table.warped : table.normal[ARC_MAX_BEAT - 1];
+      if (t.arcType === "doom") fossilizeTracked(world, t); // 成れの果ての化石を遺す（深層で再会＝噂で聞いた英雄との落差・4-6D）
     } else {
       line = table.normal[t.beat - 1] ?? table.normal[table.normal.length - 1];
     }
     const refs = t.originRef ? [t.id, t.originRef] : [t.id];
     chronicle(world, t.terminal ? "legend" : "rumor", line.replace(/#name#/g, t.name), refs);
   }
+}
+
+/** doom 終端の実体化（4-6D：破滅の弧の終端で「成れの果て」の化石が遺る＝既存パイプライン合流）。
+ *  originRef を持たない tracked（seeded＝化石なし）に、深層で再会できる怨念極の化石を mint し逆参照を結ぶ。
+ *  噂で「英雄」と聞いた相手を、迷宮で歪んだ化石として再発見する落差を生む（既存 rollEncounter / fossilScene に合流）。 */
+function fossilizeTracked(world: World, t: TrackedEntity): void {
+  if (t.originRef) return; // 既に化石を持つ（player_legend 等）＝二重生成しない
+  const depth = ARC_DRIFT_DEPTH; // 深層（18）に眠る＝深く潜った者だけが「成れの果て」に出会う
+  const fossil: Fossil = {
+    id: newId("fossil"),
+    kind: "explorer",
+    origin: {
+      name: t.name, archetype: "wanderer",
+      gearTags: ["錆びついた誓いの徽章"],
+      catchphrase: "……まだ、戻れない",
+    },
+    death: { manner: "grievous", finalAct: { choice: "curse_dungeon" }, depth, generationCreated: world.generation },
+    exposureAtDeath: 1.6, bondAtDeath: 0, tonePole: "grudge",
+    interventions: [], lastTouchedGeneration: world.generation, laidDepth: depth,
+  };
+  world.fossils.push(fossil);
+  t.originRef = fossil.id;
 }
 
 /** 法則順守（4-2「最も偉大な者すら深淵に変えられる」）：深層(laidDepth>=18)の原型化石に

@@ -112,6 +112,15 @@ hr("運命の弧（4-6）── 観測しない間も“進んだことになる
 const silver = world.tracked.find((t) => t.name === "銀の三人")!;
 say(`シード追跡対象「${silver.name}」（${silver.arcType}）：beat=${silver.beat}${silver.terminal ? "（終端）" : ""}`);
 say(`  酒場でその行く末を聞く ── ${renderArcBeat(db, rng, silver)}`);
+// doom 終端の実体化（4-6D）：噂で英雄と聞いた相手が、深層で「成れの果て」の化石として遺る＝落差
+if (silver.terminal && silver.originRef) {
+  const remains = world.fossils.find((f) => f.id === silver.originRef);
+  if (remains) {
+    const vr = computeVariation(remains, world.generation);
+    say(`  深層で「成れの果て」に出会う（深度${remains.laidDepth}・極=${poleLabel(remains.tonePole)}）──`);
+    say(`    ${renderRediscovery(db, rng, remains, vr)}`);
+  }
+}
 // 全 arcType × 全 beat で renderArcBeat の充填漏れ（unfilled slot throw）が無いことを保証＝回帰固定
 for (const arcType of ["doom", "retire", "fall", "lore_drift"] as const) {
   for (let beat = 1; beat <= 3; beat++) {

@@ -51,7 +51,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.14.0";
+export const APP_VERSION = "0.15.0";
 export const APP_BUILD = "2026-06-21";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1478,6 +1478,7 @@ function townAct(dx: number, dy: number) {
   if (t === "ngate") { log("固く閉ざされた門。門番が見張っている。", "dim"); return; }
   const p = townGrid.propMap.get(`${nx},${ny}`);
   if (p && monumentKey === `${nx},${ny}`) { void monumentScene(); return; } // 奉献の像＝専用シート（Phase4）
+  if (p && guardianKeys.has(`${nx},${ny}`)) { void guardianScene(guardianKeys.get(`${nx},${ny}`)!); return; } // 引退した英雄＝会話（運命の弧 4-6D）
   if (t !== "floor" && t !== "gate") { if (p?.line) log(p.line, "dim"); return; }
   if (p && t !== "gate") { if (p.line) log(p.line, "dim"); return; } // 景物（木・井戸・碑）は塞ぐ
   townPlayer = { x: nx, y: ny };
@@ -1735,6 +1736,65 @@ async function monumentScene() {
   busy = false;
 }
 
+// ---------- 運命の弧（4-6D）：retire 終端＝引退した英雄が街の守護者として常駐する（街の差分） ----------
+// terminal に達した retire の tracked を、街角の固定NPC（propMap）として注入。warped 終端（深みに呑まれた）は出さない。
+const guardianKeys = new Map<string, string>(); // propMap key → tracked id
+function refreshRetireGuardians() {
+  for (const k of guardianKeys.keys()) townGrid.propMap.delete(k);
+  guardianKeys.clear();
+  const retired = world.tracked.filter((t) => t.terminal && t.arcType === "retire" && t.pick !== "warped");
+  if (!retired.length) return;
+  // 中央広場まわりの空き床候補（門への動線 x=28 列は避ける・群衆は床基準で自動回避）。
+  const cands: [number, number][] = [[26, 24], [30, 26], [26, 26], [30, 31], [26, 31], [24, 24], [32, 24], [24, 26], [32, 26], [24, 31], [32, 31]];
+  let ci = 0;
+  for (const t of retired) {
+    let spot: [number, number] | undefined;
+    while (ci < cands.length) {
+      const [x, y] = cands[ci++];
+      if (townTileAt(townGrid, x, y) === "floor" && !townGrid.propMap.has(`${x},${y}`) &&
+          !townGrid.doorMap.has(`${x},${y}`) && !townGrid.guardMap.has(`${x},${y}`)) { spot = [x, y]; break; }
+    }
+    if (!spot) break; // 空き床が尽きたら以降は出さない（稀）
+    const [x, y] = spot;
+    const key = `${x},${y}`;
+    guardianKeys.set(key, t.id);
+    townGrid.propMap.set(key, {
+      x, y, glyph: "師", color: "#6fcf7f", glow: true,
+      line: `引退した英雄 ${t.name}。街の若い冒険者たちを見守っている。`,
+    });
+  }
+}
+/** 引退した英雄（守護者）と語る。初回は薫陶＝一度きりの小祝福（深蝕を少し清め、形質を授ける）。 */
+async function guardianScene(trackedId: string) {
+  if (busy) return;
+  busy = true;
+  const t = world.tracked.find((x) => x.id === trackedId);
+  const ch = world.current;
+  if (!t) { busy = false; return; }
+  const flagKey = `guardian_boon_${t.id}`;
+  const given = (world.flags ?? []).includes(flagKey);
+  if (!given && ch) {
+    (world.flags ??= []).push(flagKey);
+    const before = ch.exposure;
+    ch.exposure = Math.max(0, ch.exposure - 0.3); // 一度きりの小祝福（バランス中立・浅い清め）
+    if (!ch.traits.includes("守護者の薫陶")) ch.traits.push("守護者の薫陶");
+    chronicle(world, "legend", `${ch.name}は引退した英雄${t.name}の薫陶を受けた。`, [t.id]);
+    sfx("intervene");
+    const cleanse = before > ch.exposure ? `\n深みに削られた芯が、少し人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。` : "";
+    await sheet({
+      text: `街角で、引退した英雄 ${t.name} が若い冒険者たちに囲まれている。\nあなたに気づくと、目を細めて言った。\n\n「お前さんの目、昔の儂とよく似ている。……これをやろう。深みに呑まれそうになったら、儂の声を思い出せ」\n\n形質『守護者の薫陶』を得た。${cleanse}`,
+      meta: `${t.name} ── 引退した英雄（運命の弧）`, options: ["礼を言う"],
+    });
+    save();
+  } else {
+    await sheet({
+      text: `${t.name} は今日も街角で、若い冒険者たちに昔語りをしている。\n「無理はするな。生きて還ってこそ、また酒が飲める」`,
+      meta: `${t.name} ── 引退した英雄`, options: ["うなずく"],
+    });
+  }
+  busy = false;
+}
+
 function townLoop(): Promise<void> {
   return new Promise((resolve) => {
     townDescendResolve = resolve;
@@ -1742,6 +1802,7 @@ function townLoop(): Promise<void> {
     const t = world.town;
     crowd = spawnCrowd(townGrid, rng, t.pos ?? townGrid.data.start);
     refreshAscendMonument(); // 奉献の碑をこの来訪の最新状態に（4-13D Phase4）
+    refreshRetireGuardians(); // 引退した英雄を街角に常駐（運命の弧 4-6D・retire 終端）
     sceneActorKeys = new Set(); // 来訪ごとに出会い記録をリセット（同一来訪内での重複だけ防ぐ）
     if (t.scene === "interior" && t.interiorKind && townGrid.data.keepers[t.interiorKind]) {
       townReturn = t.pos ? { x: t.pos.x, y: t.pos.y } : null;
