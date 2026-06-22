@@ -51,7 +51,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.15.2";
+export const APP_VERSION = "0.16.0";
 export const APP_BUILD = "2026-06-22";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -249,6 +249,7 @@ function updateStatus() {
   if (shadowGuard > 0) buffs.push(`影${shadowGuard}`);
   if (chantTurns > 0) buffs.push(`帰還詠唱${chantTurns}`);
   if (summons.length) buffs.push(`召${summons.length}`);
+  if (world.echoes?.length) buffs.push(`遺灰${world.echoes.length}`); // 残響召喚の遺灰（4-10I）：保有数＝「術」ボタンから展開可
   $("stBuff").textContent = (mode === "dive" && buffs.length) ? `《${buffs.join(" ")}》` : "";
   applyChrome(); // 下部の操作系（タブバー・D-pad）を mode に応じて表示更新
 }
@@ -2150,6 +2151,7 @@ const curLevel = (): number => world.current?.level ?? 1;
 const SETPIECE_COOLDOWN = 12; // 山場連発防止：山場を見せたら N 手は次の山場演出を抑制（ダイブを跨ぐ）。
 const PITY_STEP = 0.15;       // 凪検知（ピティ）：無風の降下1回ごとに迷宮イベント率へ加点。
 const PITY_BOND_AT = 2;       // 凪が PITY_BOND_AT 降下続き、未完の絆を持つなら因縁化石を1体上乗せ（因縁を浮上）。
+const ECHO_DEPLOY_COST = 0.3; // 残響召喚の遺灰（4-10I）を展開するときの代償＝深蝕＋。乱用を抑える（snapshot：稀・代償つき）。
 let setPieceCooldown = 0;     // >0 の間、山場（legend_return/grudge_hunt）演出を抑え通常遭遇へ。endTurn で毎手減算。
 let mendTick = 0;             // 遺物 mending の回復タイマー（endTurn で加算・MEND_EVERY 手ごとに +1HP）。
 const MEND_EVERY = 5;        // mending：この手数ごとに +1HP（要テストプレイ調整）。
@@ -2505,9 +2507,23 @@ function learnSpell(ch: Character, key: string): boolean {
 $("spellBtn").onclick = async () => {
   if (busy || mode !== "dive" || !floor || !world.current) return;
   const ch = world.current;
-  if (ch.spells.length === 0) { log("まだ術を識らない。レベルアップ/深淵/教団で識れる。", "dim"); return; }
+  const hasEcho = (world.echoes?.length ?? 0) > 0; // 残響の遺灰（4-10I）を持つか
+  const canCast = ch.spells.length > 0 && activeLoadout(ch).length > 0;
+  if (!canCast && !hasEcho) {
+    if (ch.spells.length === 0) log("まだ術を識らない。レベルアップ/深淵/教団で識れる。", "dim");
+    else log("術を構えていない。下部タブ「ステータス」→術（構え・図鑑）で構えを整えよ。", "dim");
+    return;
+  }
+  // 残響の遺灰を持つなら、術詠唱と展開の二択を挟む（術を識らずとも遺灰だけは使える）。
+  if (hasEcho) {
+    if (!canCast) { await deployEcho(ch); return; }
+    busy = true;
+    const r = await sheet({ text: "術を撃つか、在りし日の残響を喚ぶか。", meta: "術 / 残響", options: [`残響の遺灰を使う（×${world.echoes!.length}）`, "術を撃つ", "やめる"] });
+    busy = false;
+    if (r.pick === 1) { await deployEcho(ch); return; }
+    if (r.pick === 3) return;
+  }
   const loadout = activeLoadout(ch);
-  if (loadout.length === 0) { log("術を構えていない。下部タブ「ステータス」→術（構え・図鑑）で構えを整えよ。", "dim"); return; }
   busy = true;
   const known = loadout.map((k) => spellByKey(k)).filter((s): s is NonNullable<typeof s> => !!s);
   // 選びやすい2列グリッド：学派の色チップ＋深蝕コスト＋効果（4-11F③）。
@@ -2565,6 +2581,27 @@ function spawnSummon(near: Pos, glyph: string, name: string, dmg: number, turns:
   if (!spot) return false;
   summons.push({ x: spot.x, y: spot.y, glyph, name, dmg, turns, follow });
   return true;
+}
+/** 残響の遺灰を展開（4-10I）：神話極の鎮魂で得た遺灰を1つ消費し、強めの一時味方を喚ぶ。代償＝深蝕。一手かかる。 */
+async function deployEcho(ch: Character) {
+  const echoes = world.echoes ?? [];
+  if (!echoes.length || mode !== "dive" || !floor) return;
+  busy = true;
+  const cells = echoes.map((e) => ({
+    html: `<span class="chip c-sup">残響</span><div class="nm">${e.name}の残響</div><div class="sub">威力${e.dmg}・8手・追従／代償 深蝕＋${ECHO_DEPLOY_COST}</div>`,
+  }));
+  const i = await chooseGrid({ title: "残響の遺灰を使う（一手・展開で消費）", lead: "在りし日の英雄が、束の間、傍らに立つ。", cells, cancel: "やめる" });
+  busy = false;
+  if (i < 0 || i >= echoes.length) return;
+  const e = echoes[i];
+  const ok = spawnSummon(player, "Ψ", `${e.name}の残響`, e.dmg, 8, true); // 術 echo（6手）より強め・長寿命（8手）
+  if (!ok) { log("残響の立つ隙間がない。", "dim"); return; } // 隙間なし＝遺灰は消費しない
+  echoes.splice(i, 1);
+  ch.exposure += ECHO_DEPLOY_COST; // 代償（snapshot 4-10I：稀・代償つき）
+  sfx("spell_summon"); flashFx("warp", { x: player.x, y: player.y });
+  log(`${e.name}の残響が、傍らに立った（威力${e.dmg}・8手・深蝕＋${ECHO_DEPLOY_COST}）。`, "cue");
+  save(); updateStatus();
+  await endTurn(); // 一手経過＝敵の手番（術・消耗品と同じ）
 }
 /** 召喚の手番：隣接敵を討つ／いなければ最寄り敵（follow なら @）へ1歩。寿命を消費し、尽きたら霧散。 */
 function resolveSummons() {
@@ -3410,6 +3447,17 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       ch.exposure = Math.max(0, ch.exposure - REQUIEM_RELIEF); // 人間性の回復弁（4-12B）
       log(requiemLine(fossil, rng));
       if (ch.exposure < before) log(`深みに削られた芯が、少し人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
+      // 残響召喚の種（4-10I・snapshot 524）：神話極の化石を鎮魂すると「残響の遺灰」を得る。
+      // 潜行中に1回だけ強めの一時味方として展開できる（術ボタン→「残響の遺灰を使う」）。神話極の鎮魂は稀ゆえ自然に希少。
+      // farm防止＝1化石1遺灰（intervene が requiem を push 済み＝今回が初回なら requiem は1件）。世代越えで再鎮魂しても増えない。
+      const firstRequiem = fossil.interventions.filter((iv) => iv.type === "requiem").length === 1;
+      if (fossil.tonePole === "myth" && firstRequiem) {
+        const depth = floor?.depth ?? fossil.death.depth ?? 1;
+        const echoDmg = Math.max(5, Math.round(4 + depth * 0.7));
+        (world.echoes ??= []).push({ fossilId: fossil.id, name: fossil.origin.name, dmg: echoDmg });
+        log(`${fossil.origin.name}の残響が、遺灰となって掌に宿った。いつか、傍らに喚び出せる。`, "cue");
+        sfx("seal");
+      }
     } else if (label.startsWith("遺されたもの")) {
       sfx("intervene");
       intervene(world, fossil.id, "inherit"); // 未完の目的を負う（4-12B）
