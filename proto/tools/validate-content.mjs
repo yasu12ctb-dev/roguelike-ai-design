@@ -150,6 +150,39 @@ for (const s of list) for (const c of s.choices ?? []) for (const e of c.effects
 const arcsReturned = new Set(list.filter((s) => s.prerequisites?.arcActor).map((s) => s.prerequisites.arc));
 for (const k of arcsStarted) if (!arcsReturned.has(k)) W(k, `アンカー弧 "${k}" を開始するが、arcActor で戻る後段が見当たらない`);
 
+// flag 連鎖（伏線→回収・4-12 遭-②）整合：plant↔flag/notFlag を base 名で突合。
+// すべて警告止まり＝code 側で立つ flag（guardian_boon_*/arc 系/markEventFired 等）や意図的な一方向の
+// 伏線があるため error にしない（デプロイを止めない）。
+const allEffects = (s) => [
+  ...(s.investigate?.effects ?? []), ...(s.search?.effects ?? []),
+  ...(s.result?.effects ?? []), ...((s.choices ?? []).flatMap((c) => c.effects ?? [])),
+];
+const planted = new Set();   // content のどこかで plant される flag 名
+const consumed = new Map();  // flag/notFlag で参照される flag 名 → 参照した storylet id[]
+for (const s of list) {
+  for (const e of allEffects(s)) if (typeof e.plant === "string") planted.add(e.plant);
+  const p = s.prerequisites ?? {};
+  for (const key of ["flag", "notFlag"]) if (typeof p[key] === "string") {
+    if (!consumed.has(p[key])) consumed.set(p[key], []);
+    consumed.get(p[key]).push(s.id);
+  }
+}
+// ① 宙ぶらりんの consumer：参照されるが content のどこにも plant が無い flag（永遠に発火しない恐れ/タイポ）
+for (const [name, ids] of consumed) if (!planted.has(name))
+  W(name, `flag "${name}" を ${ids.join("/")} が参照するが content に plant が無い（code で立つ flag か要確認／タイポの恐れ）`);
+// ② dungeon context の no-op：dungeon は flag/plant を機構上参照/適用しない（pickByContext/applyDungeonEffects）
+for (const s of list) {
+  if ((s.context ?? "encounter") !== "dungeon") continue;
+  const p = s.prerequisites ?? {};
+  if (p.flag !== undefined || p.notFlag !== undefined)
+    W(s.id, `dungeon context で flag/notFlag を使用＝機構上 no-op（pickByContext は dungeon で flag を照合しない）`);
+  if (allEffects(s).some((e) => e.plant !== undefined))
+    W(s.id, `dungeon context で plant を使用＝機構上 no-op（applyDungeonEffects は plant を適用しない）`);
+}
+// ③ 情報：consumer の無い plant は一覧のみ（多くは意図的な一方向の伏線フレーバー＝error/warn にしない）
+const danglingPlants = [...planted].filter((n) => !consumed.has(n));
+if (danglingPlants.length) console.log(`== flag 連鎖：consumer の無い plant ${danglingPlants.length}件（一方向の伏線として正常）: ${danglingPlants.join(", ")} ==`);
+
 console.log(`== コンテンツ検証：storylets ${list.length}件 / 消耗品キー [${[...CONSUMABLES].join(",")}] ==`);
 if (warn.length) { console.log(`\n[警告 ${warn.length}]`); warn.forEach((w) => console.log("  " + w)); }
 if (errors.length) { console.log(`\n[エラー ${errors.length}]`); errors.forEach((e) => console.log("  " + e)); console.log("\n❌ 受理ゲート：不合格"); process.exit(1); }
