@@ -137,6 +137,7 @@ export interface InteriorActor {
   kind: string;               // keeper=店主defキー（例 smith_armor）／patron=crowd.kinds キー
   // patron の出会いキャッシュ（街路群衆と同じ：同じ常連は同じ人物・同じセリフ）
   npc?: LivingActor | null;
+  regular?: boolean;          // 馴染みの常連（world.actors を注入＝再会の顔・4-4/4-6C 街差分）
   bgLine?: string;
 }
 export interface Interior {
