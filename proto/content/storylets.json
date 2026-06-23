@@ -19010,6 +19010,1125 @@
      ]
     }
    ]
+  },
+  {
+   "id": "ex_m4b_lw_portrait",
+   "prerequisites": {
+    "tone": "loss",
+    "stage": "weathered"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の#origin_gear# に挟まれて、色あせた絵姿が一枚。家族らしき数人が、ぎこちなく寄り添って笑っている。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "見たもの:#origin_name#の家族の絵姿"
+     }
+    ]
+   },
+   "search": {
+    "text": "絵姿の裏に、たどたどしい子供の字。「とうさん、はやくかえってきて」。約束は、果たされなかった。",
+    "effects": [
+     {
+      "trait": "遺品:#origin_name#への子の手紙"
+     },
+     {
+      "chronicle": "#origin_name# が、帰りを待たれていた者だと知った。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_lw_blanket",
+   "prerequisites": {
+    "tone": "loss",
+    "stage": "weathered"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# は、擦り切れた毛布を後生大事に巻きつけたまま、壁にもたれていた。寒さを、ひどく恐れていたらしい。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "見たもの:#origin_name#の毛布"
+     }
+    ]
+   },
+   "search": {
+    "text": "毛布の端に、二人ぶんの名が刺繍されている。分け合うはずだった温もりが、ここで尽きている。",
+    "effects": [
+     {
+      "trait": "遺品:#origin_name#の二人の毛布"
+     },
+     {
+      "chronicle": "#origin_name# が、誰かと分かつはずだった温もりを見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_lw_token",
+   "prerequisites": {
+    "tone": "loss",
+    "stage": "weathered"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の握り拳から、約束の品らしき木彫りの小鳥がのぞいている。丁寧に磨かれ、長く持ち歩かれた跡。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "遺品:#origin_name#の木彫りの小鳥"
+     }
+    ]
+   },
+   "search": {
+    "text": "小鳥の腹に、小さく彫られた相合いの印。地上へ持ち帰り、渡すはずだったのだろう。",
+    "effects": [
+     {
+      "trait": "知った:#origin_name#の果たせぬ約束"
+     },
+     {
+      "chronicle": "#origin_name# が、誰かに渡せなかった約束の品を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_lt_handshape",
+   "prerequisites": {
+    "tone": "loss",
+    "stage": "twisting"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の手は、何かを握る形のまま、指の関節が不自然な方へ捻れ始めていた。形見を、放すまいとした名残か。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の捻れた手"
+     },
+     {
+      "exposure": 0.05
+     }
+    ]
+   },
+   "search": {
+    "text": "捻れた指の隙間に、半ば石に呑まれかけた銀の鎖。深みが、悲しみごと形を歪めていく。",
+    "effects": [
+     {
+      "trait": "遺品:#origin_name#の呑まれかけた鎖"
+     },
+     {
+      "chronicle": "#origin_name# の悲しみが、深みに歪められていく様を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_lt_callname",
+   "prerequisites": {
+    "tone": "loss",
+    "stage": "twisting"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の口は、誰かの名を呼ぶ形のまま固まりかけ、その輪郭が、もはや人のものとは思えぬほど引き伸ばされている。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の歪んだ呼び声"
+     },
+     {
+      "exposure": 0.06
+     }
+    ]
+   },
+   "search": {
+    "text": "呼ぼうとした名は、岩に半ば溶けて読み取れない。届かなかった声が、深みに吸われていく。",
+    "effects": [
+     {
+      "chronicle": "#origin_name# の、誰にも届かぬ呼び声の跡に触れた。"
+     },
+     {
+      "exposure": 0.04
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_lt_tears",
+   "prerequisites": {
+    "tone": "loss",
+    "stage": "twisting"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の頬を伝った跡が、涙のまま結晶になりかけている。乾く前に、深みがそれを凍てつかせたらしい。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の結晶の涙"
+     },
+     {
+      "exposure": 0.05
+     }
+    ]
+   },
+   "search": {
+    "text": "結晶を一粒すくうと、掌で淡く脈打った。悲しみさえ、ここでは異物に変わるのだ。",
+    "effects": [
+     {
+      "trait": "携えた:#origin_name#の結晶の涙"
+     },
+     {
+      "chronicle": "#origin_name# の涙が、深みに変じる様を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_lt_inkmap",
+   "prerequisites": {
+    "tone": "loss",
+    "stage": "twisting"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の遺した帰り道の地図。赤い線でなぞられた帰路のインクが、にじみ、ひとりでに蠢いている。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の蠢く帰り道"
+     },
+     {
+      "exposure": 0.05
+     }
+    ]
+   },
+   "search": {
+    "text": "地図の帰路は、辿るほどに線が増殖し、もはやどれが本物の道か分からない。深みが、帰り道を喰っていく。",
+    "effects": [
+     {
+      "chronicle": "#origin_name# の帰り道が、深みに喰われていくのを見た。"
+     },
+     {
+      "exposure": 0.04
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_la_warmlump",
+   "prerequisites": {
+    "tone": "loss",
+    "stage": "alien"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "もはや#origin_name#と見分けもつかぬ塊。だが、その中心だけが、抱きしめるように、ほのかに温かい。",
+    "effects": [
+     {
+      "trait": "見たもの:温もりを抱く異形"
+     },
+     {
+      "exposure": 0.08
+     }
+    ]
+   },
+   "search": {
+    "text": "温もりの芯に、原型をとどめた小さな品が一つ。喪失だけが、人の形を最後まで手放さずにいる。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "遺品:異形が抱いていた品"
+     },
+     {
+      "chronicle": "人ならぬ姿になってなお、何かを抱き続ける者を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_la_grief_idol",
+   "prerequisites": {
+    "tone": "loss",
+    "stage": "alien"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# だったものは、うずくまる人型の像と化していた。悲しみそのものが、石に彫り出されたかのように。",
+    "effects": [
+     {
+      "trait": "見たもの:悲嘆の像"
+     },
+     {
+      "exposure": 0.09
+     }
+    ]
+   },
+   "search": {
+    "text": "像の足元に、ただ一つ人の温度を残す品。喪失が、ここまで純粋な形を取るとは。",
+    "effects": [
+     {
+      "trait": "知った:純化した悲嘆"
+     },
+     {
+      "chronicle": "喪失が異形の像へ純化した果てを見た。"
+     },
+     {
+      "exposure": 0.05
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_la_echo_voice",
+   "prerequisites": {
+    "tone": "loss",
+    "stage": "alien"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の亡骸はもう無い。ただ、その人の声音だけが、空間に薄く貼りついて、同じ別れの言葉を繰り返している。",
+    "effects": [
+     {
+      "trait": "聞いた:#origin_name#の残響の声"
+     },
+     {
+      "exposure": 0.08
+     }
+    ]
+   },
+   "search": {
+    "text": "声は「ごめん」とだけ繰り返す。本体を失ってなお、詫びだけが、深みに残り続けている。",
+    "effects": [
+     {
+      "chronicle": "#origin_name# の、本体を失った詫びの残響を聞いた。"
+     },
+     {
+      "exposure": 0.06
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_la_embrace",
+   "prerequisites": {
+    "tone": "loss",
+    "stage": "alien"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "二つの異形が、抱き合う形のまま一つに溶け合って固まっている。かつて、寄り添った者たちだったのか。",
+    "effects": [
+     {
+      "trait": "見たもの:溶け合う抱擁"
+     },
+     {
+      "exposure": 0.09
+     }
+    ]
+   },
+   "search": {
+    "text": "溶けた境目に、もはや誰のものとも知れぬ二つの指輪が埋もれている。離れぬことだけが、叶ったのだ。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "知った:離れずにいた果て"
+     },
+     {
+      "chronicle": "異形となってなお離れずにいた、二人の果てを見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_la_fused_relic",
+   "prerequisites": {
+    "tone": "loss",
+    "stage": "alien"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "人とも品ともつかぬ塊。#origin_name# が握りしめた形見が、その手と一つに融け合い、脈を打っている。",
+    "effects": [
+     {
+      "trait": "見たもの:宿主と融けた形見"
+     },
+     {
+      "exposure": 0.08
+     }
+    ]
+   },
+   "search": {
+    "text": "融けた形見は、引き剥がそうとすると鈍く痛むように脈打つ。手放せなかった想いが、肉になったのだ。",
+    "effects": [
+     {
+      "trait": "知った:肉になった執着"
+     },
+     {
+      "chronicle": "形見と融け合った#origin_name#の執着を見た。"
+     },
+     {
+      "exposure": 0.05
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_mw_banner_medal",
+   "prerequisites": {
+    "tone": "myth",
+    "stage": "weathered"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の胸に、色あせた勲章がいくつも。一つひとつが、語り草になるほどの武勲の証だ。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "見たもの:#origin_name#の勲章"
+     },
+     {
+      "chronicle": "#origin_name# の数々の武勲の証を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "勲章の裏に刻まれた戦の名は、どれも子供でも知る伝説のもの。これほどの者が、ここで尽きたのか。",
+    "effects": [
+     {
+      "trait": "受け継ぐ:#origin_name#の武勲の記憶"
+     },
+     {
+      "chronicle": "伝説の戦を駆けた#origin_name#の最期に立ち会った。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_mw_brokenblade",
+   "prerequisites": {
+    "tone": "myth",
+    "stage": "weathered"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の傍らに、半ばで折れた名剣。刃毀れの一つひとつが、潜り抜けた死線の数を物語っている。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の折れた名剣"
+     },
+     {
+      "chronicle": "#origin_name# の、死線を刻んだ名剣を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "折れ口は新しい。最後の一戦で、この剣は主とともに役目を終えたのだ。柄に、誇り高い銘がある。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "受け継ぐ:#origin_name#の剣の銘"
+     },
+     {
+      "chronicle": "#origin_name# が最後の一戦で剣を折った跡を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_mw_will",
+   "prerequisites": {
+    "tone": "myth",
+    "stage": "weathered"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の#origin_gear# に、弟子へ宛てた遺言状が挟まれている。筆跡は乱れず、最期まで毅然としている。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の遺言状"
+     },
+     {
+      "chronicle": "#origin_name# の、弟子へ宛てた毅然たる遺言を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "遺言は技の要諦と、ただ一言「驕るな」。師の遺志が、紙の上で今も背筋を正している。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "受け継ぐ:#origin_name#の遺訓「驕るな」"
+     },
+     {
+      "chronicle": "#origin_name# の遺訓を、確かに受け取った。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_mw_victory",
+   "prerequisites": {
+    "tone": "myth",
+    "stage": "weathered"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "広間の壁に、#origin_name# が刻んだらしい勝利の記録。倒した深層の主の名が、誇らしげに連ねられている。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の戦果の刻み"
+     },
+     {
+      "chronicle": "#origin_name# の輝かしい戦果の記録を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "記録の最後の一行だけ、刻みが浅い。書きかけのまま、英雄の筆は止まっている。続きは、ここで途切れた。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "知った:#origin_name#の途切れた戦果"
+     },
+     {
+      "chronicle": "#origin_name# の戦果が、最後の一行で途切れた跡を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_mt_idol_warp",
+   "prerequisites": {
+    "tone": "myth",
+    "stage": "twisting"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# を讃えて誰かが彫った小像。その英雄の顔が、深みに侵され、誇りの表情のまま歪み始めている。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の歪む英雄像"
+     },
+     {
+      "exposure": 0.05
+     }
+    ]
+   },
+   "search": {
+    "text": "像の台座の讃辞は、なぞるほどに呪詛めいた響きに読めてくる。称賛と呪いは、深みでは紙一重だ。",
+    "effects": [
+     {
+      "chronicle": "#origin_name# への称賛が、呪詛へ転じ始める様を見た。"
+     },
+     {
+      "exposure": 0.04
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_mt_blackgold",
+   "prerequisites": {
+    "tone": "myth",
+    "stage": "twisting"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の勲章が、黒く変色し始めている。栄光の金が、深みに触れて、じわじわと澱の色に染まっていく。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の黒ずむ勲"
+     },
+     {
+      "exposure": 0.05
+     }
+    ]
+   },
+   "search": {
+    "text": "黒ずんだ勲章は、握ると指に冷たく吸いついてくる。誉れの重みが、呪いの重みに変わりつつある。",
+    "effects": [
+     {
+      "trait": "携えた:#origin_name#の黒ずんだ勲"
+     },
+     {
+      "chronicle": "#origin_name# の誉れが、呪いの重みへ変わるのを見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_mt_proudwarp",
+   "prerequisites": {
+    "tone": "myth",
+    "stage": "twisting"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# は、胸を張った誇り高い姿勢のまま、背骨が深みに捻られ始めていた。誇りが、肉ごと歪んでいく。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の捻れる誇り"
+     },
+     {
+      "exposure": 0.06
+     }
+    ]
+   },
+   "search": {
+    "text": "捻れた背筋の下に、まだ握られた指揮杖。号令の姿のまま、英雄は人ならぬ形へ傾いていく。",
+    "effects": [
+     {
+      "chronicle": "#origin_name# の誇りが、肉ごと歪んでいく様を見た。"
+     },
+     {
+      "exposure": 0.04
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_mt_fameweight",
+   "prerequisites": {
+    "tone": "myth",
+    "stage": "twisting"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の#origin_gear# は、無数の信奉者の結び文で覆われていた。その重みが、亡骸を深みへ押し沈めている。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#を沈める名声"
+     },
+     {
+      "exposure": 0.05
+     }
+    ]
+   },
+   "search": {
+    "text": "結び文の願いは、いつしか英雄への要求に変わっている。崇められることの澱が、ここに溜まっている。",
+    "effects": [
+     {
+      "trait": "知った:名声という澱"
+     },
+     {
+      "chronicle": "#origin_name# が、名声の重みに深みへ沈む様を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_ma_beast",
+   "prerequisites": {
+    "tone": "myth",
+    "stage": "alien"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# だったものは、神話の獣めいた異形に変わり果てていた。猛々しさだけが、かろうじて面影を残す。",
+    "effects": [
+     {
+      "trait": "見たもの:英雄の成れの果ての獣"
+     },
+     {
+      "exposure": 0.09
+     }
+    ]
+   },
+   "search": {
+    "text": "獣の額に、英雄の兜の意匠がめり込んでいる。伝説は、語られすぎて、人ならぬものになったのか。",
+    "effects": [
+     {
+      "trait": "知った:語られすぎた伝説"
+     },
+     {
+      "chronicle": "#origin_name# の伝説が、人外の獣へ昇りつめた果てを見た。"
+     },
+     {
+      "exposure": 0.05
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_ma_altar",
+   "prerequisites": {
+    "tone": "myth",
+    "stage": "alien"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の亡骸は、いつしか信奉者の祭壇と化し、結晶の柱となって淡く発光している。もはや、人ではない。",
+    "effects": [
+     {
+      "trait": "見たもの:英雄の結晶の祭壇"
+     },
+     {
+      "exposure": 0.08
+     }
+    ]
+   },
+   "search": {
+    "text": "祭壇に触れると、英雄の生涯が断片的に流れ込む——栄光も、孤独も。崇拝が、人を神話の鉱物に変えたのだ。",
+    "effects": [
+     {
+      "trait": "知った:鉱物となった神話"
+     },
+     {
+      "chronicle": "#origin_name# が崇拝のはてに結晶の祭壇となった様を見た。"
+     },
+     {
+      "exposure": 0.06
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_ma_halo",
+   "prerequisites": {
+    "tone": "myth",
+    "stage": "alien"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "崇拝の対象めいた、まばゆい光の塊。その中心に、辛うじて#origin_name#の兜の形が浮かんでいる。眩しくて、直視できない。",
+    "effects": [
+     {
+      "trait": "見たもの:英雄だった光"
+     },
+     {
+      "exposure": 0.09
+     }
+    ]
+   },
+   "search": {
+    "text": "光に近づくほど、讃える声と恨む声が綯い交ぜに響く。神格化の果ては、人の理解の外にある。",
+    "effects": [
+     {
+      "chronicle": "#origin_name# が、人の理解を超えた光へ変わった果てを見た。"
+     },
+     {
+      "exposure": 0.06
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_gw_curse_stone",
+   "prerequisites": {
+    "tone": "grudge",
+    "stage": "weathered"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の傍らの石に、ある名へ向けた呪詛がびっしりと刻まれている。憎しみの深さが、刻みの深さに表れている。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の呪詛の石"
+     },
+     {
+      "chronicle": "#origin_name# が誰かへ刻んだ呪詛を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "呪詛の名は、半ば削られている。憎んだ相手を、最後まで消しきれなかったのか、消せなかったのか。",
+    "effects": [
+     {
+      "exposure": 0.04
+     },
+     {
+      "trait": "知った:#origin_name#の消えぬ遺恨"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_gw_target_list",
+   "prerequisites": {
+    "tone": "grudge",
+    "stage": "weathered"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の#origin_gear# から、人相書きの束。一枚ごとに似顔と名、そして几帳面に×印が付けられている。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の標的の束"
+     },
+     {
+      "chronicle": "#origin_name# が誰かを執拗に追っていた跡を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "最後の一枚にだけ、×印が無い。果たせなかった復讐の相手が、まだどこかで生きている。",
+    "effects": [
+     {
+      "exposure": 0.04
+     },
+     {
+      "trait": "知った:#origin_name#の未完の復讐"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_gw_ambush",
+   "prerequisites": {
+    "tone": "grudge",
+    "stage": "weathered"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "通路の物陰に、#origin_name# が誰かを待ち伏せた跡。折れた刃と、長く潜んだらしい腰の窪みが残っている。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の待ち伏せの跡"
+     },
+     {
+      "chronicle": "#origin_name# が誰かを待ち伏せた跡を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "待ち伏せは、果たされなかったらしい。標的を待つうちに、#origin_name#の方が力尽きている。執念だけが、ここに残る。",
+    "effects": [
+     {
+      "exposure": 0.05
+     },
+     {
+      "trait": "知った:#origin_name#の報われぬ執念"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_gw_betrayal",
+   "prerequisites": {
+    "tone": "grudge",
+    "stage": "weathered"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# が握りしめた証文。仲間に裏切られ、見捨てられた経緯が、震える字で書き殴られている。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の裏切りの証文"
+     },
+     {
+      "chronicle": "#origin_name# が、裏切られた末にここへ至った経緯を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "証文の末尾は、ただ一人の名を呪う言葉で埋まっている。信じた者への憎しみほど、深いものはない。",
+    "effects": [
+     {
+      "exposure": 0.05
+     },
+     {
+      "trait": "知った:#origin_name#の裏切られた憎悪"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_gw_dueline",
+   "prerequisites": {
+    "tone": "grudge",
+    "stage": "weathered"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "床に引かれた一本の線。#origin_name# が、宿敵との決着をつけるために引いた、退路を断つ境界だったらしい。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の決闘の線"
+     },
+     {
+      "chronicle": "#origin_name# が宿敵と引いた決着の境界を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "線の両側に、二人ぶんの血の跡。相討ちだったのか——憎しみは、双方を喰らって終わったらしい。",
+    "effects": [
+     {
+      "exposure": 0.05
+     },
+     {
+      "trait": "知った:相討ちの果ての遺恨"
+     },
+     {
+      "chronicle": "#origin_name# と宿敵が相討ちに果てた境界を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_gt_warp_hate",
+   "prerequisites": {
+    "tone": "grudge",
+    "stage": "twisting"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の顔は、憎悪に歪んだ表情のまま、深みにさらに歪められ、もはや般若めいた相を呈している。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の歪む憎悪"
+     },
+     {
+      "exposure": 0.06
+     }
+    ]
+   },
+   "search": {
+    "text": "歪んだ口元が、聞き取れぬ呪詛を刻み続けているように震える。恨みが、肉を侵してなお止まらない。",
+    "effects": [
+     {
+      "chronicle": "#origin_name# の憎悪が、肉を歪めてなお続く様を見た。"
+     },
+     {
+      "exposure": 0.04
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_gt_curse_creep",
+   "prerequisites": {
+    "tone": "grudge",
+    "stage": "twisting"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# が刻んだ呪詛の文字が、壁を伝って、生き物のように這い広がり始めている。憎しみが、石を侵食していく。",
+    "effects": [
+     {
+      "trait": "見たもの:這い広がる呪詛"
+     },
+     {
+      "exposure": 0.06
+     }
+    ]
+   },
+   "search": {
+    "text": "呪詛は、近づく者の名を取り込もうと、文字の先をこちらへ伸ばしてくる。お前は、一歩退いた。",
+    "effects": [
+     {
+      "exposure": 0.05
+     },
+     {
+      "trait": "知った:取り込もうとする呪い"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_gt_fused_weapon",
+   "prerequisites": {
+    "tone": "grudge",
+    "stage": "twisting"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の手と、握った武器が、深みの熱で癒着し始めている。離すまいとする執念が、肉と鉄を一つにしていく。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の癒着した得物"
+     },
+     {
+      "exposure": 0.06
+     }
+    ]
+   },
+   "search": {
+    "text": "癒着した刃は、まだ標的の方角を指しているように見える。復讐の構えのまま、人と得物が融けていく。",
+    "effects": [
+     {
+      "chronicle": "#origin_name# が、得物と融けてなお標的を指す様を見た。"
+     },
+     {
+      "exposure": 0.04
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_gt_melt_stone",
+   "prerequisites": {
+    "tone": "grudge",
+    "stage": "twisting"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の周りの石が、何かの熱でぐにゃりと溶け歪んでいる。胸の内の憎悪が、岩を煮るほどに燃えたのか。",
+    "effects": [
+     {
+      "trait": "見たもの:憎悪に溶けた岩"
+     },
+     {
+      "exposure": 0.05
+     }
+    ]
+   },
+   "search": {
+    "text": "溶けた岩に、握り拳の形がいくつも残されている。怒りを、ぶつける相手もないまま、石を殴り続けたらしい。",
+    "effects": [
+     {
+      "exposure": 0.05
+     },
+     {
+      "trait": "知った:行き場のない憎悪"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_ga_face",
+   "prerequisites": {
+    "tone": "grudge",
+    "stage": "alien"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# だったものは、憎悪だけを煮詰めたような、人外の貌に変わり果てていた。目だけが、誰かを探して蠢く。",
+    "effects": [
+     {
+      "trait": "見たもの:怨念の貌"
+     },
+     {
+      "exposure": 0.09
+     }
+    ]
+   },
+   "search": {
+    "text": "その貌は、近づく者すべてに、探し続けた宿敵の面影を重ねようとする。憎しみは、相手すら選ばなくなる。",
+    "effects": [
+     {
+      "exposure": 0.06
+     },
+     {
+      "trait": "知った:相手を選ばぬ憎悪"
+     },
+     {
+      "chronicle": "#origin_name# の怨念が、人外の貌へ煮詰まった果てを見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_ga_roamshadow",
+   "prerequisites": {
+    "tone": "grudge",
+    "stage": "alien"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の姿はもう無い。ただ、復讐そのものめいた黒い影が、同じ通路を、誰かを探して往き来している。",
+    "effects": [
+     {
+      "trait": "見たもの:復讐の彷徨う影"
+     },
+     {
+      "exposure": 0.09
+     }
+    ]
+   },
+   "search": {
+    "text": "影は、お前を一瞥し——探し人ではないと知ると、また背を向けて彷徨い続ける。執念だけが、形を得たのだ。",
+    "effects": [
+     {
+      "chronicle": "#origin_name# の復讐が、彷徨う影となって残る様を見た。"
+     },
+     {
+      "exposure": 0.06
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_ga_sensor",
+   "prerequisites": {
+    "tone": "grudge",
+    "stage": "alien"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "壁から、#origin_name#のものだったらしい感覚器めいた異形がいくつも生え、ひくひくと宙を探っている。標的を、嗅ぎ当てるために。",
+    "effects": [
+     {
+      "trait": "見たもの:標的を探す異形の器官"
+     },
+     {
+      "exposure": 0.09
+     }
+    ]
+   },
+   "search": {
+    "text": "器官は、お前の匂いを嗅ぐと、関心なさげにしぼんだ。求めているのは、ただ一人——もう会えぬ宿敵だけだ。",
+    "effects": [
+     {
+      "exposure": 0.06
+     },
+     {
+      "trait": "知った:一人だけを求める異形"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4b_ga_crystal_hate",
+   "prerequisites": {
+    "tone": "grudge",
+    "stage": "alien"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "脈打つ黒い結晶の塊。#origin_name#の憎しみが純化し、鉱物となってなお、低く脈を打ち続けている。",
+    "effects": [
+     {
+      "trait": "見たもの:脈打つ憎悪の結晶"
+     },
+     {
+      "exposure": 0.09
+     }
+    ]
+   },
+   "search": {
+    "text": "結晶に触れると、煮えたぎる怨嗟がひと息に流れ込み、お前は思わず手を引いた。憎しみは、永くここに残る。",
+    "effects": [
+     {
+      "exposure": 0.07
+     },
+     {
+      "trait": "知った:鉱物となった怨嗟"
+     },
+     {
+      "chronicle": "#origin_name# の憎しみが、脈打つ結晶へ純化した果てを見た。"
+     }
+    ]
+   }
   }
  ]
 }
