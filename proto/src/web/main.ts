@@ -40,7 +40,7 @@ import {
 } from "../townscene.ts";
 import {
   ensureAudio, sfx, setAmbient, setMuted, isMuted, loadMutePref,
-  setBgm, setBgmDepth, setBgmEnabled, isBgmOn, setBgmVolume, bgmVolume, loadBgmPref,
+  setBgm, setBgmDepth, setBgmEnabled, isBgmOn, setBgmVolume, bgmVolume, loadBgmPref, setSfxVolume, sfxVolume,
 } from "./audio.ts";
 import {
   genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx, spawnPursuer,
@@ -52,7 +52,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.22.1";
+export const APP_VERSION = "0.22.2";
 export const APP_BUILD = "2026-06-22";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -3728,10 +3728,12 @@ const ARC_KEY_LABEL: Record<string, string> = { noble: "封鎖区の大命「原
 async function settingsSheet() {
   busy = true;
   const bgmVolJp = bgmVolume() < 0.45 ? "小" : bgmVolume() < 0.72 ? "中" : "大";
+  const sfxVolJp = sfxVolume() < 0.45 ? "小" : sfxVolume() < 0.72 ? "中" : "大";
   const opts = [
-    isMuted() ? "♪ 音を出す" : "🔇 音を消す",
+    isMuted() ? "♪ 音を出す" : "🔇 すべての音を消す",
     isBgmOn() ? "🎵 BGM：オン → オフ" : "🎵 BGM：オフ → オン",
     `🎵 BGM音量：${bgmVolJp}（小→中→大）`,
+    `🔊 効果音音量：${sfxVolJp}（小→中→大）`,
     dpadOn ? "方向パッド：オン → オフ" : "方向パッド：オフ → オン",
     `方向パッドの位置：${dpadPos === "right" ? "右下" : dpadPos === "left" ? "左下" : "中央"}（右下→左下→中央）`,
     `方向パッドの大きさ：${SZJP[dpadSize]}（大→中→小）`,
@@ -3745,12 +3747,13 @@ async function settingsSheet() {
   if (r.pick === 1) { ensureAudio(); setMuted(!isMuted()); await settingsSheet(); }
   else if (r.pick === 2) { ensureAudio(); setBgmEnabled(!isBgmOn()); await settingsSheet(); }
   else if (r.pick === 3) { ensureAudio(); setBgmVolume(bgmVolume() < 0.45 ? 0.6 : bgmVolume() < 0.72 ? 0.85 : 0.35); await settingsSheet(); }
-  else if (r.pick === 4) { setDpad(!dpadOn); await settingsSheet(); }
-  else if (r.pick === 5) { setDpadPos(dpadPos === "right" ? "left" : dpadPos === "left" ? "center" : "right"); await settingsSheet(); }
-  else if (r.pick === 6) { setDpadSize(dpadSize === "lg" ? "md" : dpadSize === "md" ? "sm" : "lg"); await settingsSheet(); }
-  else if (r.pick === 7) { setLogSize(logSize === "sm" ? "md" : logSize === "md" ? "lg" : "sm"); await settingsSheet(); }
-  else if (r.pick === 8) { await testSheet(); }
-  else if (r.pick === 9) { await resetWorld(); }
+  else if (r.pick === 4) { ensureAudio(); setSfxVolume(sfxVolume() < 0.45 ? 0.6 : sfxVolume() < 0.72 ? 0.85 : 0.35); sfx("equip"); await settingsSheet(); }
+  else if (r.pick === 5) { setDpad(!dpadOn); await settingsSheet(); }
+  else if (r.pick === 6) { setDpadPos(dpadPos === "right" ? "left" : dpadPos === "left" ? "center" : "right"); await settingsSheet(); }
+  else if (r.pick === 7) { setDpadSize(dpadSize === "lg" ? "md" : dpadSize === "md" ? "sm" : "lg"); await settingsSheet(); }
+  else if (r.pick === 8) { setLogSize(logSize === "sm" ? "md" : logSize === "md" ? "lg" : "sm"); await settingsSheet(); }
+  else if (r.pick === 9) { await testSheet(); }
+  else if (r.pick === 10) { await resetWorld(); }
 }
 
 // ---------- 🔧 テストモード（開発用・web限定）。設定→テスト。レベル/深度を即変更しバランス検証を加速。 ----------
