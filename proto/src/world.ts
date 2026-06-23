@@ -350,7 +350,7 @@ export function advanceArcs(world: World): void {
  *  噂で「英雄」と聞いた相手を、迷宮で歪んだ化石として再発見する落差を生む（既存 rollEncounter / fossilScene に合流）。 */
 function fossilizeTracked(world: World, t: TrackedEntity): void {
   if (t.originRef) return; // 既に化石を持つ（player_legend 等）＝二重生成しない
-  const depth = ARC_DRIFT_DEPTH; // 深層（18）に眠る＝深く潜った者だけが「成れの果て」に出会う
+  const depth = ARC_DRIFT_DEPTH; // 深層（28）に眠る＝深く潜った者だけが「成れの果て」に出会う
   const fossil: Fossil = {
     id: newId("fossil"),
     kind: "explorer",
@@ -372,7 +372,7 @@ function fossilizeTracked(world: World, t: TrackedEntity): void {
  *  ・関与の微加（ハイブリッド）＝深層の原型との再会で warp を僅かに進める。
  *  ・干渉（鎮魂/継承/供養）＝時計を巻き戻す＝warp を減算（4-1C「放置こそ変質を進め、干渉で止まる」）。
  *  warp（＝`drift` フィールド・連続値）が閾値に達すると終端が破滅側（warped）へ寄る。 */
-const ARC_DRIFT_DEPTH = 18;        // 成れの果ての化石を眠らせる深度（fossilizeTracked 用）
+const ARC_DRIFT_DEPTH = 28;        // 成れの果ての化石を眠らせる深度（fossilizeTracked 用・新 deep 帯25-37 に整合。旧18は新スケールで浅すぎ）
 const WARP_DEPTH_MIN = 12;         // これより浅い laidDepth は理が固く、放置でも歪まない
 const WARP_RATE_DIV = 30;          // 深度→「世代あたり warp 速度」の除数（深いほど速い・大きいほど緩い）
 const WARP_RATE_CAP = 1.25;        // 世代あたり warp 速度の上限
