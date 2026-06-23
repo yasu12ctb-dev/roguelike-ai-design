@@ -1108,7 +1108,7 @@
    "id": "ch_cursed_coin",
    "context": "chest",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "result": {
@@ -1180,7 +1180,7 @@
    "id": "ch_relic_hum",
    "context": "chest",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "result": {
@@ -2813,7 +2813,7 @@
    "id": "dg_deep_eye",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "暗闇の奥で、大きな眼のようなものが一つ、ゆっくりと瞬いた。まだ、敵意は無い。",
@@ -5833,7 +5833,7 @@
    "id": "dg_whisper_crack",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 2,
    "text": "岩盤の裂け目から、聞き取れない囁きが漏れている。耳を寄せれば、何か分かる気がした。",
@@ -5868,7 +5868,7 @@
    "id": "dg_mirror_self",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 2,
    "text": "磨かれた黒曜の壁。映る自分の輪郭が、ほんの少し、自分より深く澱んでいる。",
@@ -5944,7 +5944,7 @@
    "id": "dg_cocoon",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 2,
    "text": "天井から、人ほどの大きさの繭が幾つも吊り下がっている。中で、何かがゆっくり蠢いた。",
@@ -5979,7 +5979,7 @@
    "id": "dg_singing_crystal",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 2,
    "text": "柱のような水晶が、触れてもいないのに低く鳴っている。その響きは、骨の髄を直に揺らす。",
@@ -9210,7 +9210,7 @@
    "id": "dg_deep_pale_growth",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 2,
    "text": "壁一面に、青白い菌糸が脈を打って広がっている。灯りを近づけると、いっせいに、まるで瞼のように、ゆっくりと縮んだ。",
@@ -9245,7 +9245,7 @@
    "id": "dg_deep_silent_choir",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 2,
    "text": "広間に、無数の人型の窪みが壁を埋めていた。膝を抱え、俯いた姿のまま石になった——そう見える形が、声なき合唱のように並んでいる。",
@@ -9280,7 +9280,7 @@
    "id": "dg_deep_bleeding_stone",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "天井から、赤黒い雫が落ちている。鉄の匂い。岩が、傷口のように滲んでいた。ここまで来ると、石と肉の区別が、ひどく曖昧になる。",
@@ -9312,7 +9312,7 @@
    "id": "dg_deep_threshold_dread",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "前方の闇が、ただの闇ではない。境目のように、空気が一段、重くなっている。この先へ踏み込めば、何かが決定的に変わる——理屈でなく、皮膚がそう知らせてくる。",
@@ -9645,7 +9645,7 @@
    "id": "ch_trapped_coin",
    "context": "chest",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "result": {
@@ -9667,7 +9667,7 @@
    "id": "ch_relic_fragment",
    "context": "chest",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "result": {
@@ -9939,7 +9939,7 @@
    "id": "dg_b6_silent_choir",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "壁に半ば溶け込んだ人影が並び、声なき合唱の形に口を開いている。",
@@ -10943,7 +10943,7 @@
    "id": "dg_x_deep_choir",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "どこか遠くから、低い合唱のような唸りが幾重にも重なって届く。言葉のようで、言葉ではない。",
@@ -10981,7 +10981,7 @@
    "id": "dg_x_deep_handprints",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "壁一面に、おびただしい数の手形が押されている。どれも、ここから出ようと外へ向いている。",
@@ -11051,7 +11051,7 @@
    "id": "dg_x_deep_namewall",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "壁に、無数の名が刻まれている。最後の数行は、刻む手が震えていたのか、ひどく歪んでいる。",
@@ -11121,7 +11121,7 @@
    "id": "dg_x_deep_warmstone",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "一角の石壁だけが、生き物の肌のように温かい。耳を当てると、遠い鼓動のような響きがある。",
@@ -11159,7 +11159,7 @@
    "id": "dg_x_deep_secondshadow",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "灯を掲げると、足元から影が二つ伸びた。光源はひとつのはずなのに。",
@@ -13738,7 +13738,7 @@
    "id": "dg_deep_whisper",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "深い闇の奥から、名を呼ぶ声がする。よく知った声音だ。だが、ここにその人がいるはずがない。",
@@ -13776,7 +13776,7 @@
    "id": "dg_deep_blackmirror",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "磨かれた黒い岩肌が、鏡のようにこちらを映す。映った己の顔は――どこか、見知らぬ者のようだった。",
@@ -14299,7 +14299,7 @@
    "id": "dg_deep_cold_lake",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "黒い水を湛えた地底湖が、音もなく広がっている。水面は鏡のように凪ぎ、底は見えない。覗き込むと、引き込まれそうになる。",
@@ -14337,7 +14337,7 @@
    "id": "dg_deep_frozen_one",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "通路の半ばで、一人の探索者が立ったまま事切れていた。岩と同化しかけ、なお前へ進む姿勢のまま、時に固められている。",
@@ -14378,7 +14378,7 @@
    "id": "dg_deep_humming_dark",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "闇そのものが、低く唸っているように感じる。耳ではなく、骨が震えて聞き取る音。底が、近い。",
@@ -14416,7 +14416,7 @@
    "id": "dg_deep_last_lantern",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "岩棚に、油の尽きた角灯が置かれている。底を目指した誰かが、最後にここで灯りを諦めたのだ。芯は、焼け落ちていた。",
@@ -14454,7 +14454,7 @@
    "id": "dg_deep_warm_voice",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "底の冷気の中、ふいに温かい声が背を撫でた。「もう、頑張らなくていい」。優しい。優しすぎて、危うい。",
@@ -14492,7 +14492,7 @@
    "id": "dg_deep_two_roads",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "道が二つに分かれている。片方からは冷たい風が、もう片方からは、かすかに人の気配がする。だが、底でいう「人の気配」ほど、当てにならぬものはない。",
@@ -15800,7 +15800,7 @@
    "id": "dg_b9_deep_whisper",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "暗がりの奥から、囁きが聞こえた。意味は取れぬのに、なぜか名を呼ばれた気がする。深く潜るほど、迷宮はこちらの内を覗いてくる。",
@@ -16868,7 +16868,7 @@
    "id": "dg_b10_deep_mirror",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "磨かれた黒い石の面が、鏡のようにこちらを映していた。だが、映る自分の表情が、ほんの少し――こちらと違って、嗤っている。",
@@ -17849,7 +17849,7 @@
    "id": "dg_b11_deep_whispers",
    "context": "dungeon",
    "prerequisites": {
-    "depthBand": "deep"
+    "depthBand": "abyss"
    },
    "weight": 1,
    "text": "闇の奥から、聞き覚えのある声がした。先に逝った誰かの声が、優しく名を呼んでいる。「こっちへおいで」と。",

@@ -52,7 +52,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.23.4";
+export const APP_VERSION = "0.24.1";
 export const APP_BUILD = "2026-06-22";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1693,7 +1693,7 @@ async function townRaidScene(): Promise<void> {
   busy = true;
   const ch = world.current!;
   world.raidCooldown = 14 + Math.floor(rng.next() * 7); // 次の襲撃まで最短14〜20帰還（一度起きたら長く空く）
-  const tier = Math.min(3, 1 + Math.floor(ch.level / 5)); // 規模＝報酬/危険の係数（深く潜る者ほど深層が荒ぶる）
+  const tier = Math.min(6, 1 + Math.floor(ch.level / 8)); // 規模＝報酬/危険の係数（Lv8ごとに+1・Lv40で頭打ち。旧 min(3,L/5) は Lv10 で飽和＝深部でも Lv10 並み報酬だった）
   let gold = 0, exposure = 0, item: string | null = null;
   sfx("hurt"); flashFx("warp");
   log("警鐘——街が、襲われている。", "warn");
