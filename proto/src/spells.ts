@@ -26,7 +26,7 @@ export interface SpellDef {
 
 // 深蝕コスト階梯（終始シビアの肝＝強い術ほど化石化が進む）：
 //   識 0.05–0.1／制・移 0.15–0.2／攻 0.15–0.3／回復 0.3–0.4。
-// minLevel：基本(1)→序(3-6)→中(9-13)→高(16-22)→極(26)。効果が高いものは高レベルでのみレベルアップ選択に出る。
+// minLevel：基本(1)→序(3-6)→中(9-16)→高(22-32)→極(36-44)。Lv50 スケールに分散し、後半も新術が滲む（2026-06-23 再配分）。効果が高いものは高レベルでのみレベルアップ選択に出る。
 export const SPELLS: SpellDef[] = [
   // ── 攻 ──
   { key: "warp_strike", name: "歪撃",   school: "攻", cost: 0.15, desc: "最寄りの敵を確定で討つ（威力は理で伸びる）" },
@@ -34,8 +34,8 @@ export const SPELLS: SpellDef[] = [
   { key: "collapse",    name: "崩落",   school: "攻", cost: 0.25, desc: "最寄りの敵を中心に崩し落とす（周囲を巻き込む範囲）", minLevel: 13 },
   { key: "thunder",     name: "雷霆",   school: "攻", cost: 0.22, desc: "可視の敵すべてに放射状の雷（やや弱め・数で削る）", minLevel: 16 },
   { key: "ice_tomb",    name: "氷棺",   school: "攻", cost: 0.22, desc: "最寄りの敵を高威力で討ち、2手のあいだ凍てつかせる", minLevel: 9 },
-  { key: "wither",      name: "痩身",   school: "攻", cost: 0.20, desc: "最寄りの敵の現在HPを大きく削り取る（硬い敵に効く）", minLevel: 16 },
-  { key: "condemn",     name: "断罪",   school: "攻", cost: 0.50, desc: "最寄りの敵へ一撃必殺級の断罪（深蝕は極めて重い）", minLevel: 26 },
+  { key: "wither",      name: "痩身",   school: "攻", cost: 0.20, desc: "最寄りの敵の現在HPを大きく削り取る（硬い敵に効く）", minLevel: 24 },
+  { key: "condemn",     name: "断罪",   school: "攻", cost: 0.50, desc: "最寄りの敵へ一撃必殺級の断罪（深蝕は極めて重い）", minLevel: 44 },
   { key: "corrode",     name: "腐喰",   school: "攻", cost: 0.18, desc: "最寄りの敵を腐らせ、数手のあいだ蝕み続ける（継続ダメ）", minLevel: 12 },
   // ── 制 ──
   { key: "still_eye",   name: "静止の眼", school: "制", cost: 0.20, desc: "見えている敵を2手のあいだ止める" },
@@ -47,7 +47,7 @@ export const SPELLS: SpellDef[] = [
   // ── 移 ──
   { key: "shadow_step", name: "影渡り", school: "移", cost: 0.12, desc: "敵から最も遠い視界へ瞬間移動して逃げる" },
   { key: "charge",      name: "迫り",   school: "移", cost: 0.15, desc: "最寄りの敵へ一息に踏み込み、近接の一撃を浴びせる", minLevel: 6 },
-  { key: "omni_strike", name: "万象斬", school: "移", cost: 0.25, desc: "視界の敵すべてへ転移の斬撃を浴びせる（近接威力）", minLevel: 16 },
+  { key: "omni_strike", name: "万象斬", school: "移", cost: 0.25, desc: "視界の敵すべてへ転移の斬撃を浴びせる（近接威力）", minLevel: 22 },
   { key: "gravity_pull", name: "引閘",  school: "移", cost: 0.18, desc: "見えている敵を自分のほうへ一斉に引き寄せる", minLevel: 12 },
   { key: "miststep",    name: "霞足",   school: "移", cost: 0.10, desc: "近場へ霞のように短く跳ぶ（敵から距離を取る）", minLevel: 3 },
   { key: "wayfare",     name: "退き戸", school: "移", cost: 0.16, desc: "上り階段の傍へ退く門を開く（退避）", minLevel: 9 },
@@ -57,9 +57,9 @@ export const SPELLS: SpellDef[] = [
   { key: "enfeeble",    name: "蝕み",   school: "援", cost: 0.18, desc: "最寄りの敵の攻撃を数手のあいだ削ぐ", minLevel: 6 },
   { key: "leech",       name: "吸命",   school: "援", cost: 0.20, desc: "最寄りの敵を蝕み、奪ったぶんHPに変える", minLevel: 9 },
   { key: "ironscale",   name: "硬鱗",   school: "援", cost: 0.18, desc: "数手のあいだ、被ダメージを和らげる（守りを固める）", minLevel: 9 },
-  { key: "haste",       name: "疾走",   school: "援", cost: 0.25, desc: "数手のあいだ、敵を置き去りに余分な一手を得る", minLevel: 20 },
+  { key: "haste",       name: "疾走",   school: "援", cost: 0.25, desc: "数手のあいだ、敵を置き去りに余分な一手を得る", minLevel: 28 },
   { key: "frenzy",      name: "焦躁",   school: "援", cost: 0.20, desc: "数手のあいだ近接が冴える（深蝕も募る）", minLevel: 13 },
-  { key: "deathdoor",   name: "死戸",   school: "援", cost: 0.40, desc: "数手のあいだ無敵だが癒えず、明けに深みの揺り戻し", minLevel: 26 },
+  { key: "deathdoor",   name: "死戸",   school: "援", cost: 0.40, desc: "数手のあいだ無敵だが癒えず、明けに深みの揺り戻し", minLevel: 36 },
   { key: "cleanse",     name: "解呪",   school: "援", cost: 0.12, desc: "今この場で深蝕をいくらか祓う（-0.6）", minLevel: 3 },
   // ── 識 ──
   { key: "survey",      name: "地相",   school: "識", cost: 0.08, desc: "このフロアの地形を感知する（地図が開ける）" },
@@ -67,9 +67,9 @@ export const SPELLS: SpellDef[] = [
   { key: "scent",       name: "嗅ぎ",   school: "識", cost: 0.06, desc: "宝箱・化石の在処を嗅ぎ当てる（地図に灯す）" },
   // ── 召（一時味方・数手で霧散） ──
   { key: "minions",     name: "蝕兵",   school: "召", cost: 0.30, desc: "最寄りの敵の傍に短命の眷属を2体起こす（隣接を討つ）", minLevel: 9 },
-  { key: "orbblade",    name: "廻刃",   school: "召", cost: 0.28, desc: "自分の傍を回る刃を侍らせる（隣接敵を毎手討つ）", minLevel: 16 },
-  { key: "echo",        name: "残響召喚", school: "召", cost: 0.35, desc: "在りし日の残響を1体呼ぶ（強めの一時味方）", minLevel: 22 },
-  { key: "shadowclone", name: "影分け", school: "召", cost: 0.25, desc: "影武者が数手のあいだ、敵の一撃を肩代わりする", minLevel: 20 },
+  { key: "orbblade",    name: "廻刃",   school: "召", cost: 0.28, desc: "自分の傍を回る刃を侍らせる（隣接敵を毎手討つ）", minLevel: 26 },
+  { key: "echo",        name: "残響召喚", school: "召", cost: 0.35, desc: "在りし日の残響を1体呼ぶ（強めの一時味方）", minLevel: 32 },
+  { key: "shadowclone", name: "影分け", school: "召", cost: 0.25, desc: "影武者が数手のあいだ、敵の一撃を肩代わりする", minLevel: 30 },
 ];
 
 export const spellByKey = (key: string): SpellDef | undefined => SPELLS.find((s) => s.key === key);
