@@ -51,6 +51,27 @@ export const MONSTER_KINDS: MonsterKind[] = [
   { key: "troll",  glyph: "T", name: "蝕喰鬼",   hp: 20, dmg: 5, minDepth: 28, erratic: 0.05, tier: 5 }, // 深層の壁役（高HP）
   { key: "drake",  glyph: "D", name: "深淵竜",   hp: 24, dmg: 6, minDepth: 35, erratic: 0.1,  tier: 5 }, // 高火力
   { key: "horror", glyph: "Y", name: "虚無の貌", hp: 28, dmg: 7, minDepth: 42, erratic: 0.2,  tier: 5 }, // 最深・不規則で読みにくい
+  // ───── Phase 2 量産（4-11G・能力×深度帯×テーマで分散。素の dmg は据え置き＝テクスチャ重視）─────
+  // 近接の個性（速い/硬い/凶悍）＝能力種を薄める母数＋戦術の手触り。
+  { key: "imp",     glyph: "i", name: "小鬼",     hp: 3,  dmg: 2, minDepth: 3,  erratic: 0.5,  tier: 1 }, // 速いが脆い（早期の手触り）
+  { key: "crawler", glyph: "n", name: "這い虫",   hp: 4,  dmg: 2, minDepth: 5,  erratic: 0.3,  tier: 2 },
+  { key: "hound",   glyph: "h", name: "影狼",     hp: 6,  dmg: 3, minDepth: 10, erratic: 0.25, tier: 3 }, // 俊敏で詰めが速い
+  { key: "brute",   glyph: "B", name: "鉄腕鬼",   hp: 16, dmg: 3, minDepth: 13, erratic: 0.05, tier: 4 }, // 硬い壁役
+  { key: "reaver",  glyph: "e", name: "斬鬼",     hp: 10, dmg: 4, minDepth: 20, erratic: 0.2,  tier: 4 }, // 高火力近接
+  { key: "golem",   glyph: "F", name: "石塊兵",   hp: 20, dmg: 4, minDepth: 24, erratic: 0.03, tier: 5 }, // 鈍重だが頑強
+  { key: "gloom",   glyph: "G", name: "闇塊",     hp: 22, dmg: 5, minDepth: 27, erratic: 0.1,  tier: 5 },
+  { key: "phantom", glyph: "P", name: "惑影",     hp: 18, dmg: 6, minDepth: 38, erratic: 0.4,  tier: 4 }, // 不規則で読みにくい
+  { key: "colossus",glyph: "C", name: "巨躯",     hp: 30, dmg: 7, minDepth: 40, erratic: 0.03, tier: 5 }, // 最深の壁
+  // 遠隔（ranged）：深度帯ごとに狙撃手を分散。
+  { key: "archer",  glyph: "a", name: "骨射手",   hp: 8,  dmg: 3, minDepth: 18, erratic: 0.15, tier: 3, ability: "ranged" },
+  { key: "seer",    glyph: "Q", name: "虚空の眼", hp: 16, dmg: 5, minDepth: 36, erratic: 0.15, tier: 4, ability: "ranged" }, // 深部の狙撃
+  // 毒（venom）：中層胞子〜深層腐蝕。
+  { key: "spore",   glyph: "c", name: "毒胞子",   hp: 9,  dmg: 2, minDepth: 16, erratic: 0.1,  tier: 3, ability: "venom" },
+  { key: "slug",    glyph: "u", name: "腐蝕蛞蝓", hp: 18, dmg: 4, minDepth: 30, erratic: 0.1,  tier: 4, ability: "venom" },
+  { key: "wailer",  glyph: "A", name: "哭き女",   hp: 16, dmg: 4, minDepth: 34, erratic: 0.2,  tier: 4, ability: "venom" }, // 深部の毒
+  // 吸命（leech）／増殖（breeder）の深部版。
+  { key: "drainer", glyph: "H", name: "喰命鬼",   hp: 18, dmg: 5, minDepth: 26, erratic: 0.1,  tier: 4, ability: "leech" },
+  { key: "mother",  glyph: "M", name: "母胎",     hp: 24, dmg: 3, minDepth: 32, erratic: 0.05, tier: 4, ability: "breeder" }, // 深部の数の圧
 ];
 
 // 深度係数（終始シビア・無限スケール 4-11F②）。種の堅さ（早期の差）に深度ぶんを上乗せ＝
