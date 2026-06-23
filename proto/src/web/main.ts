@@ -52,7 +52,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.22.2";
+export const APP_VERSION = "0.22.3";
 export const APP_BUILD = "2026-06-22";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -218,6 +218,8 @@ let player: Pos = { x: 0, y: 0 };
 let companion: CompanionEntity | null = null; // 同行の盤上エンティティ（潜行中のみ。世代越えは world.companion：4-14C）
 let busy = false; // シート表示中の入力ロック
 let mapMode = false; // 地図表示（踏破範囲の俯瞰）
+let aim: Pos | null = null;   // 照準モード（地図でタップ→マーカー→D-padで微調整→確定で自動移動）
+let aimReachable = false;     // 現在のマーカーへ到達経路があるか（確定可否・色分け）
 let cellSize = 0;
 let cam: Pos = { x: 0, y: 0 }; // ビューポートの左上（@ を追うカメラ）
 const clampCam = (v: number, mapSize: number, viewSize: number) => Math.max(0, Math.min(v, mapSize - viewSize));
@@ -381,6 +383,9 @@ function drawMapMode() {
     if (fe) { bg = "#1f433d"; glyph = "†"; cls = fe.resolved ? "g-fossil-quiet" : "g-fossil"; }
     if (floor.chests.some((cc) => cc.x === x && cc.y === y && !cc.opened)) { bg = "#473916"; glyph = "▭"; cls = "g-chest"; }
     if (x === player.x && y === player.y) { bg = "#5a4a1a"; glyph = "@"; cls = "g-player"; }
+    if (aim && x === aim.x && y === aim.y) { // 照準マーカー（到達可=緑／不可=赤）。タイルより前面に上書き
+      bg = aimReachable ? "#1f7a4a" : "#7a2f2f"; glyph = "⊕"; cls = "g-aim";
+    }
     c.style.background = bg;
     span.textContent = glyph;
     span.className = cls;
@@ -390,6 +395,7 @@ function drawMapMode() {
 
 function setMapMode(v: boolean) {
   mapMode = v;
+  if (!v && aim) { aim = null; $("aimBar").hidden = true; } // 地図を閉じたら照準も解除
   // 地図↔プレイでグリッド寸法が変わるので組み直す（実マップ忠実 vs カメラ窓）
   if (v && floor) { buildGridDom(floor.w, floor.h); drawMapMode(); }
   else { buildGridDom(VIEW_W, VIEW_H); draw(); }
@@ -3133,6 +3139,64 @@ async function autoTravel(dest: Pos) {
   }
 }
 
+// ---------- 照準モード（地図でタップ→マーカー→D-padで微調整→確定・改善FB 2026-06-23）----------
+/** プレイヤーから到達できる既踏破の床マス集合（BFS フラッド）。最寄りスナップと到達判定に使う。 */
+function reachableSet(f: Floor, from: Pos): Set<number> {
+  const W = f.w, H = f.h, seen = new Set<number>();
+  const si = mapIdx(f, from.x, from.y); seen.add(si);
+  const q: Pos[] = [from];
+  for (let h = 0; h < q.length; h++) {
+    const c = q[h];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      const nx = c.x + dx, ny = c.y + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const i = mapIdx(f, nx, ny);
+      if (seen.has(i) || !f.explored[i] || f.tiles[i] !== 1) continue;
+      seen.add(i); q.push({ x: nx, y: ny });
+    }
+  }
+  return seen;
+}
+/** タップ座標に最も近い「到達可能な既踏破の床」マス（指のズレを吸収）。無ければ null。 */
+function nearestReachable(f: Floor, from: Pos, cx: number, cy: number): Pos | null {
+  let best: Pos | null = null, bd = Infinity;
+  for (const i of reachableSet(f, from)) {
+    const x = i % f.w, y = Math.floor(i / f.w);
+    if (x === from.x && y === from.y) continue;
+    const d = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+    if (d < bd) { bd = d; best = { x, y }; }
+  }
+  return best;
+}
+/** 照準バーの表示更新（到達可否で「ここへ移動」を活性/非活性）。 */
+function updateAimBar(): void {
+  const bar = $("aimBar");
+  if (!aim) { bar.hidden = true; return; }
+  bar.hidden = false;
+  bar.classList.toggle("unreach", !aimReachable);
+  $("aimMsg").textContent = aimReachable ? "目標を方向パッドで調整" : "そこへは道がない";
+}
+/** マーカーを置く/動かす（clamp＋到達判定＋再描画）。 */
+function setAim(x: number, y: number): void {
+  if (!floor) return;
+  const nx = Math.max(0, Math.min(floor.w - 1, x)), ny = Math.max(0, Math.min(floor.h - 1, y));
+  aim = { x: nx, y: ny };
+  aimReachable = !!bfsPath(floor, player, aim);
+  updateAimBar();
+  drawMapMode();
+}
+/** 照準を解除（地図モードは維持＝再タップで置き直せる）。 */
+function cancelAim(): void { aim = null; updateAimBar(); if (mapMode) drawMapMode(); }
+/** 確定＝マーカーまで自動移動（到達可のときだけ）。 */
+function confirmAim(): void {
+  if (!aim || !floor) return;
+  if (!aimReachable) { log("そこへの道が見つからない。", "dim"); return; }
+  const dest = aim;
+  cancelAim();
+  setMapMode(false);
+  void autoTravel(dest);
+}
+
 /** 帰還の扉を据える（v2）：エリアボス撃破地点に往復チェックポイントを生成。深淵帯では出さない
  *  （試練の脱出は上り階段／帰還の詠唱のみ）。1フロア1つ。塞がっていれば近傍へ。 */
 function spawnReturnDoor(mon: Monster): void {
@@ -4032,6 +4096,12 @@ $("statBtn").innerHTML = ICONS.stat;
 $("cogBtn").innerHTML = ICONS.cog;
 // 地図タブ：踏破範囲の俯瞰を即トグル（迷宮のみ）。
 $("mapBtn").onclick = () => { if (mode !== "dive") return; setMapMode(!mapMode); };
+// 照準バー：ボタンは地図のスワイプ/タップ判定から隔離（touch を mapWrap へ伝播させない）。
+$("aimGo").onclick = () => confirmAim();
+$("aimCancel").onclick = () => cancelAim();
+for (const ev of ["touchstart", "touchend", "pointerdown"]) {
+  $("aimBar").addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+}
 // ステータスタブ＝身上・装備・術・進行中・年代記・敵図鑑（旧「冒険の記録」を統合）。
 $("statBtn").onclick = () => { if (!busy) void charScreen(); };
 // 設定タブ＝音・操作・表示。
@@ -4061,7 +4131,14 @@ function dirMove(dx: number, dy: number) {
   ensureAudio();
   if (mode === "town" || mode === "interior") { if (dx === 0 && dy === 0) return; townAct(dx, dy); return; }
   if (mode !== "dive") return;
-  if (mapMode) { setMapMode(false); return; }
+  if (mapMode) {
+    if (aim) { // 照準モード：方向で1マス調整／中央(0,0)で確定
+      if (dx === 0 && dy === 0) confirmAim();
+      else setAim(aim.x + dx, aim.y + dy);
+      return;
+    }
+    setMapMode(false); return;
+  }
   void playerAct(dx, dy);
 }
 
@@ -4128,19 +4205,17 @@ $("mapWrap").addEventListener("touchend", (e) => {
   }
 
   if (mapMode) {
-    // 図：踏破済みの床をタップ→そこまで自動移動。スワイプ等は閉じるだけ。
+    // 図：タップ→最寄りの到達マスにマーカー（照準モード）。D-padで微調整→確定で自動移動（FB 2026-06-23）。
     if (tap && floor && cellSize > 0) {
       const r = gridEl.getBoundingClientRect();
       const cx = Math.floor((tx - r.left) / cellSize), cy = Math.floor((ty - r.top) / cellSize);
-      if (cx >= 0 && cy >= 0 && cx < floor.w && cy < floor.h &&
-          floor.explored[mapIdx(floor, cx, cy)] && tileAt(floor, cx, cy) === 1 &&
-          !(cx === player.x && cy === player.y)) {
-        setMapMode(false);
-        void autoTravel({ x: cx, y: cy });
-        return;
+      if (cx >= 0 && cy >= 0 && cx < floor.w && cy < floor.h) {
+        const snap = nearestReachable(floor, player, cx, cy); // 指のズレを吸収＝最寄りの到達床へ
+        if (snap) { setAim(snap.x, snap.y); return; }
       }
     }
-    setMapMode(false);
+    // 床外/到達不能をタップ or スワイプ：照準中なら解除、無ければ地図を閉じる
+    if (aim) cancelAim(); else setMapMode(false);
     return;
   }
 
