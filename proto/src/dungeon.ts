@@ -379,13 +379,15 @@ const monsterDmg = (m: Monster, _f: Floor) => Math.max(1, m.kind.dmg - (m.weak &
 /** 相棒の攻撃力（等級なし時のフォールバック＝控えめの固定値。最終調整は横断E）。 */
 export const COMPANION_DMG = 2;
 
-/** 相棒の強さ＝金属等級で変動（4-4E）。設定ランクが上の相棒ほど頼れる。
- *  HP: アイアン10 → プラチナ22／攻撃: アイアン2 → プラチナ6。 */
-export function companionMaxHp(grade: number): number {
-  return 10 + Math.max(0, Math.min(5, grade)) * 3;
+/** 相棒の強さ＝金属等級（基礎）＋潜行深度（4-4E／2026-06-23 深部追従）。
+ *  旧来は等級のみ（HP10-22/攻2-6）で深度50の敵（雑魚HP≈86・dmg≈10）に対し紙だった。
+ *  深度係数を足し、深部でも壁役・削り役として成立させる（毎フロア再展開時に深度で再計算）。
+ *  HP: 基礎(10-22)＋round(depth×1.2)／攻撃: 基礎(2-6)＋round(depth×0.15)。 */
+export function companionMaxHp(grade: number, depth = 0): number {
+  return 10 + Math.max(0, Math.min(5, grade)) * 3 + Math.round(depth * 1.2);
 }
-export function companionDmg(grade: number): number {
-  return 2 + Math.max(0, Math.min(5, grade));
+export function companionDmg(grade: number, depth = 0): number {
+  return 2 + Math.max(0, Math.min(5, grade)) + Math.round(depth * 0.15);
 }
 
 // 移動先が他者で塞がっているか（モンスター同士・化石・相棒・手負いと重ならない）。

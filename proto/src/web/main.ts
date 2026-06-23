@@ -52,7 +52,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.23.1";
+export const APP_VERSION = "0.23.2";
 export const APP_BUILD = "2026-06-22";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -793,7 +793,7 @@ async function healerTreat() {
   busy = true;
   const ch = world.current!;
   if (ch.exposure <= 0.05) { await sheet({ text: "深蝕は、今は薄い。施療の要はない。", options: ["わかった"] }); busy = false; return; }
-  const cost = 12 + Math.round(ch.exposure * 10);
+  const cost = 12 + ch.level * 3 + Math.round(ch.exposure * 10); // レベル(≈到達深度)連動＝深部で「深蝕＝代価」を保つ（旧 12+exp×10 は実質無料化）
   const r = await sheet({
     text: `老薬師トウ。お前の深蝕は ${ch.exposure.toFixed(2)}。\n薬と祈りで少し退かせる（−0.6・${cost}金貨）。所持 金${ch.gold}。`,
     meta: "薬師 ── 深蝕治療",
@@ -1208,8 +1208,8 @@ function tryPromoteCompanion(): void {
   const next = companionGradeFor(c.bond, c.feats ?? 0, c.grade);
   if (next > c.grade) {
     c.grade = next;
-    c.maxHp = companionMaxHp(next); // 等級が上がれば頼もしさ（HP/攻撃）も上がる
-    if (companion) { companion.maxHp = c.maxHp; companion.dmg = companionDmg(next); } // 潜行中なら盤上にも即反映（HPは据置）
+    c.maxHp = companionMaxHp(next); // 等級基礎（深度0）を保存値に。盤上は深度込みで再計算
+    if (companion && floor) { companion.maxHp = companionMaxHp(next, floor.depth); companion.dmg = companionDmg(next, floor.depth); } // 潜行中なら盤上に深度込みで即反映（HPは据置）
     log(`⤴ ${companionName()}が${GRADE_LABELS[next]}に昇格した。`, "cue");
   }
 }
@@ -2121,10 +2121,11 @@ function spawnCompanionNear(at: Pos): void {
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       const x = at.x + dx, y = at.y + dy;
       if (inBounds(floor, x, y) && tileAt(floor, x, y) === 1 && !occupied(x, y)) {
+        const cHp = companionMaxHp(world.companion.grade, floor.depth); // 等級＋潜行深度で再計算（深部追従）
         companion = {
-          x, y, hp: world.companion.maxHp, maxHp: world.companion.maxHp, intent: null,
+          x, y, hp: cHp, maxHp: cHp, intent: null,
           erratic: companionErraticRate(world.companion.exposure),
-          dmg: companionDmg(world.companion.grade), // 等級で攻撃力が変動（4-4E）
+          dmg: companionDmg(world.companion.grade, floor.depth), // 等級＋深度で攻撃力が変動（4-4E）
           // crisisShown は各フロアで再武装（危険域のまま降りれば、その都度 C を再び迫る）
         };
         return;
@@ -2240,7 +2241,7 @@ async function offerCompanion(la: LivingActor): Promise<void> {
   }
   const ch = world.current!;
   const grade = hireGradeOf(la);
-  const fee = hireFee(grade);
+  const fee = hireFee(grade, ch.level);
   if (ch.gold < fee) {
     await sheet({
       text: `${la.actor.name}に同行を持ちかける。\n「いいだろう。だが先立つものは前金で ── ${fee}金貨だ」。\n……今の持ち金（${ch.gold}）では足りない。`,
@@ -3280,7 +3281,7 @@ function rewardKill(mon: Monster, killLine?: string) {
     if (mon.boss === "area") spawnReturnDoor(mon); // 帰還の扉＝往復チェックポイント（v2・深淵帯を除く）
     recordCompanionFeat(); // 相棒と共にボスを討った＝偉業（4-4E 昇格ゲート）
     // ボスは金貨も確定で落とす（rare＝farm無し）。
-    const bonus = 5 * mon.kind.tier + floor!.depth;
+    const bonus = 5 * mon.kind.tier + floor!.depth * 3; // 深度係数を強化（旧 +depth は深度50で75金＝雑魚以下だった）
     ch.gold += bonus; sfx("coin", 0.12);
     log(`亡骸から ${bonus} 金貨を得た（所持 ${ch.gold}）。`, "dim");
   } else {

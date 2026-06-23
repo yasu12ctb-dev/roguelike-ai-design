@@ -61,8 +61,8 @@ export function companionGradeFor(bond: number, feats: number, currentGrade: num
 }
 
 // 雇用（契約・4-14C）。前金は等級で変動。
-export const HIRE_FEE_BASE = 12; // 前金の基礎。実額＝HIRE_FEE_BASE×(等級+1)＝アイアン12…プラチナ60。
-export const hireFee = (grade: number): number => HIRE_FEE_BASE * (grade + 1);
+export const HIRE_FEE_BASE = 12; // 前金の基礎。実額＝HIRE_FEE_BASE×(等級+1)＋レベル係数（深部の金経済に追従）。
+export const hireFee = (grade: number, level = 0): number => HIRE_FEE_BASE * (grade + 1) + level * 4;
 /** 雇用時の実効等級＝設定等級と蓄積等級（再雇用の昇格）の高い方。生者はプラチナ止まり。 */
 export const effectiveHireGrade = (actorGrade: number | undefined, storedGrade: number | undefined): number =>
   Math.min(LIVING_GRADE_CAP, Math.max(actorGrade ?? 0, storedGrade ?? 0));

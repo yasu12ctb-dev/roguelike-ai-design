@@ -42,7 +42,8 @@ eq("初期等級は下回らない", companionGradeFor(0, 0, 3), 3);
 eq("ゴールド開始+条件満たし→プラチナ", companionGradeFor(18, 6, 3), 4);
 
 console.log("== 雇用（前金 / 実効等級 / 折半） ==");
-eq("前金 等級別", [0, 1, 2, 3, 4].map(hireFee), [12, 24, 36, 48, 60]);
+eq("前金 等級別(Lv0)", [0, 1, 2, 3, 4].map((g) => hireFee(g)), [12, 24, 36, 48, 60]);
+eq("前金 レベル連動", hireFee(4, 50), 60 + 200); // 深部の金経済に追従（旧 60 固定）
 eq("実効等級=設定と蓄積の高い方", effectiveHireGrade(0, 3), 3);
 eq("実効等級 蓄積なし", effectiveHireGrade(2, undefined), 2);
 eq("実効等級 CAP", effectiveHireGrade(4, 5), 4);
@@ -54,8 +55,10 @@ eq("折半負→0", companionCut(-5), 0);
 eq("折半100→50", companionCut(100), 50);
 
 console.log("== 相棒の強さスケール（4-4E） ==");
-eq("HP 等級別", [0, 1, 2, 3, 4].map(companionMaxHp), [10, 13, 16, 19, 22]);
-eq("攻撃 等級別", [0, 1, 2, 3, 4].map(companionDmg), [2, 3, 4, 5, 6]);
+eq("HP 等級別(深度0)", [0, 1, 2, 3, 4].map((g) => companionMaxHp(g)), [10, 13, 16, 19, 22]);
+eq("攻撃 等級別(深度0)", [0, 1, 2, 3, 4].map((g) => companionDmg(g)), [2, 3, 4, 5, 6]);
+eq("HP 深度連動(白金@d50)", companionMaxHp(4, 50), 22 + 60); // 深部で壁役が成立（旧 22 固定→紙）
+eq("攻撃 深度連動(白金@d50)", companionDmg(4, 50), 6 + 8);
 
 // --- 契約シナリオ（再雇用で昇格が継続するか＝生者NPC蓄積の意味づけ） ---
 console.log("== 契約シナリオ：雇用→生還で昇格→解散→再雇用で再開 ==");
