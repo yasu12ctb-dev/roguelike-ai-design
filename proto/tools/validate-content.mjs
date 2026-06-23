@@ -21,8 +21,10 @@ const STAGES = new Set(["weathered", "twisting", "alien"]);
 const FINALACTS = new Set(["guard_relic", "curse_dungeon", "leave_will", "accept"]);
 const BANDS = new Set(["shallow", "mid", "deep", "abyss"]);
 const KINDS = new Set(["character", "explorer", "relic"]);
-// 消耗品キーは items.ts から取り出す（ドリフト防止）
-const CONSUMABLES = new Set([...read("src/items.ts").matchAll(/key:\s*"([a-z_]+)"/g)].map((m) => m[1]));
+// 消耗品キーは items.ts の CONSUMABLES 配列だけから取り出す（ドリフト防止）。
+// ※配列に限定＝affix/gear の key を誤って拾わない／数字付きキー(soothe2 等)も取りこぼさない。
+const CONSUMABLES_SRC = (read("src/items.ts").match(/CONSUMABLES[^[]*\[([\s\S]*?)\];/) ?? [, ""])[1];
+const CONSUMABLES = new Set([...CONSUMABLES_SRC.matchAll(/key:\s*"([a-z0-9_]+)"/g)].map((m) => m[1]));
 // 名簿id（actorId prereq の突合・4-14）。adventurers.json があれば集める。
 let ROSTER_IDS = new Set();
 try { ROSTER_IDS = new Set(JSON.parse(read("content/adventurers.json")).adventurers.map((a) => a.id)); } catch { /* 名簿なし＝空 */ }
@@ -182,6 +184,35 @@ for (const s of list) {
 // ③ 情報：consumer の無い plant は一覧のみ（多くは意図的な一方向の伏線フレーバー＝error/warn にしない）
 const danglingPlants = [...planted].filter((n) => !consumed.has(n));
 if (danglingPlants.length) console.log(`== flag 連鎖：consumer の無い plant ${danglingPlants.length}件（一方向の伏線として正常）: ${danglingPlants.join(", ")} ==`);
+
+// ---- 近似重複検出（4-9 鋳造所QA・量産の反復を防ぐ）：context バケツ内で本文の文字bigram Jaccard ----
+// 研究知見「量産は同種の反復に陥りやすい」への対策。閾値0.50（現 content の最大≈0.38 に余裕）。
+// warn 止まり＝正当なテーマ反復もあり deploy は止めない（レビューで表現の差別化を促す）。
+const NEARDUP_WARN = 0.50;
+function textBlob(s) {
+  const parts = [];
+  if (typeof s.text === "string") parts.push(s.text);
+  for (const k of ["investigate", "search", "result"]) if (typeof s[k]?.text === "string") parts.push(s[k].text);
+  for (const c of s.choices ?? []) { if (typeof c.text === "string") parts.push(c.text); if (typeof c.label === "string") parts.push(c.label); }
+  return parts.join("").replace(/#[a-z_]+#/g, "").replace(/[\s　、。「」『』（）()！？,.!?:：・…—-]/g, "").toLowerCase();
+}
+function bigrams(t) {
+  const g = new Set();
+  if (t.length < 2) { if (t) g.add(t); return g; }
+  for (let i = 0; i < t.length - 1; i++) g.add(t.slice(i, i + 2));
+  return g;
+}
+const jaccard = (a, b) => { if (!a.size || !b.size) return 0; let inter = 0; for (const x of a) if (b.has(x)) inter++; return inter / (a.size + b.size - inter); };
+const ndBuckets = new Map();
+for (const s of list) { const ctx = s.context ?? "encounter"; if (!ndBuckets.has(ctx)) ndBuckets.set(ctx, []); ndBuckets.get(ctx).push([s.id, bigrams(textBlob(s))]); }
+const ndPairs = [];
+for (const [ctx, items] of ndBuckets) for (let i = 0; i < items.length; i++) for (let k = i + 1; k < items.length; k++) {
+  const j = jaccard(items[i][1], items[k][1]);
+  if (j >= NEARDUP_WARN) ndPairs.push([j, ctx, items[i][0], items[k][0]]);
+}
+ndPairs.sort((a, b) => b[0] - a[0]);
+for (const [j, ctx, a, b] of ndPairs.slice(0, 20)) W(`${a}~${b}`, `近似重複の恐れ（${ctx}・bigram類似 ${j.toFixed(2)}）＝本文が酷似。表現の差別化を推奨`);
+if (ndPairs.length) console.log(`== 近似重複（量産QA）：類似≥${NEARDUP_WARN} のペア ${ndPairs.length}件（warn）==`);
 
 console.log(`== コンテンツ検証：storylets ${list.length}件 / 消耗品キー [${[...CONSUMABLES].join(",")}] ==`);
 if (warn.length) { console.log(`\n[警告 ${warn.length}]`); warn.forEach((w) => console.log("  " + w)); }

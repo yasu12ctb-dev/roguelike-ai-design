@@ -17970,6 +17970,1046 @@
      }
     ]
    }
+  },
+  {
+   "id": "dg_m4a_deep_oreseam",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "壁の一筋に、鈍く光る貴金属の鉱脈が走っている。掘り出せば値になるが、石を打つ音は、闇の奥まで響くだろう。",
+   "choices": [
+    {
+     "label": "音を忍ばせて掘る",
+     "text": "刃の背で根気よく剥がし取った。掌に、ずしりと冷たい鉱塊。物音は、最小限で済んだ。",
+     "effects": [
+      {
+       "gold": 18
+      },
+      {
+       "chronicle": "深度#depth#の鉱脈から、密かに貴金属を削り出した。"
+      }
+     ]
+    },
+    {
+     "label": "構わず叩き割る",
+     "text": "金属音が反響し、暗がりで何かが身じろぐ気配。だが収穫は大きかった。",
+     "effects": [
+      {
+       "gold": 30
+      },
+      {
+       "exposure": 0.06
+      }
+     ]
+    },
+    {
+     "label": "見送る",
+     "text": "欲より身の安全を採った。鉱脈は、次に来る誰かのものだ。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#の鉱脈を、惜しみつつ見送った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_deep_oldcamp",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "崩れた石室に、先客の野営の跡。消し炭と、急いで立ち去ったらしい慌ただしさが残っている。",
+   "choices": [
+    {
+     "label": "物資を漁る",
+     "text": "油紙にくるまれた携行食と、火口がいくつか。役に立つ。",
+     "effects": [
+      {
+       "gold": 9
+      },
+      {
+       "item": "salve"
+      }
+     ]
+    },
+    {
+     "label": "手を合わせて去る",
+     "text": "主は還れたのか。確かめる術もない。お前は炭に向け、短く黙礼した。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "chronicle": "深度#depth#の野営跡に、見知らぬ先客の無事を祈った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_deep_tollgate",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "崩れた関所めいた石門。傍らの窪みに、古い通行料の名残らしき硬貨が錆びついている。",
+   "choices": [
+    {
+     "label": "硬貨を供えて通る",
+     "text": "習わしに倣い、一枚を窪みへ。門をくぐると、不思議と足取りが軽い。",
+     "effects": [
+      {
+       "gold": -4
+      },
+      {
+       "exposure": -0.08
+      },
+      {
+       "trait": "作法:深層の通行料"
+      }
+     ]
+    },
+    {
+     "label": "錆びた硬貨をかすめ取る",
+     "text": "窪みの古銭を掌に。背後で、門が軋むように鳴いた気がした。",
+     "effects": [
+      {
+       "gold": 12
+      },
+      {
+       "exposure": 0.05
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_deep_lostpack",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "通路の隅に、紐の切れた行商人の荷袋が転がっている。持ち主は、よほど急いでいたらしい。",
+   "choices": [
+    {
+     "label": "中を検める",
+     "text": "薬包と小銭、それに濡れて滲んだ符牒の控え。使えるものだけ頂いた。",
+     "effects": [
+      {
+       "item": "soothe"
+      },
+      {
+       "gold": 6
+      }
+     ]
+    },
+    {
+     "label": "そのままにする",
+     "text": "誰かが取りに戻るかもしれない。お前は荷を壁際へ寄せ、目印を立てた。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、落とし主のために荷を片付けて置いた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_deep_runestone",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "床から斜めにせり出した石板に、見慣れぬ刻文。風化しているが、読めなくはない。",
+   "choices": [
+    {
+     "label": "時をかけて読み解く",
+     "text": "それは、ここまで降りた古い探索者の覚書だった。水場と崩落の位置が、几帳面に記されている。",
+     "effects": [
+      {
+       "trait": "知見:先人の深層覚書"
+      },
+      {
+       "chronicle": "深度#depth#で、先人の刻んだ覚書を読み解いた。"
+      }
+     ]
+    },
+    {
+     "label": "一瞥して進む",
+     "text": "読む時間が惜しい。お前は刻文に背を向け、自分の足で道を確かめることにした。",
+     "effects": []
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_deep_underspring",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "岩の割れ目から、細い清水が湧き出している。地の底とは思えぬほど、澄んでいる。",
+   "choices": [
+    {
+     "label": "掬って口を湿す",
+     "text": "冷たさが喉を下り、張りつめていた何かがほどけた。ひと心地つく。",
+     "effects": [
+      {
+       "exposure": -0.06
+      }
+     ]
+    },
+    {
+     "label": "水筒を満たすだけにする",
+     "text": "飲むのは控え、容れ物だけ満たした。底の水は、どこから来るか知れない。",
+     "effects": [
+      {
+       "trait": "携行:深層の清水"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_deep_cairn",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "道の分かれ目に、誰かが積んだ小さな石塚。倒れぬよう、慎重に重ねられている。",
+   "choices": [
+    {
+     "label": "石を一つ足す",
+     "text": "習わしに倣い、お前も足元の石を一つ載せた。道しるべは、また少し高くなる。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "trait": "手向け:深層の道塚"
+      }
+     ]
+    },
+    {
+     "label": "塚の影で一息つく",
+     "text": "誰かの祈りの傍らは、不思議と落ち着く。お前は短く呼吸を整えた。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#の道塚の傍らで、つかの間、息を整えた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_deep_brokenbridge",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "通路を裂く深い溝。渡るには、向こう岸へ跳ぶしかない。底は、見えない。",
+   "choices": [
+    {
+     "label": "助走して跳ぶ",
+     "text": "靴底が縁を蹴り、宙を舞った。爪先が、辛うじて向こう岸を捉える。",
+     "effects": [
+      {
+       "exposure": 0.04
+      },
+      {
+       "trait": "踏破:深層の溝"
+      }
+     ]
+    },
+    {
+     "label": "迂回路を探す",
+     "text": "無理はしない。お前は時間をかけ、溝を巻く細い棚を見つけ出した。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#の裂け目を、慎重に巻いて越えた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_deep_gargoyle",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "通路の両脇に、値踏みするような顔つきの石像が並んでいる。どれも、お前の方を向いている。",
+   "choices": [
+    {
+     "label": "臆さず歩を進める",
+     "text": "視線を返し、まっすぐ間を抜けた。石は石のまま。だが、背中を見せた瞬間の沈黙が、やけに長い。",
+     "effects": [
+      {
+       "exposure": 0.03
+      },
+      {
+       "trait": "度胸:石像の列を抜けた"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_deep_fungus_path",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 1,
+   "text": "壁の青白い菌が、点々と通路の先まで続いている。まるで、誰かが灯した道標のように。",
+   "choices": [
+    {
+     "label": "菌の灯を辿る",
+     "text": "ほのかな光を頼りに進むと、迷わず開けた間へ出た。深みにも、道はある。",
+     "effects": [
+      {
+       "trait": "見たもの:菌の道標"
+      },
+      {
+       "chronicle": "深度#depth#で、菌の灯が指す道を辿った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_abyss_offer_coin",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 1,
+   "text": "壁の黒い窪みから、声にならぬ求めが滲む。ここに何かを「納めよ」と。底は、取引を好む。",
+   "choices": [
+    {
+     "label": "硬貨を納める",
+     "text": "一枚を窪みへ落とすと、空気がふっと軽くなった。底は、応えた者には少しだけ優しい。",
+     "effects": [
+      {
+       "gold": -8
+      },
+      {
+       "exposure": -0.14
+      },
+      {
+       "trait": "奉じた:深淵の窪み"
+      }
+     ]
+    },
+    {
+     "label": "窪みに手を入れて探る",
+     "text": "指先が、納められた古い財に触れる。掴んで引き抜いた——背に、冷たい視線を貼りつかせたまま。",
+     "effects": [
+      {
+       "gold": 24
+      },
+      {
+       "exposure": 0.12
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_abyss_gravity",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 1,
+   "text": "広間に踏み入った途端、重力がわずかに傾いだ。床のはずの面が、ゆるやかな坂のように足を引く。",
+   "choices": [
+    {
+     "label": "壁を伝って横切る",
+     "text": "理の歪みに逆らわず、傾いだ重さに身を預けて渡りきった。出口で、上下が元へ戻る。",
+     "effects": [
+      {
+       "exposure": 0.05
+      },
+      {
+       "trait": "踏破:傾いだ広間"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_abyss_starfall",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 1,
+   "text": "遥かな天井の裂け目から、塵のような光点がいくつも、ゆっくりと舞い落ちてくる。地の底に、星のように。",
+   "choices": [
+    {
+     "label": "掌で受ける",
+     "text": "光は触れると消えた。だが胸の奥に、なぜか地上の夜空が灯る。ほんの一瞬、心が凪いだ。",
+     "effects": [
+      {
+       "exposure": -0.07
+      },
+      {
+       "chronicle": "深度#depth#で、落ちてくる光を掌に受けた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_abyss_namegiver",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 1,
+   "text": "闇が、おもむろにお前の名を「問うて」くる。答えれば、底はお前を覚えるだろう。よくも、悪くも。",
+   "choices": [
+    {
+     "label": "名を告げる",
+     "text": "声に出して名乗った。闇がそれを舌の上で転がすように繰り返し——以後、深みはお前を名で呼ぶ。",
+     "effects": [
+      {
+       "exposure": 0.1
+      },
+      {
+       "trait": "識られた:深淵に名を告げた者"
+      }
+     ]
+    },
+    {
+     "label": "黙して通り過ぎる",
+     "text": "名は、容易に渡すものではない。お前は唇を結び、問いを置き去りにした。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、闇の問いに名を与えず通り過ぎた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_abyss_relic_altar",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 1,
+   "text": "黒曜の祭壇に、淡く脈打つ品が一つ。聖遺物めいて尊く、同時に、触れることをためらわせる気配がある。",
+   "choices": [
+    {
+     "label": "捧げ持つ",
+     "text": "掌に乗せると、脈動が腕を這い上がる。値打ちは確かだ——帯びる澱みも、また確かだ。",
+     "effects": [
+      {
+       "item": "soothe2"
+      },
+      {
+       "exposure": 0.1
+      },
+      {
+       "trait": "佩いた:祭壇の脈打つ品"
+      }
+     ]
+    },
+    {
+     "label": "祭壇に手を触れず拝する",
+     "text": "奪わず、ただ頭を垂れた。底の祭壇は、欲さぬ者にこそ静かだ。",
+     "effects": [
+      {
+       "exposure": -0.05
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_abyss_drowned_hall",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 1,
+   "text": "黒い水が脛まで満ちた広間。沈んだ床に、かつての誰かの落とした物が、鈍く光って見える。",
+   "choices": [
+    {
+     "label": "水を掻き分け拾う",
+     "text": "冷たさに歯を食いしばり、沈んだ財を掬い上げた。水面が、波紋ひとつで元の静寂へ戻る。",
+     "effects": [
+      {
+       "gold": 20
+      },
+      {
+       "exposure": 0.08
+      }
+     ]
+    },
+    {
+     "label": "縁を伝って渡る",
+     "text": "水には踏み込まず、壁際の乾いた縁を選んだ。底の水に、足を浸すものではない。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#の沈んだ広間を、水に触れず渡りきった。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_abyss_kind_dark",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 1,
+   "text": "行く手の闇が、ふいに「優しく」割れて、楽な近道を差し出した。あまりに都合がよく、あまりに静かに。",
+   "choices": [
+    {
+     "label": "差し出された道を行く",
+     "text": "誘いに乗った。確かに楽だった——その楽さの分だけ、何かを底に預けた気がする。",
+     "effects": [
+      {
+       "exposure": 0.12
+      },
+      {
+       "trait": "借りた:深淵の近道"
+      }
+     ]
+    },
+    {
+     "label": "わざと険しい方を選ぶ",
+     "text": "底が優しい時ほど、疑うべきだ。お前は元の険路へ戻った。息は切れるが、心は澄んでいる。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "chronicle": "深度#depth#で、深淵の甘い近道を退けた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_abyss_song_bones",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 1,
+   "text": "床一面に散った骨が、風もないのに低く鳴っている。和音のような、嘆きのような、名状しがたい震え。",
+   "choices": [
+    {
+     "label": "耳を塞いで足早に抜ける",
+     "text": "骨の合唱に長く晒されてはいけない。お前は掌で耳を覆い、震える床を駆け抜けた。",
+     "effects": [
+      {
+       "exposure": 0.06
+      }
+     ]
+    },
+    {
+     "label": "一片を拾い、懐へ納める",
+     "text": "せめて一片だけでも、地上の光を見せてやりたい。お前は鳴る骨を一つ、布に包んだ。",
+     "effects": [
+      {
+       "trait": "携えた:鳴る骨の一片"
+      },
+      {
+       "chronicle": "深度#depth#で、鳴る骨の一片を地上へ連れ帰ろうと拾った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_abyss_mercy_spring",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 1,
+   "text": "底のただ中に、ありえぬほど澄んだ泉が湧いている。深淵が、稀に見せる慈悲のような一隅。",
+   "choices": [
+    {
+     "label": "掬って深く飲む",
+     "text": "清冽な水が、骨の髄まで澱みを洗う。底にも、こんな救いが残っているとは。",
+     "effects": [
+      {
+       "exposure": -0.16
+      },
+      {
+       "chronicle": "深度#depth#の深淵で、稀有な清泉に澱みを洗われた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_abyss_hoard",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 1,
+   "text": "獣の巣めいた窪地に、深淵の住人が溜め込んだらしい財貨が、無造作に積み上がっている。主は、留守だ。",
+   "choices": [
+    {
+     "label": "素早く掻き集める",
+     "text": "主が戻る前にと、めぼしい金品を懐へ詰めた。背後で、空気が一段冷えていく——急がねば。",
+     "effects": [
+      {
+       "gold": 34
+      },
+      {
+       "exposure": 0.1
+      }
+     ]
+    },
+    {
+     "label": "ひと掴みだけ頂く",
+     "text": "欲をかけば命を落とす。お前は一掴みだけ手に、足早にその場を離れた。",
+     "effects": [
+      {
+       "gold": 14
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_m4a_abyss_last_lamp_oil",
+   "context": "dungeon",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 1,
+   "text": "壁龕に、油の満ちた角灯がぽつんと残されている。底を目指した誰かが、後の者のために遺したのかもしれない。",
+   "choices": [
+    {
+     "label": "油を分けてもらう",
+     "text": "ありがたく、油を自分の灯へ移した。見知らぬ先人の心遣いが、足元を確かに照らす。",
+     "effects": [
+      {
+       "exposure": -0.05
+      },
+      {
+       "trait": "継いだ:先人の灯火"
+      }
+     ]
+    },
+    {
+     "label": "自分の油を足して満たす",
+     "text": "減った油を、お前は自分のぶんから注ぎ足した。次に来る者の足元が、これで少し明るい。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、後に続く者のため角灯に油を足した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ch_m4a_deep_warkit",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 2,
+   "result": {
+    "text": "底冷えのする箱に、丁寧に油を引かれた戦支度の一式。持ち主は、ここで何を備えていたのか。",
+    "effects": [
+     {
+      "item": "salve2"
+     },
+     {
+      "chronicle": "深度#depth#の宝箱から、先人の戦支度を受け継いだ。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4a_deep_purse",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 3,
+   "result": {
+    "text": "見た目より重い革財布。口を解くと、深層まで持ち込まれた小金が、ぎっしりと詰まっている。",
+    "effects": [
+     {
+      "gold": 26
+     },
+     {
+      "chronicle": "深度#depth#の宝箱から、ずしりと重い財布を得た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4a_deep_charm",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 2,
+   "result": {
+    "text": "箱の底に、すり減るほど握られた護符が一つ。持ち主の祈りが、まだ温もりのように残っている。",
+    "effects": [
+     {
+      "exposure": -0.1
+     },
+     {
+      "trait": "拾得:すり減った護符"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4a_abyss_reliquary",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 2,
+   "result": {
+    "text": "封蝋の崩れた小さな聖櫃。蓋を上げると、祓いの香が立ちのぼり、澱んだ空気をわずかに退ける。",
+    "effects": [
+     {
+      "item": "soothe2"
+     },
+     {
+      "exposure": -0.04
+     },
+     {
+      "chronicle": "深度#depth#の聖櫃から、祓いの品を得た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4a_abyss_blackgift",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 2,
+   "result": {
+    "text": "黒い布で幾重にも包まれた贈り物めいた箱。値打ちの予感と、同じだけの禍々しさが、布越しに伝わる。",
+    "effects": [
+     {
+      "gold": 22
+     },
+     {
+      "exposure": 0.14
+     },
+     {
+      "trait": "拾得:黒く包まれた贈り物"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4a_abyss_holywater",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 1,
+   "result": {
+    "text": "氷のように冷たい硝子瓶が、藁に守られて収まっている。中の水は、底にあってなお濁りひとつない。",
+    "effects": [
+     {
+      "item": "soothe3"
+     },
+     {
+      "chronicle": "深度#depth#の宝箱から、濁りなき浄めの水を得た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4a_myth_banner",
+   "prerequisites": {
+    "tone": "myth"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# は、ちぎれた旗を握りしめたまま事切れていた。掲げようとした腕の形が、石のように固まっている。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "見たもの:#origin_name#の最期の旗"
+     },
+     {
+      "chronicle": "#origin_name# が、最期まで旗を掲げようとした姿を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "旗の布をほどくと、裏に隊の名と、励ましの一句が縫い取られていた。誰かを、奮い立たせるために。",
+    "effects": [
+     {
+      "trait": "受け継ぐ:#origin_name#の隊の旗印"
+     },
+     {
+      "chronicle": "#origin_name# の隊旗に縫われた励ましの句を読んだ。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4a_myth_oath",
+   "prerequisites": {
+    "tone": "myth"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の#origin_gear# の傍に、剣の切先で岩へ刻まれた誓いの言葉。最後の一文字が、深く長い。",
+    "effects": [
+     {
+      "trait": "刻まれた誓い:#origin_name#の遺志"
+     },
+     {
+      "chronicle": "#origin_name# が岩に刻んだ誓いを、確かに読んだ。"
+     }
+    ]
+   },
+   "search": {
+    "text": "刻まれた誓いの下に、同じ手で小さく添えられた本音。「それでも、家へ帰りたかった」。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "見たもの:#origin_name#の本音"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4a_grudge_marker",
+   "prerequisites": {
+    "tone": "grudge"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "壁に、#origin_name# が刻んだらしい印。だが線は荒々しく、何度も同じ場所を抉るように引き直されている。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の荒れた刻印"
+     },
+     {
+      "chronicle": "#origin_name# の、憎しみの滲んだ刻印を見つけた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "印の脇に、半ば削り取られた別の名。#origin_name# が、誰かを激しく恨んでいた跡だ。",
+    "effects": [
+     {
+      "exposure": 0.05
+     },
+     {
+      "trait": "知った:#origin_name#の遺恨"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4a_grudge_snare",
+   "prerequisites": {
+    "tone": "grudge"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "通路に、巧妙に隠された罠の跡。#origin_name# が、後から来る誰かを陥れるために仕掛けたものらしい。",
+    "effects": [
+     {
+      "exposure": 0.04
+     },
+     {
+      "trait": "見抜いた:#origin_name#の仕掛けた罠"
+     }
+    ]
+   },
+   "search": {
+    "text": "罠の機構を辿ると、標的を特定の人物に絞った執念の細工。恨みは、死してなお手を伸ばす。",
+    "effects": [
+     {
+      "trait": "知った:#origin_name#の執念"
+     },
+     {
+      "chronicle": "#origin_name# が遺した、人を選ぶ罠の執念に触れた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4a_loss_lullaby",
+   "prerequisites": {
+    "tone": "loss"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の懐から、手書きの譜が一枚。たどたどしい音符は、どうやら子守唄のものらしい。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "遺品:#origin_name#の子守唄の譜"
+     }
+    ]
+   },
+   "search": {
+    "text": "譜の隅に、小さな手形と日付。帰って聞かせるはずだった歌が、ここで途切れている。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#が帰れなかった理由"
+     },
+     {
+      "chronicle": "#origin_name# が、誰かに歌うはずだった子守唄の譜を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4a_loss_ring",
+   "prerequisites": {
+    "tone": "loss"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の指に、質素な指輪。抜き取るのもためらわれるほど、固く握り込まれている。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の指輪"
+     },
+     {
+      "chronicle": "#origin_name# が、最期まで手放さなかった指輪を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "指輪の内側に、二つの名が彫られていた。片方は#origin_name#。もう片方は、もう、ここにはいない。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "知った:#origin_name#の約束"
+     }
+    ]
+   }
+  },
+  {
+   "id": "dv_m4a_share_water",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "すれ違いざま、#origin_name# が水筒を差し出した。「先は長い。分けとくよ、お互い様だ」。",
+   "choices": [
+    {
+     "label": "ありがたく受ける",
+     "text": "ひと口もらうと、乾いた喉が潤った。名乗り合い、互いの無事を願って別れる。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "plant": "dv_shared_water"
+      }
+     ]
+    },
+    {
+     "label": "礼を言って遠慮する",
+     "text": "気持ちだけ頂いた。「強情だな」と#origin_name#は笑い、肩を叩いて去っていった。",
+     "effects": [
+      {
+       "chronicle": "深層で出会った#origin_name#の気遣いを、笑って断った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4a_trade_tip",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# が、この先の地形について早口で教えてくれた。「奥の広間、右だ。左は行き止まりで獣が湧く」。",
+   "choices": [
+    {
+     "label": "助言に礼を言う",
+     "text": "貴重な情報だ。お前も知る限りを返し、二人はそれぞれの道へ散った。",
+     "effects": [
+      {
+       "trait": "聞いた助言:#origin_name#の地形読み"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4a_rest_fire",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# が焚いた小さな火の傍へ招かれた。「座れよ。火の傍じゃ、深みも少し遠のく」。",
+   "choices": [
+    {
+     "label": "火にあたる",
+     "text": "揺れる炎を挟み、とりとめない話をした。張りつめていたものが、少しほどける。",
+     "effects": [
+      {
+       "exposure": -0.06
+      },
+      {
+       "bond": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4a_warn_omen",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# が声を潜めた。「妙な唄が聞こえたら、耳を貸すな。あれに名を呼ばれて、戻らなかった奴を知ってる」。",
+   "choices": [
+    {
+     "label": "忠告を胸に刻む",
+     "text": "脅しではない、本物の恐れの声だった。お前は深く頷き、忠告を懐へ仕舞った。",
+     "effects": [
+      {
+       "trait": "聞いた忠告:深みの唄に応えるな"
+      },
+      {
+       "chronicle": "深層で出会った#origin_name#に、誘う唄への忠告を受けた。"
+      }
+     ]
+    }
+   ]
   }
  ]
 }
