@@ -16,7 +16,22 @@ export interface MonsterKind {
   hp: number; dmg: number; minDepth: number; erratic: number; // erratic=ランダム移動率
   tier: number; // 強さの段（1=雑魚 … 5=最危険）。記号=種類／色=tier で可視化（4-11F）。
   maxDepth?: number; // この深度を超えると出現しない（最弱種の深層フェードアウト：2026-06-23）。
+  ability?: MonsterAbility; // 特殊能力（テレグラフ準拠・web限定＝planMonsters/resolveMonsters で実装。未指定＝素の近接）。
 }
+// モンスター特殊能力（4-11G・2026-06-23）：すべてテレグラフ準拠・決定論。素の dmg は据え置きテクスチャを足す方針。
+//   ranged ＝射程から狙撃（接近で間合いを取り直す＝接近が弱点）／venom ＝命中でプレイヤーに毒（継続ダメ）／
+//   leech  ＝命中ぶん自己回復（しぶとい）／breeder ＝たまに隣に弱い眷属を湧かす（数の圧・総数上限）。
+export type MonsterAbility = "ranged" | "venom" | "leech" | "breeder";
+export const RANGED_MAX = 4;        // 狙撃の最大射程（これ以遠は間合いを詰める）
+export const BREED_CHANCE = 0.16;   // breeder が1手に眷属を湧かす確率（クールダウン併用）
+export const BREED_CD = 6;          // 眷属を湧かしたあとの待機手数
+export const MONSTER_HARDCAP = 60;  // フロアの敵総数の上限（breeder の暴走防止）
+const SPAWN_BASE: MonsterKind = { key: "spawn", glyph: "z", name: "蟲の眷属", hp: 2, dmg: 1, minDepth: 1, erratic: 0.3, tier: 1 };
+/** breeder が産む弱い眷属（深度連動だが通常雑魚の 35%HP/50%dmg＝数で圧すが個は脆い）。 */
+export const breederMinion = (depth: number): MonsterKind => {
+  const k = scaleKind(SPAWN_BASE, depth);
+  return { ...k, hp: Math.max(2, Math.round(k.hp * 0.35)), dmg: Math.max(1, Math.round(k.dmg * 0.5)) };
+};
 // 記号＝種類（小文字=並／大文字=強）、色＝tier。深いほど上位種が混じり緊張感が増す。
 // 深度係数（scaleKind）が HP/dmg を底上げするので base は種の個性。深層（28/35/42）に上位種を追加（監査B1）。
 export const MONSTER_KINDS: MonsterKind[] = [
@@ -28,6 +43,11 @@ export const MONSTER_KINDS: MonsterKind[] = [
   { key: "wisp",   glyph: "w", name: "迷い火",   hp: 4,  dmg: 3, minDepth: 13, erratic: 0.4,  tier: 3 },
   { key: "wraith", glyph: "W", name: "怨霊",     hp: 10, dmg: 3, minDepth: 16, erratic: 0.15, tier: 4 },
   { key: "ogre",   glyph: "O", name: "石鬼",     hp: 14, dmg: 4, minDepth: 22, erratic: 0.05, tier: 5 },
+  // 特殊能力つき（4-11G・seed＝枠組みの実証。Phase 2 で各能力×深度帯を量産）。素の dmg は控えめ＝テクスチャ重視。
+  { key: "spitter", glyph: "j", name: "吐酸蟲", hp: 5,  dmg: 2, minDepth: 7,  erratic: 0.2,  tier: 2, ability: "ranged" },  // 射程から酸を吐く（接近で間合いを取り直す）
+  { key: "viper",   glyph: "v", name: "毒牙蛇", hp: 5,  dmg: 2, minDepth: 6,  erratic: 0.2,  tier: 2, ability: "venom" },   // 噛みつきで毒（継続ダメ）
+  { key: "leecher", glyph: "l", name: "吸血蛭", hp: 9,  dmg: 2, minDepth: 11, erratic: 0.1,  tier: 3, ability: "leech" },   // 命中ぶん自己回復＝しぶとい
+  { key: "brood",   glyph: "m", name: "孵化巣", hp: 12, dmg: 1, minDepth: 14, erratic: 0.05, tier: 3, ability: "breeder" }, // たまに眷属を湧かす（数の圧）
   { key: "troll",  glyph: "T", name: "蝕喰鬼",   hp: 20, dmg: 5, minDepth: 28, erratic: 0.05, tier: 5 }, // 深層の壁役（高HP）
   { key: "drake",  glyph: "D", name: "深淵竜",   hp: 24, dmg: 6, minDepth: 35, erratic: 0.1,  tier: 5 }, // 高火力
   { key: "horror", glyph: "Y", name: "虚無の貌", hp: 28, dmg: 7, minDepth: 42, erratic: 0.2,  tier: 5 }, // 最深・不規則で読みにくい
@@ -45,7 +65,7 @@ export const scaleKind = (k: MonsterKind, depth: number): MonsterKind =>
 
 /** 敵の次手のテレグラフ（4-11A 読める盤面）。move=ここへ動く / attack=このマスを討つ */
 export type MonsterIntent =
-  | { type: "attack"; x: number; y: number }
+  | { type: "attack"; x: number; y: number; ranged?: boolean } // ranged=遠隔の狙撃（描画で線を引ける／解決は近接と同じ予告マス判定）
   | { type: "move"; x: number; y: number }
   | { type: "wait" };
 
@@ -62,6 +82,7 @@ export interface Monster extends Pos {
   poisonDmg?: number;            // 腐喰の1手あたりダメージ（詠唱時の理で決まる）
   boss?: "elite" | "area";       // 中ボス（奥の強敵）／エリアボス（節目の山場）：4-11F
   fossilId?: string;             // 出自の化石（敵性化した探索者）。⑤鎮め筋の対象（4-11D）
+  breedCd?: number;              // breeder：眷属を湧かしたあとの待機手数（4-11G）
 }
 export interface FossilEntity extends Pos {
   id: string; fossilId: string; resolved: boolean; // resolved=このフロアで対面済み
@@ -373,7 +394,7 @@ export function computeFov(f: Floor, p: Pos): Set<number> {
 }
 
 // ---------- モンスターのターン（テレグラフ＝予告 → 実行の2段：4-11A） ----------
-export interface MonsterHit { monster: Monster; dmg: number; target: "player" | "companion"; }
+export interface MonsterHit { monster: Monster; dmg: number; target: "player" | "companion"; effect?: "poison"; }
 export interface Resolution { hits: MonsterHit[]; dodges: Monster[]; }
 /** 相棒の一手の結果（プレイヤー手番末に解決）。 */
 export interface CompanionResolution { hit: Monster | null; dmg: number; }
@@ -408,6 +429,7 @@ const occupiedBy = (f: Floor, x: number, y: number, self: Monster | null, comp?:
  *  相棒がいる場合は @ と相棒のうち近い方を標的にする（4-14C）。 */
 export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: CompanionEntity | null): void {
   const comp = companion && companion.hp > 0 ? companion : null;
+  const births: Pos[] = []; // breeder が産む眷属の位置（ループ後にまとめて追加＝反復中の配列変更を避ける）
   for (const m of f.monsters) {
     if (m.hp <= 0) { m.intent = null; continue; }
     if (m.weak && m.weak > 0) m.weak--; // 蝕み（攻撃減）の残り手数を消費
@@ -421,6 +443,20 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
       else if (comp && dComp <= FOV_RADIUS && losClear(f, m.x, m.y, comp.x, comp.y)) m.awake = true;
     }
     if (!m.awake) { m.intent = null; continue; }
+
+    if (m.kind.ability === "breeder") { // 孵化（4-11G）：たまに隣の空き床へ弱い眷属（総数上限＋クールダウン）。湧いても自分は普通に行動する。
+      if (m.breedCd && m.breedCd > 0) m.breedCd--;
+      else if (rng.next() < BREED_CHANCE && f.monsters.length + births.length < MONSTER_HARDCAP) {
+        let placed = false;
+        for (let dy = -1; dy <= 1 && !placed; dy++) for (let dx = -1; dx <= 1 && !placed; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const cx = m.x + dx, cy = m.y + dy;
+          if (tileAt(f, cx, cy) === 1 && !(cx === player.x && cy === player.y) && !occupiedBy(f, cx, cy, m, comp)) {
+            births.push({ x: cx, y: cy }); m.breedCd = BREED_CD; placed = true;
+          }
+        }
+      }
+    }
 
     if (m.confused && m.confused > 0) { // 惑乱＝ランダムによろめく（標的を見失う）
       m.confused--;
@@ -451,6 +487,21 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
       m.intent = dest ? { type: "move", x: dest.x, y: dest.y } : { type: "wait" };
       continue;
     }
+    if (m.kind.ability === "ranged") { // 狙撃（4-11G）：射程内は動かず対象マスを予告／接近されたら間合いを取り直す＝接近が弱点
+      if (d >= 1.5 && d <= RANGED_MAX && losClear(f, m.x, m.y, target.x, target.y)) {
+        m.intent = { type: "attack", x: target.x, y: target.y, ranged: true };
+        continue;
+      }
+      if (d < 1.5) { // 接近された＝一歩退く（退けなければ素手で噛む＝弱い）
+        const bx = Math.sign(m.x - target.x) || 1, by = Math.sign(m.y - target.y);
+        const back: Pos[] = [{ x: m.x + bx, y: m.y + by }, { x: m.x + bx, y: m.y }, { x: m.x, y: m.y + by }];
+        let dest: Pos | null = null;
+        for (const c of back) if (tileAt(f, c.x, c.y) === 1 && !(c.x === player.x && c.y === player.y) && !occupiedBy(f, c.x, c.y, m, comp)) { dest = c; break; }
+        m.intent = dest ? { type: "move", x: dest.x, y: dest.y } : { type: "attack", x: target.x, y: target.y };
+        continue;
+      }
+      // d > RANGED_MAX → 通常追跡で間合いを詰める（下へ落ちる）
+    }
     if (d < 1.5) { // 隣接 → 標的の現在マスを討つと予告（退けば空振り＝見切り）
       m.intent = { type: "attack", x: target.x, y: target.y };
       continue;
@@ -469,6 +520,10 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
     }
     m.intent = dest ? { type: "move", x: dest.x, y: dest.y } : { type: "wait" };
   }
+  for (const b of births) { // 孵化した眷属を盤上へ（この手は無防備に現れ、次手から行動＝テレグラフ）
+    const k = breederMinion(f.depth);
+    f.monsters.push({ id: `spawn_${f.depth}_${f.monsters.length}`, kind: k, hp: k.hp, x: b.x, y: b.y, awake: true, intent: null });
+  }
 }
 
 /** 予告した intent を実行する。攻撃は確定命中・確定ダメージ（miss無し）だが、
@@ -481,9 +536,15 @@ export function resolveMonsters(f: Floor, player: Pos, companion?: CompanionEnti
   for (const m of f.monsters) {
     if (m.hp <= 0 || !m.intent) continue;
     if (m.intent.type === "attack") {
-      if (player.x === m.intent.x && player.y === m.intent.y) hits.push({ monster: m, dmg: monsterDmg(m, f), target: "player" });
-      else if (comp && comp.x === m.intent.x && comp.y === m.intent.y) hits.push({ monster: m, dmg: monsterDmg(m, f), target: "companion" });
-      else dodges.push(m); // 予告マスから退いた＝見切り
+      const onPlayer = player.x === m.intent.x && player.y === m.intent.y;
+      const onComp = !!comp && comp.x === m.intent.x && comp.y === m.intent.y;
+      if (onPlayer || onComp) {
+        const dmg = monsterDmg(m, f);
+        if (m.kind.ability === "leech") m.hp = Math.min(m.kind.hp, m.hp + dmg); // 吸命＝命中ぶん自己回復（しぶとい）
+        const hit: MonsterHit = { monster: m, dmg, target: onPlayer ? "player" : "companion" };
+        if (m.kind.ability === "venom" && onPlayer) hit.effect = "poison"; // 毒はプレイヤーのみ（相棒に毒tickの器が無い）
+        hits.push(hit);
+      } else dodges.push(m); // 予告マスから退いた＝見切り
     } else if (m.intent.type === "move") {
       const { x, y } = m.intent;
       if (tileAt(f, x, y) === 1 && !(x === player.x && y === player.y) && !occupiedBy(f, x, y, m, comp)) { m.x = x; m.y = y; }
