@@ -29,6 +29,7 @@ export interface World {
   raidCooldown?: number;        // 街の防衛（襲撃）の冷却＝帰還ごとに減り、0で再抽選（定期的だが間隔は長い）。任意＝旧セーブ非破壊。
   memorialCooldown?: number;    // 追悼の日（祭礼）の冷却＝アンビエント街イベント（4-12 J）。任意＝旧セーブ非破壊。
   plagueCooldown?: number;      // 深蝕の瘴気（疫病）の冷却＝街の災厄（4-12 J）。任意＝旧セーブ非破壊。
+  omenCooldown?: number;        // 深みの兆し（後期帯 Lv20+ を埋める・監査B4）の冷却。任意＝旧セーブ非破壊。
   diveCount?: number;           // 潜行回数（startDive ごと+1）。genFloor のseedに混ぜて潜行ごとに別ダンジョン＝再潜行farm防止。任意＝旧セーブ非破壊。
   echoes?: EchoAsh[];           // 残響召喚の遺灰（4-10I）：神話極の化石を鎮魂して得る。潜行で1回展開＝強めの一時味方。世代越え。任意＝旧セーブ非破壊。
 }
