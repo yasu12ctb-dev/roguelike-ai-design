@@ -247,7 +247,7 @@ export interface TownState {
 export interface FragmentTags {
   tone?: TonePole;
   stage?: VariationStage;
-  depthBand?: "shallow" | "mid" | "deep";
+  depthBand?: "shallow" | "mid" | "deep" | "abyss";
   archetype?: string;
   finalAct?: FinalActChoice;
   arc?: "retire" | "doom" | "fall" | "lore_drift"; // 運命の弧の原型（arc_beat 断片・4-6B）
@@ -281,7 +281,7 @@ export interface Prereq {
   minExposure?: number;    // プレイヤーの深蝕がこれ以上
   minLevel?: number;       // プレイヤーのレベルがこれ以上（高名さのゲート＝貴族の関心など）
   hasCatchphrase?: boolean;// 化石が口癖を持つ/持たない（#origin_catchphrase# を使う本文の安全ガード）
-  depthBand?: "shallow" | "mid" | "deep"; // 深度帯（ダンジョン文脈の発火条件）
+  depthBand?: "shallow" | "mid" | "deep" | "abyss"; // 深度帯（ダンジョン文脈の発火条件）
   minDepth?: number;       // この深度以上で発火（depthBand より細かい下限・dungeon/chest）
   maxDepth?: number;       // この深度以下で発火（語りと深度の整合・上限）
   flag?: string;           // この化石に立った伏線フラグが有る（遭-②：伏線→後続）

@@ -19,7 +19,7 @@ const EFFECT_KEYS = new Set(["bond", "closeUnfinished", "exposure", "trait", "ch
 const TONES = new Set(["loss", "myth", "grudge"]);
 const STAGES = new Set(["weathered", "twisting", "alien"]);
 const FINALACTS = new Set(["guard_relic", "curse_dungeon", "leave_will", "accept"]);
-const BANDS = new Set(["shallow", "mid", "deep"]);
+const BANDS = new Set(["shallow", "mid", "deep", "abyss"]);
 const KINDS = new Set(["character", "explorer", "relic"]);
 // 消耗品キーは items.ts から取り出す（ドリフト防止）
 const CONSUMABLES = new Set([...read("src/items.ts").matchAll(/key:\s*"([a-z_]+)"/g)].map((m) => m[1]));

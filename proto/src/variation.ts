@@ -34,17 +34,20 @@ export function resolveTonePole(finalAct: FinalActChoice, manner: DeathManner, b
   return "loss";
 }
 
-/** 深度帯（深蝕レート用） */
-export function depthBand(depth: number): "shallow" | "mid" | "deep" {
+/** 深度帯（深蝕レート＋ダンジョン/宝箱イベントの帯フィルタ）。
+ *  2026-06-23：deep(25-50)が広すぎ＝後半が一様だった監査B2への対応で4分割。
+ *  mid は据置（9-24）、deep を 25-37／abyss(38+) に二分。 */
+export function depthBand(depth: number): "shallow" | "mid" | "deep" | "abyss" {
   if (depth <= 8) return "shallow";
   if (depth <= 24) return "mid";
-  return "deep";
+  if (depth <= 37) return "deep";
+  return "abyss";
 }
 
 /** 1ターンぶんの深蝕増分（4-10C・CLI/demo 用の旧モデル） */
 export function exposureGain(depth: number): number {
   const band = depthBand(depth);
-  return band === "shallow" ? 0 : band === "mid" ? 0.02 : 0.06;
+  return band === "shallow" ? 0 : band === "mid" ? 0.02 : band === "deep" ? 0.06 : 0.08;
 }
 
 /** 奇癖が付く深蝕閾値（超えるたびに1つ） */
