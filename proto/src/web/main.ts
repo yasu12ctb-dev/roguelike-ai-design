@@ -52,7 +52,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.22.4";
+export const APP_VERSION = "0.22.5";
 export const APP_BUILD = "2026-06-22";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1857,7 +1857,7 @@ async function guardianScene(trackedId: string) {
     sfx("intervene");
     const cleanse = before > ch.exposure ? `\n深みに削られた芯が、少し人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。` : "";
     await sheet({
-      text: `街角で、引退した英雄 ${t.name} が若い冒険者たちに囲まれている。\nあなたに気づくと、目を細めて言った。\n\n「お前さんの目、昔の儂とよく似ている。……これをやろう。深みに呑まれそうになったら、儂の声を思い出せ」\n\n形質『守護者の薫陶』を得た。${cleanse}`,
+      text: `街角で、引退した英雄 ${t.name} が若い冒険者たちに囲まれている。\nあなたに気づくと、目を細めて言った。\n\n「お前さんの目、昔の儂とよく似ている。……これをやろう。深みに呑まれそうになったら、儂の声を思い出せ」\n\n記憶に『守護者の薫陶』が刻まれた。${cleanse}`,
       meta: `${t.name} ── 引退した英雄（運命の弧）`, options: ["礼を言う"],
     });
     save();
@@ -3601,7 +3601,7 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       const before = ch.exposure;
       ch.exposure = Math.max(0, ch.exposure - 0.4);
       chronicle(world, "legend", `${ch.name}は${fossil.origin.name}の導きを受けた。`, [fossil.id, ch.id]);
-      log(`${fossil.origin.name}の光が、行く道を照らした。形質『導きの印』を得た。`);
+      log(`${fossil.origin.name}の光が、行く道を照らした。記憶に『導きの印』が刻まれた。`);
       if (ch.exposure < before) log(`深みに削られた芯が、人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
       // 奉献の試練・印③：山場（legend_return）を決着（4-13A）
       if (awardSeal(world, "setpiece", [fossil.id])) { sfx("seal"); log("◆ 「山場の決着」の印を得た。", "warn"); }
@@ -3910,17 +3910,43 @@ async function charScreen() {
     const lo = activeLoadout(ch);
     const loNames = lo.map((k) => spellByKey(k)?.name ?? k).join("、");
     const loLine = ch.spells.length ? `構え ${lo.length}/${LOADOUT_CAP}：${loNames || "なし"}` : "術：未識得";
-    const text = `《${ch.name}》（第${world.generation}世代）Lv${ch.level}\n${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のLvまで${Math.max(0, xpToNext(ch.level) - ch.xp)}\n深蝕 ${ch.exposure.toFixed(2)}${ch.carryingRelic ? "（★聖遺物 携行中）" : ""}\n装備：${eqLine}\n${loLine}\n持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)}：${inv}${ch.traits.length ? `\n形質：${ch.traits.join("、")}` : ""}`;
-    const r = await sheet({ text, meta: "ステータス", options: ["装備を換える", "術（構え・図鑑）", "進行中（依頼・因縁・印）", "人物と年代記", "敵図鑑", "閉じる"] });
+    const text = `《${ch.name}》（第${world.generation}世代）Lv${ch.level}\n${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のLvまで${Math.max(0, xpToNext(ch.level) - ch.xp)}\n深蝕 ${ch.exposure.toFixed(2)}${ch.carryingRelic ? "（★聖遺物 携行中）" : ""}\n装備：${eqLine}\n${loLine}\n持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)}：${inv}${ch.traits.length ? `\n記憶 ${ch.traits.length}件` : ""}`;
+    const opts = ["装備を換える", "術（構え・図鑑）", "進行中（依頼・因縁・印）", "人物と年代記", "敵図鑑"];
+    if (ch.traits.length) opts.push(`記憶を見る（${ch.traits.length}）`);
+    opts.push("閉じる");
+    const r = await sheet({ text, meta: "ステータス", options: opts });
     busy = false;
-    if (r.pick === 1) await equipSwap(ch);
-    else if (r.pick === 2) await spellMenu(ch);
-    else if (r.pick === 3) await eventsScreen();
-    else if (r.pick === 4) await chronicleScene();
-    else if (r.pick === 5) await bestiaryScreen();
+    const label = opts[r.pick - 1];
+    if (label === "装備を換える") await equipSwap(ch);
+    else if (label === "術（構え・図鑑）") await spellMenu(ch);
+    else if (label === "進行中（依頼・因縁・印）") await eventsScreen();
+    else if (label === "人物と年代記") await chronicleScene();
+    else if (label === "敵図鑑") await bestiaryScreen();
+    else if (label?.startsWith("記憶を見る")) await memoriesSheet(ch);
     else break;
     busy = true;
   }
+  busy = false;
+}
+
+/** 記憶（旧「形質」）を一覧する。「カテゴリ:中身」の接頭辞でグループ化＝見出し＋箇条書きで読みやすく。 */
+async function memoriesSheet(ch: Character) {
+  busy = true;
+  const groups = new Map<string, string[]>();
+  for (const t of ch.traits) {
+    const m = t.match(/^([^:：]{1,12})[:：](.+)$/); // 「遺品:◯◯」等の接頭辞でカテゴリ分け
+    const cat = m ? m[1] : "その他";
+    const item = m ? m[2] : t;
+    let arr = groups.get(cat);
+    if (!arr) { arr = []; groups.set(cat, arr); }
+    arr.push(item);
+  }
+  const lines: string[] = [];
+  for (const [cat, items] of groups) {
+    lines.push(`〈${cat}〉`);
+    for (const it of items) lines.push(`　・${it}`);
+  }
+  await sheet({ text: lines.join("\n") || "まだ何も刻まれていない。", meta: `記憶 ${ch.traits.length}件`, options: ["閉じる"] });
   busy = false;
 }
 
