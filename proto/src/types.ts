@@ -17,6 +17,8 @@ export interface World {
   flags?: string[];             // 伏線フラグ（遭遇の選択が立てる。化石/アクターごとにスコープ：4-12 遭-②）
   actors?: LivingActor[];       // 永続化された生者NPC（lazy：参照された者だけ：4-12(G)/(C)）
   quests?: Quest[];             // 受注中/達成済の依頼（回収業 4-10G）
+  questsDone?: number;          // 達成（報酬受取）した依頼の通算数（4-4E プレイヤー等級の実績スコア）。任意＝旧セーブ非破壊。
+  recognizedGrade?: number;     // ギルドが正式認定済みの最高等級（昇格イベントの既読管理：4-4E）。任意＝旧セーブ非破壊。
   stash?: InventorySlot[];      // 自宅の保管庫：消耗品（世代を越えて残る＝持ち物システム Phase3）。任意＝旧セーブ非破壊。
   stashGear?: Item[];           // 自宅の保管庫：装備（武器/防具/遺物/鞄の収集。世代越え）。任意＝旧セーブ非破壊。
   seals?: string[];             // 奉献の試練：集めた印（SealKey。World に蓄積＝世代越え。5種で深淵帯解錠：4-13A）。任意＝旧セーブ非破壊。

@@ -6,6 +6,7 @@ import type {
 import { SEAL_KEYS, SEAL_LABEL } from "./types.ts";
 import { resolveTonePole } from "./variation.ts";
 import { BASE_STATS, STASH_INHERIT, LOADOUT_CAP } from "./progression.ts";
+import { worldPlayerGrade } from "./companion.ts";
 
 let idCounter = 0;
 const newId = (prefix: string) => `${prefix}_${(++idCounter).toString(36)}`;
@@ -54,6 +55,8 @@ export function migrateWorld(w: World): World {
   if (!Array.isArray(w.echoes)) w.echoes = []; // 残響召喚の遺灰（4-10I）：欠落は空で補完
   if (!Array.isArray(w.seals)) w.seals = [];       // 奉献の試練・集めた印（4-13A）：欠落は空で補完
   if (typeof w.ascended !== "number") w.ascended = 0; // 奉献の試練・クリア回数（4-13D）
+  if (typeof w.questsDone !== "number") w.questsDone = 0; // 4-4E 実績スコア（達成依頼数）：欠落は0
+  if (typeof w.recognizedGrade !== "number") w.recognizedGrade = worldPlayerGrade(w, w.current?.level ?? 1); // 既存セーブは現等級で初期化＝昇格イベントの再演を防ぐ
   if (!Array.isArray(w.bestiary)) w.bestiary = []; // 敵図鑑（遭遇種）：欠落は空で補完
   if (w.town) { // 歩ける街（4-4B）：旧セーブに欠落するサブシーン状態を補完
     if (!Array.isArray(w.town.memorials)) w.town.memorials = []; // 慰霊碑（4-6C）：供養した先人の名。欠落は空で補完

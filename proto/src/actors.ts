@@ -5,7 +5,7 @@ import type { ContentDb } from "./content.ts";
 import { filterByTags, pickByTags } from "./content.ts";
 import type { Actor, FragmentTags, LivingActor, World } from "./types.ts";
 import type { Rng } from "./rng.ts";
-import { levelGrade } from "./companion.ts";
+import { worldPlayerGrade } from "./companion.ts";
 
 /** 金属等級（4-4E）の素材key→index。設定ファイル(actor_grade)はこのkeyで等級を綴る。 */
 const GRADE_INDEX: Record<string, number> = { iron: 0, bronze: 1, silver: 2, gold: 3, platinum: 4 };
@@ -37,7 +37,7 @@ export function pickRosterActor(world: World, db: ContentDb, rng: Rng): LivingAc
   const deadNames = new Set((world.fossils ?? []).map((f) => f.origin.name));
   // 等級ゲート（4-14）：等級 ≤ プレイヤー等級＋1 の名簿員のみ出会える＝「名を上げて初めて高位に会う」。
   // 一つ上の格（憧れの先達）には少し早く会える余白。死者/既登場は除外。
-  const cap = levelGrade(world.current?.level ?? 1) + 1;
+  const cap = worldPlayerGrade(world, world.current?.level ?? 1) + 1;
   const avail = roster.filter((r) => !metIds.has(r.id) && !deadNames.has(r.name) && (r.grade ?? 0) <= cap);
   if (avail.length === 0) return null;
   const r = rng.pick(avail);

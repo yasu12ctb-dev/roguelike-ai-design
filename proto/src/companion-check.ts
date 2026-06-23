@@ -1,7 +1,7 @@
 // 同行（契約・金属等級 4-14C/4-4E）の純粋ロジックの決定論テスト。
 // 実行：node --experimental-strip-types src/companion-check.ts
 import {
-  GRADE_LABELS, LIVING_GRADE_CAP, levelGrade, rankLabel, companionGradeFor,
+  GRADE_LABELS, LIVING_GRADE_CAP, playerGrade, playerAchievement, rankLabel, companionGradeFor,
   hireFee, effectiveHireGrade, companionCut,
 } from "./companion.ts";
 import { companionMaxHp, companionDmg } from "./dungeon.ts";
@@ -12,12 +12,21 @@ function eq(label: string, got: unknown, want: unknown) {
   else { fail++; console.log(`  ❌ ${label}: got=${JSON.stringify(got)} want=${JSON.stringify(want)}`); }
 }
 
-console.log("== 等級ラベル / レベル帯 ==");
+console.log("== プレイヤー等級（レベル×実績の両ゲート・4-4E 改訂） ==");
 eq("ラベル6段", GRADE_LABELS.length, 6);
 eq("LIVING_CAP", LIVING_GRADE_CAP, 4);
-eq("levelGrade境界", [1, 2, 3, 4, 5, 7, 8, 11, 12, 20].map(levelGrade), [0, 0, 1, 1, 2, 2, 3, 3, 4, 4]);
-eq("rankLabel Lv1", rankLabel(1), "アイアン（新参）");
-eq("rankLabel Lv12", rankLabel(12), "プラチナ（英傑）");
+eq("rankLabel index", rankLabel(3), "ゴールド（精鋭）");
+// 実績スコア＝依頼 + 印×2 + 伝説×2 + クリア×4
+eq("実績スコア", playerAchievement(3, 5, 1, 1), 3 + 10 + 2 + 4);
+// 両ゲート：レベルだけでは精鋭になれない（実績ゲートで止まる）
+eq("Lv50実績0→ブロンズ止まり", playerGrade(50, 0, 0), 1);
+eq("Lv9実績2→ブロンズ(銀はLv16要)", playerGrade(9, 2, 0), 1);
+eq("Lv16実績2→シルバー", playerGrade(16, 2, 0), 2);
+eq("Lv28実績5→ゴールド", playerGrade(28, 5, 0), 3);
+eq("Lv42実績10→プラチナ", playerGrade(42, 10, 0), 4);
+eq("Lv50実績20クリア前→プラチナ止まり", playerGrade(50, 20, 0), 4);
+eq("Lv50実績20クリア後→ミスリル", playerGrade(50, 20, 1), 5);
+eq("Lv49実績20クリア後→プラチナ(Lv不足)", playerGrade(49, 20, 1), 4);
 
 console.log("== 昇格の両ゲート（生存+偉業） ==");
 eq("初期0", companionGradeFor(0, 0, 0), 0);

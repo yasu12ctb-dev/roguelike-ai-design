@@ -109,5 +109,6 @@ export function claimQuest(world: World, ch: Character, questId: string): number
   if (!q || q.status !== "done") return 0;
   ch.gold += q.rewardGold;
   world.quests = openQuests(world).filter((x) => x.id !== questId);
+  world.questsDone = (world.questsDone ?? 0) + 1; // 4-4E 実績スコア：達成依頼の通算
   return q.rewardGold;
 }
