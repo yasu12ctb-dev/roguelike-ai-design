@@ -52,7 +52,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.22.5";
+export const APP_VERSION = "0.23.0";
 export const APP_BUILD = "2026-06-22";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1198,7 +1198,7 @@ function arcStageLabel(t: { arcType: string; beat?: number; pick?: string }): st
 }
 /** 金属6等級のラベルと契約ロジックは companion.ts（ブラウザセーフ・純粋）に集約（式のドリフト防止）。 */
 import {
-  GRADE_LABELS, LIVING_GRADE_CAP, levelGrade, rankLabel, companionGradeFor,
+  GRADE_LABELS, LIVING_GRADE_CAP, worldPlayerGrade, companionGradeFor,
   hireFee, effectiveHireGrade, companionCut,
 } from "../companion.ts";
 /** 相棒の昇格判定（⤴ 4-4E）。生還(bond)・偉業(feats)を更新した後に呼ぶ。段が上がればログと盤上へ反映。 */
@@ -1221,7 +1221,7 @@ function recordCompanionFeat(): void {
   tryPromoteCompanion();
 }
 /** 永続同行のランクゲート（4-14C）：恒久相棒にできるのは「実効等級 ≤ プレイヤーの等級」まで。 */
-function playerGrade(): number { return levelGrade(world.current?.level ?? 1); }
+function playerGrade(): number { return worldPlayerGrade(world, world.current?.level ?? 1); }
 // ---- 同行＝契約パーティ（4-14C・2026-06-16 改訂）：雇用/折半/解散/再雇用 ----
 /** 生者NPC（world.actors）に蓄積した雇用記録（昇格はここに残り再雇用で再開）。 */
 function storedRecord(actorRef: string): { grade: number; bond: number; feats: number } | undefined {
@@ -1330,7 +1330,7 @@ async function heroRoll() {
     : "";
   const opts = hired ? ["相棒と別れる（解散）", "閉じる"] : ["閉じる"];
   const r = await sheet({
-    text: `ギルド長は台帳を繰る。\n「あなたの等級は ── 《${rankLabel(ch.level)}》。あなたが遺した伝説は ${legends} 柱」。${comp}\n\n〔英雄譜〕\n${roll}`,
+    text: `ギルド長は台帳を繰る。\n「あなたの等級は ── 《${GRADE_LABELS[playerGrade()]}》。あなたが遺した伝説は ${legends} 柱」。${comp}\n\n〔英雄譜〕\n${roll}`,
     meta: "ギルド ── 等級・英雄譜（4-4）", options: opts,
   });
   busy = false;
@@ -1342,6 +1342,59 @@ async function heroRoll() {
     save();
   }
 }
+/** ギルドで等級を正式認定する（4-4E）。前回認定(recognizedGrade)を超えた分だけ、段ごとに昇格イベントを演出。 */
+async function checkRankUp() {
+  const ch = world.current; if (!ch) return;
+  const cur = playerGrade();
+  const known = world.recognizedGrade ?? 0;
+  if (cur <= known) return;
+  busy = true;
+  for (let g = known + 1; g <= cur; g++) await rankUpScene(g);
+  world.recognizedGrade = cur;
+  save();
+  busy = false;
+}
+
+/** 昇格イベント本体。銅銀＝簡素／金＝賞賛／白金＝英傑（荘重）／秘銀＝ギルドマスター登場の小イベント（4-4E）。 */
+async function rankUpScene(g: number) {
+  const ch = world.current!;
+  const gm = townGrid.data.keepers["guild"]?.name ?? "ギルド長";
+  const label = GRADE_LABELS[g];
+  if (g <= 2) { // ブロンズ/シルバー＝簡素なメッセージと共に昇格
+    sfx("quest");
+    await sheet({
+      text: `${gm}が台帳に新しい印を押した。\n「${label}。確かに認めた。${g === 1 ? "一人前への入り口だ。気を抜くなよ" : "お前の名も、少しずつ知られてきたな"}」`,
+      meta: `昇格 ── ${label}`, options: ["頭を下げる"],
+    });
+  } else if (g === 3) { // ゴールド＝賞賛のメッセージと共に昇格
+    sfx("seal");
+    await sheet({
+      text: `${gm}は手を止め、しばしあなたの顔を見た。\n「${label}。──精鋭の証だ。深みでお前の名を聞く者が増えてきた。\n胸を張れ。だが、深淵はここからが本番だぞ」\n居合わせた冒険者たちが、静かにあなたへ目をやった。`,
+      meta: `昇格 ── ${label}`, options: ["頭を下げる"],
+    });
+    chronicle(world, "legend", `${ch.name}がゴールド（精鋭）に列せられた。`, [ch.id]);
+  } else if (g === 4) { // プラチナ＝英傑（荘重な賞賛）
+    sfx("seal");
+    await sheet({
+      text: `その報せは、酒場にまで届いていた。\n${gm}は背筋を伸ばし、深く頭を下げた。\n「${label}。──英傑の段だ。生きてここまで至る者は、この街にも数えるほどしかいない。\nお前の名は、もう伝説の隣にある」`,
+      meta: `昇格 ── ${label}`, options: ["静かに頷く"],
+    });
+    chronicle(world, "legend", `${ch.name}がプラチナ（英傑）に列せられた。`, [ch.id]);
+  } else { // ミスリル＝ギルドマスター登場・ちょっとしたイベントと共に昇格（生きて至る稀有な頂点）
+    sfx("boss");
+    await sheet({
+      text: `その日、ギルドの空気が変わった。\n奥の扉が音もなく開き、滅多に表へ出ぬ《ギルドマスター》が、自らあなたの前に立った。\n古い傷の刻まれた手に、秘銀色の小さな記章を握っている。`,
+      meta: "ミスリル ── 秘銀の段", options: ["顔を上げる"],
+    });
+    sfx("seal");
+    await sheet({
+      text: `「生きて、ここまで至ったか」。\n《ギルドマスター》は記章をあなたの胸に留めた。\n「${label}。──秘銀の段。死してミスリルを贈られる者は数あれど、生きて至った者を、私は片手で数えられる。\nお前も、その一人だ。……ようこそ、こちら側へ」。\n台帳の最後の頁に、あなたの名が刻まれた。`,
+      meta: "ミスリル ── 秘銀の段", options: ["記章を受け取る"],
+    });
+    chronicle(world, "legend", `${ch.name}が、生きてミスリル（秘銀・神話）に至った。`, [ch.id]);
+  }
+}
+
 // ギルド act2「系譜の恩寵を確かめる」：先代から継いだ恩寵（絆・形質）を確認。
 async function lineageBoon() {
   busy = true;
@@ -1358,6 +1411,8 @@ async function talkKeeper(asKind?: string) {
   if (busy || !interior) return;
   const kind = asKind ?? interior.kind;
   const d = townGrid.data.keepers[kind];
+  if (kind === "guild") await checkRankUp(); // 等級の正式認定＝昇格イベント（4-4E）
+  if (busy || !interior) return; // 昇格イベント中に状況が変わっていないか再確認
   busy = true;
   const r = await sheet({
     text: `${d.name} ── ${d.title}\n\n「${d.line}」`,
