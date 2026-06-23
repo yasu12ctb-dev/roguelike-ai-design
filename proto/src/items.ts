@@ -240,11 +240,16 @@ export const SLOT_LABEL: Record<ItemSlot, string> = { weapon: "武器", armor: "
 // 効果：exposure＝深蝕を退ける（持続するので街でも有効）／healFrac＝最大HPの割合を回復（潜行中専用）。
 export interface ConsumableDef {
   key: string; name: string; desc: string; price: number;
+  minLevel?: number; // この等級未満では店頭に並ばない（深部向け上位品を序盤の棚に出さない）
   use: { exposure?: number; healFrac?: number };
 }
 export const CONSUMABLES: ConsumableDef[] = [
   { key: "soothe", name: "鎮静の薬",   desc: "深蝕を 0.6 退ける（携行できる薬師）", price: 16, use: { exposure: -0.6 } },
   { key: "salve",  name: "治癒の膏薬", desc: "最大HPの半分を癒す（潜行中に）",     price: 12, use: { healFrac: 0.5 } },
+  // 上位品（深部向け・監査B5）：深層は深蝕が 2〜3+ まで嵩み最大HPも大きい。固定 0.6/半分では薄い。
+  { key: "salve2",  name: "治癒の秘薬", desc: "最大HPの9割を癒す（潜行中に）",   price: 30, minLevel: 14, use: { healFrac: 0.9 } },
+  { key: "soothe2", name: "鎮静の劑",   desc: "深蝕を 1.4 退ける（濃い薬）",     price: 44, minLevel: 16, use: { exposure: -1.4 } },
+  { key: "soothe3", name: "浄化の聖水", desc: "深蝕を 2.6 退ける（祓いの聖水）", price: 96, minLevel: 30, use: { exposure: -2.6 } },
 ];
 export const consumableByKey = (key: string): ConsumableDef | undefined => CONSUMABLES.find((c) => c.key === key);
 

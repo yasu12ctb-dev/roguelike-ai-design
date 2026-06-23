@@ -52,7 +52,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.24.1";
+export const APP_VERSION = "0.25.0";
 export const APP_BUILD = "2026-06-22";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1017,14 +1017,15 @@ async function storeBuy() {
   busy = true;
   const ch = world.current!;
   for (;;) {
+    const stock = CONSUMABLES.filter((c) => (c.minLevel ?? 0) <= ch.level); // 上位品は等級で解禁（深部向けを序盤の棚に出さない）
     const r = await sheet({
       text: `道具屋ハル。所持 金${ch.gold}。\n持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)} 枠（同じ品は重ねて持てる）。`,
       meta: "道具屋 ── 消耗品を買う",
-      options: [...CONSUMABLES.map((c) => `${c.name}（${c.desc}）${c.price}金貨`), "やめる"],
+      options: [...stock.map((c) => `${c.name}（${c.desc}）${c.price}金貨`), "やめる"],
     });
     const i = r.pick - 1;
-    if (i < 0 || i >= CONSUMABLES.length) break;
-    const c = CONSUMABLES[i];
+    if (i < 0 || i >= stock.length) break;
+    const c = stock[i];
     if (ch.gold < c.price) { await sheet({ text: "金貨が足りない。", options: ["出直す"] }); continue; }
     if (!addConsumable(ch, c.key)) { await sheet({ text: "持ち物が一杯だ。レベルが上がれば、持てる量も増える。", options: ["わかった"] }); continue; }
     ch.gold -= c.price; sfx("buy");
@@ -1665,7 +1666,7 @@ async function characterCreation() {
 // 1帰還につき最大1件。各型は固有のクールダウン（型ごとに頻度を変える）＋全体の発生確率で間引く。
 // 4-12 J：イベントのレベル帯ゲート（~Lv50 スケール・2026-06-17 ユーザー承認）。
 // 早期1-10／中期11-25／後期26-40／超期45+。低レベルでまとめて着火させない。
-const BAND = { raid: 11, plague: 14, memorial: 4, noble: 45 };
+const BAND = { raid: 11, plague: 14, memorial: 4, omen: 20, noble: 45 };
 async function maybeTownEvent(): Promise<void> {
   const ch = world.current;
   if (!ch) return;
@@ -1678,15 +1679,61 @@ async function maybeTownEvent(): Promise<void> {
   if ((world.raidCooldown ?? 0) > 0) world.raidCooldown = (world.raidCooldown ?? 0) - 1;
   if ((world.memorialCooldown ?? 0) > 0) world.memorialCooldown = (world.memorialCooldown ?? 0) - 1;
   if ((world.plagueCooldown ?? 0) > 0) world.plagueCooldown = (world.plagueCooldown ?? 0) - 1;
+  if ((world.omenCooldown ?? 0) > 0) world.omenCooldown = (world.omenCooldown ?? 0) - 1;
   // 発火可能（冷却0＋レベル帯＋固有条件）な型を集める
   const pool: { w: number; run: () => Promise<void> }[] = [];
   if (ch.level >= BAND.raid && (world.raidCooldown ?? 0) === 0) pool.push({ w: 2, run: townRaidScene });           // 脅威（中期〜）
   if (ch.level >= BAND.memorial && (world.memorialCooldown ?? 0) === 0 && world.fossils.some((f) => f.kind === "character")) pool.push({ w: 3, run: townMemorialScene }); // 好機（定期）
   if (ch.level >= BAND.plague && (world.plagueCooldown ?? 0) === 0) pool.push({ w: 2, run: townPlagueScene }); // 災厄（中期〜）
+  if (ch.level >= BAND.omen && (world.omenCooldown ?? 0) === 0) pool.push({ w: 2, run: townOmenScene }); // 兆し（後期〜）
   if (pool.length === 0 || rng.next() >= 0.4) return; // 毎帰還は起きない（多くは静穏）
   const total = pool.reduce((a, b) => a + b.w, 0);
   let r = rng.next() * total;
   for (const a of pool) { r -= a.w; if (r <= 0) { await a.run(); return; } }
+}
+
+// 深みの兆し（後期帯 Lv20+・監査B4）：深く潜った者として知られるほど、街に滲む深蝕の予兆を「読んで」ほしいと請われる。
+// 脅威でも災厄でもない第三の顔＝世界が主人公の深度に反応する静かな出来事。tier で報酬/深蝕を深部規模に。
+async function townOmenScene(): Promise<void> {
+  busy = true;
+  const ch = world.current!;
+  world.omenCooldown = 12 + Math.floor(rng.next() * 7); // 次の兆しまで最短12〜18帰還
+  const tier = Math.min(5, 1 + Math.floor(ch.level / 10)); // 規模＝報酬/深蝕の係数（Lv10ごとに+1・Lv50で頭打ち）
+  const sign = rng.pick(["井戸の水が、墨のように黒く濁った", "幼子が、誰にも分からぬ言葉で深みの唄を口ずさむ", "石壁に、化石めいた紋がひとりでに浮かび上がった", "夜ごと、地の底から鐘のような響きが昇ってくる"]);
+  sfx("drain"); flashFx("warp");
+  log("街の片隅に、深みの兆しが滲んでいる。", "warn");
+  const r1 = await sheet({
+    text: `潜行から戻ると、街の者がお前を呼び止めた。「${sign}。あんたは、底をよく知るお人だ……これが何か、読めやしないか」\n深く潜った者にしか、この兆しの意味は分かるまい。`,
+    meta: "深みの兆し", options: ["源を辿り、兆しを読む（理・識）", "鎮めの所作を施す（心）", "関わらない"],
+  });
+  if (r1.pick === 1) {
+    if (ch.stats.reason + ch.stats.heart >= 6) {
+      const gold = 12 * tier;
+      ch.gold += gold;
+      const t = `地相を読む者:第${world.generation}世代`;
+      if (!ch.traits.includes(t)) ch.traits.push(t);
+      chronicle(world, "rediscovery", `第${world.generation}世代、${ch.name}は街に滲む深みの兆しを読み解いた。`, [ch.id]);
+      sfx("seal");
+      await sheet({ text: `お前は兆しの源を辿り、深みの理の一端を街の者に説いた。人々は怖れながらも、お前の言葉に縋った。\n\n謝礼として ${gold} 金貨を得た。`, options: ["街へ戻る"] });
+    } else {
+      ch.exposure += 0.08 * tier;
+      await sheet({ text: "お前は兆しを読もうと深みに意識を凝らした。だが、覗き返してくる何かに、わずかに引きずられた。\n\n（深蝕がうずいた）", options: ["街へ戻る"] });
+    }
+  } else if (r1.pick === 2) {
+    if (ch.stats.heart >= 4) {
+      ch.exposure = Math.max(0, ch.exposure - 0.12 * tier); // 街のために祈り、己の澱みも少し晴れる
+      ch.gold += 5 * tier;
+      const t = `鎮める手:第${world.generation}世代`;
+      if (!ch.traits.includes(t)) ch.traits.push(t);
+      sfx("intervene");
+      await sheet({ text: "お前は古い鎮めの所作を施した。墨の水は澄み、唄は止んだ。街の者が、震える手で礼の硬貨を握らせてくる。\n\n（張りつめていた何かが、少し和らいだ）", options: ["街へ戻る"] });
+    } else {
+      await sheet({ text: "見様見真似で所作を施したが、兆しは薄れも濃くもならなかった。人々は、それでも頭を下げた。", options: ["街へ戻る"] });
+    }
+  } else {
+    await sheet({ text: "お前は兆しに背を向けた。底の事は、底に置いていくのが利口というもの。\n背に、街の者の不安げな視線が残った。", options: ["街へ戻る"] });
+  }
+  busy = false;
 }
 
 async function townRaidScene(): Promise<void> {
@@ -3310,8 +3357,8 @@ function rollKillLoot(mon: Monster): void {
       log(`亡骸が ${itemLabel(it)} を遺していた（袋 ${ch.gearBag.length}/${gearCapacity(ch)}）。`, "dim");
     } else log("めぼしい武具があったが、袋が満杯で見送った。", "dim");
   }
-  if (rng.next() < 0.06) { // 消耗品：たまに薬の類
-    const c = rng.pick(CONSUMABLES);
+  if (rng.next() < 0.06) { // 消耗品：たまに薬の類（上位品は等級で解禁＝浅層で深部品を落とさない）
+    const c = rng.pick(CONSUMABLES.filter((x) => (x.minLevel ?? 0) <= ch.level));
     if (addConsumable(ch, c.key)) { sfx("pickup", 0.1); log(`亡骸から ${c.name} を見つけた。`, "dim"); }
   }
 }
