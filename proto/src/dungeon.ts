@@ -15,17 +15,22 @@ export interface MonsterKind {
   key: string; glyph: string; name: string;
   hp: number; dmg: number; minDepth: number; erratic: number; // erratic=ランダム移動率
   tier: number; // 強さの段（1=雑魚 … 5=最危険）。記号=種類／色=tier で可視化（4-11F）。
+  maxDepth?: number; // この深度を超えると出現しない（最弱種の深層フェードアウト：2026-06-23）。
 }
 // 記号＝種類（小文字=並／大文字=強）、色＝tier。深いほど上位種が混じり緊張感が増す。
+// 深度係数（scaleKind）が HP/dmg を底上げするので base は種の個性。深層（28/35/42）に上位種を追加（監査B1）。
 export const MONSTER_KINDS: MonsterKind[] = [
-  { key: "rat",    glyph: "r", name: "大鼠",     hp: 3,  dmg: 1, minDepth: 1,  erratic: 0.3,  tier: 1 },
+  { key: "rat",    glyph: "r", name: "大鼠",     hp: 3,  dmg: 1, minDepth: 1,  erratic: 0.3,  tier: 1, maxDepth: 20 },
   { key: "beetle", glyph: "k", name: "鎧蟲",     hp: 8,  dmg: 1, minDepth: 1,  erratic: 0.1,  tier: 2 }, // 硬い・低火力（一撃で倒せない壁）
-  { key: "bat",    glyph: "b", name: "洞蝙蝠",   hp: 2,  dmg: 1, minDepth: 2,  erratic: 0.6,  tier: 1 },
+  { key: "bat",    glyph: "b", name: "洞蝙蝠",   hp: 2,  dmg: 1, minDepth: 2,  erratic: 0.6,  tier: 1, maxDepth: 24 },
   { key: "snake",  glyph: "s", name: "石蛇",     hp: 5,  dmg: 2, minDepth: 5,  erratic: 0.2,  tier: 2 },
   { key: "ghoul",  glyph: "g", name: "屍喰らい", hp: 7,  dmg: 2, minDepth: 9,  erratic: 0.1,  tier: 3 },
   { key: "wisp",   glyph: "w", name: "迷い火",   hp: 4,  dmg: 3, minDepth: 13, erratic: 0.4,  tier: 3 },
   { key: "wraith", glyph: "W", name: "怨霊",     hp: 10, dmg: 3, minDepth: 16, erratic: 0.15, tier: 4 },
   { key: "ogre",   glyph: "O", name: "石鬼",     hp: 14, dmg: 4, minDepth: 22, erratic: 0.05, tier: 5 },
+  { key: "troll",  glyph: "T", name: "蝕喰鬼",   hp: 20, dmg: 5, minDepth: 28, erratic: 0.05, tier: 5 }, // 深層の壁役（高HP）
+  { key: "drake",  glyph: "D", name: "深淵竜",   hp: 24, dmg: 6, minDepth: 35, erratic: 0.1,  tier: 5 }, // 高火力
+  { key: "horror", glyph: "Y", name: "虚無の貌", hp: 28, dmg: 7, minDepth: 42, erratic: 0.2,  tier: 5 }, // 最深・不規則で読みにくい
 ];
 
 // 深度係数（終始シビア・無限スケール 4-11F②）。種の堅さ（早期の差）に深度ぶんを上乗せ＝
@@ -208,7 +213,7 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }
   };
 
   // ---------- モンスター配置（マップ面積＋深度でスケール。大マップでも密度を確保） ----------
-  const pool = MONSTER_KINDS.filter((k) => k.minDepth <= depth);
+  const pool = MONSTER_KINDS.filter((k) => k.minDepth <= depth && (k.maxDepth === undefined || depth <= k.maxDepth));
   const count = Math.min(Math.round((W * H) / 120) + Math.floor(depth / 3), 42); // 出現率・上限を拡張面積に追従（20→42）
   for (let i = 0; i < count; i++) {
     const kind = scaleKind(pool[rng.int(pool.length)], depth); // 深度係数を焼き込む（HP/dmg/XP連動）
