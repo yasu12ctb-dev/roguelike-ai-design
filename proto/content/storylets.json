@@ -20968,6 +20968,663 @@
      ]
     }
    ]
+  },
+  {
+   "id": "ch_m4d_sh_coins",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "shallow"
+   },
+   "weight": 3,
+   "result": {
+    "text": "蓋を開けると、握りやすいよう紐で束ねた小銭がいくつも。誰かの几帳面さが偲ばれる。",
+    "effects": [
+     {
+      "gold": 8
+     },
+     {
+      "chronicle": "深度#depth#の宝箱から、束ねた小銭を得た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4d_sh_ration",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "shallow"
+   },
+   "weight": 3,
+   "result": {
+    "text": "油紙にくるまれた干し肉と、栓のされた水筒。まだ傷んでいない。命をつなぐ品だ。",
+    "effects": [
+     {
+      "item": "salve"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4d_sh_trinket",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "shallow"
+   },
+   "weight": 2,
+   "result": {
+    "text": "木彫りの素朴な護符が一つ。彫りは拙いが、持ち主の祈りが、まだ手垢に残っている。",
+    "effects": [
+     {
+      "trait": "拾得:素朴な木の護符"
+     },
+     {
+      "exposure": -0.03
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4d_sh_note",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "shallow"
+   },
+   "weight": 2,
+   "result": {
+    "text": "金目の物は無い。だが箱の底に、この先の地形を几帳面に記した先客の書き置きが残されていた。",
+    "effects": [
+     {
+      "trait": "知見:先客の地形メモ"
+     },
+     {
+      "chronicle": "深度#depth#で、先客の残した地形メモを拾った。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4d_mid_purse",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 3,
+   "result": {
+    "text": "布袋の口を縛る紐に、賭場の符牒。中には、勝ち逃げのつもりだったらしい釣り銭が、雑多に放り込まれている。",
+    "effects": [
+     {
+      "gold": 16
+     },
+     {
+      "chronicle": "深度#depth#の宝箱から、誰かの勝ち金を得た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4d_mid_oil",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 2,
+   "result": {
+    "text": "灯火の油の小瓶と、丁寧に巻かれた薬包。長く潜る者の、必需の備えだ。",
+    "effects": [
+     {
+      "item": "salve"
+     },
+     {
+      "gold": 4
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4d_mid_charm",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 2,
+   "result": {
+    "text": "深みよけと刻まれた銀の護符。握ると、ひやりと澄んだ感触が掌に伝わる。",
+    "effects": [
+     {
+      "exposure": -0.08
+     },
+     {
+      "trait": "携行:深みよけの護符"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4d_mid_relicfrag",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 2,
+   "result": {
+    "text": "脈打つ異物の欠片が、布に包まれて収まっている。値はつくが、触れた指先が、わずかに痺れた。",
+    "effects": [
+     {
+      "gold": 12
+     },
+     {
+      "exposure": 0.07
+     },
+     {
+      "trait": "拾得:脈打つ異物の欠片"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4d_mid_map",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 2,
+   "result": {
+    "text": "革に焼き付けた階層図の断片。先の分かれ道と、避けるべき広間に、几帳面な×印がある。",
+    "effects": [
+     {
+      "trait": "知見:中層の階層図"
+     },
+     {
+      "chronicle": "深度#depth#で、先人の階層図を手に入れた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4d_deep_warhoard",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 2,
+   "result": {
+    "text": "底冷えのする箱に、戦士の遺財。砥石と、磨かれた小金、そして油を引いた予備の刃。",
+    "effects": [
+     {
+      "gold": 20
+     },
+     {
+      "item": "salve2"
+     },
+     {
+      "chronicle": "深度#depth#の宝箱から、戦士の遺財を継いだ。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4d_deep_blackcoin",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 2,
+   "result": {
+    "text": "黒ずんだ大金が、無造作に詰め込まれている。深みに長く晒され、硬貨は澱の色を帯びていた。",
+    "effects": [
+     {
+      "gold": 30
+     },
+     {
+      "exposure": 0.1
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4d_deep_elixir",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 2,
+   "result": {
+    "text": "藁に守られた硝子瓶に、淡く光る秘薬。栓を確かめると、深手をも癒す上物だと知れる。",
+    "effects": [
+     {
+      "item": "salve2"
+     },
+     {
+      "chronicle": "深度#depth#の宝箱から、上物の秘薬を得た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4d_deep_sigil",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 2,
+   "result": {
+    "text": "封蝋の崩れた書状と、印章が一つ。誰かが深層で果たそうとした、約束の証らしい。",
+    "effects": [
+     {
+      "trait": "拾得:深層で果たされぬ印章"
+     },
+     {
+      "exposure": 0.05
+     },
+     {
+      "chronicle": "深度#depth#で、果たされなかった約束の印章を拾った。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4d_abyss_reliccache",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 2,
+   "result": {
+    "text": "幾重にも結ばれた組紐の束が収まっている。結び目の一つひとつが、誰かの祈りらしい。握ると、胸の澱がほどけていく。",
+    "effects": [
+     {
+      "item": "soothe2"
+     },
+     {
+      "exposure": -0.05
+     },
+     {
+      "chronicle": "深度#depth#で、祈りを編んだ組紐を手にした。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4d_abyss_doomgold",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 2,
+   "result": {
+    "text": "目を疑うほどの財宝。だが一枚手に取るごとに、背の冷気が一段増していく。値打ちと、呪いが同じ重さだ。",
+    "effects": [
+     {
+      "gold": 36
+     },
+     {
+      "exposure": 0.16
+     },
+     {
+      "trait": "佩いた:呪われた深淵の財"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4d_abyss_holyvial",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 1,
+   "result": {
+    "text": "蝋で封じた陶の壺。栓を抜くと、嗅いだことのない清香が立ちのぼり、まとわりつく澱を払っていく。聖油だ。",
+    "effects": [
+     {
+      "item": "soothe3"
+     },
+     {
+      "chronicle": "深度#depth#の宝箱から、澱を払う聖油を得た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_m4d_abyss_whisperbox",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 2,
+   "result": {
+    "text": "蓋の隙間から、絶え間ない囁きが漏れている。中の品は確かに尊い――だが、耳を貸すほど、何かが滲んでくる。",
+    "effects": [
+     {
+      "trait": "拾得:囁きの止まぬ品"
+     },
+     {
+      "exposure": 0.12
+     },
+     {
+      "gold": 10
+     }
+    ]
+   }
+  },
+  {
+   "id": "dv_m4d_map_swap",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "すれ違いざま、#origin_name# が地図を広げた。「見せ合わないか。お互い、無駄足が減る」。",
+   "choices": [
+    {
+     "label": "地図を見せ合う",
+     "text": "互いの踏破した範囲を突き合わせ、未知の道筋が見えてきた。情報は、深層で命を分ける。",
+     "effects": [
+      {
+       "trait": "知見:#origin_name#と交換した地図"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4d_split_loot",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# が、両手いっぱいの拾い物を差し出した。「一人じゃ持ちきれん。山分けしようや」。",
+   "choices": [
+    {
+     "label": "ありがたく分ける",
+     "text": "金目の物を等分し、互いの幸運を讃え合った。深層で出会う気前の良さは、得難い。",
+     "effects": [
+      {
+       "gold": 8
+      },
+      {
+       "bond": 1
+      }
+     ]
+    },
+    {
+     "label": "譲って先を急ぐ",
+     "text": "「お前が持っていけ」と譲り、お前は足早に先へ。#origin_name#は深く頭を下げた。",
+     "effects": [
+      {
+       "chronicle": "深層で出会った#origin_name#に、拾い物を譲った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4d_news_town",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# が足を止めた。「地上の話、聞きたかないか。お前が潜ってる間に、街も色々あってな」。",
+   "choices": [
+    {
+     "label": "近況を聞く",
+     "text": "街の噂話に、ひととき深みの寒さを忘れた。地上に帰る場所がある――それだけで、足が軽くなる。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "chronicle": "深層で出会った#origin_name#から、街の近況を聞いた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4d_warn_trap",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# が血相を変えて駆けてきた。「この先、床が抜ける。踏み抜いて連れを亡くした。気をつけろ」。",
+   "choices": [
+    {
+     "label": "忠告に礼を言う",
+     "text": "命がけの忠告だった。お前は深く頷き、#origin_name#の連れの冥福を、胸の内で祈った。",
+     "effects": [
+      {
+       "trait": "聞いた忠告:抜ける床"
+      },
+      {
+       "chronicle": "深層で#origin_name#に、抜ける床の在処を教わった。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4d_borrow_oil",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# の角灯が、心細げに揺れている。「すまん、油を分けてもらえないか。帰り道がもたん」。",
+   "choices": [
+    {
+     "label": "油を分ける",
+     "text": "自分のぶんを少し割いて渡した。「恩に着る」と#origin_name#。灯火は、巡り巡って自分を照らす。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "plant": "dv_lent_oil"
+      }
+     ]
+    },
+    {
+     "label": "余裕がないと詫びる",
+     "text": "こちらも心許ない。詫びると、#origin_name#は「いいんだ、無理を言った」と力なく笑った。",
+     "effects": [
+      {
+       "chronicle": "深層で油を求める#origin_name#に、応えてやれなかった。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4d_trade_goods",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# が荷を広げた。「物々交換といこう。薬と、その辺の拾い物。お互い要るものを」。",
+   "choices": [
+    {
+     "label": "交換に応じる",
+     "text": "互いの余り物を、互いの入り用と取り替えた。物の流れる所に、人の縁も流れる。",
+     "effects": [
+      {
+       "item": "soothe"
+      },
+      {
+       "gold": -3
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4d_scared_rookie",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "若い#origin_name# が、壁にもたれて震えている。「すみません……足が、すくんで動けなくて」。",
+   "choices": [
+    {
+     "label": "励まして送り出す",
+     "text": "お前は短く、生き延びる心得を授けた。若者の目に、わずかに光が戻る。深層は、こうして受け継がれていく。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "trait": "導いた:震える新人"
+      }
+     ]
+    },
+    {
+     "label": "一緒に少し進む",
+     "text": "気の済むまで、隣を歩いてやった。やがて#origin_name#は「もう大丈夫です」と、自分の足で歩き出した。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "深層で立ちすくむ新人に、しばし寄り添った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4d_silent_nod",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# とすれ違う。言葉は無い。ただ、互いに軽く頷き合った。同じ深みを歩く者同士の、無言の符牒。",
+   "choices": [
+    {
+     "label": "頷きを返す",
+     "text": "それだけで、十分だった。生きて、また地上で会おう――そんな約束が、視線に込められていた気がした。",
+     "effects": [
+      {
+       "chronicle": "深層で#origin_name#と、無言で励まし合ってすれ違った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4d_share_meal",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# が、岩棚で携行食を分けていた。「座れよ。腹が減っちゃ、いい判断もできん」。",
+   "choices": [
+    {
+     "label": "相伴にあずかる",
+     "text": "固い干し肉を分け合い、とりとめのない話をした。腹が満ちると、不思議と深みの寒さも遠のく。",
+     "effects": [
+      {
+       "exposure": -0.05
+      },
+      {
+       "bond": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4d_old_friend",
+   "context": "delver",
+   "prerequisites": {
+    "minBond": 1
+   },
+   "weight": 1,
+   "text": "「まさか、こんな所で」。振り返ると、かつて同じ隊にいた#origin_name# だった。互いに、生きていた。",
+   "choices": [
+    {
+     "label": "再会を喜ぶ",
+     "text": "短い時間、昔話に花が咲いた。別々の道を選んだ二人が、深みの底でまた交わる。縁は、切れていなかった。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "trait": "再会:かつての隊の#origin_name#"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4d_veteran_advice",
+   "context": "delver",
+   "prerequisites": {
+    "minLevel": 16
+   },
+   "weight": 1,
+   "text": "#origin_name# が、こちらを認めて頭を下げた。「#origin_epithet#。一つ、教えを乞いたい。この先の主の、倒し方を」。",
+   "choices": [
+    {
+     "label": "知る限りを授ける",
+     "text": "お前は、自分が掴んだ攻略の勘所を語った。名を上げた者の言葉は、若い探索者の命綱になる。",
+     "effects": [
+      {
+       "trait": "慕われた:深層で教えを乞われた"
+      },
+      {
+       "chronicle": "深層で#origin_name#に、主の倒し方を請われた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4d_race_stairs",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# が下り階段を指して、にっと笑った。「どっちが先に次の階へ着くか、競争といくか」。",
+   "choices": [
+    {
+     "label": "勝負に乗る",
+     "text": "埒もない競争に、ひととき緊張がほどけた。深層にも、こんな子供じみた楽しみが要る。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "bond": 1
+      }
+     ]
+    },
+    {
+     "label": "笑って見送る",
+     "text": "「先に行ってろ」と手を振った。#origin_name#は楽しげに駆けていく。その背中が、なぜか少し羨ましい。",
+     "effects": [
+      {
+       "chronicle": "深層で#origin_name#の階段競争を、笑って見送った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4d_lost_seek",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 1,
+   "text": "#origin_name# が、人を探していた。「相棒を見なかったか。はぐれちまって……もう、長いんだ」。",
+   "choices": [
+    {
+     "label": "見ていないと伝える",
+     "text": "力になれなかった。#origin_name#は「そうか」と肩を落とし、また暗がりへ消えていく。深層は、人を呑む。",
+     "effects": [
+      {
+       "chronicle": "深層で、はぐれた相棒を探す#origin_name#とすれ違った。"
+      }
+     ]
+    },
+    {
+     "label": "捜索を手伝うと申し出る",
+     "text": "少しのあいだ、一緒に暗がりを探した。見つからずとも、#origin_name#の目に、礼の色が滲んでいた。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "exposure": 0.03
+      }
+     ]
+    }
+   ]
   }
  ]
 }
