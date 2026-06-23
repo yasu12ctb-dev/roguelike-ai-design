@@ -20129,6 +20129,845 @@
      }
     ]
    }
+  },
+  {
+   "id": "tv_m4c_silence",
+   "context": "tavern",
+   "prerequisites": {
+    "minExposure": 0.8
+   },
+   "weight": 2,
+   "text": "隅の席で、#origin_name# が黙って杯を傾けている。お前が座ると、何も言わず、もう一杯を滑らせて寄越した。",
+   "choices": [
+    {
+     "label": "黙って受ける",
+     "text": "言葉は要らなかった。深みを見た者同士、沈黙のほうが雄弁なこともある。",
+     "effects": [
+      {
+       "exposure": -0.05
+      },
+      {
+       "chronicle": "酒場で#origin_name# と、言葉なく深みの澱を分け合った。"
+      }
+     ]
+    },
+    {
+     "label": "無理に明るく振る舞う",
+     "text": "努めて軽口を叩いた。#origin_name#は薄く笑ったが、その目は、お前の空元気を見抜いていた。",
+     "effects": [
+      {
+       "chronicle": "酒場で#origin_name# の前で、空元気を装った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_m4c_nightmare",
+   "context": "tavern",
+   "prerequisites": {
+    "minExposure": 1.4
+   },
+   "weight": 2,
+   "text": "#origin_name# が、血走った目で顔を上げた。「眠れんのだろう。底で見た顔が、瞼の裏にこびりついて離れん。おれもだ」。",
+   "choices": [
+    {
+     "label": "眠れぬ夜を語り合う",
+     "text": "二人、明け方まで埒もない話を続けた。誰かが隣にいるだけで、闇は少しだけ薄まる。",
+     "effects": [
+      {
+       "exposure": -0.06
+      },
+      {
+       "trait": "分かち合い:眠れぬ夜の戦友"
+      }
+     ]
+    },
+    {
+     "label": "酒で無理に眠ると言う",
+     "text": "「飲んで忘れる」と杯を呷った。#origin_name#は止めなかった。それも一つの、生き延び方だ。",
+     "effects": [
+      {
+       "exposure": 0.03
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_m4c_toast_lost",
+   "context": "tavern",
+   "prerequisites": {
+    "minExposure": 0.6
+   },
+   "weight": 2,
+   "text": "#origin_name# が杯を高く掲げた。「還らなかった奴らに」。店の隅で、何人かが静かに唱和する。",
+   "choices": [
+    {
+     "label": "唱和する",
+     "text": "お前も杯を上げた。名も知らぬ先達への手向けが、胸の澱をわずかに流していく。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "chronicle": "酒場で、還らなかった者たちへの献杯に加わった。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_m4c_regular_seat",
+   "context": "tavern",
+   "prerequisites": {
+    "minBond": 1
+   },
+   "weight": 2,
+   "text": "店に入ると、#origin_name# が手を振った。「お前のぶん、空けといたぞ」。いつもの席が、当たり前のように用意されている。",
+   "choices": [
+    {
+     "label": "礼を言って座る",
+     "text": "馴染みの席。馴染みの顔。命を削る稼業の合間に、こういう当たり前が、何より得難い。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "exposure": -0.03
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_m4c_song",
+   "context": "tavern",
+   "prerequisites": {
+    "minBond": 2
+   },
+   "weight": 2,
+   "text": "#origin_name# が立ち上がり、お前の名を織り込んだ即興の唄を歌い出した。店中が、調子外れの合唱で和す。",
+   "choices": [
+    {
+     "label": "照れながら受ける",
+     "text": "下手な唄だ。だが、自分の名が誰かの唄になる日が来るとは。お前は赤面して頭を掻いた。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "trait": "見たもの:自分を讃える酒場の唄"
+      }
+     ]
+    },
+    {
+     "label": "一緒に大声で歌う",
+     "text": "お前も加わって、いっそう滅茶苦茶な合唱になった。馬鹿馬鹿しさが、心地よい。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "exposure": -0.04
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_m4c_confide",
+   "context": "tavern",
+   "prerequisites": {
+    "minBond": 3
+   },
+   "weight": 2,
+   "text": "杯を重ねた#origin_name# が、声を落とした。「お前にだけ言うが——」。長く秘めてきたらしい打ち明け話が、こぼれ出す。",
+   "choices": [
+    {
+     "label": "最後まで聞く",
+     "text": "重い秘密だった。それを託されるだけの仲になったのだと、ふいに気づく。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "trait": "託された:#origin_name#の秘密"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_m4c_admirer",
+   "context": "tavern",
+   "prerequisites": {
+    "minLevel": 12
+   },
+   "weight": 2,
+   "text": "駆け出しらしい若者が、おずおずと一杯を差し出してきた。「あの#origin_epithet#、ですよね。一杯、奢らせてください」。",
+   "choices": [
+    {
+     "label": "受けて助言を授ける",
+     "text": "若者は目を輝かせて聞き入った。かつての自分も、こうして誰かの背を追ったのだ。",
+     "effects": [
+      {
+       "trait": "慕われた:駆け出しの憧れ"
+      },
+      {
+       "chronicle": "酒場で、駆け出しの冒険者に憧れの目で奢られた。"
+      }
+     ]
+    },
+    {
+     "label": "奢りは断り、逆に奢る",
+     "text": "「飲みたきゃ、まず生き延びろ」。お前は若者に一杯奢り返した。説教より、その一杯が効く。",
+     "effects": [
+      {
+       "gold": -4
+      },
+      {
+       "bond": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_m4c_armwrestle",
+   "context": "tavern",
+   "prerequisites": {
+    "minLevel": 20
+   },
+   "weight": 2,
+   "text": "屈強な男が、卓に肘を突いて挑んできた。「#origin_epithet#の腕、試させてもらおうか」。周りが、囃し立てる。",
+   "choices": [
+    {
+     "label": "受けて立つ",
+     "text": "渾身の力比べの末、男の腕をねじ伏せた。歓声が上がり、男も悔しげに笑って手を差し出す。",
+     "effects": [
+      {
+       "trait": "武勇伝:酒場の力比べを制した"
+      },
+      {
+       "bond": 1
+      }
+     ]
+    },
+    {
+     "label": "笑って受け流す",
+     "text": "「腕は迷宮で使う」と杯を掲げた。男は「違いない」と豪快に笑った。",
+     "effects": [
+      {
+       "chronicle": "酒場で挑まれた力比べを、笑って受け流した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_m4c_round",
+   "context": "tavern",
+   "prerequisites": {
+    "minLevel": 16
+   },
+   "weight": 2,
+   "text": "店主が揉み手で寄ってきた。「#origin_epithet#ともなれば、一つ皆に振る舞っちゃどうです。景気づけに」。期待の視線が集まる。",
+   "choices": [
+    {
+     "label": "一杯ずつ振る舞う",
+     "text": "気前よく全員に酒を回した。湧き上がる歓声。金は減るが、こういう顔の広さも、稼業の財産だ。",
+     "effects": [
+      {
+       "gold": -12
+      },
+      {
+       "trait": "気前:酒場を沸かせた一杯"
+      },
+      {
+       "bond": 1
+      }
+     ]
+    },
+    {
+     "label": "今日は勘弁してもらう",
+     "text": "「次の凱旋でな」と笑って躱した。店主は残念そうに、それでも心得顔で引き下がった。",
+     "effects": [
+      {
+       "chronicle": "酒場での振る舞い酒を、次の機会にと躱した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_m4c_old_rival",
+   "context": "tavern",
+   "prerequisites": {
+    "minLevel": 24
+   },
+   "weight": 2,
+   "text": "見覚えのある顔が、杯を掲げた。かつて腕を競った#origin_name# だ。「まだ生きてたか、#origin_epithet#」。",
+   "choices": [
+    {
+     "label": "旧交を温める",
+     "text": "互いの古傷を肴に、夜は更けた。競い合った相手は、いつしか、数少ない理解者になっている。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "trait": "再会:競い合った#origin_name#"
+      },
+      {
+       "exposure": -0.03
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_m4c_quarantine",
+   "context": "guild",
+   "prerequisites": {
+    "minExposure": 1.6
+   },
+   "weight": 2,
+   "text": "受付の#origin_name# が、書類を手に渋面を作った。「言いにくいが……その深みじゃ、組ませられる隊がない。先に、祓いを受けてもらえんか」。",
+   "choices": [
+    {
+     "label": "忠告を容れる",
+     "text": "事実だ。これ以上澱を抱えては、仲間を巻き添えにする。お前は静かに頷いた。",
+     "effects": [
+      {
+       "trait": "自覚:深みゆえの足止め"
+      },
+      {
+       "chronicle": "ギルドで、深蝕の深さゆえに任務を保留された。"
+      }
+     ]
+    },
+    {
+     "label": "一人で潜ると言い置く",
+     "text": "「なら一人で行く」。#origin_name#は止めかけ、お前の目を見て、口をつぐんだ。",
+     "effects": [
+      {
+       "exposure": 0.03
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_m4c_whisper",
+   "context": "guild",
+   "prerequisites": {
+    "minExposure": 1.0
+   },
+   "weight": 2,
+   "text": "お前が通ると、若い職員たちが声を潜めた。「あれが……」「深みに片足を……」。#origin_name# が、たしなめるように咳払いする。",
+   "choices": [
+    {
+     "label": "聞こえぬふりで進む",
+     "text": "噂は、深く潜る者の影法師だ。お前は背筋を伸ばし、まっすぐ受付へ向かった。",
+     "effects": [
+      {
+       "chronicle": "ギルドで、深みを囁かれながらも毅然と進んだ。"
+      }
+     ]
+    },
+    {
+     "label": "わざと目を合わせる",
+     "text": "囁いた職員と目を合わせると、彼らは気まずげに俯いた。怖れも、また敬意の一種だ。",
+     "effects": [
+      {
+       "exposure": 0.02
+      },
+      {
+       "trait": "識られた:畏れ交じりの評判"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_m4c_purge_ref",
+   "context": "guild",
+   "prerequisites": {
+    "minExposure": 1.3
+   },
+   "weight": 2,
+   "text": "#origin_name# が、一枚の紹介状をそっと滑らせた。「腕利きの祓い手だ。料は張るが……お前ほどの者を、深みに喰わせたくない」。",
+   "choices": [
+    {
+     "label": "礼を言って受け取る",
+     "text": "案じてくれる者がいる。その事実が、紹介状の値打ち以上に、胸に沁みた。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "trait": "受け取った:祓い手への紹介状"
+      },
+      {
+       "exposure": -0.03
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_m4c_intro",
+   "context": "guild",
+   "prerequisites": {
+    "minBond": 2
+   },
+   "weight": 2,
+   "text": "#origin_name# が、隣の人物を引き合わせた。「紹介しとく。腕は確かだ。お前らなら、いい組になる」。",
+   "choices": [
+    {
+     "label": "握手を交わす",
+     "text": "新たな伝手が一つ。信頼できる者の紹介ほど、確かな縁はない。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "trait": "縁:#origin_name#の紹介した伝手"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_m4c_vouch",
+   "context": "guild",
+   "prerequisites": {
+    "minBond": 3
+   },
+   "weight": 2,
+   "text": "登録の不備で揉めていると、#origin_name# が割って入った。「こいつの身元は、おれが請け合う」。あっさり話が通る。",
+   "choices": [
+    {
+     "label": "後で礼に行く",
+     "text": "顔の利く者が一人庇ってくれるだけで、世間は驚くほど広くなる。お前は深く頭を下げた。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "ギルドで#origin_name# に身元を請け合ってもらった。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_m4c_mentor",
+   "context": "guild",
+   "prerequisites": {
+    "minLevel": 14
+   },
+   "weight": 2,
+   "text": "ギルド長づきの職員が、改まって切り出した。「#origin_epithet#。新人どもの指南役を、引き受けてもらえんか」。",
+   "choices": [
+    {
+     "label": "引き受ける",
+     "text": "後進を育てるのも、生き残った者の務めだ。お前は頷いた。教えることは、己を見つめ直すことでもある。",
+     "effects": [
+      {
+       "trait": "役目:新人の指南役"
+      },
+      {
+       "chronicle": "ギルドで、新人の指南役を任された。"
+      }
+     ]
+    },
+    {
+     "label": "柄ではないと辞する",
+     "text": "「人にものを教える柄じゃない」。職員は残念そうに、だが無理強いはしなかった。",
+     "effects": [
+      {
+       "chronicle": "ギルドからの指南役の打診を、柄ではないと辞した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_m4c_priority",
+   "context": "guild",
+   "prerequisites": {
+    "minLevel": 22
+   },
+   "weight": 2,
+   "text": "受付の#origin_name# が、依頼板の奥から数枚を抜き出した。「#origin_epithet#には、こっちを先に見せるのが筋でな」。上物の依頼ばかりだ。",
+   "choices": [
+    {
+     "label": "ありがたく検める",
+     "text": "名を上げた者だけが見られる、選りすぐりの依頼。実績が、次の機会を呼ぶのだと実感する。",
+     "effects": [
+      {
+       "gold": 6
+      },
+      {
+       "trait": "特権:優先される依頼板"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_m4c_plaque",
+   "context": "guild",
+   "prerequisites": {
+    "minLevel": 30
+   },
+   "weight": 2,
+   "text": "ギルドの壁に、新しい名札が一つ増えていた。歴戦の者だけが名を連ねる栄誉の板に、お前の名が刻まれている。",
+   "choices": [
+    {
+     "label": "静かに見上げる",
+     "text": "刻まれた名を見上げ、ここまでの道のりを思った。同時に、この名に恥じぬ働きを、と背筋が伸びる。",
+     "effects": [
+      {
+       "trait": "栄誉:英雄譜に刻まれた名"
+      },
+      {
+       "chronicle": "ギルドの栄誉の板に、自分の名が刻まれた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_m4c_poach",
+   "context": "guild",
+   "prerequisites": {
+    "minLevel": 26
+   },
+   "weight": 2,
+   "text": "見慣れぬ紋章を付けた者が、声をかけてきた。「うちへ来ないか、#origin_epithet#。今より良い条件を約束する」。他ギルドの引き抜きだ。",
+   "choices": [
+    {
+     "label": "今の仲間を選ぶ",
+     "text": "条件は魅力的だった。だが、ここまで共に来た顔ぶれを、金で乗り換える気にはなれない。",
+     "effects": [
+      {
+       "trait": "選んだ:仲間との義理"
+      },
+      {
+       "bond": 1
+      }
+     ]
+    },
+    {
+     "label": "話だけ聞いておく",
+     "text": "損はない、と話を聞いた。値踏みされるのも、値踏みするのも、一人前の証だ。",
+     "effects": [
+      {
+       "chronicle": "ギルドで、他所からの引き抜きの誘いを受けた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_m4c_bluntword",
+   "context": "guild",
+   "prerequisites": {
+    "minLevel": 18
+   },
+   "weight": 2,
+   "text": "古参の#origin_name# が、お前を隅へ呼んだ。「忠告だ、#origin_epithet#。名が上がるほど、足を掬おうとする奴も増える。気を抜くな」。",
+   "choices": [
+    {
+     "label": "忠告を胸に刻む",
+     "text": "昇ってきた者だけが知る、頂の風当たり。お前は古参の言葉を、確かに受け止めた。",
+     "effects": [
+      {
+       "trait": "聞いた忠告:高みの風当たり"
+      },
+      {
+       "chronicle": "ギルドで古参の#origin_name# に、高みの戒めを受けた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_m4c_warding",
+   "context": "shop",
+   "prerequisites": {
+    "minExposure": 0.8
+   },
+   "weight": 2,
+   "text": "#origin_name# が、お前の様子をひと目見て、奥から数点を運んできた。「深みに食われかけてるな。守りの品だ。見てくれ」。",
+   "choices": [
+    {
+     "label": "守りの品を検める",
+     "text": "職人の目は確かだ。澱を退ける品々を前に、お前は己の深蝕の進みを、改めて思い知る。",
+     "effects": [
+      {
+       "trait": "見たもの:深蝕を退ける守りの品"
+      },
+      {
+       "chronicle": "店で#origin_name# に、深みへの守りを勧められた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_m4c_flinch",
+   "context": "shop",
+   "prerequisites": {
+    "minExposure": 1.5
+   },
+   "weight": 2,
+   "text": "代金を渡そうとすると、#origin_name# の手が、ほんの一瞬、怯んだように引いた。お前の指先に滲む澱を、見て取ったのだ。",
+   "choices": [
+    {
+     "label": "気づかぬふりをする",
+     "text": "お前は静かに硬貨を置いた。深く潜る者は、いつしか、生者から微かに恐れられる。それも、業だ。",
+     "effects": [
+      {
+       "exposure": 0.02
+      },
+      {
+       "chronicle": "店で、自分の深みに#origin_name# が怯むのを見た。"
+      }
+     ]
+    },
+    {
+     "label": "すまない、と詫びる",
+     "text": "「悪いな、移しゃしない」と苦笑した。#origin_name#は決まり悪げに、それでも丁寧に品を包んだ。",
+     "effects": [
+      {
+       "chronicle": "店で、自分の深みを#origin_name# に詫びた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_m4c_charm",
+   "context": "shop",
+   "prerequisites": {
+    "minExposure": 1.1
+   },
+   "weight": 2,
+   "text": "会計のあと、#origin_name# が小さな護符を握らせてきた。「金は要らん。……あんたの目の奥が、見てられなくてな」。",
+   "choices": [
+    {
+     "label": "ありがたく受ける",
+     "text": "憐れみ、と呼ぶには温かすぎる。見知らぬ職人の情けが、澱んだ胸を、わずかに照らした。",
+     "effects": [
+      {
+       "item": "soothe"
+      },
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "店で#origin_name# から、憐れみの護符を受け取った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_m4c_discount",
+   "context": "shop",
+   "prerequisites": {
+    "minBond": 2
+   },
+   "weight": 2,
+   "text": "勘定のとき、#origin_name# が算盤を弾く手を止め、にやりと笑った。「馴染みだ。これくらい、勉強しとくよ」。",
+   "choices": [
+    {
+     "label": "素直に甘える",
+     "text": "値引きそのものより、馴染みと認められたことが嬉しい。お前は礼を言って、浮いた金を懐へ収めた。",
+     "effects": [
+      {
+       "gold": 8
+      },
+      {
+       "bond": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_m4c_held",
+   "context": "shop",
+   "prerequisites": {
+    "minBond": 3
+   },
+   "weight": 2,
+   "text": "#origin_name# が、布をかけて隠していた一品を取り出した。「お前好みだと思ってな。他には見せず、取っといた」。",
+   "choices": [
+    {
+     "label": "感謝して受け取る",
+     "text": "客の好みを覚え、わざわざ取り置く。商売を超えた心遣いが、品の値打ちに重みを添える。",
+     "effects": [
+      {
+       "item": "salve2"
+      },
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "店で#origin_name# が、自分のために取り置いた品をくれた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_m4c_repair",
+   "context": "shop",
+   "prerequisites": {
+    "minBond": 1
+   },
+   "weight": 2,
+   "text": "#origin_name# が、お前の#origin_gear# にちらと目をやった。「刃こぼれしてるぞ。待ってろ、ちょいと直す」。手早く砥ぎ直してくれる。",
+   "choices": [
+    {
+     "label": "礼を言う",
+     "text": "代金を出そうとすると、手を振って断られた。「馴染みのよしみだ」。小さな親切が、一日を支える。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "exposure": -0.02
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_m4c_master",
+   "context": "shop",
+   "prerequisites": {
+    "minLevel": 28
+   },
+   "weight": 2,
+   "text": "#origin_name# が、奥の錠前を開けた。「#origin_epithet#にだけ、見せよう」。布を払うと、息を呑むほどの業物が現れた。",
+   "choices": [
+    {
+     "label": "じっくり検分する",
+     "text": "これほどの品を見せてもらえるのも、名を上げた証。お前は職人の誇りに敬意を払い、丹念に検分した。",
+     "effects": [
+      {
+       "trait": "見たもの:店主秘蔵の業物"
+      },
+      {
+       "chronicle": "店で#origin_name# の秘蔵の業物を、特別に見せられた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_m4c_apprentice",
+   "context": "shop",
+   "prerequisites": {
+    "minLevel": 14
+   },
+   "weight": 2,
+   "text": "店の隅から、弟子らしい若者が進み出た。「#origin_epithet#。あの、僕の打った品を……見てもらえませんか」。緊張で声が震えている。",
+   "choices": [
+    {
+     "label": "丁寧に講評する",
+     "text": "拙いが、芯のある仕事だった。お前は良い所と直す所を、率直に伝えた。若者の目に、火が灯る。",
+     "effects": [
+      {
+       "trait": "見たもの:弟子の初めての一振り"
+      },
+      {
+       "bond": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_m4c_bulk",
+   "context": "shop",
+   "prerequisites": {
+    "minLevel": 20
+   },
+   "weight": 2,
+   "text": "#origin_name# が帳面を広げた。「#origin_epithet#ほど買ってくれる客は、そういない。まとめてなら、うんと安くするぞ」。",
+   "choices": [
+    {
+     "label": "まとめ買いの話に乗る",
+     "text": "上得意ならではの相談だ。先々を見越して、消耗品をまとめて確保しておくのも、生き延びる算段の一つ。",
+     "effects": [
+      {
+       "gold": -6
+      },
+      {
+       "item": "soothe2"
+      },
+      {
+       "chronicle": "店で#origin_name# と、上得意向けのまとめ買いをした。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_m4c_commission",
+   "context": "shop",
+   "prerequisites": {
+    "minLevel": 24
+   },
+   "weight": 2,
+   "text": "#origin_name# が、試作品を差し出した。「#origin_epithet#。これを、実戦で試してくれんか。具合を聞かせてもらえれば、礼もする」。",
+   "choices": [
+    {
+     "label": "試作を引き受ける",
+     "text": "名のある者の使用感は、職人にとって何より貴重な手本になる。お前は試作を懐へ収めた。",
+     "effects": [
+      {
+       "item": "salve"
+      },
+      {
+       "trait": "役目:新作の試し手"
+      },
+      {
+       "chronicle": "店で#origin_name# の新作の試し手を引き受けた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_m4c_haggle",
+   "context": "shop",
+   "prerequisites": {
+    "minLevel": 16
+   },
+   "weight": 2,
+   "text": "値切ろうとすると、#origin_name# は嫌な顔ひとつせず応じた。「#origin_epithet#の言い値だ。これでどうだ」。一目置かれているのが分かる。",
+   "choices": [
+    {
+     "label": "互いの顔を立てて折り合う",
+     "text": "強引には押さず、互いに得心のいく額で手を打った。名声は、こういう交渉の場でも、静かに効いてくる。",
+     "effects": [
+      {
+       "gold": 5
+      },
+      {
+       "chronicle": "店で#origin_name# に一目置かれ、気持ちよく折り合った。"
+      }
+     ]
+    }
+   ]
   }
  ]
 }
