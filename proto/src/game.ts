@@ -94,7 +94,7 @@ export async function runGame(
     const ch = createCharacter(world, name, "wanderer", lineage);
     hp = maxHp(ch);
     say(`素質: ${statsLine(ch)}（潜って撃破し、レベルで伸ばす）`);
-    if (ch.traits.length) say(`形質: [${ch.traits.join(", ")}]`);
+    if (ch.traits.length) say(`記憶: [${ch.traits.join(", ")}]`);
     if (ch.bonds.some((b) => b.unfinished)) say("……先代の未完の因縁が、お前に引き継がれた。");
     autosave();
     return ch;
