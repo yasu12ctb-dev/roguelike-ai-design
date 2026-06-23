@@ -22,16 +22,18 @@ export function generateOffers(world: World, ch: Character, rng: Rng, limit: num
   if (limit <= 0) return [];
   const offers: Quest[] = [];
   const held = openQuests(world);
-  // 到達：今より少し深い目標
-  const dDepth = Math.max(3, ch.depth) + 2 + rng.int(3); // +2..+4
+  // 到達：今のレベル(≈深度)より少し深い目標（4-4E スケール整合。街では ch.depth=0 になるため level 基準）
+  const dDepth = Math.max(3, ch.level) + 2 + rng.int(3); // +2..+4
   offers.push({
     id: qid(), kind: "descend", targetDepth: dDepth,
     title: `深度${dDepth}へ到達`,
     desc: `回収業ギルドの調査依頼。深度${dDepth}まで潜って戻れ。`,
     rewardGold: dDepth * 9, status: "active", issuedGeneration: world.generation,
   });
-  // 回収：まだ依頼対象でない既知の化石を一つ
-  const reclaimable = world.fossils.filter((f) => !held.some((q) => q.targetFossilId === f.id));
+  // 回収：まだ依頼対象でない既知の化石を一つ（高レベルで陳腐な浅層化石は避ける）
+  const allReclaim = world.fossils.filter((f) => !held.some((q) => q.targetFossilId === f.id));
+  const nearLevel = allReclaim.filter((f) => f.laidDepth >= ch.level - 6);
+  const reclaimable = nearLevel.length ? nearLevel : allReclaim;
   if (reclaimable.length) {
     const f = rng.pick(reclaimable);
     offers.push({
@@ -52,7 +54,7 @@ export function generateNobleOffers(world: World, ch: Character, rng: Rng, limit
   if (held.some((q) => q.patron === "noble")) return []; // 同時は1件まで（受注/達成待ちがあれば供給しない）
   const offers: Quest[] = [];
   if (rng.next() < 0.5) {
-    const dDepth = Math.max(5, ch.depth) + 3 + rng.int(4); // 高位＝やや深い目標
+    const dDepth = Math.max(5, ch.level) + 3 + rng.int(4); // 貴族大命＝現レベル(≈深度)よりやや深い（クリア後の高位依頼に整合）
     offers.push({
       id: qid(), kind: "descend", patron: "noble", targetDepth: dDepth,
       title: `貴族街からの大命：深度${dDepth}の調べ`,
@@ -60,7 +62,9 @@ export function generateNobleOffers(world: World, ch: Character, rng: Rng, limit
       rewardGold: Math.round(dDepth * 9 * 1.8), status: "active", issuedGeneration: world.generation,
     });
   } else {
-    const reclaimable = world.fossils.filter((f) => !held.some((q) => q.targetFossilId === f.id));
+    const allReclaim = world.fossils.filter((f) => !held.some((q) => q.targetFossilId === f.id));
+    const nearLevel = allReclaim.filter((f) => f.laidDepth >= ch.level - 6);
+    const reclaimable = nearLevel.length ? nearLevel : allReclaim;
     if (reclaimable.length) {
       const f = rng.pick(reclaimable);
       offers.push({
