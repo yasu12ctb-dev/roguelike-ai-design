@@ -15,7 +15,8 @@ snapshot **4-9（実行時LLMゼロ・制作時の鋳造所で量産）/ 4-12** 
 4. **取り込み** … 既存を無改変で末尾追記（差分を局所化）。決定論デモ＋受理ゲートが緑であること。
 
 ## スキーマ（生成プロンプトに必ず埋める制約）
-- **context**：`encounter / dungeon / street / tavern / guild / shop / quest / chest`。省略=encounter。
+- **context**：`encounter / dungeon / street / tavern / guild / shop / quest / chest / delver`。省略=encounter。
+  - `delver`＝迷宮ですれ違う生者の冒険者（4-14・軽い会話・勧誘なし）。スロットは街と同じ生者slot。
 - **本文の形**：
   - encounter＝`investigate` と/or `search`（各 `{text, effects}`）。化石スロット可。
   - dungeon／街(street/tavern/guild/shop/quest)＝`text` ＋ `choices[]`（各 `{label, text?, effects[]}`）。
@@ -23,9 +24,11 @@ snapshot **4-9（実行時LLMゼロ・制作時の鋳造所で量産）/ 4-12** 
 - **スロット（context別に充填可能なものだけ）**：
   - dungeon／chest＝`#depth#` のみ。
   - encounter＝`#origin_name# #origin_gear# #origin_epithet# #origin_catchphrase#(要 hasCatchphrase) #depth#`。
-  - 街＝`#origin_name# #origin_gear# #origin_epithet#`（`#origin_catchphrase#` は mint 生者に無いので不可）。
-- **prerequisites（蓄積ゲート＝多様性の源）**：`tone(loss/myth/grudge) stage(weathered/twisting/alien) finalAct kind(character/explorer/relic) minBond minExposure minLevel unfinished hasCatchphrase depthBand(shallow/mid/deep) flag notFlag arc arcStep arcPick arcActor notArc`。
-- **effects（報酬＝金/物/絆もここ）**：`bond exposure trait chronicle plant gold item(soothe/salve) arc{key,step,pick?,done?,anchor?} closeUnfinished`。
+  - 街・delver＝`#origin_name# #origin_gear# #origin_epithet#`（`#origin_catchphrase#` は mint 生者に無いので不可）。
+- **prerequisites（蓄積ゲート＝多様性の源）**：`tone(loss/myth/grudge) stage(weathered/twisting/alien) finalAct kind(character/explorer/relic) minBond minExposure minLevel minDepth maxDepth unfinished hasCatchphrase depthBand(shallow/mid/deep/abyss) flag notFlag arc arcStep arcPick arcActor actorId notArc`。
+  - `depthBand`＝**shallow(≤8)/mid(9-24)/deep(25-37)/abyss(38+)**（2026-06-23 4分割・dungeon/chest の発火帯フィルタ）。`minDepth/maxDepth` は帯より細かい下限/上限（dungeon/chest）。`actorId` は名簿アンカー（街 context のみ・adventurers.json に在ること）。
+- **effects（報酬＝金/物/絆もここ）**：`bond exposure trait chronicle plant gold item arc{key,step,pick?,done?,anchor?} closeUnfinished`。
+  - `item` の許可キーは **items.ts の `CONSUMABLES` から動的取得**＝現在 `soothe/salve/salve2/soothe2/soothe3`（上位品は店頭/ドロップが `minLevel` ゲートだが effect 付与は帯不問。深部 storylet で渡すのが妥当）。
 - **weight**：正の数（抽選の重み）。**id**：全体で一意。
 
 ## 量産の「多様性」設計（研究の grammar/quality 指針）
@@ -42,6 +45,7 @@ node tools/validate-content.mjs   # 受理ゲート（CI にも常駐）
 - 生成テンプレ（context別の作例＋制約）は本書のスキーマ節をそのままプロンプトに使う。
 
 ## 今後の拡張（試作→本番）
-- 受理ゲートに **近似重複検出**（embedding/字面）・**スロット網羅チェック**・**fragments/setpieces 検証**を追加。
+- ✅ **近似重複検出**（字面・context バケツ内の文字bigram Jaccard・閾値0.50・warn）＝`validate-content.mjs` に実装済（2026-06-23・M4着手）。本文が酷似するペアを警告＝量産の反復を抑止。
+- 受理ゲートに **スロット網羅チェック**・**fragments/setpieces 検証**を追加（残）。
 - 生成側を **構造化出力（JSON Schema/grammar decoding）** で固め、修復ループを自動化。
 - 量産の実施は **ユーザー合意のうえ**、context・テーマ単位でバッチ生成→受理ゲート→レビュー。
