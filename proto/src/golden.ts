@@ -9,6 +9,8 @@ import { newWorld, createCharacter, fossilizeCurrent, advanceArcs } from "./worl
 import { genFloor, planMonsters, resolveMonsters } from "./dungeon.ts";
 import { xpToNext, xpForKill, maxHp } from "./progression.ts";
 import { rollItem, itemValue } from "./items.ts";
+import { SPELLS, warpDamage } from "./spells.ts";
+import { depthBand, exposureGain } from "./variation.ts";
 import type { Character } from "./types.ts";
 
 // --- FNV-1a 32bit（ASCII 文字列専用。指紋入力は english キー＋整数のみ＝言語非依存・Swift で同実装可）---
@@ -120,15 +122,32 @@ function gWorldLifecycle(): string {
   return r.hash();
 }
 
+/** ⑦ 術カタログ＋warpDamage：Swift が同じ術表・同じ威力式を持つことの照合（english キー＋整数）。 */
+function gSpells(): string {
+  const r = new Rec();
+  for (const s of SPELLS) r.add(s.key, Math.round(s.cost * 1000), s.minLevel ?? 0);
+  for (let reason = 0; reason <= 20; reason++) r.add(warpDamage(reason));
+  return r.hash();
+}
+
+/** ⑧ 変質の純粋スカラ：depthBand（english）／exposureGain（×1000 整数化）を深度で固定。 */
+function gVariation(): string {
+  const r = new Rec();
+  for (let d = 1; d <= 52; d++) r.add(depthBand(d), Math.round(exposureGain(d) * 1000));
+  return r.hash();
+}
+
 const SCENARIOS: Record<string, () => string> = {
   rng: gRng, progression: gProgression, genFloor: gGenFloor,
   monsterAI: gMonsterAI, items: gItems, worldLifecycle: gWorldLifecycle,
+  spells: gSpells, variation: gVariation,
 };
 
 // checked-in 期待値（--print で再生成して貼り替え）。Swift 移植はこの値を再現すべき正解データ。
 const EXPECTED: Record<string, string> = {
   rng: "05bda7cc", progression: "cfe0c82f", genFloor: "1857a403",
   monsterAI: "51d3744d", items: "573b7242", worldLifecycle: "cfa4aa74",
+  spells: "0e91b2dc", variation: "54d9a151",
 };
 
 const printMode = process.argv.includes("--print");
