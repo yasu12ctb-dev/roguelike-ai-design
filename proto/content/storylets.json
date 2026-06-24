@@ -21625,6 +21625,444 @@
      ]
     }
    ]
+  },
+  {
+   "id": "ex_m4e_loss_flower",
+   "prerequisites": {
+    "tone": "loss"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の懐から、押し花の挟まった小さな手帳がこぼれた。花は色を失ってなお、丁寧に形を保っている。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "遺品:#origin_name#の押し花の手帳"
+     }
+    ]
+   },
+   "search": {
+    "text": "手帳の余白に、覚え書き。「これを渡せば、きっと許してもらえる」。渡す相手の名は、滲んで読めない。",
+    "effects": [
+     {
+      "trait": "知った:#origin_name#の果たせぬ詫び"
+     },
+     {
+      "chronicle": "#origin_name# が、誰かに詫びるつもりだった押し花を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4e_loss_boots",
+   "prerequisites": {
+    "tone": "loss"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "壁際に、履き古した小さな靴が、きちんと揃えて置かれている。#origin_name# が、誰かのために大切に運んでいたものらしい。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "見たもの:#origin_name#が運んだ子の靴"
+     }
+    ]
+   },
+   "search": {
+    "text": "靴の底に、まだ履けるようにと打たれた継ぎ当て。成長を待つ足は、この靴に届くことがなかった。",
+    "effects": [
+     {
+      "trait": "知った:#origin_name#の帰れぬ理由"
+     },
+     {
+      "chronicle": "#origin_name# が、子のために運んだ靴の傍らで尽きていた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4e_loss_tally",
+   "prerequisites": {
+    "tone": "loss"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の傍らの壁に、几帳面な正の字が刻まれている。帰る日までの、日数を数えていたのだろうか。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の帰郷の日数え"
+     },
+     {
+      "exposure": 0.03
+     }
+    ]
+   },
+   "search": {
+    "text": "正の字は、途中でぷつりと途切れている。最後の一画は、刻みかけのまま、力尽きていた。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "chronicle": "#origin_name# が数え続けた帰郷の日が、途中で途切れた跡を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4e_loss_cup",
+   "prerequisites": {
+    "tone": "loss"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の手に、二つで一組の杯が片方だけ握られている。対になるもう一つは、ここには無い。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "遺品:#origin_name#の片割れの杯"
+     }
+    ]
+   },
+   "search": {
+    "text": "杯の底に、小さく彫られた二人の約束の日付。再会して酌み交わす日は、永遠に来ない。",
+    "effects": [
+     {
+      "trait": "知った:#origin_name#の叶わぬ再会の約束"
+     },
+     {
+      "chronicle": "#origin_name# が、誰かと酌み交わすはずだった杯を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4e_loss_letter",
+   "prerequisites": {
+    "tone": "loss"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の#origin_gear# に、宛名の書かれた封書が挟まれている。だが角には「宛先不明」の判が、無情に押されている。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の戻された手紙"
+     },
+     {
+      "exposure": 0.03
+     }
+    ]
+   },
+   "search": {
+    "text": "封を検めると、何度も書き直した跡。最後はただ一言、「無事でいてくれ」とだけ。届けたい相手は、もういない。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "chronicle": "#origin_name# の、届かなかった手紙の一言に触れた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4e_myth_dummy",
+   "prerequisites": {
+    "tone": "myth"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "岩を削って作られた、稽古用の人形。#origin_name# が、ここで一人、剣を振り続けていた跡が無数に刻まれている。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の稽古の跡"
+     },
+     {
+      "chronicle": "#origin_name# が深層で独り研鑽を積んだ跡を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "人形の心臓の位置だけ、深く深く抉れている。一点を、狂おしいほどに磨き上げた執念。これが、伝説の刃を作った。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "受け継ぐ:#origin_name#の一点突きの理"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4e_myth_standard",
+   "prerequisites": {
+    "tone": "myth"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# が、敵から奪い取ったらしい立派な軍旗を、戦利品として体に巻きつけている。誇り高い勝利の証だ。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の奪った軍旗"
+     },
+     {
+      "chronicle": "#origin_name# の輝かしい戦利の軍旗を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "奪った旗の裏に、#origin_name# 自身の手で縫い足された一行。「これを掲げ、皆を故郷へ帰す」。約束は、半ば果たされた。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "知った:#origin_name#の隊を率いた誓い"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4e_myth_healkit",
+   "prerequisites": {
+    "tone": "myth"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の#origin_gear# の傍に、使い込まれた施療の道具一式。剣士というより、多くの命を繋いだ者の手だ。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の施療の道具"
+     },
+     {
+      "chronicle": "#origin_name# が、戦うだけでなく多くを癒した者だと知った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "道具箱の蓋裏に、助けた者たちの名がびっしりと。最後の行で、自分を救う者はいなかったのだと、ふと気づく。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "受け継ぐ:#origin_name#の救った者たちの名"
+     },
+     {
+      "exposure": 0.03
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4e_myth_saga",
+   "prerequisites": {
+    "tone": "myth"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "壁に立てかけられた板に、#origin_name# の偉業を讃える叙事詩が、誰かの手で克明に書き写されている。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#を讃える叙事詩"
+     },
+     {
+      "chronicle": "#origin_name# の偉業を讃える叙事詩を、深層で見つけた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "叙事詩の末尾だけ、筆跡が変わっている。「ここから先は、まだ誰も知らない」。続きは、お前が見届ける番なのかもしれない。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "託された:#origin_name#の物語の続き"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4e_myth_challenge",
+   "prerequisites": {
+    "tone": "myth"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の握り拳に、若い筆跡の果たし状。「いつか、あなたを越える」。挑んだ者の、まっすぐな宣言だ。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#への果たし状"
+     },
+     {
+      "chronicle": "#origin_name# が、後進に目標とされた者だと知った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "果たし状の裏に、#origin_name# の返事。「待っている。だが、無理はするな」。師の優しさが、刃の言葉の下に滲む。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "知った:#origin_name#の後進への情"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4e_grudge_portrait",
+   "prerequisites": {
+    "tone": "grudge"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の懐から、一枚の人相書き。だが、描かれた顔は、爪で何度も掻きむしられ、原型を留めていない。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の掻き消した似顔"
+     },
+     {
+      "exposure": 0.04
+     }
+    ]
+   },
+   "search": {
+    "text": "潰された顔の下に、辛うじて読める走り書き。「この顔を、忘れるな」。忘れまいとして、見るのも耐えられなかったのだ。",
+    "effects": [
+     {
+      "trait": "知った:#origin_name#の引き裂かれた憎悪"
+     },
+     {
+      "chronicle": "#origin_name# の、見るに耐えぬ憎しみの跡に触れた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4e_grudge_notch",
+   "prerequisites": {
+    "tone": "grudge"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の#origin_gear# の柄に、無数の刻み傷。一つひとつが、仕留めた相手の数を表しているらしい。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の討ち取りの刻み"
+     },
+     {
+      "exposure": 0.04
+     }
+    ]
+   },
+   "search": {
+    "text": "刻みの最後の一つだけ、彫りかけで止まっている。仕留めそこねた、ただ一人――それが、#origin_name#を底まで駆り立てた。",
+    "effects": [
+     {
+      "trait": "知った:#origin_name#の討ち漏らした宿敵"
+     },
+     {
+      "chronicle": "#origin_name# が、最後の一人を討てぬまま尽きた跡を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4e_grudge_keepsake",
+   "prerequisites": {
+    "tone": "grudge"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# が、骨の浮くほど固く、誰かの形見らしき品を握りしめている。だが、その握り方は、慈しみではなく憎しみのそれだ。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#が憎んで握る形見"
+     },
+     {
+      "exposure": 0.04
+     }
+    ]
+   },
+   "search": {
+    "text": "奪い取った形見だったのだ。憎い相手の大切なものを、死してなお放さない。執着は、愛も憎も、同じ形をしている。",
+    "effects": [
+     {
+      "trait": "知った:#origin_name#の奪った執着"
+     },
+     {
+      "chronicle": "#origin_name# が、憎しみのために形見を奪い握り続けた跡を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4e_grudge_map",
+   "prerequisites": {
+    "tone": "grudge"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の傍に、一枚の地図。ある一点だけが、執拗に赤く囲まれている。隠れた誰かの、潜伏先らしい。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#の追跡の地図"
+     },
+     {
+      "chronicle": "#origin_name# が、誰かを執拗に追っていた地図を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "赤い丸へ向かう道は、何本も引き直されている。だが#origin_name# の足は、そこへ辿り着く前に、ここで止まった。",
+    "effects": [
+     {
+      "exposure": 0.05
+     },
+     {
+      "trait": "知った:#origin_name#の届かなかった復讐"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ex_m4e_grudge_confess",
+   "prerequisites": {
+    "tone": "grudge"
+   },
+   "weight": 1,
+   "investigate": {
+    "text": "#origin_name# の握る羊皮紙に、誰かに無理やり書かせたらしい罪の告白。署名の上に、震えた指の跡が残っている。",
+    "effects": [
+     {
+      "trait": "見たもの:#origin_name#が迫った告白"
+     },
+     {
+      "exposure": 0.04
+     }
+    ]
+   },
+   "search": {
+    "text": "告白を引き出してなお、#origin_name# は満たされなかったらしい。余白に、ただ一言。「これでも、足りない」。",
+    "effects": [
+     {
+      "trait": "知った:#origin_name#の癒えぬ恨み"
+     },
+     {
+      "chronicle": "#origin_name# が、復讐を遂げてなお渇いていた跡に触れた。"
+     }
+    ]
+   }
   }
  ]
 }

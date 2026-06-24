@@ -52,7 +52,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.31.1";
+export const APP_VERSION = "0.31.3";
 export const APP_BUILD = "2026-06-22";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -2415,7 +2415,8 @@ let poisonTurns = 0;     // 毒（敵 venom 能力・4-11G）：>0 の間 毎手
 let poisonDmg = 0;       // 毒の1手あたりダメージ（被弾時に深度で決まる・テクスチャ＝控えめ）
 const ARMOR_BUFF = 4, ATTACK_BUFF = 5; // バフ量（理で伸ばさず固定＝読みやすさ優先）
 const VENOM_TURNS = 4; // 敵 venom の毒の持続手数（4-11G）。1手あたりダメージは被弾深度で決まる（venomDmgAt）。
-const venomDmgAt = (depth: number) => Math.max(1, Math.round(depth * 0.08)); // テクスチャ＝控えめ（深度50で約4）
+const VENOM_DMG_CAP = 3; // 毒の1手ダメ上限（横断E・シム検証：深度線形×4手×解毒手段なしで深部の毒系が突出スケール→上限で頭打ち）
+const venomDmgAt = (depth: number) => Math.min(VENOM_DMG_CAP, Math.max(1, Math.round(depth * 0.08))); // テクスチャ＝控えめ（D38+ で 3 頭打ち）
 // 召喚＝一時味方（4-11F③・召系）。盤上 ephemeral：数手で霧散。隣接敵を毎手討ち、いなければ最寄りへ寄る。
 // monsters のターゲットには乗らない（簡潔さ優先）＝味方AIは攻撃のみ。echo_summon(4-10I) とは別物（術側は割り切り）。
 interface SummonEntity extends Pos { glyph: string; name: string; dmg: number; turns: number; follow: boolean; }
