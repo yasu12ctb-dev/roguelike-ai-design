@@ -22063,6 +22063,706 @@
      }
     ]
    }
+  },
+  {
+   "id": "dv_m4f_torch",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "角を曲がると、灯りの乏しい冒険者がこちらの#origin_gear#の明かりに気づいた。#origin_name#だ。「すまん、油を切らした。少し分けてくれないか」。",
+   "choices": [
+    {
+     "label": "油を分ける",
+     "text": "残りを少し注いでやった。闇の中で灯りを分かつのは、ここでは何よりの信義だ。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "trait": "分けた:#origin_name#への灯火"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# に灯りの油を分けた。"
+      }
+     ]
+    },
+    {
+     "label": "自分の分も心許ないと詫びる",
+     "text": "「無理を言った、忘れてくれ」。#origin_name# は苦笑して、暗がりへ消えていった。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# の頼みを、互いの無事のために断った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4f_wager",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "#origin_name# が肩をすくめて笑った。「賭けるか? どっちが今日、より深くまで行けるか。負けた方が次に会ったとき一杯おごる」。",
+   "choices": [
+    {
+     "label": "その賭けに乗る",
+     "text": "「いいだろう」と手を打った。生死の隣り合わせに、こんな軽口が妙に効く。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "迷宮で#origin_name# と、どこまで潜れるか賭けをした。"
+      }
+     ]
+    },
+    {
+     "label": "笑って受け流す",
+     "text": "「命を賭けてるんだ、賭け事はもう十分さ」。二人で短く笑った。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# の賭けを、笑って受け流した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4f_bossrumor",
+   "context": "delver",
+   "prerequisites": {
+    "minDepth": 4
+   },
+   "weight": 2,
+   "text": "#origin_name# が声を潜めた。「この下に、厄介なのが居座ってる。気配だけで肌が粟立った。行くなら、心してかかれ」。",
+   "choices": [
+    {
+     "label": "礼を言って心に刻む",
+     "text": "得難い警告だ。お前は#origin_name# に礼を言い、気を引き締めた。",
+     "effects": [
+      {
+       "trait": "聞いた噂:下に潜む主"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# から、下に潜む主の噂を聞いた。"
+      }
+     ]
+    },
+    {
+     "label": "半信半疑で頷く",
+     "text": "「忠告は受け取った」とだけ返す。噂は噂、確かめるのは自分の目だ。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# の警告を、半信半疑で聞いた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4f_retreat",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "上りの通路から、青ざめた#origin_name# が転がるように戻ってきた。「下は……だめだ。今日は引く。お前も、深追いするな」。",
+   "choices": [
+    {
+     "label": "忠告を容れて気を静める",
+     "text": "引き際を知る者の言葉だ。お前はひとつ息を吐き、逸る心を鎮めた。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "迷宮で#origin_name# の退き際の忠告に、心を静めた。"
+      }
+     ]
+    },
+    {
+     "label": "構わず先へ進む",
+     "text": "「俺は俺の底を見る」。#origin_name# は止めなかった。ただ、無事を、と背に投げた。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# の制止を振り切り、なお下を目指した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4f_splitgold",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "物陰から飛び出した影を、#origin_name# と二人がかりで仕留めた。亡骸のそばに、零れた金貨が光っている。",
+   "choices": [
+    {
+     "label": "山分けにする",
+     "text": "「半分こだ」と#origin_name# は笑った。共に斃した分け前は、後腐れなく分けるに限る。",
+     "effects": [
+      {
+       "gold": 6
+      },
+      {
+       "chronicle": "迷宮で#origin_name# と力を合わせ、分け前を山分けにした。"
+      }
+     ]
+    },
+    {
+     "label": "相手に譲る",
+     "text": "「お前の一撃が効いた。取っておけ」。譲った分だけ、信は厚くなる。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "迷宮で#origin_name# に、共に得た分け前を譲った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4f_scars",
+   "context": "delver",
+   "prerequisites": {
+    "minBond": 2
+   },
+   "weight": 2,
+   "text": "#origin_name# が腕の古傷を指して笑った。「これ、覚えてるか。お前と組んだ、あの階だ」。見覚えのある顔だった。",
+   "choices": [
+    {
+     "label": "旧交を温める",
+     "text": "互いの傷を数え合ううち、強張りがほどけた。何度も会う相手は、いつしか得難い縁になる。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "exposure": -0.03
+      },
+      {
+       "trait": "再会:傷を見せ合った#origin_name#"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4f_newcomer",
+   "context": "delver",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "まだ装備の真新しい冒険者が、こわばった顔で問うてきた。「あの……これ、慣れますか。怖くて、足が竦む」。",
+   "choices": [
+    {
+     "label": "大丈夫だと励ます",
+     "text": "「最初はみんなそうだ。生きて還れば、少しずつ慣れる」。#origin_name# の目に、わずかに光が戻った。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "迷宮で、怯える新人#origin_name# を励ました。"
+      }
+     ]
+    },
+    {
+     "label": "正直に答える",
+     "text": "「慣れはしない。だが、付き合い方は覚える」。嘘のない言葉が、かえって相手を落ち着かせた。",
+     "effects": [
+      {
+       "chronicle": "迷宮で新人#origin_name# に、慣れぬ恐れの付き合い方を説いた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_m4f_name",
+   "context": "delver",
+   "prerequisites": {
+    "minLevel": 12
+   },
+   "weight": 2,
+   "text": "すれ違いざま、#origin_name# が足を止めて振り返った。「もしや、#origin_epithet#か。こんな下で会えるとはな」。名が、先に潜っていたらしい。",
+   "choices": [
+    {
+     "label": "名乗りに応える",
+     "text": "お前は短く名乗りを返した。名が独り歩きするのは、悪い気もしない。",
+     "effects": [
+      {
+       "trait": "噂:深みで呼ばれた#origin_epithet#"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# に、名を知られていた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_m4f_record",
+   "context": "guild",
+   "prerequisites": {
+    "minLevel": 12
+   },
+   "weight": 2,
+   "text": "受付の書記が帳面から顔を上げ、感心した様子で言った。「#origin_epithet#。あなたの生還の記録、また伸びましたね。皆、注目していますよ」。",
+   "choices": [
+    {
+     "label": "静かに受け止める",
+     "text": "誇るでも驕るでもなく、お前はただ頷いた。記録は、生きて還り続けた証に過ぎない。",
+     "effects": [
+      {
+       "trait": "評判:伸び続ける生還の記録"
+      },
+      {
+       "chronicle": "ギルドで、生還の記録を書記に称えられた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_m4f_mentor",
+   "context": "guild",
+   "prerequisites": {
+    "minLevel": 20
+   },
+   "weight": 2,
+   "text": "年若い冒険者たちが、おずおずと近づいてきた。「#origin_epithet#。少しでいい、俺たちに教えてくれませんか。生きて還る、その心得を」。",
+   "choices": [
+    {
+     "label": "引き受ける",
+     "text": "お前は腰を下ろし、知っていることを分けてやった。継がれぬ知恵は、潜るたびに墓へ消える。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "trait": "役目:後進への指南"
+      },
+      {
+       "chronicle": "ギルドで、若い冒険者たちに心得を授けた。"
+      }
+     ]
+    },
+    {
+     "label": "今は荷が重いと辞する",
+     "text": "「俺の流儀が、お前たちに合うとは限らん」。そう言って席を立った。教えるには、まだ早い気がした。",
+     "effects": [
+      {
+       "chronicle": "ギルドで、後進の指南をいまは辞した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_m4f_priority",
+   "context": "guild",
+   "prerequisites": {
+    "minLevel": 28
+   },
+   "weight": 2,
+   "text": "ギルド長が奥から手招きした。「#origin_epithet#。名のある者には、よりよい依頼を先に回す。これは、その一つだ」。",
+   "choices": [
+    {
+     "label": "優先の依頼を受ける",
+     "text": "名声は、こうして実利になって返ってくる。お前は割のいい依頼を懐に収めた。",
+     "effects": [
+      {
+       "gold": 8
+      },
+      {
+       "chronicle": "ギルドで、名声ゆえの優先依頼を引き受けた。"
+      }
+     ]
+    },
+    {
+     "label": "新参に譲る",
+     "text": "「俺はいい。駆け出しに回してやれ」。ギルド長は意外そうに、それから満足そうに頷いた。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "ギルドで、優先依頼を新参に譲った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_m4f_cleanse",
+   "context": "guild",
+   "prerequisites": {
+    "minExposure": 1.2
+   },
+   "weight": 2,
+   "text": "ギルド付きの祓い師が、お前の傍で眉をひそめた。「#origin_epithet#……だいぶ、深いものを連れて還りましたね。祓っておきましょう。料金はいただきますが」。",
+   "choices": [
+    {
+     "label": "祓いを受ける",
+     "text": "胸の奥で蟠っていたものが、ひとすじ薄れていく。深く潜るほど、地上で抜く手間も増える。",
+     "effects": [
+      {
+       "exposure": -0.05
+      },
+      {
+       "gold": -8
+      },
+      {
+       "chronicle": "ギルドで祓い師に、連れ帰った深蝕を祓ってもらった。"
+      }
+     ]
+    },
+    {
+     "label": "まだいいと断る",
+     "text": "「これも、潜った証だ」。祓い師は肩をすくめ、深追いはしなかった。",
+     "effects": [
+      {
+       "chronicle": "ギルドの祓いを、いまは要らぬと断った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_m4f_wall",
+   "context": "guild",
+   "prerequisites": {
+    "minLevel": 16
+   },
+   "weight": 2,
+   "text": "ギルドの奥に、還らなかった者たちの名を刻んだ壁がある。新しい名が、また一つ増えていた。",
+   "choices": [
+    {
+     "label": "名を読み上げる",
+     "text": "一つひとつ、声に出さず読んだ。覚えている者がいる限り、彼らはまだ、完全には消えない。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "trait": "悼:壁に刻まれた先達"
+      },
+      {
+       "chronicle": "ギルドの慰霊の壁で、還らぬ先達の名を悼んだ。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_m4f_bequest",
+   "context": "guild",
+   "prerequisites": {
+    "minBond": 2
+   },
+   "weight": 2,
+   "text": "古参の#origin_name# が、杯を置いてお前を見た。「なあ。俺がいつか還らなくなったら、俺の得物は、お前に継いでほしい。お前なら、無駄にはせんだろう」。",
+   "choices": [
+    {
+     "label": "その言葉を受け止める",
+     "text": "軽々しい約束ではない。お前は黙って頷いた。継ぐとは、その者の歩いた道ごと背負うことだ。",
+     "effects": [
+      {
+       "trait": "託された:#origin_name#の遺志"
+      },
+      {
+       "chronicle": "ギルドで古参の#origin_name# から、得物を継ぐ約束を託された。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_m4f_discount",
+   "context": "shop",
+   "prerequisites": {
+    "minLevel": 14
+   },
+   "weight": 2,
+   "text": "#origin_name# が値札を指で弾いた。「#origin_epithet#には、いつもの値で売るわけにいかんな。少し負けとくよ。あんたが使ってくれりゃ、店の看板になる」。",
+   "choices": [
+    {
+     "label": "好意に甘える",
+     "text": "名が通れば、こんな実利もついてくる。お前は安くなった品を受け取った。",
+     "effects": [
+      {
+       "gold": 6
+      },
+      {
+       "chronicle": "店で#origin_name# に、名声ゆえの値引きをしてもらった。"
+      }
+     ]
+    },
+    {
+     "label": "正規の値で払う",
+     "text": "「商売の足しにしてくれ」と、言い値で払った。#origin_name# は嬉しそうに釣りを返した。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "店で#origin_name# に、あえて正規の値で支払った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_m4f_warn",
+   "context": "shop",
+   "prerequisites": {
+    "minExposure": 1.0
+   },
+   "weight": 2,
+   "text": "店に入るなり、#origin_name# が鼻に皺を寄せた。「……あんた、何か連れてきてるね。品物に移っちゃ困る。表で、少し祓ってきちゃくれないか」。",
+   "choices": [
+    {
+     "label": "詫びて気を鎮める",
+     "text": "言われて初めて、纏わりつくものに気づいた。表で息を整えると、わずかに薄れた。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "店で#origin_name# に深蝕を指摘され、表で気を鎮めた。"
+      }
+     ]
+    },
+    {
+     "label": "気にせず用を済ます",
+     "text": "「すぐ済む」と、構わず品を選んだ。#origin_name# は気味悪そうに、それでも商いはした。",
+     "effects": [
+      {
+       "chronicle": "店で#origin_name# の懸念を意に介さず、用を済ませた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_m4f_usual",
+   "context": "shop",
+   "prerequisites": {
+    "minBond": 2
+   },
+   "weight": 2,
+   "text": "#origin_name# が、棚の奥から包みを出した。「あんたが来る頃だと思ってね。いつものを、取っておいたよ」。馴染みの顔だ。",
+   "choices": [
+    {
+     "label": "礼を言って受け取る",
+     "text": "気の利く店主だ。お前は取り置きの品を、礼とともに受け取った。",
+     "effects": [
+      {
+       "item": "salve"
+      },
+      {
+       "chronicle": "店で馴染みの#origin_name# が、いつもの品を取り置いてくれた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_m4f_trinket",
+   "context": "shop",
+   "prerequisites": {
+    "minBond": 3
+   },
+   "weight": 2,
+   "text": "#origin_name# が、小さな護符を握らせてきた。「銭はいらん。長い付き合いの、ほんの礼だよ。持っといで」。",
+   "choices": [
+    {
+     "label": "ありがたく受け取る",
+     "text": "商いを越えた心づけだ。お前は護符を懐に収めた。こういう縁が、街での居場所になる。",
+     "effects": [
+      {
+       "trait": "贈り物:#origin_name#の心づけの護符"
+      },
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "店で#origin_name# から、長年の礼に護符を贈られた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sp_m4f_apprentice",
+   "context": "shop",
+   "prerequisites": {
+    "minLevel": 22
+   },
+   "weight": 2,
+   "text": "店の隅で、#origin_name# の弟子が目を輝かせていた。「#origin_epithet#だ……本物だ」。憧れの眼差しが、くすぐったい。",
+   "choices": [
+    {
+     "label": "ひと言かけてやる",
+     "text": "お前は弟子に、短い励ましをかけた。少年の背筋が、誇らしげに伸びた。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "店で、憧れの目を向ける#origin_name# の弟子に言葉をかけた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_m4f_bard",
+   "context": "tavern",
+   "prerequisites": {
+    "minLevel": 18
+   },
+   "weight": 2,
+   "text": "隅の吟遊詩人が、お前を見て弦を爪弾き始めた。「#origin_epithet#の唄を、一節こしらえてみたんだ。聞いてくれるかい」。",
+   "choices": [
+    {
+     "label": "黙って聞き入る",
+     "text": "己を題にした唄は、面映ゆくも、不思議と胸に残る。お前は杯を傾け、最後まで聞いた。",
+     "effects": [
+      {
+       "trait": "唄:#origin_epithet#を讃える一節"
+      },
+      {
+       "chronicle": "酒場で、自らを題にした詩人の唄を聞いた。"
+      }
+     ]
+    },
+    {
+     "label": "照れて止めさせる",
+     "text": "「よしてくれ」と手を振った。詩人は笑って、別の英雄の唄に切り替えた。",
+     "effects": [
+      {
+       "chronicle": "酒場で、自らを讃える唄を照れて止めさせた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_m4f_alone",
+   "context": "tavern",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "賑わいから少し離れた席で、一人、杯を傾ける。揺れる水面に、これまで還らなかった顔がいくつも浮かんでは消えた。",
+   "choices": [
+    {
+     "label": "静かに物思いに沈む",
+     "text": "騒がしさの中の静寂が、張りつめたものをほどいていく。たまには、こんな夜も要る。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "酒場の片隅で一人、これまでの道のりを静かに思い返した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_m4f_round_in",
+   "context": "tavern",
+   "prerequisites": {
+    "minLevel": 14
+   },
+   "weight": 2,
+   "text": "見知らぬ客が、お前の卓に一杯を滑らせてきた。「#origin_epithet#だろう。あんたの話は聞いてる。これは、ほんの敬意だ」。",
+   "choices": [
+    {
+     "label": "ありがたく受ける",
+     "text": "名も知らぬ者からの一杯は、なぜか胸に沁みる。お前は会釈して、それを干した。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "酒場で見知らぬ客から、敬意の一杯を贈られた。"
+      }
+     ]
+    },
+    {
+     "label": "返杯する",
+     "text": "受けるだけでは据わりが悪い。お前は一杯返した。名乗らぬ同士の、短い乾杯。",
+     "effects": [
+      {
+       "gold": -6
+      },
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "酒場で見知らぬ客と、名乗らぬまま返杯を交わした。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_m4f_toast_fallen",
+   "context": "tavern",
+   "prerequisites": {},
+   "weight": 2,
+   "text": "卓の冒険者たちが、空の椅子に向けて杯を掲げた。「還らなかった奴らに」。誰からともなく、静かな唱和が広がる。",
+   "choices": [
+    {
+     "label": "杯を捧げる",
+     "text": "お前も杯を掲げた。名は違えど、同じ底を見て還らなかった者たちへ。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "trait": "手向け:還らぬ者たちへの一杯"
+      },
+      {
+       "chronicle": "酒場で、還らなかった冒険者たちへ杯を捧げた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_m4f_depths",
+   "context": "tavern",
+   "prerequisites": {
+    "minLevel": 24
+   },
+   "weight": 2,
+   "text": "酔った冒険者たちが、見てきた底の深さを競い合っている。「で、#origin_epithet#。あんたは、どこまで見た」。視線が集まった。",
+   "choices": [
+    {
+     "label": "見てきた底を語る",
+     "text": "お前は、潜った底の景色を、誇張せず語った。座は静まり、やがて深い溜息に変わった。",
+     "effects": [
+      {
+       "trait": "語り草:お前が見てきた底"
+      },
+      {
+       "chronicle": "酒場で、自らが見てきた底の深さを語って聞かせた。"
+      }
+     ]
+    },
+    {
+     "label": "黙して語らない",
+     "text": "「見た者にしか分からん」。それだけ言って杯を干した。沈黙が、何よりの答えだった。",
+     "effects": [
+      {
+       "chronicle": "酒場で、見てきた底について多くを語らなかった。"
+      }
+     ]
+    }
+   ]
   }
  ]
 }
