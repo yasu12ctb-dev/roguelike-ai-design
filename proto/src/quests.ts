@@ -22,14 +22,18 @@ export function generateOffers(world: World, ch: Character, rng: Rng, limit: num
   if (limit <= 0) return [];
   const offers: Quest[] = [];
   const held = openQuests(world);
-  // 到達：今のレベル(≈深度)より少し深い目標（4-4E スケール整合。街では ch.depth=0 になるため level 基準）
-  const dDepth = Math.max(3, ch.level) + 2 + rng.int(3); // +2..+4
-  offers.push({
-    id: qid(), kind: "descend", targetDepth: dDepth,
-    title: `深度${dDepth}へ到達`,
-    desc: `回収業ギルドの調査依頼。深度${dDepth}まで潜って戻れ。`,
-    rewardGold: dDepth * 9, status: "active", issuedGeneration: world.generation,
-  });
+  // 到達：今のレベル(≈深度)より少し深い目標（4-4E スケール整合。街では ch.depth=0 になるため level 基準）。
+  // すでにギルドの到達依頼を抱えていれば重ねて出さない（同じ/類似の到達依頼を二重受注できる不具合の修正）。
+  const hasGuildDescend = held.some((q) => q.kind === "descend" && !q.patron);
+  if (!hasGuildDescend) {
+    const dDepth = Math.max(3, ch.level) + 2 + rng.int(3); // +2..+4
+    offers.push({
+      id: qid(), kind: "descend", targetDepth: dDepth,
+      title: `深度${dDepth}へ到達`,
+      desc: `回収業ギルドの調査依頼。深度${dDepth}まで潜って戻れ。`,
+      rewardGold: dDepth * 9, status: "active", issuedGeneration: world.generation,
+    });
+  }
   // 回収：まだ依頼対象でない既知の化石を一つ（高レベルで陳腐な浅層化石は避ける）
   const allReclaim = world.fossils.filter((f) => !held.some((q) => q.targetFossilId === f.id));
   const nearLevel = allReclaim.filter((f) => f.laidDepth >= ch.level - 6);
