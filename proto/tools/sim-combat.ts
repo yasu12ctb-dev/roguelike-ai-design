@@ -16,7 +16,7 @@ import type { Character } from "../src/types.ts";
 import type { Floor, Monster, MonsterKind, Pos } from "../src/dungeon.ts";
 
 const VENOM_TURNS = 4;
-const venomDmgAt = (d: number) => Math.max(1, Math.round(d * 0.08));
+const venomDmgAt = (d: number) => Math.min(3, Math.max(1, Math.round(d * 0.08))); // VENOM_DMG_CAP=3（横断E・main.ts と同値）
 
 /** 深度相応の「ちゃんと潜ってきた」近接ビルド：level=depth、ステは体力寄り、装備は深度スケール。 */
 function meleeChar(L: number, weaponDmg: number, armorRed: number): Character {
