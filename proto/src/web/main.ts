@@ -52,7 +52,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.34.2";
+export const APP_VERSION = "0.35.0";
 export const APP_BUILD = "2026-06-22";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -543,6 +543,10 @@ function townRegularsFor(kind: string): LivingActor[] {
 }
 
 function enterBuilding(kind: string, restore = false) {
+  if (kind === "home" && !world.homeUnlocked && !restore) { // 自宅は銀昇格で「倒れた冒険者の家を継ぐ」まで施錠（4-10C）
+    log("鍵のかかった空き家だ。今はまだ、お前の住まいではない。", "dim");
+    return;
+  }
   if (!restore) townReturn = { ...townPlayer };
   interior = buildInterior(kind, townGrid.data);
   // 馴染みの常連を patron 席へ注入（refresh* と同じ web 注入パターン・engine 無改修）。
@@ -1371,10 +1375,29 @@ async function checkRankUp() {
   const known = world.recognizedGrade ?? 0;
   if (cur <= known) return;
   busy = true;
-  for (let g = known + 1; g <= cur; g++) await rankUpScene(g);
+  for (let g = known + 1; g <= cur; g++) {
+    await rankUpScene(g);
+    if (g === 2 && !world.homeUnlocked) await grantHomeScene(); // 銀昇格＝倒れた先達の家を継いで自宅を解禁（4-10C）
+  }
   world.recognizedGrade = cur;
   save();
   busy = false;
+}
+
+/** 銀昇格イベント（強制・一度きり・4-10C）：倒れた先達の家を継いで自宅（武具庫）を解禁。 */
+async function grantHomeScene() {
+  const fallen = world.fossils.filter((f) => f.kind === "character" || f.kind === "explorer");
+  const name = fallen.length ? rng.pick(fallen).origin.name : mintActor(db, rng).name;
+  const gm = townGrid.data.keepers["guild"]?.name ?? "ギルド長";
+  world.homeUnlocked = true;
+  sfx("seal");
+  await sheet({
+    text: `${gm}が、一本の古い鍵を差し出した。\n「銀に上がった祝いだ。──少し前に、${name}という冒険者が深みから還らなかった。身寄りもなく、住まいが空いたままでな。\nお前が継ぐといい。武具を仕舞う場所くらい、一人前には要るだろう」`,
+    meta: "倒れた者の家を継ぐ ── 自宅を得た", options: ["ありがたく受け取る"],
+  });
+  log("自宅（武具庫）を手に入れた。住宅区の我が家で、武具や薬を世代を越えて保管できる。", "cue");
+  chronicle(world, "legend", `${world.current!.name}が、還らなかった${name}の家を継いだ。`, [world.current!.id]);
+  save();
 }
 
 /** 昇格イベント本体。銅銀＝簡素／金＝賞賛／白金＝英傑（荘重）／秘銀＝ギルドマスター登場の小イベント（4-4E）。 */
@@ -1679,7 +1702,29 @@ async function characterCreation() {
   hp = maxHp(ch);
   log(`${ch.name}は、まっさらな素質で迷宮へ向かう（${statsLine(ch)}）。`, "dim");
   if (ch.bonds.some((b) => b.unfinished)) log("……先代の未完の因縁が、お前に引き継がれた。", "warn");
+  await maybeIntro(); // 初回のみ：迷宮／HPは街で癒える（死だけが残る）／深蝕は薬師、の導入（4-4B）
   save();
+}
+
+/** ゲーム開始の導入（強制・初回ワールドのみ・4-4B）：迷宮／「死だけが覆らない＝HP は街で癒える」／深蝕は薬師、を世界観として語る。
+ *  バランス不変・純テキスト。intro_seen で冪等（リセット後の新ワールドでは再び語る＝新規プレイヤーの初回オンボーディング）。 */
+async function maybeIntro() {
+  if ((world.flags ?? []).includes("intro_seen")) return;
+  (world.flags ??= []).push("intro_seen"); // 先に立てる＝中断しても再演しない
+  busy = true;
+  await sheet({
+    text: "灰の街の中央に、ぽっかりと迷宮の口が開いている。冷たい風が、底から吹き上げてくる。\nお前は、そこへ潜る者の一人だ――深く潜るほど、見たことのない景色と、見たくなかったものに出会うだろう。",
+    meta: "堆積する世界 ── はじめに", options: ["……潜る覚悟はある"],
+  });
+  await sheet({
+    text: "ひとつ、知っておくといい。\nこの街へ生きて還れば、傷はすべて癒える。疲れも痛みも、まるで無かったかのように。\n――この地が覆せないのは、ただ一つ「死」だけだ。倒れた者は深みで化石となり、その物語は次の世代へ受け継がれていく。",
+    meta: "はじめに ── 死だけが残る", options: ["……心に刻む"],
+  });
+  await sheet({
+    text: "もう一つ。深く潜る者の身には「深蝕」が滲む。深みの理が、少しずつお前を侵していく。\n街の薬師なら、金貨と引き換えにそれを祓ってくれる。画面上部の深蝕のゲージに、気を配れ。",
+    meta: "はじめに ── 深蝕と薬師", options: ["わかった"],
+  });
+  busy = false;
 }
 
 // ---------- 街（歩ける固定マップ。門 ">" で潜行＝この Promise を解決） ----------

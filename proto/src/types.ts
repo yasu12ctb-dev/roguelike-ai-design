@@ -21,6 +21,7 @@ export interface World {
   recognizedGrade?: number;     // ギルドが正式認定済みの最高等級（昇格イベントの既読管理：4-4E）。任意＝旧セーブ非破壊。
   stash?: InventorySlot[];      // 自宅の保管庫：消耗品（世代を越えて残る＝持ち物システム Phase3）。任意＝旧セーブ非破壊。
   stashGear?: Item[];           // 自宅の保管庫：装備（武器/防具/遺物/鞄の収集。世代越え）。任意＝旧セーブ非破壊。
+  homeUnlocked?: boolean;        // 自宅（武具庫）を入手済みか（銀昇格で「倒れた冒険者の家を継ぐ」＝4-10C）。新規=false／旧セーブは migrate で true。
   seals?: string[];             // 奉献の試練：集めた印（SealKey。World に蓄積＝世代越え。5種で深淵帯解錠：4-13A）。任意＝旧セーブ非破壊。
   ascended?: number;            // 奉献の試練：聖遺物を地上へ生還させてクリアした回数（4-13D）。任意＝旧セーブ非破壊。
   companion?: Companion;        // 同行（相棒）の永続状態（4-14C）。生かし続ければセーブ全体を貫く反復キャラ。任意＝旧セーブ非破壊。
