@@ -52,7 +52,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.34.1";
+export const APP_VERSION = "0.34.2";
 export const APP_BUILD = "2026-06-22";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -2725,7 +2725,7 @@ async function equipPrompt(item: Item) {
   const r = await sheet({
     text: head + (cur ? `\n今の${SLOT_LABEL[item.slot]}：${itemLabel(cur)}` : ""),
     meta: `${SLOT_LABEL[item.slot]} ── 拾い物（袋 ${bagUsed}/${bagCap}）`,
-    options: ["装備する", "袋にしまう（街/行商人で売る）", "見送る（置いていく）"],
+    options: [cur ? `装備する（今の${SLOT_LABEL[item.slot]}は袋へ）` : "装備する", "袋にしまう（街/行商人で売る）", "見送る（置いていく）"],
   });
   if (r.pick === 1) {
     item.unidentified = false; // 装備で鑑定
@@ -2733,6 +2733,7 @@ async function equipPrompt(item: Item) {
     sfx("equip");
     log(`${item.name} を装備した（${itemPower(item)}）。`);
     if (item.exposurePerTurn) log("……身につけた途端、深みがじわりと滲む。", "warn");
+    if (cur) await gearBagPush(cur); // 外した今の装備は袋へ（消失しない。満杯なら捨てる物を選ばせる）
   } else if (r.pick === 2) {
     await gearBagPush(item);
   }
