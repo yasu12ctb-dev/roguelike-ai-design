@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#0c0f14" />
+<title>タイトル/HUD モック — 堆積する世界（横断F・段階1）</title>
+<style>
+  /* design-spec.md §2 のトークンを複製（モックを自己完結に・本体 :root と同値）。 */
+  :root {
+    color-scheme: dark;
+    --bg-app:#0c0f14; --bg-panel:#10141a; --bg-void:#07090c; --bg-sheet:#14181f;
+    --bg-btn:#1c232d; --bg-btn-active:#28303d;
+    --line:#1c222b; --line-2:#2e3946; --line-3:#2c3440;
+    --tx:#cfd6dd; --tx-strong:#e8e2d4; --tx-2:#d8dee6; --tx-dim:#9aa4b0; --tx-meta:#7d8794; --tx-faint:#5b6673;
+    --c-hp:#e06c5a; --c-exp:#9d8fd8; --c-gold:#d9b34a; --c-buff:#8fd0c0;
+    --g-player:#ffd87a; --g-fossil:#9fd8cf; --g-spring:#5fd2d8; --g-summon:#c79bff; --g-stairs:#6fb3c8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: #06080b; color: var(--tx); min-height: 100dvh;
+    font-family: "Hiragino Sans", system-ui, sans-serif;
+    padding: env(safe-area-inset-top) 14px calc(28px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; align-items: center;
+  }
+  header { width: 100%; max-width: 880px; padding: 18px 2px 6px; }
+  h1.page { font-size: 15px; letter-spacing: .12em; color: #aeb8c4; font-weight: 700; }
+  .lead { font-size: 12px; line-height: 1.7; color: #8b94a0; margin-top: 6px; }
+  .lead b { color: var(--tx); }
+
+  .frames { width: 100%; max-width: 880px; margin-top: 14px; display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; }
+  figure { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  figcaption { font-size: 12px; color: var(--tx-dim); text-align: center; max-width: 300px; line-height: 1.6; }
+  figcaption b { color: var(--g-player); }
+
+  /* 端末枠（縦持ち 300×600 相当） */
+  .phone {
+    width: 300px; height: 600px; border-radius: 30px; overflow: hidden; position: relative;
+    background: var(--bg-app); border: 1px solid #20262f; box-shadow: 0 10px 40px rgba(0,0,0,.6);
+  }
+
+  /* ===== 共通：タイトル画面の骨格 ===== */
+  .title { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+    padding: 0 26px; font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; }
+  .title .embers { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  .title .embers span { position: absolute; font-family: "Menlo", monospace; font-weight: 700; }
+  .title .crest { margin-top: 124px; text-align: center; z-index: 2; }
+  .title .name { font-size: 38px; font-weight: 700; letter-spacing: .06em; line-height: 1.25; }
+  .title .tagline { margin-top: 18px; font-size: 12.5px; line-height: 1.9; color: var(--tx-dim); letter-spacing: .04em; z-index: 2; text-align: center; }
+  .title .menu { margin-top: auto; margin-bottom: 30px; width: 100%; z-index: 2; }
+  .title .menu button {
+    display: block; width: 100%; text-align: center; font-family: "Hiragino Mincho ProN", serif;
+    font-size: 15px; color: var(--tx-strong); background: rgba(28,35,45,.66); border: 1px solid var(--line-2);
+    border-radius: 12px; padding: 13px; margin-top: 9px; letter-spacing: .08em; backdrop-filter: blur(2px);
+  }
+  .title .menu button.primary { color: #1a1206; font-weight: 700; }
+  .title .menu .sub { font-size: 11px; color: var(--tx-dim); text-align: center; margin-top: 6px; letter-spacing: .04em; }
+  .title .ver { position: absolute; bottom: 9px; left: 0; right: 0; text-align: center; font-size: 10px; color: var(--tx-faint);
+    font-family: system-ui, sans-serif; letter-spacing: .05em; }
+  .vignette { position: absolute; inset: 0; pointer-events: none; }
+
+  /* ===== 変種A：灯火（warm／自分=金の光・親密で温かい） ===== */
+  .vA .vignette { background: radial-gradient(120% 80% at 50% 32%, rgba(255,190,110,.10), rgba(255,170,80,.03) 34%, rgba(0,0,0,.62) 82%); }
+  .vA .name { color: #ffe6ad; text-shadow: 0 0 18px rgba(255,216,122,.55), 0 0 44px rgba(255,160,60,.30); }
+  .vA .menu button.primary { background: linear-gradient(180deg, #ffdc8a, #e8b24a); border-color: #ffcf6a; box-shadow: 0 0 16px rgba(255,200,90,.35); }
+  .vA .embers span { color: #ffcf7a; }
+
+  /* ===== 変種B：深淵（cool／化石=青緑・冷たく厳か・不可逆） ===== */
+  .vB .vignette { background: radial-gradient(120% 82% at 50% 34%, rgba(95,210,216,.085), rgba(120,120,255,.03) 36%, rgba(0,0,0,.66) 82%); }
+  .vB .name { color: #dfeef0; text-shadow: 0 0 18px rgba(120,210,220,.5), 0 0 46px rgba(120,120,255,.28); }
+  .vB .tagline { color: #94a6ad; }
+  .vB .menu button.primary { background: linear-gradient(180deg, #8fe6e0, #4fb6c2); border-color: #6fd2d8; color: #052024; box-shadow: 0 0 16px rgba(95,210,216,.32); }
+  .vB .embers span { color: #7fcdd0; }
+
+  /* ===== HUD 改善モック ===== */
+  .hudwrap { width: 100%; max-width: 880px; margin-top: 26px; }
+  .hudwrap h2 { font-size: 13px; color: #aeb8c4; letter-spacing: .08em; margin-bottom: 4px; }
+  .hudwrap .note { font-size: 11.5px; color: #8b94a0; line-height: 1.7; margin-bottom: 10px; }
+  .hudrow { display: flex; flex-wrap: wrap; gap: 14px; }
+  .hudcard { background: var(--bg-app); border: 1px solid #20262f; border-radius: 14px; overflow: hidden; width: 300px; }
+  .hudcard .tag { font-size: 11px; color: var(--tx-dim); padding: 6px 10px 0; }
+  /* 現状ふう */
+  .hud-old { display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 12px; color: var(--tx-meta);
+    background: var(--bg-panel); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 6px; }
+  .hud-old .nm { color: var(--tx-strong); } .hud-old .hp { color: var(--c-hp); } .hud-old .ex { color: var(--c-exp); } .hud-old .go { color: var(--c-gold); }
+  /* 改善：深蝕をゲージ化＋HP をミニバー＋情報の優先度を視覚化 */
+  .hud-new { padding: 8px 10px; background: var(--bg-panel); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 6px; }
+  .hud-new .top { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .hud-new .nm { color: var(--tx-strong); font-weight: 700; }
+  .hud-new .depth { color: var(--tx-dim); } .hud-new .depth b { color: var(--tx-strong); font-variant-numeric: tabular-nums; }
+  .hud-new .spacer { flex: 1; }
+  .hud-new .gold { color: var(--c-gold); font-variant-numeric: tabular-nums; }
+  .hud-new .ver { color: var(--tx-faint); font-size: 10px; }
+  .hud-new .bars { display: flex; gap: 10px; margin-top: 7px; }
+  .gauge { flex: 1; }
+  .gauge .lab { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px; }
+  .gauge .track { height: 6px; border-radius: 4px; background: #0a0d12; overflow: hidden; box-shadow: 0 0 0 1px #1c222b inset; }
+  .gauge .fill { height: 100%; border-radius: 4px; }
+  .gauge.hp .lab { color: var(--c-hp); } .gauge.hp .fill { width: 72%; background: linear-gradient(90deg,#b8453a,#e06c5a); box-shadow: 0 0 8px rgba(224,108,90,.5); }
+  .gauge.ex .lab { color: var(--c-exp); } .gauge.ex .fill { width: 40%; background: linear-gradient(90deg,#6a5bb0,#9d8fd8); box-shadow: 0 0 8px rgba(157,143,216,.5); }
+  .hud-new .buff { margin-top: 6px; font-size: 11px; color: var(--c-buff); }
+
+  .foot { width: 100%; max-width: 880px; font-size: 11px; color: #5b6470; margin-top: 22px; line-height: 1.8; }
+  .foot b { color: #8b94a0; }
+</style>
+</head>
+<body>
+  <header>
+    <h1 class="page">タイトル / HUD モック — 横断F 段階1（方向案）</h1>
+    <p class="lead">design-spec.md のトークンで組んだ<b>見た目の方向モック</b>。判断（構図・配色・階層）は Swift にそのまま再利用、CSS実装は本体への軽反映用。<b>タイトルの色味は A/B どちらの方向にするか</b>を選ぶための叩き台。</p>
+  </header>
+
+  <div class="frames">
+    <!-- 変種A：灯火 -->
+    <figure>
+      <div class="phone vA">
+        <div class="title">
+          <div class="embers">
+            <span style="left:14%; top:18%; font-size:13px; opacity:.18;">＊</span>
+            <span style="left:78%; top:24%; font-size:11px; opacity:.14;">·</span>
+            <span style="left:30%; top:60%; font-size:12px; opacity:.12;">✦</span>
+            <span style="left:66%; top:72%; font-size:10px; opacity:.12;">·</span>
+            <span style="left:50%; top:86%; font-size:12px; opacity:.10;">＊</span>
+          </div>
+          <div class="vignette"></div>
+          <div class="crest">
+            <div class="name">堆積する<br>世界</div>
+          </div>
+          <div class="tagline">あなたの死が、<br>世界の歴史になる。</div>
+          <div class="menu">
+            <button class="primary">▶ 続きから</button>
+            <button>新しい物語をはじめる</button>
+            <button>設定</button>
+            <div class="sub">ジルダ は 深度 12 に潜っている</div>
+          </div>
+          <div class="ver">v0.32.4 ／ build 2026-06-24</div>
+        </div>
+      </div>
+      <figcaption><b>A：灯火（warm）</b><br>自分＝金の光。闇に灯る暖色。親密で「もう一度潜ろう」と思わせる温度。</figcaption>
+    </figure>
+
+    <!-- 変種B：深淵 -->
+    <figure>
+      <div class="phone vB">
+        <div class="title">
+          <div class="embers">
+            <span style="left:16%; top:20%; font-size:13px; opacity:.16;">✦</span>
+            <span style="left:74%; top:28%; font-size:11px; opacity:.13;">·</span>
+            <span style="left:34%; top:58%; font-size:12px; opacity:.12;">＊</span>
+            <span style="left:62%; top:74%; font-size:10px; opacity:.12;">·</span>
+            <span style="left:48%; top:88%; font-size:12px; opacity:.10;">✦</span>
+          </div>
+          <div class="vignette"></div>
+          <div class="crest">
+            <div class="name">堆積する<br>世界</div>
+          </div>
+          <div class="tagline">あなたの死が、<br>世界の歴史になる。</div>
+          <div class="menu">
+            <button class="primary">▶ 続きから</button>
+            <button>新しい物語をはじめる</button>
+            <button>設定</button>
+            <div class="sub">ジルダ は 深度 12 に潜っている</div>
+          </div>
+          <div class="ver">v0.32.4 ／ build 2026-06-24</div>
+        </div>
+      </div>
+      <figcaption><b>B：深淵（cool）</b><br>化石＝青緑の光。冷たく厳か、不可逆の深みを思わせる。世界観の「喪失」側に寄せた温度。</figcaption>
+    </figure>
+  </div>
+
+  <div class="hudwrap">
+    <h2>HUD（ステータスバー）改善案</h2>
+    <p class="note">情報の優先度を視覚化：<b>深蝕</b>と<b>HP</b>を文字列（░░░░）から<b>細いゲージ</b>へ＝危険度が一目で読める。名前/深度を主、金貨/版数を従に。色は既存トークンのまま。</p>
+    <div class="hudrow">
+      <div class="hudcard">
+        <div class="tag">現状ふう（文字列）</div>
+        <div class="hud-old"><span class="nm">ジルダ</span>・深度 <b>12</b>・<span class="hp">HP 18</span>・<span class="ex">深蝕 ░░░░░</span>・<span class="go">金 240</span></div>
+      </div>
+      <div class="hudcard">
+        <div class="tag">改善案（ゲージ化）</div>
+        <div class="hud-new">
+          <div class="top"><span class="nm">ジルダ</span><span class="depth">深度 <b>12</b></span><span class="spacer"></span><span class="gold">◇ 240</span><span class="ver">v0.32.4</span></div>
+          <div class="bars">
+            <div class="gauge hp"><div class="lab"><span>HP</span><span>18 / 25</span></div><div class="track"><div class="fill"></div></div></div>
+            <div class="gauge ex"><div class="lab"><span>深蝕</span><span>40%</span></div><div class="track"><div class="fill"></div></div></div>
+          </div>
+          <div class="buff">⟡ 守り +4（3手）　⟡ 加速（2手）</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">
+    ※ これは<b>方向モック</b>（叩き台）。確定したら design-spec.md に追記し、本体へ軽く反映（タイトル＝現 sheet を専用画面に・HUD＝ゲージ化）。<br>
+    ※ <b>Swift 再利用</b>：構図・配色・階層の判断はそのまま SwiftUI へ。CSS 実装のみ web 限定。
+  </p>
+</body>
+</html>
