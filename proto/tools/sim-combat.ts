@@ -159,3 +159,31 @@ for (const d of DEPTHS) {
 console.log("\n※ 下限ビルド（近接のみ・会心/術なし）。実プレイヤーは術/回復ノード/会心/相棒/消耗品で大きく上振れ。");
 console.log("※ 指標Aで『1体のHP%』が深度を通じて概ね一定なら終始シビアが効いている。突出種＝要調整。");
 console.log("※ 指標BのDEATHは『回復2回でも沈む』＝設計通り（深部は素の近接だけでは押し切れない＝術/相棒が必須）。STALEはkiter膠着。");
+
+// --- 指標C：構成別パック（能力の「混成時の限界コスト」を切り出す）---
+//   1v1 では無害だった ranged も「近接3体に足止めされながら撃たれる」と刺さる、を測る。
+//   全構成 5体・回復予算2回×35%。baseline(近接5) との DEATH%/勝HP損% の差＝その能力の限界寄与。
+console.log("\n【指標C】構成別パック（混成時の能力寄与）  回復予算=2回×30%・各3体");
+console.log("  対照=近接3（生存可能域）。各能力を『近接1＋能力2』で混ぜ、平均HP損%（死=100）で連続比較＝その能力の限界寄与\n");
+const meleeFillKey = (d: number) => d >= 40 ? "brute" : d >= 28 ? "ogre" : d >= 22 ? "reaver" : d >= 12 ? "hound" : "ghoul";
+const M = meleeFillKey, rangedKey = (d: number) => d >= 36 ? "seer" : d >= 18 ? "archer" : "spitter";
+const venomKey = (d: number) => d >= 34 ? "wailer" : d >= 30 ? "slug" : d >= 16 ? "spore" : "viper";
+const leechKey = (d: number) => d >= 26 ? "drainer" : "leecher", breedKey = (d: number) => d >= 32 ? "mother" : "brood";
+const COMPS: { label: string; kinds: (d: number) => string[] }[] = [
+  { label: "近接3（対照）", kinds: (d) => [M(d), M(d), M(d)] },
+  { label: "近接1+遠隔2", kinds: (d) => [M(d), rangedKey(d), rangedKey(d)] },
+  { label: "近接1+毒2  ", kinds: (d) => [M(d), venomKey(d), venomKey(d)] },
+  { label: "近接1+吸命2", kinds: (d) => [M(d), leechKey(d), leechKey(d)] },
+  { label: "近接1+増殖2", kinds: (d) => [M(d), breedKey(d), breedKey(d)] },
+];
+for (const comp of COMPS) {
+  const cells = DEPTHS.map((d) => {
+    const rs = SEEDS.map((s) => pack(d, d, comp.kinds(d).map((k) => scaleKind(kindByKey(k), d)), s, 2, 0.30));
+    const hpAvg = Math.round(avg(rs.map((x) => x.hpLostPct))); // 死=100 を含む連続指標
+    const death = Math.round(100 * rs.filter((x) => x.outcome === "DEATH").length / rs.length);
+    return `D${d}:HP損${String(hpAvg).padStart(3)}%${death ? `(死${death})` : "      "}`;
+  });
+  console.log(`  ${comp.label}  ${cells.join(" ")}`);
+}
+console.log("  ※平均HP損%が対照(近接3)より高い能力＝足止め戦で余計に削られる＝混成時に効く。(死N)=N%が死亡。");
+
