@@ -41,6 +41,7 @@ export function migrateWorld(w: World): World {
   if (!Array.isArray(w.quests)) w.quests = []; // v8：依頼（回収業 4-10G）
   if (!Array.isArray(w.stash)) w.stash = [];       // 自宅の保管庫・消耗品（持ち物 Phase3）：欠落は空で補完
   if (!Array.isArray(w.stashGear)) w.stashGear = []; // 自宅の保管庫・装備：欠落は空で補完
+  if (w.homeUnlocked === undefined) w.homeUnlocked = true; // 旧セーブは自宅所持済み＝grandfather（新規 world は newWorld で false 明示ゆえ undefined にならず未解禁を保つ）
   if (!Array.isArray(w.arcs)) w.arcs = [];         // 長尺アーク（4-12(I)）：欠落は空で補完
   if (!Array.isArray(w.tracked)) w.tracked = [];   // 追跡対象（4-6）：欠落は空で補完
   for (const t of w.tracked) {                     // 運命の弧の進行フィールド（M3 第一スライス）：欠落は0/未到達で補完
@@ -84,6 +85,7 @@ export function newWorld(seed: number): World {
     quests: [],
     stash: [],
     stashGear: [],
+    homeUnlocked: false, // 自宅は初期未所持＝銀昇格で「倒れた冒険者の家を継ぐ」（4-10C）。明示 false＝再読込でも未解禁を保つ。
     seals: [],
     ascended: 0,
   };
