@@ -52,7 +52,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.32.0";
+export const APP_VERSION = "0.32.1";
 export const APP_BUILD = "2026-06-22";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -3911,35 +3911,82 @@ function sealProgressLine(): string {
 const SZJP = { lg: "大", md: "中", sm: "小" } as const;
 const ARC_KEY_LABEL: Record<string, string> = { noble: "封鎖区の大命「原初の証」", noble_ack: "奉献者への眼差し" };
 
+// ---------- あそびかた・記号の凡例（M5・設定ハブから・チュートリアル代替の静的ヘルプ）----------
+//   実行時LLMゼロ整合の固定テキスト。グリフは draw 実装・town.json と一致（コード照合済み）。
+const HELP_FLOW =
+  "《 あそびかた 》\n\n" +
+  "▍ながれ\n" +
+  "灰の街で支度し、中央広場の門「>」から迷宮へ潜る。深く潜るほど身は深蝕に蝕まれる。財や術を持ち帰り、街で力を蓄える。死は終わりではない――あなたは化石となって世界に堆積し、次の世代がその名と因縁を継ぐ。\n\n" +
+  "▍うごかす（8方向）\n" +
+  "・スワイプ（8方向）／方向パッド（設定でオン・位置と大きさを調整）\n" +
+  "・キー：矢印・WASD・viキー(y u b n)・テンキー(1〜9)\n" +
+  "・「.」またはパッド中央＝その場で待機（1手）\n" +
+  "・敵は次の一手を予告する（テレグラフ）。退いて空振りさせるのが「見切り」。\n\n" +
+  "▍地図とねらい\n" +
+  "地図ボタンでフロア全体を表示。地図をタップ→最寄りの床にマーカー→パッドで微調整→「移動」で自動で歩く。";
+const HELP_LEGEND =
+  "《 記号の凡例 》\n\n" +
+  "▍迷宮\n" +
+  "@ 金＝あなた／@ 青＝相棒／@ 緑＝すれ違う冒険者\n" +
+  "& 琥珀＝手負いの冒険者（救助できる）\n" +
+  "敵＝記号×色（上位の色ほど強い）\n" +
+  "ψ ‡ Ψ 菫＝あなたが召喚した一時の味方\n" +
+  "泉 青緑＝回復の泉（HP回復）／安 緑＝安息所（深蝕を祓う）\n" +
+  "扉 金＝帰還の扉／> ＝下り階段／< ＝上り階段\n\n" +
+  "▍街\n" +
+  "漢字の看板＝店・施設（入って話す）\n" +
+  "ラテン文字＝街の人々：c 町民／$ 商人／n 貴族／t ならず者／f 冒険者\n" +
+  "碑・像＝先人と、あなたの歴代の記憶\n\n" +
+  "▍画面の見方\n" +
+  "深蝕バー＝深く潜るほど溜まる。高いと牙（HPドレイン）。\n" +
+  "毒N＝継続ダメージ（数手で抜ける）。バフ＝術の残り手数。";
+async function helpSheet(page: "flow" | "legend" = "flow"): Promise<void> {
+  busy = true;
+  if (page === "flow") {
+    const r = await sheet({ text: HELP_FLOW, meta: "あそびかた", options: ["記号の凡例へ →", "閉じる"] });
+    busy = false;
+    if (r.pick === 1) await helpSheet("legend");
+  } else {
+    const r = await sheet({ text: HELP_LEGEND, meta: "記号の凡例", options: ["← あそびかたへ", "閉じる"] });
+    busy = false;
+    if (r.pick === 1) await helpSheet("flow");
+  }
+}
+
 async function settingsSheet() {
   busy = true;
   const bgmVolJp = bgmVolume() < 0.45 ? "小" : bgmVolume() < 0.72 ? "中" : "大";
   const sfxVolJp = sfxVolume() < 0.45 ? "小" : sfxVolume() < 0.72 ? "中" : "大";
+  // ラベル先頭の識別子でディスパッチ（並び替えに強い）。グループ＝ヘルプ／音／操作・表示／詳細。
+  const HELP = "❓ あそびかた・記号の凡例";
   const opts = [
+    HELP,
     isMuted() ? "♪ 音を出す" : "🔇 すべての音を消す",
     isBgmOn() ? "🎵 BGM：オン → オフ" : "🎵 BGM：オフ → オン",
     `🎵 BGM音量：${bgmVolJp}（小→中→大）`,
     `🔊 効果音音量：${sfxVolJp}（小→中→大）`,
-    dpadOn ? "方向パッド：オン → オフ" : "方向パッド：オフ → オン",
-    `方向パッドの位置：${dpadPos === "right" ? "右下" : dpadPos === "left" ? "左下" : "中央"}（右下→左下→中央）`,
-    `方向パッドの大きさ：${SZJP[dpadSize]}（大→中→小）`,
-    `文字サイズ：${SZJP[logSize]}（小→中→大）`,
+    dpadOn ? "🕹 方向パッド：オン → オフ" : "🕹 方向パッド：オフ → オン",
+    `🕹 方向パッドの位置：${dpadPos === "right" ? "右下" : dpadPos === "left" ? "左下" : "中央"}（右下→左下→中央）`,
+    `🕹 方向パッドの大きさ：${SZJP[dpadSize]}（大→中→小）`,
+    `🔤 文字サイズ：${SZJP[logSize]}（小→中→大）`,
     "🔧 テスト",
     "⟲ 世界を最初からやり直す",
     "閉じる",
   ];
-  const r = await sheet({ text: `音・操作・表示を整える。\n\nバージョン ${APP_VERSION}（build ${APP_BUILD}）`, meta: "設定", options: opts });
+  const r = await sheet({ text: `音・操作・表示を整える。困ったら「あそびかた」へ。\n\nバージョン ${APP_VERSION}（build ${APP_BUILD}）`, meta: "設定", options: opts });
   busy = false;
-  if (r.pick === 1) { ensureAudio(); setMuted(!isMuted()); await settingsSheet(); }
-  else if (r.pick === 2) { ensureAudio(); setBgmEnabled(!isBgmOn()); await settingsSheet(); }
-  else if (r.pick === 3) { ensureAudio(); setBgmVolume(bgmVolume() < 0.45 ? 0.6 : bgmVolume() < 0.72 ? 0.85 : 0.35); await settingsSheet(); }
-  else if (r.pick === 4) { ensureAudio(); setSfxVolume(sfxVolume() < 0.45 ? 0.6 : sfxVolume() < 0.72 ? 0.85 : 0.35); sfx("equip"); await settingsSheet(); }
-  else if (r.pick === 5) { setDpad(!dpadOn); await settingsSheet(); }
-  else if (r.pick === 6) { setDpadPos(dpadPos === "right" ? "left" : dpadPos === "left" ? "center" : "right"); await settingsSheet(); }
-  else if (r.pick === 7) { setDpadSize(dpadSize === "lg" ? "md" : dpadSize === "md" ? "sm" : "lg"); await settingsSheet(); }
-  else if (r.pick === 8) { setLogSize(logSize === "sm" ? "md" : logSize === "md" ? "lg" : "sm"); await settingsSheet(); }
-  else if (r.pick === 9) { await testSheet(); }
-  else if (r.pick === 10) { await resetWorld(); }
+  const c = opts[r.pick - 1] ?? "";
+  if (c === HELP) { await helpSheet(); await settingsSheet(); }
+  else if (c.includes("音を消す") || c.includes("音を出す")) { ensureAudio(); setMuted(!isMuted()); await settingsSheet(); }
+  else if (c.includes("BGM：")) { ensureAudio(); setBgmEnabled(!isBgmOn()); await settingsSheet(); }
+  else if (c.includes("BGM音量")) { ensureAudio(); setBgmVolume(bgmVolume() < 0.45 ? 0.6 : bgmVolume() < 0.72 ? 0.85 : 0.35); await settingsSheet(); }
+  else if (c.includes("効果音音量")) { ensureAudio(); setSfxVolume(sfxVolume() < 0.45 ? 0.6 : sfxVolume() < 0.72 ? 0.85 : 0.35); sfx("equip"); await settingsSheet(); }
+  else if (c.includes("方向パッド：")) { setDpad(!dpadOn); await settingsSheet(); }
+  else if (c.includes("位置")) { setDpadPos(dpadPos === "right" ? "left" : dpadPos === "left" ? "center" : "right"); await settingsSheet(); }
+  else if (c.includes("大きさ")) { setDpadSize(dpadSize === "lg" ? "md" : dpadSize === "md" ? "sm" : "lg"); await settingsSheet(); }
+  else if (c.includes("文字サイズ")) { setLogSize(logSize === "sm" ? "md" : logSize === "md" ? "lg" : "sm"); await settingsSheet(); }
+  else if (c.includes("テスト")) { await testSheet(); }
+  else if (c.includes("やり直す")) { await resetWorld(); }
 }
 
 // ---------- 🔧 テストモード（開発用・web限定）。設定→テスト。レベル/深度を即変更しバランス検証を加速。 ----------
