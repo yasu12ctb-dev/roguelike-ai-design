@@ -15,7 +15,33 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icon.svg" />
   <style>
-    :root { color-scheme: dark; }
+    /* 色トークン（意味づけした単一情報源＝design-spec.md の§2 と同期。Swift は同名 Color へ）。
+       発光(text-shadow)の rgba は役割色からの装飾派生ゆえ各 .g-* にインライン保持（spec §2 末尾）。 */
+    :root {
+      color-scheme: dark;
+      /* surfaces */
+      --bg-app:#0c0f14; --bg-panel:#10141a; --bg-void:#07090c; --bg-wall:#11151c;
+      --bg-sheet:#14181f; --bg-input:#1a1f27; --bg-btn:#1c232d; --bg-btn-active:#28303d;
+      /* lines */
+      --line:#1c222b; --line-2:#2e3946; --line-3:#2c3440;
+      /* text */
+      --tx:#cfd6dd; --tx-strong:#e8e2d4; --tx-2:#d8dee6; --tx-dim:#9aa4b0;
+      --tx-meta:#7d8794; --tx-faint:#5b6673; --tx-status:#aab4c0; --tx-log:#d6cfc0; --tx-log-dim:#aab3bd;
+      /* status / state accents */
+      --c-hp:#e06c5a; --c-exp:#9d8fd8; --c-gold:#d9b34a; --c-buff:#8fd0c0; --c-warn:#d98c7a;
+      /* glyph roles */
+      --g-player:#ffd87a; --g-danger:#ff4f3c; --g-companion:#6fc7ff; --g-companion-erratic:#b58bff;
+      --g-delver:#79d39b; --g-downed:#d8a24a; --g-summon:#c79bff; --g-stairs:#6fb3c8;
+      --g-wall:#39434f; --g-floor:#2c333d;
+      /* enemy tiers */
+      --g-mon-t1:#c4ccd4; --g-mon-t2:#e0c46a; --g-mon-t3:#e58a45; --g-mon-t4:#e0564a; --g-mon-t5:#c071ff;
+      --g-elite:#ffcf4a; --g-boss:#ff5cf0;
+      /* objects / nodes */
+      --g-fossil:#9fd8cf; --g-fossil-quiet:#6f9a93; --g-chest:#e8c06a; --g-chest-open:#7a6a44;
+      --g-spring:#5fd2d8; --g-rest:#8fdf9a; --g-door:#ffd24a;
+      /* spell schools */
+      --c-atk:#e0756a; --c-ctl:#6fa8d8; --c-mov:#6fc7c0; --c-sup:#7fcf97; --c-lore:#c4abe6; --c-sum:#e0c46a;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     /* ゲーム中の誤操作防止：D-pad やマップのグリフを長押し／二度押ししても
        iOS の選択メニュー（コピー/調べる/翻訳）や文字選択が出ないようにする。入力欄だけ除外。 */
@@ -30,7 +56,7 @@
     body {
       height: 100vh; height: 100dvh;
       overflow: hidden; overscroll-behavior: none;
-      background: #0c0f14; color: #cfd6dd;
+      background: var(--bg-app); color: var(--tx);
       font-family: "Hiragino Sans", system-ui, sans-serif;
       display: flex; flex-direction: column;
       padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
@@ -42,23 +68,23 @@
     /* ---- ステータスバー ---- */
     #status {
       flex: none; display: flex; align-items: center; gap: 8px;
-      padding: 8px 10px; font-size: 12px; color: #aab4c0;
-      border-bottom: 1px solid #1c222b; background: #10141a;
+      padding: 8px 10px; font-size: 12px; color: var(--tx-status);
+      border-bottom: 1px solid var(--line); background: var(--bg-panel);
     }
     /* 左群＝縮む箱（溢れたら末尾から隠れる）。版数は右端に必ず残す（最新判定用）。 */
     #stLeft { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap; }
-    #stHp { color: #e06c5a; }
-    #stExp { color: #9d8fd8; }
-    #stGold { color: #d9b34a; }
-    #stBuff { color: #8fd0c0; font-size: .82em; flex: none; }
+    #stHp { color: var(--c-hp); }
+    #stExp { color: var(--c-exp); }
+    #stGold { color: var(--c-gold); }
+    #stBuff { color: var(--c-buff); font-size: .82em; flex: none; }
     #status .spacer { flex: 1; }
-    #stVer { color: #5b6673; font-size: 10.5px; font-weight: 600; letter-spacing: .03em; flex: none; margin-left: 8px; }
+    #stVer { color: var(--tx-faint); font-size: 10.5px; font-weight: 600; letter-spacing: .03em; flex: none; margin-left: 8px; }
     #status > span, #stLeft > span { flex: none; }
     /* 長い名前は末尾…で省略＝レイアウト非破壊（フルネームはステータス画面） */
-    #stName { color: #e8e2d4; max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
+    #stName { color: var(--tx-strong); max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
 
     /* ---- マップ（方向A：発光グリフ） ---- */
-    #mapWrap { position: relative; flex: 1; overflow: hidden; background: #07090c; touch-action: none; }
+    #mapWrap { position: relative; flex: 1; overflow: hidden; background: var(--bg-void); touch-action: none; }
     #aimBar { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 15;
       display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 10px;
       background: rgba(12,15,20,.92); border: 1px solid #2a3340; box-shadow: 0 2px 10px rgba(0,0,0,.5);
@@ -72,51 +98,51 @@
     #grid { display: grid; width: 100%; }
     .cell {
       position: relative; display: flex; align-items: center; justify-content: center;
-      background: #07090c; overflow: hidden;
+      background: var(--bg-void); overflow: hidden;
       font-family: "Menlo", "Consolas", monospace; font-weight: 700;
     }
-    .cell.wall { background: #11151c; }
+    .cell.wall { background: var(--bg-wall); }
     .cell span { display: block; }
     /* グリフ色（発光） */
-    .g-wall   { color: #39434f; }
-    .g-floor  { color: #2c333d; }
-    .g-down, .g-up { color: #6fb3c8; text-shadow: 0 0 9px rgba(111,179,200,.6); }
-    .g-player { color: #ffd87a; text-shadow: 0 0 12px rgba(255,216,122,.9), 0 0 26px rgba(255,160,60,.45); }
-    .g-player-danger { color: #ff4f3c; text-shadow: 0 0 14px rgba(255,79,60,1), 0 0 30px rgba(255,50,30,.7); animation: danger .55s ease-in-out infinite; }
+    .g-wall   { color: var(--g-wall); }
+    .g-floor  { color: var(--g-floor); }
+    .g-down, .g-up { color: var(--g-stairs); text-shadow: 0 0 9px rgba(111,179,200,.6); }
+    .g-player { color: var(--g-player); text-shadow: 0 0 12px rgba(255,216,122,.9), 0 0 26px rgba(255,160,60,.45); }
+    .g-player-danger { color: var(--g-danger); text-shadow: 0 0 14px rgba(255,79,60,1), 0 0 30px rgba(255,50,30,.7); animation: danger .55s ease-in-out infinite; }
     /* 同行（相棒）：青系の @＝「もう一人の人間＝味方」。被攻撃予告中は危険色（4-14C）。 */
-    .g-companion { color: #6fc7ff; text-shadow: 0 0 12px rgba(111,199,255,.9), 0 0 24px rgba(70,150,255,.45); }
-    .g-companion-danger { color: #ff4f3c; text-shadow: 0 0 14px rgba(255,79,60,1), 0 0 30px rgba(255,50,30,.7); animation: danger .55s ease-in-out infinite; }
+    .g-companion { color: var(--g-companion); text-shadow: 0 0 12px rgba(111,199,255,.9), 0 0 24px rgba(70,150,255,.45); }
+    .g-companion-danger { color: var(--g-danger); text-shadow: 0 0 14px rgba(255,79,60,1), 0 0 30px rgba(255,50,30,.7); animation: danger .55s ease-in-out infinite; }
     /* 連帯深蝕で奇癖が出た相棒：菫色の侵蝕味＋淡い明滅（4-14C Phase B）。.g-companion の後に置き上書き。 */
-    .g-companion-erratic { color: #b58bff; text-shadow: 0 0 11px rgba(181,139,255,.9), 0 0 24px rgba(140,80,230,.5); animation: pulse 1.1s ease-in-out infinite; }
+    .g-companion-erratic { color: var(--g-companion-erratic); text-shadow: 0 0 11px rgba(181,139,255,.9), 0 0 24px rgba(140,80,230,.5); animation: pulse 1.1s ease-in-out infinite; }
     /* 手負いの冒険者（救助＝相棒化／見捨て＝後世の宿敵）：弱く明滅する琥珀の & */
-    .g-downed { color: #d8a24a; text-shadow: 0 0 8px rgba(216,162,74,.6); animation: pulse 1.8s ease-in-out infinite; }
+    .g-downed { color: var(--g-downed); text-shadow: 0 0 8px rgba(216,162,74,.6); animation: pulse 1.8s ease-in-out infinite; }
     /* 同時に潜る生者の冒険者（すれ違いの軽イベント）：穏やかな緑の @（@色＝金/相棒=青と区別） */
-    .g-delver { color: #79d39b; text-shadow: 0 0 9px rgba(121,211,155,.75), 0 0 18px rgba(80,180,120,.4); animation: pulse 1.7s ease-in-out infinite; }
+    .g-delver { color: var(--g-delver); text-shadow: 0 0 9px rgba(121,211,155,.75), 0 0 18px rgba(80,180,120,.4); animation: pulse 1.7s ease-in-out infinite; }
     /* 召喚＝一時味方（術・援/移）：菫色の淡い明滅。数手で霧散する */
-    .g-summon { color: #c79bff; text-shadow: 0 0 9px rgba(199,155,255,.85), 0 0 20px rgba(150,90,255,.4); animation: pulse 1.4s ease-in-out infinite; }
+    .g-summon { color: var(--g-summon); text-shadow: 0 0 9px rgba(199,155,255,.85), 0 0 20px rgba(150,90,255,.4); animation: pulse 1.4s ease-in-out infinite; }
     @keyframes danger { 50% { color: #fff1e0; text-shadow: 0 0 18px rgba(255,120,90,1), 0 0 36px rgba(255,60,40,.85); } }
     /* 移動予告：敵が踏み込む先のマスを背景でハイライト（琥珀。攻撃予告の赤へ自然に段階づく） */
     .cell.tele-move { background: rgba(224,140,72,.34); box-shadow: 0 0 7px rgba(224,140,72,.3) inset; }
     /* 敵：記号＝種類／色＝強さの段（tier）。一目で危険度が分かる（4-11F）。 */
-    .g-mon-t1 { color: #c4ccd4; text-shadow: 0 0 6px rgba(196,204,212,.5); }   /* 灰白：雑魚 */
-    .g-mon-t2 { color: #e0c46a; text-shadow: 0 0 7px rgba(224,196,106,.55); }  /* 黄 */
-    .g-mon-t3 { color: #e58a45; text-shadow: 0 0 9px rgba(229,138,69,.65); }   /* 橙 */
-    .g-mon-t4 { color: #e0564a; text-shadow: 0 0 10px rgba(224,86,74,.75); }   /* 赤 */
-    .g-mon-t5 { color: #c071ff; text-shadow: 0 0 13px rgba(192,113,255,.9); animation: pulse 2s ease-in-out infinite; } /* 紫発光：最危険 */
+    .g-mon-t1 { color: var(--g-mon-t1); text-shadow: 0 0 6px rgba(196,204,212,.5); }   /* 灰白：雑魚 */
+    .g-mon-t2 { color: var(--g-mon-t2); text-shadow: 0 0 7px rgba(224,196,106,.55); }  /* 黄 */
+    .g-mon-t3 { color: var(--g-mon-t3); text-shadow: 0 0 9px rgba(229,138,69,.65); }   /* 橙 */
+    .g-mon-t4 { color: var(--g-mon-t4); text-shadow: 0 0 10px rgba(224,86,74,.75); }   /* 赤 */
+    .g-mon-t5 { color: var(--g-mon-t5); text-shadow: 0 0 13px rgba(192,113,255,.9); animation: pulse 2s ease-in-out infinite; } /* 紫発光：最危険 */
     /* ボス：中ボス＝金の輝き／エリアボス＝紫紅の脈動（別格） */
-    .g-elite { color: #ffcf4a; text-shadow: 0 0 10px #ffcf4a, 0 0 20px rgba(255,170,40,.6); animation: pulse 1.4s ease-in-out infinite; }
-    .g-boss  { color: #ff5cf0; text-shadow: 0 0 14px #ff5cf0, 0 0 30px rgba(255,60,200,.6); animation: pulse 1.05s ease-in-out infinite; }
+    .g-elite { color: var(--g-elite); text-shadow: 0 0 10px var(--g-elite), 0 0 20px rgba(255,170,40,.6); animation: pulse 1.4s ease-in-out infinite; }
+    .g-boss  { color: var(--g-boss); text-shadow: 0 0 14px var(--g-boss), 0 0 30px rgba(255,60,200,.6); animation: pulse 1.05s ease-in-out infinite; }
     /* 攻撃を予告中：色はtierのまま、強く明滅して「来る」と知らせる */
     .g-mon-atk { animation: monatk .5s ease-in-out infinite; }
     @keyframes monatk { 0%,100% { text-shadow: 0 0 6px currentColor; } 50% { text-shadow: 0 0 16px currentColor, 0 0 26px currentColor; filter: brightness(1.5); } }
-    .g-fossil { color: #9fd8cf; text-shadow: 0 0 10px rgba(159,216,207,.75); animation: pulse 2.6s ease-in-out infinite; }
-    .g-fossil-quiet { color: #6f9a93; }
-    .g-chest { color: #e8c06a; text-shadow: 0 0 9px rgba(232,192,106,.7); }
-    .g-chest-open { color: #7a6a44; }
+    .g-fossil { color: var(--g-fossil); text-shadow: 0 0 10px rgba(159,216,207,.75); animation: pulse 2.6s ease-in-out infinite; }
+    .g-fossil-quiet { color: var(--g-fossil-quiet); }
+    .g-chest { color: var(--g-chest); text-shadow: 0 0 9px rgba(232,192,106,.7); }
+    .g-chest-open { color: var(--g-chest-open); }
     /* 回復ノード（v2）：回復の泉＝青緑／安息所＝緑。帰還の扉＝金の脈動（往復チェックポイント）。 */
-    .g-spring { color: #5fd2d8; text-shadow: 0 0 10px rgba(95,210,216,.8), 0 0 20px rgba(60,170,200,.4); animation: pulse 2.4s ease-in-out infinite; }
-    .g-rest   { color: #8fdf9a; text-shadow: 0 0 10px rgba(143,223,154,.75); animation: pulse 2.8s ease-in-out infinite; }
-    .g-door   { color: #ffd24a; text-shadow: 0 0 12px rgba(255,210,74,.9), 0 0 26px rgba(255,170,40,.5); animation: pulse 1.5s ease-in-out infinite; }
+    .g-spring { color: var(--g-spring); text-shadow: 0 0 10px rgba(95,210,216,.8), 0 0 20px rgba(60,170,200,.4); animation: pulse 2.4s ease-in-out infinite; }
+    .g-rest   { color: var(--g-rest); text-shadow: 0 0 10px rgba(143,223,154,.75); animation: pulse 2.8s ease-in-out infinite; }
+    .g-door   { color: var(--g-door); text-shadow: 0 0 12px rgba(255,210,74,.9), 0 0 26px rgba(255,170,40,.5); animation: pulse 1.5s ease-in-out infinite; }
     @keyframes pulse { 50% { text-shadow: 0 0 16px rgba(159,216,207,1), 0 0 30px rgba(159,216,207,.4); } }
     /* 攻撃予告：自分のマスが討たれる＝赤い危険枠（@ も赤く明滅する：g-player-danger） */
     .cell.tele-atk::after {
@@ -141,14 +167,14 @@
     /* ---- ログ（文字サイズ＝設定で 小/中/大。既定＝中） ---- */
     #log {
       flex: none; padding: 9px 14px; font-size: 15px; line-height: 1.8; height: 122px; overflow-y: auto;
-      border-top: 1px solid #1c222b; background: #10141a;
-      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; color: #d6cfc0;
+      border-top: 1px solid var(--line); background: var(--bg-panel);
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; color: var(--tx-log);
     }
     #log.s-sm { font-size: 13px; height: 100px; line-height: 1.7; }
     #log.s-lg { font-size: 17px; height: 150px; line-height: 1.85; }
-    #log .dim { color: #aab3bd; font-size: .9em; }
-    #log .warn { color: #d98c7a; }
-    #log .cue  { color: #8fd0c0; }
+    #log .dim { color: var(--tx-log-dim); font-size: .9em; }
+    #log .warn { color: var(--c-warn); }
+    #log .cue  { color: var(--c-buff); }
 
     /* ---- 下部タブバー（SubsFolio型）：実ビューポート最下端に固定ピン留め。
        ※ flex 最終子に頼ると iOS の position:fixed 親で自由領域計算が狂い下端に届かない
@@ -156,7 +182,7 @@
     #tabbar {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
       display: none; align-items: stretch;
-      background: #0c0f14; border-top: 1px solid #1c222b;
+      background: var(--bg-app); border-top: 1px solid var(--line);
       /* アイコンを下端に寄せる：セーフエリアから 12px 引いてインジケータ上に詰める（最低 8px は確保）。 */
       padding-bottom: max(8px, calc(env(safe-area-inset-bottom, 0px) - 12px));
     }
@@ -166,17 +192,17 @@
     #tabbar .tab {
       flex: 1 1 0; min-width: 0; height: 48px;
       display: flex; align-items: center; justify-content: center;
-      background: none; border: none; color: #9aa4b0;
+      background: none; border: none; color: var(--tx-dim);
     }
     #tabbar .tab svg { width: 27px; height: 27px; filter: drop-shadow(0 0 4px currentColor); opacity: .92; }
-    #tabbar .tab:active { color: #e8e2d4; }
-    #tabbar #spellBtn { color: #c4abe6; }
+    #tabbar .tab:active { color: var(--tx-strong); }
+    #tabbar #spellBtn { color: var(--c-lore); }
     #tabbar #mapBtn { color: #8fb7d8; }
     #tabbar .tab.dis { opacity: .28; pointer-events: none; }
 
     /* ---- 行動デッキ（歩ける場面で常駐）：D-pad のみ。タブバーの上に重なる帯 ---- */
     #deck {
-      flex: none; display: none; background: #0c0f14;
+      flex: none; display: none; background: var(--bg-app);
       align-items: flex-end; padding: 8px 14px 8px;
     }
     #deck.show { display: flex; }
@@ -192,7 +218,7 @@
     #dpad.sz-sm { grid-template-columns: repeat(3,38px); grid-template-rows: repeat(3,36px); }
     #dpad button {
       font-size: 18px; color: #cdd6e0; background: rgba(22,27,34,.95);
-      border: 1px solid #2e3946; border-radius: 10px; line-height: 1;
+      border: 1px solid var(--line-2); border-radius: 10px; line-height: 1;
       display: flex; align-items: center; justify-content: center; padding: 0;
     }
     #dpad button:active { background: rgba(44,52,66,.95); color: #fff; }
@@ -202,15 +228,15 @@
     .selgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
     .selgrid.one { grid-template-columns: 1fr; }
     .selgrid button {
-      display: block; width: 100%; text-align: left; background: #1c232d; border: 1px solid #2e3946; border-radius: 12px;
-      padding: 11px 12px 12px; min-height: 62px; font-family: inherit; color: #d8dee6;
+      display: block; width: 100%; text-align: left; background: var(--bg-btn); border: 1px solid var(--line-2); border-radius: 12px;
+      padding: 11px 12px 12px; min-height: 62px; font-family: inherit; color: var(--tx-2);
     }
-    .selgrid button:active { background: #28303d; }
+    .selgrid button:active { background: var(--bg-btn-active); }
     .selgrid .chip { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 7px; margin-bottom: 5px; border: 1px solid currentColor; }
-    .selgrid .nm { font-size: 14.5px; color: #e8e2d4; font-weight: 700; line-height: 1.2; }
-    .selgrid .sub { font-size: 11.5px; color: #9aa4b0; margin-top: 4px; line-height: 1.4; }
+    .selgrid .nm { font-size: 14.5px; color: var(--tx-strong); font-weight: 700; line-height: 1.2; }
+    .selgrid .sub { font-size: 11.5px; color: var(--tx-dim); margin-top: 4px; line-height: 1.4; }
     .selgrid .cost { color: #b79be0; }
-    .c-atk{color:#e0756a;} .c-ctl{color:#6fa8d8;} .c-mov{color:#6fc7c0;} .c-sup{color:#7fcf97;} .c-lore{color:#c4abe6;} .c-sum{color:#e0c46a;}
+    .c-atk{color:var(--c-atk);} .c-ctl{color:var(--c-ctl);} .c-mov{color:var(--c-mov);} .c-sup{color:var(--c-sup);} .c-lore{color:var(--c-lore);} .c-sum{color:var(--c-sum);}
     /* ⌃メニューのアイコンセル（中央寄せ・アイコン＋ラベル） */
     .selgrid .mc { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 6px 0; }
     .selgrid .mc .icn { width: 28px; height: 28px; display: inline-block; color: #cdd6e0; }
@@ -225,25 +251,25 @@
     #overlay.show { display: flex; }
     #sheet {
       width: 100%; max-height: 86dvh; overflow-y: auto;
-      background: #14181f; border-top: 1px solid #2c3440;
+      background: var(--bg-sheet); border-top: 1px solid var(--line-3);
       padding: 16px 16px calc(14px + env(safe-area-inset-bottom));
       font-family: "Hiragino Mincho ProN", serif;
     }
-    #sheetText { font-size: 14.5px; line-height: 1.95; color: #e8e2d4; white-space: pre-wrap; }
-    #sheetMeta { font-size: 11px; color: #7d8794; margin-top: 8px; font-family: system-ui, sans-serif; }
+    #sheetText { font-size: 14.5px; line-height: 1.95; color: var(--tx-strong); white-space: pre-wrap; }
+    #sheetMeta { font-size: 11px; color: var(--tx-meta); margin-top: 8px; font-family: system-ui, sans-serif; }
     #sheetInputRow { display: none; margin-top: 12px; gap: 8px; }
     #sheetInputRow.show { display: flex; }
     #sheetInput {
       flex: 1; font-family: inherit; font-size: 16px; color: #e6ebf0;
-      background: #1a1f27; border: 1px solid #2c3440; border-radius: 10px; padding: 11px 13px;
+      background: var(--bg-input); border: 1px solid var(--line-3); border-radius: 10px; padding: 11px 13px;
     }
     #sheetButtons { margin-top: 12px; }
     #sheetButtons button {
       display: block; width: 100%; text-align: left; font-family: inherit; font-size: 14.5px;
-      color: #d8dee6; background: #1c232d; border: 1px solid #2e3946; border-radius: 10px;
+      color: var(--tx-2); background: var(--bg-btn); border: 1px solid var(--line-2); border-radius: 10px;
       padding: 12px 14px; margin-top: 8px; line-height: 1.5;
     }
-    #sheetButtons button:active { background: #28303d; }
+    #sheetButtons button:active { background: var(--bg-btn-active); }
   </style>
 </head>
 <body>
