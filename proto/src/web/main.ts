@@ -52,7 +52,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.31.3";
+export const APP_VERSION = "0.32.0";
 export const APP_BUILD = "2026-06-22";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -4389,6 +4389,43 @@ addEventListener("resize", () => {
 });
 
 // ---------- 起動 ----------
+// ---------- タイトル画面（M5・起動の入口。続きから／新しい物語／設定）----------
+//   起動でいきなり街/キャラ作成に入らず、まず一枚挟む（最初の操作音＋版数確認＋途中再開の明示化）。
+//   ゲーム本体は townLoop→startDive→… の自己連鎖。タイトルはそこへ一度分岐するだけ（設定は自分へ戻る）。
+async function titleScreen(): Promise<void> {
+  setBgm("title");
+  const ch = world.current;
+  const living = !!(ch && ch.alive);
+  const snap = living ? loadDive() : null;
+  const status = living
+    ? (snap ? `${ch!.name} は深度 ${snap.depth} に潜っている。` : `${ch!.name} は灰の街にいる（第${world.generation}世代）。`)
+    : (world.generation > 0 ? `第${world.generation}世代まで堆積した世界。新たな主人公を待っている。` : "まだ誰も、ここへは潜っていない。");
+  const opts = living
+    ? ["▶ 続きから", "新しい物語をはじめる", "設定"]
+    : ["▶ 新しい物語をはじめる", "設定"];
+  const r = await sheet({
+    text: `《 堆積する世界 》\n── NetHack系ローグライクの現代化 ──\n\n${status}\n\nv${APP_VERSION}（build ${APP_BUILD}）`,
+    meta: "堆積する世界",
+    options: opts,
+  });
+  const chosen = opts[r.pick - 1] ?? opts[0];
+  if (chosen.includes("続きから")) {                       // 途中再開（潜行中ならその深度・街なら街）
+    if (snap) { try { resumeDive(snap); return; } catch { clearDive(); } }
+    world.current!.depth = 0;
+    log(`（${world.current!.name}は街にいる）`, "dim");
+    await townLoop(); await startDive(); return;
+  }
+  if (chosen.includes("新しい物語")) {
+    if (living) {                                          // 既存世界がある＝最初からやり直す（resetWorld の二重確認・確定でreload）
+      await resetWorld();                                 // キャンセル時のみ下へ戻る
+      await titleScreen(); return;
+    }
+    clearDive(); await characterCreation();               // まっさらな初回 or 死亡後の次世代
+    await townLoop(); await startDive(); return;
+  }
+  await settingsSheet(); await titleScreen();              // 設定→タイトルへ戻る
+}
+
 async function boot() {
   loadMutePref();
   loadBgmPref();
@@ -4398,14 +4435,6 @@ async function boot() {
   applyChrome();
   buildGridDom();
   updateStatus();
-  // 潜行の途中で閉じていたら、街に戻さず同じ深度から再開（深度0やり直しの抜け道を塞ぐ）。
-  if (world.current && world.current.alive) {
-    const snap = loadDive();
-    if (snap) { try { resumeDive(snap); return; } catch { clearDive(); } }
-  }
-  if (!world.current || !world.current.alive) { clearDive(); await characterCreation(); }
-  else { world.current.depth = 0; log(`（${world.current.name}は街にいる）`, "dim"); }
-  await townLoop();
-  await startDive();
+  await titleScreen(); // 起動はまずタイトルへ（続きから／新しい物語／設定）。本体はここから分岐。
 }
 void boot();
