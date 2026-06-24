@@ -65,23 +65,31 @@
     /* standalone PWA（ホーム画面起動）：100vh＝物理全画面で下端まで満たす（上記コメント参照） */
     @media (display-mode: standalone) { body { height: 100vh; } }
 
-    /* ---- ステータスバー ---- */
+    /* ---- ステータスバー（HUD・横断F 段階1：深蝕/HP をゲージ化＝危険度が一目で読める） ---- */
     #status {
-      flex: none; display: flex; align-items: center; gap: 8px;
-      padding: 8px 10px; font-size: 12px; color: var(--tx-status);
+      flex: none; padding: 7px 10px 8px; font-size: 12px; color: var(--tx-status);
       border-bottom: 1px solid var(--line); background: var(--bg-panel);
     }
-    /* 左群＝縮む箱（溢れたら末尾から隠れる）。版数は右端に必ず残す（最新判定用）。 */
-    #stLeft { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap; }
-    #stHp { color: var(--c-hp); }
-    #stExp { color: var(--c-exp); }
-    #stGold { color: var(--c-gold); }
-    #stBuff { color: var(--c-buff); font-size: .82em; flex: none; }
-    #status .spacer { flex: 1; }
-    #stVer { color: var(--tx-faint); font-size: 10.5px; font-weight: 600; letter-spacing: .03em; flex: none; margin-left: 8px; }
-    #status > span, #stLeft > span { flex: none; }
-    /* 長い名前は末尾…で省略＝レイアウト非破壊（フルネームはステータス画面） */
-    #stName { color: var(--tx-strong); max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
+    #stTop { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+    /* 名前は主・末尾…で省略（レイアウト非破壊）。版数は右端に必ず残す（最新判定用）。 */
+    #stName { color: var(--tx-strong); font-weight: 700; max-width: 116px; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
+    #stTop .lv, #stTop .dep { color: var(--tx-dim); flex: none; }
+    #stTop .lv b, #stTop .dep b { color: var(--tx-strong); font-variant-numeric: tabular-nums; }
+    #stTop .sp { flex: 1; }
+    #stGold { color: var(--c-gold); flex: none; font-variant-numeric: tabular-nums; }
+    #stVer { color: var(--tx-faint); font-size: 10px; font-weight: 600; letter-spacing: .03em; flex: none; }
+    /* HP/深蝕の細ゲージ。色は既存トークン。fill 幅は updateStatus が設定。 */
+    #stBars { display: flex; gap: 10px; margin-top: 6px; }
+    #stBars .gauge { flex: 1; min-width: 0; }
+    #stBars .gauge .lab { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px; font-variant-numeric: tabular-nums; }
+    #stBars .gauge .track { height: 6px; border-radius: 4px; background: #0a0d12; overflow: hidden; box-shadow: 0 0 0 1px var(--line) inset; }
+    #stBars .gauge .fill { height: 100%; border-radius: 4px; transition: width .18s ease; }
+    #stBars .hp .lab { color: var(--c-hp); }
+    #stBars .hp .fill { background: linear-gradient(90deg, #b8453a, var(--c-hp)); box-shadow: 0 0 8px rgba(224,108,90,.5); }
+    #stBars .ex .lab { color: var(--c-exp); }
+    #stBars .ex .fill { background: linear-gradient(90deg, #6a5bb0, var(--c-exp)); box-shadow: 0 0 8px rgba(157,143,216,.5); }
+    #stBuff { color: var(--c-buff); font-size: 11px; margin-top: 5px; }
+    #stBuff:empty { display: none; }
 
     /* ---- マップ（方向A：発光グリフ） ---- */
     #mapWrap { position: relative; flex: 1; overflow: hidden; background: var(--bg-void); touch-action: none; }
@@ -270,19 +278,48 @@
       padding: 12px 14px; margin-top: 8px; line-height: 1.5;
     }
     #sheetButtons button:active { background: var(--bg-btn-active); }
+
+    /* ---- タイトル画面（横断F 段階1・変種A「灯火」＝自分=金の光・暗闇に灯る暖色） ---- */
+    #title {
+      position: fixed; inset: 0; z-index: 30; display: none; flex-direction: column; align-items: center;
+      padding: 0 26px calc(24px + env(safe-area-inset-bottom)); background: var(--bg-app); overflow: hidden;
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+    }
+    #title.show { display: flex; }
+    #title .vignette { position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(120% 80% at 50% 30%, rgba(255,190,110,.10), rgba(255,170,80,.03) 34%, rgba(0,0,0,.62) 82%); }
+    #title .embers { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+    #title .embers span { position: absolute; font-family: "Menlo", monospace; font-weight: 700; color: #ffcf7a; }
+    #title .crest { margin-top: 17vh; text-align: center; z-index: 2; }
+    #title .name { font-size: 40px; font-weight: 700; letter-spacing: .06em; line-height: 1.25;
+      color: #ffe6ad; text-shadow: 0 0 18px rgba(255,216,122,.55), 0 0 44px rgba(255,160,60,.30); }
+    #title .tagline { margin-top: 20px; font-size: 13px; line-height: 1.95; color: var(--tx-dim); letter-spacing: .04em; z-index: 2; text-align: center; }
+    #title .menu { margin-top: auto; width: 100%; max-width: 340px; z-index: 2; }
+    #title .menu button { display: block; width: 100%; text-align: center; font-family: "Hiragino Mincho ProN", serif;
+      font-size: 15px; color: var(--tx-strong); background: rgba(28,35,45,.66); border: 1px solid var(--line-2);
+      border-radius: 12px; padding: 14px; margin-top: 9px; letter-spacing: .08em; backdrop-filter: blur(2px); }
+    #title .menu button.primary { color: #1a1206; font-weight: 700;
+      background: linear-gradient(180deg, #ffdc8a, #e8b24a); border-color: #ffcf6a; box-shadow: 0 0 16px rgba(255,200,90,.35); }
+    #title .sub { font-size: 11px; color: var(--tx-dim); text-align: center; margin-top: 8px; letter-spacing: .04em; min-height: 14px; z-index: 2; }
+    #title .ver { margin-top: 13px; text-align: center; font-size: 10px; color: var(--tx-faint);
+      font-family: system-ui, sans-serif; letter-spacing: .05em; z-index: 2; }
   </style>
 </head>
 <body>
   <div id="status">
-    <div id="stLeft">
+    <div id="stTop">
       <span id="stName">—</span>
-      <span>深度 <b id="stDepth">0</b></span>
-      <span id="stHp">HP --</span>
-      <span id="stExp">深蝕 ░░░░░</span>
-      <span id="stGold">金 0</span>
-      <span id="stBuff"></span>
+      <span class="lv">Lv<b id="stLv">1</b></span>
+      <span class="dep">深度 <b id="stDepth">0</b></span>
+      <span class="sp"></span>
+      <span id="stGold">◇ 0</span>
+      <span id="stVer">v—</span>
     </div>
-    <span id="stVer">v—</span>
+    <div id="stBars">
+      <div class="gauge hp"><div class="lab"><span>HP</span><span id="stHpVal">—</span></div><div class="track"><div id="stHpFill" class="fill"></div></div></div>
+      <div class="gauge ex"><div class="lab"><span>深蝕</span><span id="stExVal">0%</span></div><div class="track"><div id="stExFill" class="fill"></div></div></div>
+    </div>
+    <div id="stBuff"></div>
   </div>
 
   <div id="mapWrap">
@@ -323,6 +360,23 @@
     <button id="statBtn"  class="tab" type="button" aria-label="ステータス"></button>
     <button id="cogBtn"   class="tab" type="button" aria-label="設定"></button>
   </nav>
+
+  <!-- タイトル画面（横断F 段階1）：起動でまず表示。メニューは titleScreen() が流し込む。 -->
+  <div id="title">
+    <div class="vignette"></div>
+    <div class="embers">
+      <span style="left:14%; top:18%; font-size:13px; opacity:.18;">＊</span>
+      <span style="left:78%; top:24%; font-size:11px; opacity:.14;">·</span>
+      <span style="left:30%; top:60%; font-size:12px; opacity:.12;">✦</span>
+      <span style="left:66%; top:72%; font-size:10px; opacity:.12;">·</span>
+      <span style="left:50%; top:86%; font-size:12px; opacity:.10;">＊</span>
+    </div>
+    <div class="crest"><div class="name">堆積する<br>世界</div></div>
+    <div class="tagline">あなたの死が、<br>世界の歴史になる。</div>
+    <div class="menu" id="titleMenu"></div>
+    <div class="sub" id="titleSub"></div>
+    <div class="ver" id="titleVer"></div>
+  </div>
 
   <div id="overlay">
     <div id="sheet">
