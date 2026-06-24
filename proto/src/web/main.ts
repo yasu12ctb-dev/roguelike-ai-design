@@ -52,7 +52,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.34.0";
+export const APP_VERSION = "0.34.1";
 export const APP_BUILD = "2026-06-22";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -3692,7 +3692,10 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   for (const l of onRediscoverFossil(world, fossil.id)) { log(l, "cue"); save(); } // 回収系の依頼達成
   const ch = world.current!;
 
-  const canInherit = fossil.death.finalAct.choice === "leave_will" || fossil.death.finalAct.choice === "guard_relic";
+  // 継承は1化石1回のみ（既に継いだ化石は再提示しない＝先代の武器を潜行ごとに複製する farm を防ぐ。
+  //  rollEncounter は seenThisDive しか除外せず潜行ごとリセットゆえ、同じ化石が後の潜行で再遭遇しうる）。
+  const canInherit = (fossil.death.finalAct.choice === "leave_will" || fossil.death.finalAct.choice === "guard_relic")
+    && !fossil.interventions.some((iv) => iv.type === "inherit");
   const storylet = selectStorylet(db, world, ch, fossil, v, rng, recentSet());
   if (storylet) noteEvent(storylet.id);
   const done = new Set<string>();

@@ -1854,7 +1854,8 @@
    "id": "sl_grudge_thread",
    "prerequisites": {
     "tone": "grudge",
-    "flag": "traced"
+    "flag": "traced",
+    "notFlag": "sl_grudge_thread_seen"
    },
    "weight": 2,
    "investigate": {
@@ -1865,6 +1866,9 @@
      },
      {
       "chronicle": "#origin_name# の手記が指す先を悟った。いずれ、決着をつけねばならない。"
+     },
+     {
+      "plant": "sl_grudge_thread_seen"
      }
     ]
    }
@@ -2311,7 +2315,8 @@
    "id": "sl_grudge_token_follow",
    "prerequisites": {
     "tone": "grudge",
-    "flag": "token_kept"
+    "flag": "token_kept",
+    "notFlag": "sl_grudge_token_follow_seen"
    },
    "weight": 2,
    "investigate": {
@@ -2325,6 +2330,9 @@
      },
      {
       "chronicle": "#origin_name# の割り符が、対の相手の在処を指し示した。"
+     },
+     {
+      "plant": "sl_grudge_token_follow_seen"
      }
     ]
    }
@@ -2440,7 +2448,8 @@
    "id": "sl_myth_star_follow",
    "prerequisites": {
     "tone": "myth",
-    "flag": "star_map"
+    "flag": "star_map",
+    "notFlag": "sl_myth_star_follow_seen"
    },
    "weight": 2,
    "investigate": {
@@ -2451,6 +2460,9 @@
      },
      {
       "chronicle": "#origin_name# の星図が指す先を読み解いた。導かれている。"
+     },
+     {
+      "plant": "sl_myth_star_follow_seen"
      }
     ]
    }
@@ -2561,7 +2573,8 @@
    "id": "sl_loss_will_follow",
    "prerequisites": {
     "tone": "loss",
-    "flag": "will_read"
+    "flag": "will_read",
+    "notFlag": "sl_loss_will_follow_seen"
    },
    "weight": 2,
    "investigate": {
@@ -2572,6 +2585,9 @@
      },
      {
       "chronicle": "#origin_name# の遺言を託された者として、その約束を胸に刻んだ。"
+     },
+     {
+      "plant": "sl_loss_will_follow_seen"
      }
     ]
    }
@@ -3769,7 +3785,8 @@
    "id": "tw_again",
    "context": "street",
    "prerequisites": {
-    "flag": "spoke"
+    "flag": "spoke",
+    "notFlag": "tw_again_seen"
    },
    "weight": 3,
    "text": "また#origin_name# だ。#origin_gear# 越しにこちらを認めると、「よう、まだ生きてたか」と片手を挙げた。覚えていてくれたらしい。",
@@ -3783,6 +3800,9 @@
       },
       {
        "chronicle": "街で旧知の#origin_name# と再会し、絆を深めた。"
+      },
+      {
+       "plant": "tw_again_seen"
       }
      ]
     },
@@ -4474,6 +4494,9 @@
       },
       {
        "chronicle": "酒場で#origin_name# と隣り合い、黙って飲んだ。"
+      },
+      {
+       "plant": "spoke"
       }
      ]
     }
@@ -4578,7 +4601,8 @@
    "id": "tv_song",
    "context": "tavern",
    "prerequisites": {
-    "flag": "spoke"
+    "flag": "spoke",
+    "notFlag": "tv_song_seen"
    },
    "weight": 2,
    "text": "#origin_name# が古い坑道歌を口ずさみ始めた。「ほら、お前も知ってるだろ」と肘でつついてくる。",
@@ -4595,6 +4619,9 @@
       },
       {
        "chronicle": "酒場で#origin_name# と坑道歌を歌い、絆を深めた。"
+      },
+      {
+       "plant": "tv_song_seen"
       }
      ]
     },
@@ -4922,7 +4949,8 @@
    "id": "st_new_follow",
    "context": "street",
    "prerequisites": {
-    "flag": "st_new"
+    "flag": "st_new",
+    "notFlag": "st_new_follow_seen"
    },
    "weight": 3,
    "text": "「あんたの言葉、効いたよ」。#origin_name# が駆け寄ってきた。#origin_gear# には、確かに迷宮の土がついている。生きて還ったのだ。",
@@ -4936,6 +4964,9 @@
       },
       {
        "chronicle": "街で#origin_name# が初潜行から生還した。助言が実を結んだ。"
+      },
+      {
+       "plant": "st_new_follow_seen"
       }
      ]
     },
@@ -5381,7 +5412,8 @@
    "id": "sp_cursed_follow",
    "context": "shop",
    "prerequisites": {
-    "flag": "sp_cursed"
+    "flag": "sp_cursed",
+    "notFlag": "sp_cursed_follow_seen"
    },
    "weight": 3,
    "text": "「まだあの品が気になるのか」。#origin_name# が呆れ顔で#origin_gear# を置いた。「言っておくが、欲は深みと同じだ。底がない」。",
@@ -5395,6 +5427,9 @@
       },
       {
        "chronicle": "店で#origin_name# に諭され、いわくつきの品を諦めた。"
+      },
+      {
+       "plant": "sp_cursed_follow_seen"
       }
      ]
     },
@@ -5410,6 +5445,9 @@
       },
       {
        "chronicle": "店で、いわくつきの品への執着を捨てきれなかった。"
+      },
+      {
+       "plant": "sp_cursed_follow_seen"
       }
      ]
     }
@@ -8025,7 +8063,8 @@
    "id": "sp_back_shelf_follow",
    "context": "shop",
    "prerequisites": {
-    "flag": "sp_back_shelf"
+    "flag": "sp_back_shelf",
+    "notFlag": "sp_back_shelf_follow_seen"
    },
    "weight": 2,
    "text": "例の奥棚から、#origin_name# が小さな包みを差し出した。「この前のお前なら、これの値打ちが分かるだろう」。曰くつきの一つを、お前に託すつもりらしい。",
@@ -8039,6 +8078,9 @@
       },
       {
        "chronicle": "店主から、奥棚の曰くつきの品を一つ託された。"
+      },
+      {
+       "plant": "sp_back_shelf_follow_seen"
       }
      ]
     },
@@ -8461,7 +8503,8 @@
    "id": "gl_newbie_follow",
    "context": "guild",
    "prerequisites": {
-    "flag": "gl_newbie"
+    "flag": "gl_newbie",
+    "notFlag": "gl_newbie_follow_seen"
    },
    "weight": 2,
    "text": "あの新人——#origin_name# が、少しだけ日に焼けた顔で戻ってきた。「先輩の言葉、守りました。ちゃんと、生きて帰ってきましたよ」と、誇らしげに笑う。",
@@ -8475,6 +8518,9 @@
       },
       {
        "chronicle": "助言した新人が、無事に初の潜行から帰ってきた。"
+      },
+      {
+       "plant": "gl_newbie_follow_seen"
       }
      ]
     },
@@ -8717,7 +8763,8 @@
    "id": "tv_stranger_tale_follow",
    "context": "tavern",
    "prerequisites": {
-    "flag": "tv_stranger_tale"
+    "flag": "tv_stranger_tale",
+    "notFlag": "tv_stranger_tale_follow_seen"
    },
    "weight": 2,
    "text": "またあの余所者——#origin_name# が、隅の席で待っていた。「お前なら、あの扉の話を覚えていると思った。続きがある。聞きたいなら、近う寄れ」。",
@@ -8731,6 +8778,9 @@
       },
       {
        "chronicle": "酒場の余所者から、『開かずの扉』の噂の続きを聞いた。"
+      },
+      {
+       "plant": "tv_stranger_tale_follow_seen"
       }
      ]
     },
@@ -12955,7 +13005,8 @@
    "id": "dv_repay_gift",
    "context": "delver",
    "prerequisites": {
-    "flag": "dv_gave"
+    "flag": "dv_gave",
+    "notFlag": "dv_repay_gift_seen"
    },
    "weight": 2,
    "text": "#origin_name# が、ばつの悪そうな顔でこちらを呼び止めた。「前に硬貨を譲ってもらった借りがある。受け取ってくれ」と、握った手を差し出す。",
@@ -12972,6 +13023,9 @@
       },
       {
        "chronicle": "迷宮で#origin_name# が、かつての施しを返してくれた。"
+      },
+      {
+       "plant": "dv_repay_gift_seen"
       }
      ]
     },
@@ -12984,6 +13038,9 @@
       },
       {
        "chronicle": "迷宮で#origin_name# の返礼を辞退し、貸しのままにした。"
+      },
+      {
+       "plant": "dv_repay_gift_seen"
       }
      ]
     }
@@ -13219,7 +13276,8 @@
    "id": "sp_back_room_follow",
    "context": "shop",
    "prerequisites": {
-    "flag": "sp_back_room"
+    "flag": "sp_back_room",
+    "notFlag": "sp_back_room_follow_seen"
    },
    "weight": 2,
    "text": "奥の品を見た伝手で、#origin_name# が今日は最初から帳を上げてくれた。「常連扱いだな。…ひとつ、掘り出し物がある」。",
@@ -13233,6 +13291,9 @@
       },
       {
        "chronicle": "店で#origin_name# が、奥の掘り出し物を回してくれた。"
+      },
+      {
+       "plant": "sp_back_room_follow_seen"
       }
      ]
     },
