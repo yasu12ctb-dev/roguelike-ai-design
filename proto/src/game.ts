@@ -226,7 +226,7 @@ export async function runGame(
     const v = computeVariation(fossil, world.generation);
     say("");
     say("─".repeat(44));
-    const setPiece = renderSetPieceIfAny(db, fossil, v);
+    const setPiece = renderSetPieceIfAny(db, fossil, v, rng);
     say(setPiece ?? renderRediscovery(db, rng, fossil, v));
     say("─".repeat(44));
     say(`（${fossil.origin.name}の化石 ── 極=${poleLabel(fossil.tonePole)} / 変質=${v.stage} / 強度${v.intensity.toFixed(2)}${setPiece ? " / 山場" : ""}）`);

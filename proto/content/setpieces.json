@@ -7,10 +7,46 @@
       "frame": "光が、向こうから歩いてくる。\nそれは#origin_name#だ。お前が知っている顔のままで、しかしもう人ではないものとして。\n#origin_gear#は星のように静かに燃え、その足元では迷宮の闇さえ膝をつく。\nそれはお前の前で立ち止まり、かつて自分が果たせなかった道の先を、ただ一度だけ指し示した。\n――行け、と。"
     },
     {
+      "id": "sp_legend_return_2",
+      "type": "legend_return",
+      "prerequisites": { "tone": "myth", "minBond": 3 },
+      "frame": "#depth#の闇が、ふいに退いた。\n#origin_name#が、静かにそこに立っている。生前の傷も疲れも、もう面影にはない。\n#origin_gear#を地に突き立て、その上に両手を重ね、まるで祈るように頭を垂れた。\nそして顔を上げ、お前を見て――かすかに、笑った。誇るように、託すように。"
+    },
+    {
+      "id": "sp_legend_return_3",
+      "type": "legend_return",
+      "prerequisites": { "tone": "myth", "minBond": 3 },
+      "frame": "足音はなかった。気づけば、#origin_name#がすぐ傍らを歩いていた。\n語り継がれる英雄が、いまは無言の同行者として、お前と歩調を合わせる。\nひとつ角を曲がるたび、#origin_gear#の淡い燐光が、行くべき道だけを照らした。\nやがてそれは立ち止まり、深く一礼して、光の中へ還っていった。"
+    },
+    {
+      "id": "sp_legend_return_4",
+      "type": "legend_return",
+      "prerequisites": { "tone": "myth", "minBond": 2 },
+      "frame": "壁という壁に、#origin_name#の名を讃える落書きが刻まれていた。後の潜行者たちの手で。\nその中心に、当の本人が静かに座している。#origin_gear#を膝に抱いて。\nお前が近づくと、それは目を開け、ゆっくりと#origin_gear#を差し出すように掲げた。\n受け取れ、ではない。お前自身の道を、その手で掴め――そう告げているようだった。"
+    },
+    {
       "id": "sp_grudge_hunt",
       "type": "grudge_hunt",
       "prerequisites": { "tone": "grudge", "minBond": 3 },
       "frame": "灯りが、ひとりでに消えた。\n暗闇の底から、聞き覚えのある声がお前の名を呼ぶ。一音ずつ、確かめるように。\n#origin_name#――いや、#origin_name#だったものが、#origin_gear#を引きずって近づいてくる。\n『#origin_catchphrase#』\n生前の口癖が、いまは刃のように響く。それは、お前を覚えている。お前が何をしなかったかを、覚えている。"
+    },
+    {
+      "id": "sp_grudge_hunt_silent",
+      "type": "grudge_hunt",
+      "prerequisites": { "tone": "grudge", "minBond": 3 },
+      "frame": "空気が、急に重くなった。\n#origin_name#だったものが、闇の中でゆっくりと身を起こす。言葉はない。\nだが、#origin_gear#をこちらへ向けたその構えが、すべてを語っていた。\n――決着を。果たされなかった何かの、決着を。それは、お前を待っていたのだ。"
+    },
+    {
+      "id": "sp_grudge_hunt_drag",
+      "type": "grudge_hunt",
+      "prerequisites": { "tone": "grudge", "minBond": 3 },
+      "frame": "#depth#の通路に、ずる、と何かを引きずる音が響く。\n#origin_name#だったものが、錆びた#origin_gear#を引きずりながら、お前の退路を塞いでいた。\nその眼窩には、晴らされなかった怨みだけが、昏い火となって灯っている。\n逃げ場はない。向き合うか、撥ねつけるか――お前が決めねばならない。"
+    },
+    {
+      "id": "sp_grudge_hunt_name",
+      "type": "grudge_hunt",
+      "prerequisites": { "tone": "grudge", "minBond": 2 },
+      "frame": "背後で、低く名を呼ばれた。お前の名を。\n振り返れば、#origin_name#だったものが、すぐそこに立っている。#origin_gear#を提げて。\nそれは一歩、また一歩と間合いを詰めながら、お前が忘れたがっていた約束を、無言で突きつけてくる。\nお前は、この相手に何かを為すべきだった。そして、為さなかった。"
     }
   ]
 }

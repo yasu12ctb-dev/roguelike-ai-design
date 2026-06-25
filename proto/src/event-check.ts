@@ -193,5 +193,30 @@ for (const s of storylets) {
 }
 
 // ============================================================
+console.log("== 8. setpiece（山場）の死蔵防止＝型と frame 充填性 ==");
+// コード側（main.ts fossilScene）が決着分岐を持つ型のみ＝それ以外は発火しても選択肢が出ず死蔵。
+const SETPIECE_HANDLED = new Set(["legend_return", "grudge_hunt"]);
+// frame で使える slot（render.ts actorSlotValues）。常に充填可＝name/gear/depth、任意＝catchphrase/epithet。
+const SP_SLOTS = new Set(["origin_name", "origin_gear", "depth", "origin_catchphrase", "origin_epithet"]);
+const SP_ALWAYS = new Set(["origin_name", "origin_gear", "depth"]);
+const slotsIn = (t: string) => [...t.matchAll(/#([a-z_]+)#/g)].map((m) => m[1]);
+const spByType: Record<string, number> = {};
+const spAlwaysByType: Record<string, number> = {};
+for (const sp of db.setpieces) {
+  ok(SETPIECE_HANDLED.has(sp.type), `setpiece 死蔵：${sp.id} の type "${sp.type}" は fossilScene に決着分岐が無い（legend_return/grudge_hunt のみ）`);
+  const sl = slotsIn(sp.frame);
+  for (const s of sl) ok(SP_SLOTS.has(s), `setpiece スロット不正：${sp.id} の #${s}# は frame で充填されない`);
+  ok(sl.some((s) => s.startsWith("origin_") || s === "depth") , `setpiece 痕跡欠落：${sp.id} の frame に origin スロットが無い（痕跡 ASSERT に通らない）`);
+  spByType[sp.type] = (spByType[sp.type] ?? 0) + 1;
+  if (sl.every((s) => SP_ALWAYS.has(s))) spAlwaysByType[sp.type] = (spAlwaysByType[sp.type] ?? 0) + 1;
+}
+// 各型に「catchphrase/epithet 非依存（常に充填可）」frame が最低1つ＝口癖/異名の無い化石でも山場が出る保証。
+for (const t of Object.keys(spByType)) {
+  ok((spAlwaysByType[t] ?? 0) >= 1,
+    `setpiece 充填漏れ：type "${t}" は常時充填可（name/gear/depth のみ）の frame が無い＝口癖/異名を持たぬ化石で山場が出ない`);
+}
+
+// ============================================================
+if (warn.length) { console.log("\n-- warnings --"); for (const w of warn) console.log("  △ " + w); }
 console.log(`\n=== event-check: ${pass} pass / ${fail} fail / ${warn.length} warn ===`);
 if (fail) process.exit(1);
