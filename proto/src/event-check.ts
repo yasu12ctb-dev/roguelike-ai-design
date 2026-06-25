@@ -165,6 +165,58 @@ for (const s of storylets) {
 }
 
 // ============================================================
+console.log("== 7. prereq の context 適用性（死蔵/no-op ゲートの検出） ==");
+// 各 context の selection コードが実際に評価する prereq キー（storylets.ts の
+// matches()/pickByContext()/townMatches()＋selectDelverStorylet の depth 補正より）。
+// ここに無いキーをその context で使うと「評価されず無視される（no-op）」か「決して満たされない（死蔵）」。
+// ＝chest minExposure（exposure=0 固定）/ town unfinished（生者は unfinished が立たない）等の罠を機械検出。
+const ARCK = ["arc", "notArc", "arcStep", "arcPick"];
+const APPLICABLE: Record<string, Set<string>> = {
+  encounter: new Set(["tone", "stage", "finalAct", "kind", "minBond", "unfinished", "minExposure",
+    "minLevel", "minDepth", "maxDepth", "hasCatchphrase", "flag", "notFlag", ...ARCK]),
+  dungeon: new Set(["depthBand", "minDepth", "maxDepth", "minLevel", "minExposure", ...ARCK]),
+  // chest は exposure=0 固定で渡るため minExposure は死蔵＝許可しない。
+  chest: new Set(["depthBand", "minDepth", "maxDepth", "minLevel", ...ARCK]),
+  // 街の生者（unfinished は立たない＝許可しない。depth 系も townMatches 非対応）。
+  town: new Set(["actorId", "minBond", "minExposure", "minLevel", "flag", "notFlag", "arcActor", ...ARCK]),
+  // delver は迷宮内＝minDepth/maxDepth を ch.depth で評価する（selectDelverStorylet）。
+  delver: new Set(["actorId", "minBond", "minExposure", "minLevel", "flag", "notFlag", "arcActor",
+    "minDepth", "maxDepth", ...ARCK]),
+};
+const TOWN_CTX = new Set(["street", "tavern", "guild", "shop", "quest"]);
+for (const s of storylets) {
+  const ctx = ctxOf(s);
+  const allow = APPLICABLE[ctx] ?? (TOWN_CTX.has(ctx) ? APPLICABLE.town : APPLICABLE.encounter);
+  for (const k of Object.keys(s.prerequisites ?? {})) {
+    ok(allow.has(k), `死蔵/no-op ゲート：${s.id}（context=${ctx}）の prereq "${k}" はこの context で評価されない（無視される/決して満たされない）`);
+  }
+}
+
+// ============================================================
+console.log("== 8. setpiece（山場）の死蔵防止＝型と frame 充填性 ==");
+// コード側（main.ts fossilScene）が決着分岐を持つ型のみ＝それ以外は発火しても選択肢が出ず死蔵。
+const SETPIECE_HANDLED = new Set(["legend_return", "grudge_hunt", "inheritance"]);
+// frame で使える slot（render.ts actorSlotValues）。常に充填可＝name/gear/depth、任意＝catchphrase/epithet。
+const SP_SLOTS = new Set(["origin_name", "origin_gear", "depth", "origin_catchphrase", "origin_epithet"]);
+const SP_ALWAYS = new Set(["origin_name", "origin_gear", "depth"]);
+const slotsIn = (t: string) => [...t.matchAll(/#([a-z_]+)#/g)].map((m) => m[1]);
+const spByType: Record<string, number> = {};
+const spAlwaysByType: Record<string, number> = {};
+for (const sp of db.setpieces) {
+  ok(SETPIECE_HANDLED.has(sp.type), `setpiece 死蔵：${sp.id} の type "${sp.type}" は fossilScene に決着分岐が無い（legend_return/grudge_hunt のみ）`);
+  const sl = slotsIn(sp.frame);
+  for (const s of sl) ok(SP_SLOTS.has(s), `setpiece スロット不正：${sp.id} の #${s}# は frame で充填されない`);
+  ok(sl.some((s) => s.startsWith("origin_") || s === "depth") , `setpiece 痕跡欠落：${sp.id} の frame に origin スロットが無い（痕跡 ASSERT に通らない）`);
+  spByType[sp.type] = (spByType[sp.type] ?? 0) + 1;
+  if (sl.every((s) => SP_ALWAYS.has(s))) spAlwaysByType[sp.type] = (spAlwaysByType[sp.type] ?? 0) + 1;
+}
+// 各型に「catchphrase/epithet 非依存（常に充填可）」frame が最低1つ＝口癖/異名の無い化石でも山場が出る保証。
+for (const t of Object.keys(spByType)) {
+  ok((spAlwaysByType[t] ?? 0) >= 1,
+    `setpiece 充填漏れ：type "${t}" は常時充填可（name/gear/depth のみ）の frame が無い＝口癖/異名を持たぬ化石で山場が出ない`);
+}
+
+// ============================================================
 if (warn.length) { console.log("\n-- warnings --"); for (const w of warn) console.log("  △ " + w); }
 console.log(`\n=== event-check: ${pass} pass / ${fail} fail / ${warn.length} warn ===`);
 if (fail) process.exit(1);

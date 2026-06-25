@@ -92,6 +92,10 @@ for (const s of list) {
   if (p.finalAct !== undefined && !FINALACTS.has(p.finalAct)) E(id, `prereq.finalAct 不正 "${p.finalAct}"`);
   if (p.depthBand !== undefined && !BANDS.has(p.depthBand)) E(id, `prereq.depthBand 不正 "${p.depthBand}"`);
   if (p.kind !== undefined && !KINDS.has(p.kind)) E(id, `prereq.kind 不正 "${p.kind}"`);
+  // unfinished は化石の bond にしか立たない（生者の bond.unfinished は決して true にならない）＝
+  // encounter 以外で unfinished:true は永遠に発火しない死蔵になる。だから encounter 限定。
+  if (p.unfinished !== undefined && ctx !== "encounter")
+    E(id, `prereq.unfinished は encounter のみ（生者の未完は立たず死蔵になる。今: ${ctx}）`);
   if ((p.arcStep !== undefined || p.arcPick !== undefined || p.arcActor !== undefined) && p.arc === undefined)
     E(id, "arcStep/arcPick/arcActor を使うなら prereq.arc が必須");
   if (p.actorId !== undefined) { // 名簿員アンカー（街専用・4-14）
