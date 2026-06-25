@@ -23869,6 +23869,870 @@
      ]
     }
    ]
+  },
+  {
+   "id": "en_b15_guard_loss",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "loss",
+    "finalAct": "guard_relic"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# は、胸に何かを抱え込むようにして斃れていた。守るべきものは、もう手の中に無い。ただ抱く形だけが、骨に残っている。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.04
+     },
+     {
+      "trait": "見たもの:#origin_name#の守りの姿勢"
+     },
+     {
+      "chronicle": "深度#depth#で、何かを抱いて果てた#origin_name# を悼んだ。"
+     }
+    ]
+   },
+   "search": {
+    "text": "抱えた腕の下に、空の台座のような窪み。守った当のものは、とうに持ち去られていた。残されたのは、忠実だけだ。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# が守り抜いた空の台座を見つけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_guard_grudge",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "grudge",
+    "finalAct": "guard_relic"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の骨は、#origin_gear# を盾のように構えたまま固まっている。守って死に、しかし誰も迎えに来なかった——その無念が、今も冷たく稼働している。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.08
+     },
+     {
+      "trait": "見たもの:#origin_name#の報われぬ忠"
+     },
+     {
+      "chronicle": "深度#depth#で、報われず守って果てた#origin_name# の無念に触れた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "握り締めた指の間に、宛名の擦れた預かり証。受け取り手は、ついに現れなかったのだ。",
+    "effects": [
+     {
+      "plant": "en_b15_unclaimed"
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の、宛先を失った預かり証を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_guard_alien",
+   "context": "encounter",
+   "prerequisites": {
+    "finalAct": "guard_relic",
+    "stage": "alien"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# だったものは、守る対象と一つに溶け合っていた。骨と台座の境が、もう判らない。守るうちに、守るものそのものになってしまったらしい。",
+    "effects": [
+     {
+      "exposure": 0.09
+     },
+     {
+      "trait": "見たもの:#origin_name#と台座の癒着"
+     },
+     {
+      "chronicle": "深度#depth#で、守るものと融合した#origin_name# の成れの果てを見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "癒着の奥で、何かがまだ脈打っている。守りは、死してなお解かれていない。手を触れれば、巻き込まれそうだ。",
+    "effects": [
+     {
+      "exposure": 0.05
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の、解けぬ守りの脈動に触れた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_curse_loss",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "loss",
+    "finalAct": "curse_dungeon"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "壁に、#origin_name# が最期の力で刻んだ呪詛。だが半ばで筆が乱れ、最後の一文字は、許しの言葉になりかけている。憎みきれなかったのだ。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.05
+     },
+     {
+      "trait": "見たもの:#origin_name#の途切れた呪い"
+     },
+     {
+      "chronicle": "深度#depth#で、呪いきれずに果てた#origin_name# の刻字を読んだ。"
+     }
+    ]
+   },
+   "search": {
+    "text": "刻字の下に、磨り減った想い人の似姿。呪うより、帰りたかったのだろう。",
+    "effects": [
+     {
+      "exposure": -0.04
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# が遺した想い人の似姿を見つけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_curse_myth",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "myth",
+    "finalAct": "curse_dungeon"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の呪詛は、いつしか伝説になっている。「この淵を呪いし者あり」——その一言が、後の冒険者の口から口へ。呪いさえ、神話に変わるのがこの場所だ。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.06
+     },
+     {
+      "trait": "語り草:#origin_name#の呪いの伝説"
+     },
+     {
+      "chronicle": "深度#depth#で、呪いごと伝説になった#origin_name# に出会った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "刻まれた呪詛をなぞる、無数の指の跡。皆が、験を担いで触れていったらしい。呪いが、いつしか守り札になっている。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の呪詛が守り札に転じた跡を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_curse_twisting",
+   "context": "encounter",
+   "prerequisites": {
+    "finalAct": "curse_dungeon",
+    "stage": "twisting"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の呪いは、壁を伝って這い回っている。刻んだ文字が、見るたび少しずつ位置を変える。呪詛が、迷宮に喰われて歪み始めていた。",
+    "effects": [
+     {
+      "exposure": 0.08
+     },
+     {
+      "trait": "見たもの:#origin_name#の這う呪い"
+     },
+     {
+      "chronicle": "深度#depth#で、壁を這い回る#origin_name# の呪詛を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "文字を追っていくと、行き止まりの壁に小さな空洞。中に、呪いの源らしき黒い結晶が一粒。触れると指先が痺れた。",
+    "effects": [
+     {
+      "exposure": 0.04
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の呪いの源を覗いた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_will_myth",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "myth",
+    "finalAct": "leave_will"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の遺書は、便箋に収まりきらず壁一面に続いていた。最期まで語り尽くそうとした言葉が、もはや叙事詩の体を成している。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "読んだもの:#origin_name#の壁の遺書"
+     },
+     {
+      "chronicle": "深度#depth#で、壁を埋めた#origin_name# の遺書を読んだ。"
+     }
+    ]
+   },
+   "search": {
+    "text": "最後の一節に、後進への託しがあった。「この先を頼む」。名指しはされていないが、読んだ者が継ぐ決まりらしい。",
+    "effects": [
+     {
+      "exposure": -0.04
+     },
+     {
+      "plant": "en_b15_inheritor"
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の遺志を、確かに受け取った。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_will_grudge",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "grudge",
+    "finalAct": "leave_will"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の遺書は、宛名の人物への怨嗟で埋まっていた。「お前のせいだ」——同じ一行が、頁が尽きるまで繰り返されている。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.08
+     },
+     {
+      "trait": "読んだもの:#origin_name#の怨嗟の遺書"
+     },
+     {
+      "chronicle": "深度#depth#で、怨嗟に満ちた#origin_name# の遺書を読んだ。"
+     }
+    ]
+   },
+   "search": {
+    "text": "最終頁に、宛名の人物の住所。届ければ、何かが終わる——あるいは、始まってしまう。",
+    "effects": [
+     {
+      "chronicle": "深度#depth#で#origin_name# の遺書の宛先を、胸に留めた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_will_accept_loss",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "loss",
+    "finalAct": "leave_will"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の遺書は、短かった。「達者で。荷は軽く」。それだけ。多くを語らぬ分、かえって胸に残る。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": -0.03
+     },
+     {
+      "trait": "読んだもの:#origin_name#の短い遺書"
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の、短く優しい遺書を読んだ。"
+     }
+    ]
+   },
+   "search": {
+    "text": "遺書を畳んだ下に、使い込まれた裁縫道具。荷を繕いながら、誰かの帰りを待っていたのかもしれない。",
+    "effects": [
+     {
+      "item": "salve"
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の遺した繕いの道具を見つけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_accept_grudge",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "grudge",
+    "finalAct": "accept"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "あれほど執着の強かった#origin_name# が、最期は穏やかな顔で座していた。何が、この者の怒りを解いたのだろう。骨の表情が、妙に安らいでいる。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.04
+     },
+     {
+      "trait": "見たもの:#origin_name#の解けた執着"
+     },
+     {
+      "chronicle": "深度#depth#で、怒りを手放して果てた#origin_name# に出会った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "膝の上に、握り潰された果ての、宛名の無い詫び状。誰にも渡せぬまま、それでも書いたのだ。",
+    "effects": [
+     {
+      "exposure": -0.04
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の、渡されなかった詫び状を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_accept_myth",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "myth",
+    "finalAct": "accept"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# は、瞑想の姿勢のまま石になっていた。死を恐れるどころか、迎えに行ったかのよう。その静けさが、巡礼の対象になっていると聞く。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": -0.03
+     },
+     {
+      "trait": "語り草:#origin_name#の静かな最期"
+     },
+     {
+      "chronicle": "深度#depth#で、悟りのごとく果てた#origin_name# に手を合わせた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "座した足元に、巡礼者たちが供えた小石の山。皆、この静けさにあやかろうとしたのだ。一つ、足してきた。",
+    "effects": [
+     {
+      "exposure": -0.04
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の座へ、小石を一つ供えた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_accept_weathered",
+   "context": "encounter",
+   "prerequisites": {
+    "finalAct": "accept",
+    "stage": "weathered"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "風化の進んだ#origin_name# は、もう輪郭も朧げだ。それでも、受け容れて逝った者特有の、角の取れた佇まいだけは残っている。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "trait": "見たもの:#origin_name#の和らいだ輪郭"
+     },
+     {
+      "chronicle": "深度#depth#で、穏やかに風化した#origin_name# を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "崩れかけた手の中に、磨かれて丸くなった石が一つ。長い時間、撫で続けたものらしい。安らぎの形だ。",
+    "effects": [
+     {
+      "chronicle": "深度#depth#で#origin_name# が握り続けた、丸い石を見つけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_relic_loss",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "loss",
+    "kind": "relic"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "それは骨ではなかった。#origin_gear# のなれの果て——かつて誰かの手に在った道具が、主を失い、ここまで降りてきて朽ちていた。物にも、喪失はあるのか。",
+    "effects": [
+     {
+      "exposure": 0.04
+     },
+     {
+      "trait": "見たもの:主を失った#origin_gear#"
+     },
+     {
+      "chronicle": "深度#depth#で、主を喪った#origin_gear# の残骸に出会った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "柄に巻かれた布の内側に、持ち主の名が縫い取られていた。道具は、最後まで主を覚えていたのだ。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "chronicle": "深度#depth#で#origin_gear# に縫われた、持ち主の名を見つけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_relic_myth",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "myth",
+    "kind": "relic"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_gear# は、半ば淵に呑まれながら、なお淡く光を放っていた。名のある一振りだったらしい。物が伝説を纏うと、人より長く語り継がれる。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.05
+     },
+     {
+      "trait": "語り草:伝説の#origin_gear#"
+     },
+     {
+      "chronicle": "深度#depth#で、伝説を纏う#origin_gear# に巡り会った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "刃文の奥に、歴代の持ち主の名が累々と刻まれている。物が、何人もの生涯を抱えていた。",
+    "effects": [
+     {
+      "trait": "読んだもの:#origin_gear#の継承の銘"
+     },
+     {
+      "chronicle": "深度#depth#で#origin_gear# に刻まれた歴代の銘を読んだ。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_relic_grudge",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "grudge",
+    "kind": "relic"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_gear# は、抜き身のまま地に突き立っていた。触れずとも分かる——この物には、晴らせなかった何かが籠もっている。柄が、微かに脈打つようだ。",
+    "effects": [
+     {
+      "exposure": 0.08
+     },
+     {
+      "trait": "見たもの:念の籠もる#origin_gear#"
+     },
+     {
+      "chronicle": "深度#depth#で、念の籠もった#origin_gear# に触れた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "突き立った真下の地面に、古い血の染み。物は、ここで何かを為そうとして、果たせなかったらしい。",
+    "effects": [
+     {
+      "exposure": 0.04
+     },
+     {
+      "plant": "en_b15_restless_blade"
+     },
+     {
+      "chronicle": "深度#depth#で#origin_gear# が遺した、果たせぬ念の痕を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_relic_alien",
+   "context": "encounter",
+   "prerequisites": {
+    "kind": "relic",
+    "stage": "alien"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_gear# だったものは、もはや道具の形をしていない。淵に長く浸かり、用途も向きも判らぬ何かへ変じていた。だが、握れと誘う気配だけは、確かにある。",
+    "effects": [
+     {
+      "exposure": 0.09
+     },
+     {
+      "trait": "見たもの:変容した#origin_gear#"
+     },
+     {
+      "chronicle": "深度#depth#で、異形へ変じた#origin_gear# に出会った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "変容した表面に、無数の小さな口のような窪み。近づけた指先に、吸い付こうとする感触。そっと手を引いた。",
+    "effects": [
+     {
+      "exposure": 0.05
+     },
+     {
+      "chronicle": "深度#depth#で#origin_gear# の、変容した表面の蠢きに触れた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_explorer_loss",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "loss",
+    "kind": "explorer"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "名も記されぬ#origin_name# は、無数に落ちた潜行者の一人にすぎない。だが、その握り締めた#origin_gear# は、確かに誰かの一生分の重みを帯びている。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.04
+     },
+     {
+      "trait": "見たもの:無名の#origin_name#の重み"
+     },
+     {
+      "chronicle": "深度#depth#で、名も無き潜行者#origin_name# を悼んだ。"
+     }
+    ]
+   },
+   "search": {
+    "text": "懐から、宛名も差出人も無い、書きかけの手紙。誰にも届かぬ言葉が、それでも綴られていた。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の、宛先の無い手紙を見つけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_explorer_grudge",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "grudge",
+    "kind": "explorer"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の骨は、何かを追う姿勢で前のめりに倒れていた。無名のまま、それでも誰かを追い続けた執念だけが、骨格に刻まれている。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.07
+     },
+     {
+      "trait": "見たもの:#origin_name#の追跡の執念"
+     },
+     {
+      "chronicle": "深度#depth#で、誰かを追って果てた#origin_name# に触れた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "前のめりの指の先に、別の古い足跡。追っていた相手は、ここで分かれて、さらに下へ降りたらしい。",
+    "effects": [
+     {
+      "exposure": 0.03
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# が追った足跡の、分かれ道を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_explorer_myth",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "myth",
+    "kind": "explorer"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "無名のはずの#origin_name# が、いつしか道標と呼ばれていた。後の潜行者たちが「あの骸まで来れば折り返せる」と頼りにしている。名も無き死が、誰かの目印になる。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": -0.03
+     },
+     {
+      "trait": "語り草:道標になった#origin_name#"
+     },
+     {
+      "chronicle": "深度#depth#で、道標と呼ばれる#origin_name# に出会った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "骨のそばに、後の者が積んだ小さな石塔。誰もが、ここを通った証に一つ足していくらしい。",
+    "effects": [
+     {
+      "chronicle": "深度#depth#で#origin_name# の傍らの石塔に、一つ足した。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_explorer_weathered",
+   "context": "encounter",
+   "prerequisites": {
+    "kind": "explorer",
+    "stage": "weathered"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "風化した#origin_name# は、もう個を失いかけている。誰だったかも、なぜ落ちたかも分からない。ただ「人がここで終わった」という事実だけが、静かに残る。",
+    "effects": [
+     {
+      "exposure": 0.03
+     },
+     {
+      "trait": "見たもの:個を失う#origin_name#"
+     },
+     {
+      "chronicle": "深度#depth#で、風化して名を失う#origin_name# を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "土に半ば還った#origin_gear# が一つ。錆びてはいるが、まだ使える。無名の遺産を、譲り受けることにした。",
+    "effects": [
+     {
+      "item": "salve"
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の遺した道具を受け継いだ。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_character_loss",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "loss",
+    "kind": "character"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name#。名の知れたその人が、こんな所で。在りし日の面影と、目の前の骸の落差が、喪いを一層重くする。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.04
+     },
+     {
+      "trait": "悼んだ人:#origin_name#"
+     },
+     {
+      "chronicle": "深度#depth#で、名のある#origin_name# の最期に立ち会った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "懐に、家族との肖像。名を成しても、最後に握っていたのは、栄誉ではなく人の温もりだった。",
+    "effects": [
+     {
+      "exposure": -0.04
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# が抱いていた、家族の肖像を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_character_myth",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "myth",
+    "kind": "character"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の名は、酒場でも年代記でも幾度も聞いた。その本人が、いま目の前に。伝説と骸が重なる瞬間、語りの実体に、確かに触れた気がした。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.05
+     },
+     {
+      "trait": "語り草:#origin_name#の実在"
+     },
+     {
+      "chronicle": "深度#depth#で、伝説の#origin_name# 本人に巡り会った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "傍らに、本人の手による覚書。伝説の裏の、迷いと弱音が綴られていた。英雄も、人だったのだ。",
+    "effects": [
+     {
+      "trait": "読んだもの:#origin_name#の弱音の覚書"
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の、伝説の裏の覚書を読んだ。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_character_grudge",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "grudge",
+    "kind": "character"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# ——その名には、聞き覚えがありすぎた。裏切りか、奪い合いか。生前の因縁が、骨の構えにまで滲み出ている。向き合うのが、少し怖い。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.08
+     },
+     {
+      "trait": "見たもの:#origin_name#との因縁"
+     },
+     {
+      "chronicle": "深度#depth#で、因縁ある#origin_name# の骸と対峙した。"
+     }
+    ]
+   },
+   "search": {
+    "text": "握られた#origin_gear# の柄に、こちらにも覚えのある紋。この因縁は、まだ終わっていなかったらしい。",
+    "effects": [
+     {
+      "exposure": 0.03
+     },
+     {
+      "plant": "en_b15_old_feud"
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の#origin_gear# に、見覚えの紋を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b15_character_twisting",
+   "context": "encounter",
+   "prerequisites": {
+    "kind": "character",
+    "stage": "twisting"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "かつて名を馳せた#origin_name# が、見るも歪な姿に変じかけている。覚えのある面影が、淵に引き伸ばされ、別の何かになろうとしていた。名があるだけに、痛ましい。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.08
+     },
+     {
+      "trait": "見たもの:歪みゆく#origin_name#"
+     },
+     {
+      "chronicle": "深度#depth#で、歪みゆく#origin_name# の変容を見届けた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "歪んだ骸の傍に、まだ無事な認識票。名は、確かにあの#origin_name# のもの。せめて名だけは、持ち帰ろうと思った。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "chronicle": "深度#depth#で歪んだ#origin_name# の、無事な認識票を拾った。"
+     }
+    ]
+   }
   }
  ]
 }
