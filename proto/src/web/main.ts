@@ -53,7 +53,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.39.0";
+export const APP_VERSION = "0.40.0";
 export const APP_BUILD = "2026-06-25";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -717,6 +717,19 @@ async function oddmentsLore() {
   busy = false;
 }
 
+/** 装備の誤売防止：手放す前に必ず確認を挟む（テストプレイFB「間違って売らないように」）。売る＝true。 */
+async function confirmSellGear(it: Item, gross: number): Promise<boolean> {
+  busy = true;
+  const detail = it.unidentified ? "未鑑定（正体不明のまま手放す）" : itemPower(it);
+  const r = await sheet({
+    text: `《${it.name}》／${SLOT_LABEL[it.slot]}\n${detail}\n\nこれを ＋${gross}金貨 で手放す。よろしいか？`,
+    meta: "確認 ── 装備を売る",
+    options: ["売る", "やめる"],
+  });
+  busy = false;
+  return r.pick === 1;
+}
+
 async function smithSell() {
   const ch = world.current!;
   for (;;) {
@@ -731,7 +744,10 @@ async function smithSell() {
     busy = false;
     const i = r.pick - 1;
     if (i < 0 || i >= bag.length) break;
-    const it = bag.splice(i, 1)[0], val = splitGold(sellGear(it, SMITH_SELL_MUL)); // 同行中は売却益も折半（4-14C）
+    const it = bag[i], gross = sellGear(it, SMITH_SELL_MUL);
+    if (!(await confirmSellGear(it, gross))) continue; // 誤売防止＝確認で「売る」を選んだ時だけ手放す
+    bag.splice(i, 1);
+    const val = splitGold(gross); // 同行中は売却益も折半（4-14C）
     ch.gold += val; sfx("sell");
     log(`${it.name} を武具屋に売った（＋${val}金貨／所持 ${ch.gold}）。`, "dim");
     save();
@@ -3648,7 +3664,10 @@ async function maybeMerchantEncounter(): Promise<boolean> {
     first = false;
     const i = r.pick - 1;
     if (i < 0 || i >= b.length) { log("行商人とすれ違い、また闇に分かれた。", "dim"); break; }
-    const it = b.splice(i, 1)[0], val = splitGold(sellGear(it, MERCHANT_SELL_MUL)); // 同行中は売却益も折半（4-14C）
+    const it = b[i], gross = sellGear(it, MERCHANT_SELL_MUL);
+    if (!(await confirmSellGear(it, gross))) continue; // 誤売防止＝確認を挟む
+    b.splice(i, 1);
+    const val = splitGold(gross); // 同行中は売却益も折半（4-14C）
     ch.gold += val; sfx("sell");
     log(`${it.name} を行商人に売った（＋${val}金貨／所持 ${ch.gold}）。`, "dim");
     save();
@@ -4140,20 +4159,29 @@ async function charScreen() {
   const ch = world.current; if (!ch) return;
   busy = true;
   for (;;) {
-    const eq = ch.equipment;
-    const eqLine = `武器=${eq.weapon ? itemLabel(eq.weapon) : "なし"} / 防具=${eq.armor ? itemLabel(eq.armor) : "なし"} / 遺物=${eq.relic ? itemLabel(eq.relic) : "なし"} / 鞄=${eq.bag ? itemLabel(eq.bag) : "なし"}`;
+    // 装備＝スロットごとに改行して整列（旧来の「/」区切り1行は折り返して読みづらかった＝テストプレイFB）。
+    const eqSlots: ItemSlot[] = ["weapon", "armor", "relic", "bag"];
+    const eqBlock = eqSlots.map((sl) => `　${SLOT_LABEL[sl]}　${ch.equipment[sl] ? itemLabel(ch.equipment[sl]!) : "—"}`).join("\n");
     const inv = (ch.inventory ?? []).length ? (ch.inventory ?? []).map((s) => `${consumableByKey(s.key)?.name ?? s.key}×${s.qty}`).join("、") : "なし";
     const lo = activeLoadout(ch);
     const loNames = lo.map((k) => spellByKey(k)?.name ?? k).join("、");
-    const loLine = ch.spells.length ? `構え ${lo.length}/${LOADOUT_CAP}：${loNames || "なし"}` : "術：未識得";
-    const text = `《${ch.name}》（第${world.generation}世代）Lv${ch.level}\n${statsLine(ch)}\n最大HP${maxHp(ch)} / 攻撃${meleeDmg(ch)} / 次のLvまで${Math.max(0, xpToNext(ch.level) - ch.xp)}\n深蝕 ${ch.exposure.toFixed(2)}${ch.carryingRelic ? "（★聖遺物 携行中）" : ""}\n装備：${eqLine}\n${loLine}\n持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)}：${inv}${ch.traits.length ? `\n記憶 ${ch.traits.length}件` : ""}`;
-    const opts = ["装備を換える", "術（構え・図鑑）", "進行中（依頼・因縁・印）", "人物と年代記", "敵図鑑"];
+    const loLine = ch.spells.length ? `【構え ${lo.length}/${LOADOUT_CAP}】${loNames || "なし"}` : "【術】未識得";
+    const text =
+      `《${ch.name}》（第${world.generation}世代）　Lv${ch.level}\n` +
+      `${statsLine(ch)}\n` +
+      `最大HP ${maxHp(ch)}　攻撃 ${meleeDmg(ch)}　次のLvまで ${Math.max(0, xpToNext(ch.level) - ch.xp)}\n` +
+      `深蝕 ${ch.exposure.toFixed(2)}${ch.carryingRelic ? "　★聖遺物 携行中" : ""}\n` +
+      `\n【装備】\n${eqBlock}\n` +
+      `\n${loLine}\n` +
+      `【持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)}】${inv}` +
+      `${ch.traits.length ? `\n【記憶】${ch.traits.length}件` : ""}`;
+    const opts = ["装備・持ち物を見る", "術（構え・図鑑）", "進行中（依頼・因縁・印）", "人物と年代記", "敵図鑑"];
     if (ch.traits.length) opts.push(`記憶を見る（${ch.traits.length}）`);
     opts.push("閉じる");
     const r = await sheet({ text, meta: "ステータス", options: opts });
     busy = false;
     const label = opts[r.pick - 1];
-    if (label === "装備を換える") await equipSwap(ch);
+    if (label === "装備・持ち物を見る") await gearSheet(ch);
     else if (label === "術（構え・図鑑）") await spellMenu(ch);
     else if (label === "進行中（依頼・因縁・印）") await eventsScreen();
     else if (label === "人物と年代記") await chronicleScene();
@@ -4186,23 +4214,101 @@ async function memoriesSheet(ch: Character) {
   busy = false;
 }
 
-/** 装備換装：拾い物の袋(gearBag)と装備を入れ替える。非戦闘（視界に敵なし）でのみ。 */
-async function equipSwap(ch: Character) {
+/** 装備・持ち物のカード一覧（読みやすさ最優先＝テストプレイFB「装備・持ち物が見づらい」対応）。
+ *  装備カードをタップ＝そのスロットを換装／消耗品カードをタップ＝使う・捨てる（街のみ）。 */
+const GEAR_SLOT_CLS: Record<ItemSlot, string> = { weapon: "c-atk", armor: "c-ctl", relic: "c-lore", bag: "c-sup" };
+async function gearSheet(ch: Character) {
+  const eqSlots: ItemSlot[] = ["weapon", "armor", "relic", "bag"];
+  for (;;) {
+    busy = true;
+    const inv = ch.inventory ?? [];
+    const cells: { html: string }[] = [];
+    // 装備（4スロット＝カードで一目）。空きは淡色で「（空き）」。
+    for (const sl of eqSlots) {
+      const it = ch.equipment[sl];
+      const body = it
+        ? `<div class="nm">${it.unidentified ? `見知らぬ${SLOT_LABEL[sl]}（未鑑定）` : it.name}</div><div class="sub">${it.unidentified ? "正体不明――装備中" : itemPower(it)}</div>`
+        : `<div class="nm" style="color:var(--tx-dim)">（空き）</div><div class="sub">迷宮で拾った${SLOT_LABEL[sl]}を着けられる</div>`;
+      cells.push({ html: `<span class="chip ${GEAR_SLOT_CLS[sl]}">${SLOT_LABEL[sl]}</span>${body}` });
+    }
+    // 持ち物（消耗品）。同種はまとめて ×N。
+    for (const s of inv) {
+      const def = consumableByKey(s.key);
+      cells.push({ html: `<span class="chip c-mov">持ち物</span><div class="nm">${def?.name ?? s.key}${s.qty > 1 ? `　×${s.qty}` : ""}</div><div class="sub">${def?.desc ?? ""}</div>` });
+    }
+    const lo = activeLoadout(ch);
+    const loNames = lo.map((k) => spellByKey(k)?.name ?? k).join("、");
+    const lead = (ch.spells.length ? `構え ${lo.length}/${LOADOUT_CAP}：${loNames || "なし"}\n` : "") +
+      "カードを選ぶ。装備＝着け替え／持ち物＝使う・捨てる（街）。";
+    const i = await chooseGrid({
+      title: `装備・持ち物 ── 持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)} 枠`,
+      lead, cells, cancel: "閉じる", cols: 1,
+    });
+    busy = false;
+    if (i < 0) break;
+    if (i < eqSlots.length) await swapSlot(ch, eqSlots[i]);
+    else { const s = inv[i - eqSlots.length]; if (s) await useOrDropConsumable(ch, s.key); }
+  }
+}
+
+/** 1スロットだけを着け替える（袋の同スロット品から選ぶ／外す）。非戦闘（視界に敵なし）でのみ。 */
+async function swapSlot(ch: Character, slot: ItemSlot) {
   busy = true;
   if (!canSwapNow()) { await sheet({ text: "敵が近い。装備は戦いの最中には換えられない。", meta: "装備", options: ["わかった"] }); busy = false; return; }
   const bag = (ch.gearBag ??= []);
-  if (!bag.length) { await sheet({ text: "拾い物の袋は空だ。迷宮で拾った武具がここに入る。", meta: "装備を換える", options: ["閉じる"] }); busy = false; return; }
-  const cells = bag.map((it) => ({ html: `<span class="chip c-sup">${SLOT_LABEL[it.slot] ?? "他"}</span><div class="nm">${itemLabel(it)}</div>` }));
-  const i = await chooseGrid({ title: "拾い物の袋から装備する", lead: "選んだ装備を着け、今の同種は袋へ戻す。", cells, cancel: "やめる" });
+  const cur = ch.equipment[slot] ?? null;
+  const matches = bag.map((it, idx) => ({ it, idx })).filter((o) => o.it.slot === slot);
+  if (!matches.length && !cur) {
+    await sheet({ text: `袋に${SLOT_LABEL[slot]}がない。迷宮で拾うと、ここで着け替えられる。`, meta: `装備 ── ${SLOT_LABEL[slot]}`, options: ["閉じる"] });
+    busy = false; return;
+  }
+  const cells = matches.map((o) => ({ html: `<span class="chip ${GEAR_SLOT_CLS[slot]}">${SLOT_LABEL[slot]}</span><div class="nm">${itemLabel(o.it)}</div>` }));
+  if (cur) cells.push({ html: `<div class="nm" style="color:var(--tx-dim)">外して袋へしまう</div>` });
+  const lead = cur ? `今の${SLOT_LABEL[slot]}：${itemLabel(cur)}` : `今は${SLOT_LABEL[slot]}を着けていない。`;
+  const i = await chooseGrid({ title: `${SLOT_LABEL[slot]}を換える`, lead, cells, cancel: "やめる", cols: 1 });
   busy = false;
   if (i < 0) return;
-  const it = bag[i]; const slot = it.slot as "weapon" | "armor" | "relic" | "bag";
-  const cur = ch.equipment[slot] ?? null;
-  ch.equipment[slot] = it;
-  bag.splice(i, 1);
-  if (cur) bag.push(cur);
-  log(`${itemLabel(it)} を装備した。`, "cue");
+  if (i < matches.length) {
+    const chosen = matches[i];
+    chosen.it.unidentified = false; // 装備＝鑑定（拾い物フローと同じ）
+    ch.equipment[slot] = chosen.it;
+    bag.splice(chosen.idx, 1);
+    if (cur) bag.push(cur);
+    sfx("equip");
+    log(`${chosen.it.name} を装備した（${itemPower(chosen.it)}）。`, "cue");
+    if (chosen.it.exposurePerTurn) log("……身につけた途端、深みがじわりと滲む。", "warn");
+  } else {
+    if (!cur) return;
+    bag.push(cur); ch.equipment[slot] = null;
+    sfx("equip");
+    log(`${cur.name} を外して袋にしまった。`, "dim");
+  }
   save(); updateStatus();
+}
+
+/** 持ち物（消耗品）を使う／捨てる。潜行中の「使う」は一手かかる＝下部の『持ち物』ボタンに誘導（手番処理の再入を避ける）。 */
+async function useOrDropConsumable(ch: Character, key: string) {
+  busy = true;
+  const def = consumableByKey(key);
+  const inDive = mode === "dive";
+  const a = await sheet({
+    text: `${def?.name ?? key}（${def?.desc ?? ""}）`,
+    meta: "持ち物",
+    options: ["使う", "捨てる", "戻る"],
+  });
+  if (a.pick === 1) {
+    if (inDive) {
+      await sheet({ text: "潜行中の使用は一手かかる。画面下の『持ち物』ボタンから使うこと。", options: ["わかった"] });
+    } else if (def?.use.healFrac && !def.use.exposure) {
+      await sheet({ text: "ここでは傷はない。潜ってから使うものだ。", options: ["わかった"] });
+    } else {
+      const msg = applyConsumable(ch, key); consumeOne(ch, key); sfx("consume");
+      log(`${def?.name} を使った（${msg}）。`, "dim"); updateStatus(); save();
+    }
+  } else if (a.pick === 2) {
+    consumeOne(ch, key); log(`${def?.name} を捨てた。`, "dim"); save();
+  }
+  busy = false;
 }
 
 async function spellMenu(ch: Character) {
