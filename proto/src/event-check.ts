@@ -195,7 +195,7 @@ for (const s of storylets) {
 // ============================================================
 console.log("== 8. setpiece（山場）の死蔵防止＝型と frame 充填性 ==");
 // コード側（main.ts fossilScene）が決着分岐を持つ型のみ＝それ以外は発火しても選択肢が出ず死蔵。
-const SETPIECE_HANDLED = new Set(["legend_return", "grudge_hunt"]);
+const SETPIECE_HANDLED = new Set(["legend_return", "grudge_hunt", "inheritance"]);
 // frame で使える slot（render.ts actorSlotValues）。常に充填可＝name/gear/depth、任意＝catchphrase/epithet。
 const SP_SLOTS = new Set(["origin_name", "origin_gear", "depth", "origin_catchphrase", "origin_epithet"]);
 const SP_ALWAYS = new Set(["origin_name", "origin_gear", "depth"]);

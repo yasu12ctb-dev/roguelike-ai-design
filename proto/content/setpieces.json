@@ -47,6 +47,30 @@
       "type": "grudge_hunt",
       "prerequisites": { "tone": "grudge", "minBond": 2 },
       "frame": "背後で、低く名を呼ばれた。お前の名を。\n振り返れば、#origin_name#だったものが、すぐそこに立っている。#origin_gear#を提げて。\nそれは一歩、また一歩と間合いを詰めながら、お前が忘れたがっていた約束を、無言で突きつけてくる。\nお前は、この相手に何かを為すべきだった。そして、為さなかった。"
+    },
+    {
+      "id": "sp_inheritance",
+      "type": "inheritance",
+      "prerequisites": { "tone": "loss", "minBond": 3 },
+      "frame": "#depth#の底で、見覚えのある骸に行き当たった。\n#origin_name#だ。最期まで#origin_gear#を手放さなかったその指が、いまもかすかに何かを握ろうとしている。\n果たせなかった願いの、その続きを――そう言い遺すように。\nお前は、それを受け取るかどうかを、選ばねばならない。"
+    },
+    {
+      "id": "sp_inheritance_will",
+      "type": "inheritance",
+      "prerequisites": { "tone": "loss", "minBond": 3 },
+      "frame": "#origin_name#の亡骸の傍らに、書きかけの言葉が遺されていた。最後の一文は、ついぞ綴られないまま。\n#origin_gear#が、その上にそっと置かれている。まるで、続きを託す栞のように。\n誰かが拾わねば、この想いは#depth#の闇に溶けて消える。\n――お前が、その誰かになるのか。"
+    },
+    {
+      "id": "sp_inheritance_quiet",
+      "type": "inheritance",
+      "prerequisites": { "tone": "loss", "minBond": 3 },
+      "frame": "争った跡はなかった。#origin_name#は、ただ静かにそこで力尽きていた。\n抱きかかえるように胸へ寄せた#origin_gear#だけが、生前の意志をいまも保っている。\n果たされなかった旅の地図が、その手のうちに畳まれている。\n継ぐか、見送るか。#depth#の静寂が、お前の答えを待っている。"
+    },
+    {
+      "id": "sp_inheritance_relic",
+      "type": "inheritance",
+      "prerequisites": { "tone": "loss", "minBond": 2 },
+      "frame": "#depth#の祭壇めいた窪みに、#origin_name#は座したまま朽ちていた。守るべき何かを、最後まで守り抜いた姿で。\n膝の上の#origin_gear#は、託す相手をずっと待っていたかのように、ほのかに温い。\nその遺志は、まだ終わっていない。\nお前の手が触れれば、それは再び動き出すだろう。"
     }
   ]
 }

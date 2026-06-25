@@ -53,7 +53,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.41.0";
+export const APP_VERSION = "0.42.0";
 export const APP_BUILD = "2026-06-25";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -3719,10 +3719,11 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
     // 山場の固有決着（遭-④）：通常動詞より先に提示
     if (spType === "legend_return") opts.push("導きを受ける（祝福）");
     if (spType === "grudge_hunt") { opts.push("向き合って詫びる"); opts.push("怨みを撥ねつける"); }
+    if (spType === "inheritance") { opts.push("遺志を継ぐ（受け継ぐ）"); opts.push("安らかに送る（鎮魂）"); }
     if (storylet?.investigate && !done.has("investigate")) opts.push("調べる");
     if (storylet?.search && !done.has("search")) opts.push("周辺を捜索する");
     opts.push("鎮魂する（末路を閉じ、変質の時計を巻き戻す）");
-    if (canInherit) opts.push("遺されたものを継ぐ");
+    if (canInherit && spType !== "inheritance") opts.push("遺されたものを継ぐ"); // inheritance 山場時は climax「遺志を継ぐ」が代替＝重複回避
     opts.push("そっと立ち去る");
 
     const r = await sheet({
@@ -3787,6 +3788,43 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       if (gb) gb.unfinished = true; else ch.bonds.push({ entityRef: fossil.id, value: 0, unfinished: true });
       chronicle(world, "rediscovery", `${ch.name}は${fossil.origin.name}の怨みを撥ねつけた。（未完のまま・再来の種）`, [fossil.id]);
       log(`怨みを否定した。だがそれは、より深い闇となって絡みつく（深蝕 +0.20）。いつか、また。`, "warn");
+      save();
+      break;
+    }
+    if (label === "遺志を継ぐ（受け継ぐ）") { // inheritance（遭-④）：loss 極の決着＝遺志を背負う（既存の継承機構を山場へ昇華）
+      sfx("intervene");
+      intervene(world, fossil.id, "inherit"); // 未完の目的を負う（4-12B）
+      log(inheritLine(fossil, rng));
+      // 先代が握っていた武器を奪還＝実際に装備できる（4-11E）。武器でなければ形質として継ぐ。
+      const gear = fossil.origin.gearTags[0];
+      const reclaimed = gear ? itemByName(gear) : null;
+      if (reclaimed) {
+        log(`${ch.name}は${fossil.origin.name}の${gear}を取り戻した。`);
+        await equipPrompt(reclaimed);
+      } else {
+        ch.traits.push(`継承:${gear ?? fossil.origin.name}`);
+      }
+      const before = ch.exposure;
+      ch.exposure = Math.max(0, ch.exposure - 0.4); // 山場の決着＝legend_return と同格の人間性回復
+      chronicle(world, "legend", `${ch.name}は${fossil.origin.name}の遺志を継いだ。`, [fossil.id, ch.id]);
+      if (ch.exposure < before) log(`託された想いが、削られた芯を人へ還す（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
+      // 奉献の試練・印③：山場（inheritance）を決着（4-13A）
+      if (awardSeal(world, "setpiece", [fossil.id])) { sfx("seal"); log("◆ 「山場の決着」の印を得た。", "warn"); }
+      recordCompanionFeat(); // 相棒と共に山場を決着＝偉業（4-4E 昇格ゲート）
+      save();
+      break;
+    }
+    if (label === "安らかに送る（鎮魂）") { // inheritance（遭-④）：継がず、安息を選ぶ別の決着
+      sfx("intervene");
+      intervene(world, fossil.id, "requiem"); // 因縁を閉じる（loss 極ゆえ requiem 印は付かない＝山場の印を明示付与）
+      const before = ch.exposure;
+      ch.exposure = Math.max(0, ch.exposure - 0.4);
+      chronicle(world, "intervention", `${ch.name}は${fossil.origin.name}を安らかに送った。`, [fossil.id]);
+      log(`遺志は継がず、ただ静かに見送った。${fossil.origin.name}の輪郭が、安らかにほどけていく。`);
+      if (ch.exposure < before) log(`別れを受け入れた芯が、人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
+      // 奉献の試練・印③：山場（inheritance）を決着（4-13A）
+      if (awardSeal(world, "setpiece", [fossil.id])) { sfx("seal"); log("◆ 「山場の決着」の印を得た。", "warn"); }
+      recordCompanionFeat(); // 相棒と共に山場を決着＝偉業（4-4E 昇格ゲート）
       save();
       break;
     }
