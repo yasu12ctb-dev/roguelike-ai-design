@@ -4050,7 +4050,7 @@
    "id": "tw_lineage_sense",
    "context": "street",
    "prerequisites": {
-    "unfinished": true
+    "minExposure": 0.6
    },
    "weight": 3,
    "text": "#origin_name# がこちらの所作を見て、ふと真顔になった。「あんた……誰かの遺したもんを、背負ってるな。目で分かる」。",
@@ -26804,7 +26804,7 @@
    "id": "st_b18_unf_apology",
    "context": "street",
    "prerequisites": {
-    "unfinished": true
+    "minBond": 2
    },
    "weight": 2,
    "text": "人混みの先に、#origin_name# の姿。いつか諍いのまま別れ、ずっと気にかかっていた相手だ。今なら、詫びられるだろうか。",
@@ -26815,9 +26815,6 @@
      "effects": [
       {
        "bond": 1
-      },
-      {
-       "closeUnfinished": true
       },
       {
        "exposure": -0.05
@@ -26845,7 +26842,7 @@
    "id": "st_b18_unf_repay",
    "context": "street",
    "prerequisites": {
-    "unfinished": true
+    "minBond": 2
    },
    "weight": 2,
    "text": "#origin_name# とすれ違う。かつて世話になったまま、返しそびれた恩がある相手だ。",
@@ -26856,9 +26853,6 @@
      "effects": [
       {
        "bond": 1
-      },
-      {
-       "closeUnfinished": true
       },
       {
        "exposure": -0.04
@@ -27132,6 +27126,471 @@
      ]
     }
    ]
+  },
+  {
+   "id": "en_b20_b20_token",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "loss"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の骸は、誰にも手向けられぬまま、ただ静かに横たわっていた。せめて、と思う。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "悼んだ:#origin_name#"
+     },
+     {
+      "chronicle": "深度#depth#で、手向けられぬ#origin_name# を悼んだ。"
+     }
+    ]
+   },
+   "search": {
+    "text": "持ち合わせの小さな布を裂き、#origin_gear# の傍に結んでやった。次に来る時の、目印にもなるだろう。",
+    "effects": [
+     {
+      "plant": "b20_token"
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の傍に、手向けの印を残した。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b20_b20_token2",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "loss",
+    "flag": "b20_token",
+    "notFlag": "b20_token_seen"
+   },
+   "weight": 3,
+   "investigate": {
+    "text": "再びこの骸へ。先に結んだ布が、風化もせず確かに残っていた。誰かが——自分が——通い続けている証だ。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": -0.05
+     },
+     {
+      "trait": "通い路:#origin_name#のもとへ"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の骸へ再び手を合わせた。"
+     },
+     {
+      "plant": "b20_token_seen"
+     }
+    ]
+   },
+   "search": {
+    "text": "布の結び目を新しく結び直し、塵を払う。弔いが、習いになっていく。死者との縁は、こうして堆積する。",
+    "effects": [
+     {
+      "exposure": -0.04
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の手向けを結び直した。"
+     },
+     {
+      "plant": "b20_token_seen"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b20_b20_clue",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "grudge"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の致命傷は、明らかに不意打ちだった。誰かに討たれ、無念のまま朽ちている。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "見たもの:#origin_name#の不意打ちの傷"
+     },
+     {
+      "chronicle": "深度#depth#で、討たれて果てた#origin_name# の無念に触れた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "現場を検めると、下手人が落としたらしい紋章の欠片。手がかりだ。懐に収め、いずれ追うと心に決める。",
+    "effects": [
+     {
+      "plant": "b20_clue"
+     },
+     {
+      "exposure": 0.04
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# を討った者の紋章の欠片を拾った。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b20_b20_clue2",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "grudge",
+    "flag": "b20_clue",
+    "notFlag": "b20_clue_seen"
+   },
+   "weight": 3,
+   "investigate": {
+    "text": "再びこの骸の前。先に拾った紋章の欠片が、頭の奥でうずく。あの下手人の影が、まだこの先のどこかにいる。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.05
+     },
+     {
+      "trait": "追う者:#origin_name#の仇"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の仇を追う決意を新たにした。"
+     },
+     {
+      "plant": "b20_clue_seen"
+     }
+    ]
+   },
+   "search": {
+    "text": "欠片と現場の痕を突き合わせると、下手人が逃げた方角が読めた。糸は、確かに繋がっている。",
+    "effects": [
+     {
+      "exposure": 0.03
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# を討った者の逃げた先を割り出した。"
+     },
+     {
+      "plant": "b20_clue_seen"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b20_b20_saga",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "myth"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の伝説は、語りでしか知らなかった。その本人が、いま目の前に眠っている。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "語り草:#origin_name#との邂逅"
+     },
+     {
+      "chronicle": "深度#depth#で、伝説の#origin_name# 本人に巡り会った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "骸の傍に、本人の手による武勲記の前半が遺されていた。語りでは省かれた細部が、生々しい。",
+    "effects": [
+     {
+      "plant": "b20_saga"
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の武勲記の前半を見つけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b20_b20_saga2",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "myth",
+    "flag": "b20_saga",
+    "notFlag": "b20_saga_seen"
+   },
+   "weight": 3,
+   "investigate": {
+    "text": "再びこの骸へ。前に読んだ武勲記の続きが、どこかにあるはずだ。物語には、まだ先がある。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "読み継ぐ:#origin_name#の武勲記"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の物語の続きを探した。"
+     },
+     {
+      "plant": "b20_saga_seen"
+     }
+    ]
+   },
+   "search": {
+    "text": "骸の下に、武勲記の後半。これで一つの生涯が、初めから終わりまで繋がった。語り部に伝えれば、伝説はより確かになる。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "trait": "受け継いだ:#origin_name#の完全な武勲記"
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の武勲記を完結させた。"
+     },
+     {
+      "plant": "b20_saga_seen"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b20_b20_letter",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "loss"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の指は、何かを書く形のまま固まっていた。最後まで、誰かへ言葉を遺そうとしたらしい。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "見たもの:#origin_name#の書く手"
+     },
+     {
+      "chronicle": "深度#depth#で、書く姿勢のまま果てた#origin_name# を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "懐から、宛名のない書きかけの手紙。最後の一文が、途中で途切れている。誰に宛てたものだろう。",
+    "effects": [
+     {
+      "plant": "b20_letter"
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の宛先のない手紙を見つけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b20_b20_letter2",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "loss",
+    "flag": "b20_letter",
+    "notFlag": "b20_letter_seen"
+   },
+   "weight": 3,
+   "investigate": {
+    "text": "再びこの骸へ。あの手紙の続きが、ずっと胸に引っかかっていた。文面を思い返すうち、宛先の見当がついてきた。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": -0.04
+     },
+     {
+      "trait": "託された:#origin_name#の言葉"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の手紙の宛先を悟った。"
+     },
+     {
+      "plant": "b20_letter_seen"
+     }
+    ]
+   },
+   "search": {
+    "text": "手紙を畳み直し、懐へ収める。届けられるかは分からない。だが、託された言葉を腐らせはしない。そう決めた。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の遺した手紙を、自ら預かることにした。"
+     },
+     {
+      "plant": "b20_letter_seen"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b20_b20_box",
+   "context": "encounter",
+   "prerequisites": {},
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# が、最後まで握り締めていた小さな手箱。固く施錠され、びくともしない。中身は、本人にしか分からない。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "見たもの:#origin_name#の手箱"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# が握る開かぬ手箱を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "鍵穴の形を覚えておく。今は開けられないが、いつか合う鍵か、こじ開ける算段がつくかもしれない。",
+    "effects": [
+     {
+      "plant": "b20_box"
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の手箱の鍵穴を検めた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b20_b20_box2",
+   "context": "encounter",
+   "prerequisites": {
+    "flag": "b20_box",
+    "notFlag": "b20_box_seen"
+   },
+   "weight": 3,
+   "investigate": {
+    "text": "再びこの骸へ。あの手箱が、まだ気にかかっている。今の自分なら、開ける手立てがありそうだ。",
+    "effects": [
+     {
+      "trait": "心残り:#origin_name#の手箱"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の手箱に再び向き合った。"
+     },
+     {
+      "plant": "b20_box_seen"
+     }
+    ]
+   },
+   "search": {
+    "text": "工夫の末、手箱の蓋が開いた。中身は、丁寧に保たれた一包みの膏薬と、色褪せた家族の似姿。守りたかったものが、ここにあった。",
+    "effects": [
+     {
+      "item": "salve"
+     },
+     {
+      "exposure": -0.04
+     },
+     {
+      "trait": "見届けた:#origin_name#の守りたかったもの"
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の手箱を開け、その想いを見届けた。"
+     },
+     {
+      "plant": "b20_box_seen"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b20_b20_debt",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "grudge"
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の骸の握りに、こちらにも覚えのある印。生前、貸し借りの片づかぬまま終えた相手だった。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "見たもの:#origin_name#との貸し"
+     },
+     {
+      "chronicle": "深度#depth#で、貸し借りの残る#origin_name# の骸に対峙した。"
+     }
+    ]
+   },
+   "search": {
+    "text": "#origin_gear# に刻まれた割印が、こちらの記憶と合致する。果たされなかった約定の証だ。胸の奥が、ざわつく。",
+    "effects": [
+     {
+      "plant": "b20_debt"
+     },
+     {
+      "exposure": 0.04
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# との約定の割印を確かめた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b20_b20_debt2",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "grudge",
+    "flag": "b20_debt",
+    "notFlag": "b20_debt_seen"
+   },
+   "weight": 3,
+   "investigate": {
+    "text": "再びこの骸へ。割印の件が、ずっと心に刺さっていた。借りか、貸しか——どちらにせよ、ここで終わらせたい。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": -0.04
+     },
+     {
+      "trait": "清算した:#origin_name#との貸借"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# との果たせぬ貸借に区切りをつけた。"
+     },
+     {
+      "plant": "b20_debt_seen"
+     }
+    ]
+   },
+   "search": {
+    "text": "割印の片割れを、骸の手にそっと戻してやる。「これで、貸し借りなしだ」。長く凝っていた何かが、ようやく解けた。",
+    "effects": [
+     {
+      "exposure": -0.05
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# に割印を返し、因縁を清算した。"
+     },
+     {
+      "plant": "b20_debt_seen"
+     }
+    ]
+   }
   }
  ]
 }
