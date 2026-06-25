@@ -165,6 +165,33 @@ for (const s of storylets) {
 }
 
 // ============================================================
-if (warn.length) { console.log("\n-- warnings --"); for (const w of warn) console.log("  △ " + w); }
+console.log("== 7. prereq の context 適用性（死蔵/no-op ゲートの検出） ==");
+// 各 context の selection コードが実際に評価する prereq キー（storylets.ts の
+// matches()/pickByContext()/townMatches()＋selectDelverStorylet の depth 補正より）。
+// ここに無いキーをその context で使うと「評価されず無視される（no-op）」か「決して満たされない（死蔵）」。
+// ＝chest minExposure（exposure=0 固定）/ town unfinished（生者は unfinished が立たない）等の罠を機械検出。
+const ARCK = ["arc", "notArc", "arcStep", "arcPick"];
+const APPLICABLE: Record<string, Set<string>> = {
+  encounter: new Set(["tone", "stage", "finalAct", "kind", "minBond", "unfinished", "minExposure",
+    "minLevel", "minDepth", "maxDepth", "hasCatchphrase", "flag", "notFlag", ...ARCK]),
+  dungeon: new Set(["depthBand", "minDepth", "maxDepth", "minLevel", "minExposure", ...ARCK]),
+  // chest は exposure=0 固定で渡るため minExposure は死蔵＝許可しない。
+  chest: new Set(["depthBand", "minDepth", "maxDepth", "minLevel", ...ARCK]),
+  // 街の生者（unfinished は立たない＝許可しない。depth 系も townMatches 非対応）。
+  town: new Set(["actorId", "minBond", "minExposure", "minLevel", "flag", "notFlag", "arcActor", ...ARCK]),
+  // delver は迷宮内＝minDepth/maxDepth を ch.depth で評価する（selectDelverStorylet）。
+  delver: new Set(["actorId", "minBond", "minExposure", "minLevel", "flag", "notFlag", "arcActor",
+    "minDepth", "maxDepth", ...ARCK]),
+};
+const TOWN_CTX = new Set(["street", "tavern", "guild", "shop", "quest"]);
+for (const s of storylets) {
+  const ctx = ctxOf(s);
+  const allow = APPLICABLE[ctx] ?? (TOWN_CTX.has(ctx) ? APPLICABLE.town : APPLICABLE.encounter);
+  for (const k of Object.keys(s.prerequisites ?? {})) {
+    ok(allow.has(k), `死蔵/no-op ゲート：${s.id}（context=${ctx}）の prereq "${k}" はこの context で評価されない（無視される/決して満たされない）`);
+  }
+}
+
+// ============================================================
 console.log(`\n=== event-check: ${pass} pass / ${fail} fail / ${warn.length} warn ===`);
 if (fail) process.exit(1);
