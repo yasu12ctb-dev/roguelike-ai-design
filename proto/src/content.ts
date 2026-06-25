@@ -9,6 +9,20 @@ export interface ContentDb {
   setpieces: SetPiece[];
   storylets: Storylet[];
   adventurers: RosterActor[];   // ★中核の名簿（4-14・冒険者B/C）。空でも可（既定[]）。
+  /** context 別の索引（構築時に1回・元配列順を保持）。毎ターンの全件 filter を避ける（key = context ?? "encounter"）。 */
+  byContext: Map<string, Storylet[]>;
+}
+
+/** storylets を context 別に振り分ける。元の配列順を保つため、選択（重み付き抽選）の結果は従来と完全一致。 */
+function indexByContext(storylets: Storylet[]): Map<string, Storylet[]> {
+  const m = new Map<string, Storylet[]>();
+  for (const s of storylets) {
+    const key = s.context ?? "encounter";
+    let bucket = m.get(key);
+    if (!bucket) { bucket = []; m.set(key, bucket); }
+    bucket.push(s);
+  }
+  return m;
 }
 
 export function makeContentDb(
@@ -17,11 +31,13 @@ export function makeContentDb(
   storyletsJson?: { storylets: Storylet[] },
   adventurersJson?: { adventurers: RosterActor[] },
 ): ContentDb {
+  const storylets = storyletsJson?.storylets ?? [];
   return {
     fragments: fragmentsJson.fragments,
     setpieces: setpiecesJson.setpieces,
-    storylets: storyletsJson?.storylets ?? [],
+    storylets,
     adventurers: adventurersJson?.adventurers ?? [],
+    byContext: indexByContext(storylets),
   };
 }
 
