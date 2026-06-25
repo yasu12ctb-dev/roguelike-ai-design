@@ -335,10 +335,33 @@ export function spawnPursuer(f: Floor, rng: Rng, player: Pos, depth: number, n: 
   return m;
 }
 
+/** エリアボスの出自＝「縁ある相手の成れの果て」へ寄せて抽選（4-6/⑤鎮め筋）。
+ *  絆・未完の因縁・doom/fall 弧の終端・元相棒を加重し、見知らぬ他人（基礎重み1）も残す＝
+ *  「知っていた者が深みに堕ちて怪物となり還る」情緒を発火させる（純粋・決定論）。 */
+function pickBossSource(world: World, pool: Fossil[], rng: Rng): Fossil {
+  const bonds = new Map((world.current?.bonds ?? []).map((b) => [b.entityRef, b]));
+  const doom = new Set(
+    (world.tracked ?? [])
+      .filter((t) => (t.arcType === "doom" || t.arcType === "fall") && t.originRef)
+      .map((t) => t.originRef as string),
+  );
+  const weights = pool.map((f) => {
+    let w = 1;
+    const b = bonds.get(f.id);
+    if (b) { w += 5 + Math.max(0, b.value); if (b.unfinished) w += 5; } // 縁／未完の因縁
+    if (doom.has(f.id)) w += 6;        // 堕ちゆく弧の終端＝成れの果てに相応しい
+    if (f.wasCompanion) w += 4;        // かつての相棒
+    return w;
+  });
+  let roll = rng.next() * weights.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < pool.length; i++) { roll -= weights[i]; if (roll < 0) return pool[i]; }
+  return pool[pool.length - 1];
+}
+
 /** エリアボスの種別＋出自。可能なら過去の探索者化石の名を冠する（敵性化＝⑤鎮め筋の対象）。 */
 function makeAreaBoss(world: World, depth: number, rng: Rng): { kind: MonsterKind; fossilId?: string } {
   const pool = world.fossils.filter((f) => f.kind === "character" || f.kind === "explorer");
-  const src = pool.length ? rng.pick(pool) : null;
+  const src = pool.length ? pickBossSource(world, pool, rng) : null;
   const name = src ? `${src.origin.name}の成れの果て` : "深淵の主";
   // エリアボス＝雑魚baseline×4+20・dmg＝雑魚+4（硬め維持＝止め/距離/弱体/回復/遠距離の駆け引き前提 4-11F）
   const kind: MonsterKind = { key: `boss${depth}`, glyph: "Ω", name, hp: regularHpAt(depth) * 4 + 20, dmg: 5 + depthDmgBonus(depth), minDepth: depth, erratic: 0.05, tier: 5 };

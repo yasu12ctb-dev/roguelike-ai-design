@@ -53,7 +53,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.42.1";
+export const APP_VERSION = "0.43.0";
 export const APP_BUILD = "2026-06-25";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -2747,21 +2747,57 @@ async function handleBossResolve() {
   while (pendingBossResolve.length) {
     const boss = pendingBossResolve.shift()!;
     const ch = world.current!;
+    // 出自の化石と縁を読む（4-6 物語化）：知っていた相手なら決着に重みが出る。
+    const fossil = boss.fossilId ? world.fossils.find((f) => f.id === boss.fossilId) : undefined;
+    const bond = boss.fossilId ? ch.bonds.find((b) => b.entityRef === boss.fossilId) : undefined;
+    const wasComp = !!fossil?.wasCompanion;
+    const known = wasComp || (!!bond && (bond.value > 0 || bond.unfinished));
+    const isDoom = !!boss.fossilId && (world.tracked ?? []).some(
+      (t) => t.originRef === boss.fossilId && (t.arcType === "doom" || t.arcType === "fall"),
+    );
+    // setpiece 級の決着文を組む（化石の出自・口癖・縁・弧を織り込む）。
+    const lines: string[] = [`${boss.kind.name}が、膝をついた。かつて人だったものの眼が、こちらを見ている。`];
+    if (wasComp) lines.push("――かつて共に深みを歩いた相棒だ。歪んだ貌の奥に、あの面影がまだ揺らいでいる。");
+    else if (bond?.unfinished) lines.push("――果たせなかった約束の相手だった。こんな姿で再び巡り合うとは。");
+    else if (known) lines.push("――かつて縁を結んだ者。覚えている、この眼を。");
+    if (fossil?.origin.catchphrase) lines.push(`ひび割れた声が、生前の口癖を漏らす。『${fossil.origin.catchphrase}』`);
+    if (isDoom) lines.push("いつか英雄と謳われたその名が、深みに食われ、ここまで堕ちた。弧の終端が、目の前にある。");
+    lines.push(known ? "とどめを刺すか、鎮めるか――それとも、名を呼ぶか。" : "とどめを刺すか――それとも、鎮めるか。");
+
+    const opts = ["討つ（とどめ：XP満額＋遺物）", "鎮める（祈り：非殺・年代記に残る）"];
+    if (known) opts.push("名を呼ぶ（呼び戻しを試みる）"); // 縁ある相手だけの第三の決着（4-6）
     const r = await sheet({
-      text: `${boss.kind.name}は膝をついた。かつて人だったものの眼が、こちらを見ている。\nとどめを刺すか――それとも、鎮めるか。`,
-      meta: `${boss.kind.name} ── 決着（戦闘版の干渉）`,
-      options: ["討つ（とどめ：XP満額＋遺物）", "鎮める（祈り：非殺・年代記に残る）"],
+      text: lines.join("\n"),
+      meta: `${boss.kind.name} ── 決着（戦闘版の干渉）${known ? " / 縁" : ""}`,
+      options: opts,
     });
-    if (r.pick === 2 && boss.fossilId) {
+    const halfXp = () => { ch.xp += Math.round(xpForKill(boss.kind.hp) * 0.5 * xpMul(ch)); }; // 非殺＝報酬控えめ（慈悲の代償）
+
+    if (opts[r.pick - 1] === "名を呼ぶ（呼び戻しを試みる）" && boss.fossilId) {
+      // 呼び戻し＝人だった芯に届く最も人間的な決着。安らかに送り、記憶に深く刻む。
+      sfx("intervene"); flashFx("still");
+      intervene(world, boss.fossilId, "memorial"); // 因縁を閉じる＋弧の時計を巻き戻す（accrueArcWarp）
+      halfXp();
+      const before = ch.exposure;
+      ch.exposure = Math.max(0, ch.exposure - 0.5); // 届いた手応え＝人間性の回復（山場級）
+      ch.traits.push(`${fossil?.origin.name ?? boss.kind.name}を呼び戻した`);
+      log(`★ ${ch.name}は${fossil?.origin.name ?? boss.kind.name}の名を呼んだ。歪みの底で、一瞬、人の貌が還った。`, "warn");
+      if (ch.exposure < before) log(`その手応えが、深みに削られた芯を人へ還す（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
+      chronicle(world, "legend", `${ch.name}が深度${floor!.depth}で${boss.kind.name}に名を呼びかけ、安らかに送った。`, [ch.id, boss.fossilId]);
+      if (isDoom) log(`${fossil?.origin.name ?? boss.kind.name}の堕ちゆく弧が、ここで静かに閉じた。`, "cue");
+      if (boss.boss === "area") spawnReturnDoor(boss);
+      recordCompanionFeat();
+    } else if (r.pick === 2 && boss.fossilId) {
       sfx("intervene"); flashFx("still");
       intervene(world, boss.fossilId, "requiem"); // 出自の化石を鎮魂（4-2 干渉動詞）
-      ch.xp += Math.round(xpForKill(boss.kind.hp) * 0.5 * xpMul(ch)); // 鎮めは報酬控えめ＝慈悲の代償
+      halfXp();
       log(`★ ${ch.name}は${boss.kind.name}を鎮めた。深みの底で、何かが静かになった。`, "warn");
       chronicle(world, "intervention", `${ch.name}が深度${floor!.depth}で${boss.kind.name}を鎮めた。`, [ch.id, boss.fossilId]);
+      if (isDoom) log(`${fossil?.origin.name ?? boss.kind.name}の堕ちゆく弧が、ここで閉じた。`, "cue");
       if (boss.boss === "area") spawnReturnDoor(boss); // 帰還の扉＝往復チェックポイント（v2・鎮めでも出現）
       recordCompanionFeat(); // 相棒と共にボスを鎮めた＝偉業（4-4E 昇格ゲート）
     } else {
-      rewardKill(boss); // 討つ＝通常撃破（XP満額＋ドロップ＋legend）
+      rewardKill(boss); // 討つ＝通常撃破（XP満額＋ドロップ＋legend＋abyss_boss 印）
     }
   }
   busy = false;
