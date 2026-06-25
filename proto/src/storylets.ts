@@ -238,7 +238,14 @@ export function selectTownStorylet(
 export function selectDelverStorylet(
   db: ContentDb, world: World, ch: Character, la: LivingActor, rng: Rng, avoid?: Set<string>,
 ): Storylet | null {
-  const pool = (db.byContext.get("delver") ?? []).filter((s) => townMatches(s.prerequisites, world, ch, la));
+  // delver は迷宮内で出会う＝ch.depth（潜行中の現在階）で深度ゲートを効かせる
+  // （街の生者と違い「どの深さで会ったか」が意味を持つ。townMatches は depth 非対応なのでここで補う）。
+  const pool = (db.byContext.get("delver") ?? []).filter((s) => {
+    const p = s.prerequisites;
+    if (p.minDepth !== undefined && ch.depth < p.minDepth) return false;
+    if (p.maxDepth !== undefined && ch.depth > p.maxDepth) return false;
+    return townMatches(p, world, ch, la);
+  });
   return pickPreferArc(pool, rng, avoid);
 }
 
