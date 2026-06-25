@@ -53,7 +53,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.43.0";
+export const APP_VERSION = "0.44.0";
 export const APP_BUILD = "2026-06-25";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -315,11 +315,12 @@ function draw() {
   // 討たれる→ @ が赤く明滅。抽象的な枠・点はやめ「敵がどこへ来るか」「自分が危ない」を直接見せる。
   const teleMove = new Set<number>();        // 敵が踏み込む先の床マス（背景ハイライト）
   let playerThreatened = false;              // 自分のマスが攻撃予告されている
+  let playerHeavy = false;                   // 自分のマスがボスの渾身の一撃で予告されている（B・橙の危険枠）
   let companionThreatened = false;           // 相棒のマスが攻撃予告されている（4-14C）
   for (const m of floor.monsters) {
     if (m.hp <= 0 || !m.intent || !vis.has(mapIdx(floor, m.x, m.y))) continue;
     if (m.intent.type === "attack") {
-      if (m.intent.x === player.x && m.intent.y === player.y) playerThreatened = true;
+      if (m.intent.x === player.x && m.intent.y === player.y) { playerThreatened = true; if (m.intent.heavy) playerHeavy = true; }
       else if (companion && m.intent.x === companion.x && m.intent.y === companion.y) companionThreatened = true;
     } else if (m.intent.type === "move") {
       teleMove.add(mapIdx(floor, m.intent.x, m.intent.y));
@@ -352,7 +353,8 @@ function draw() {
       const m = floor.monsters.find((m) => m.hp > 0 && m.x === x && m.y === y);
       if (m) {
         glyph = m.kind.glyph;
-        cls = m.boss === "area" ? "g-boss" : m.boss === "elite" ? "g-elite"
+        const bossHeavy = m.intent?.type === "attack" && m.intent.heavy; // 溜め大技の予告（B）
+        cls = m.boss === "area" ? `g-boss${bossHeavy ? " g-boss-heavy" : ""}` : m.boss === "elite" ? "g-elite"
           : `g-mon-t${m.kind.tier}${m.intent?.type === "attack" ? " g-mon-atk" : ""}`;
       }
       const su = summons.find((s) => s.x === x && s.y === y); // 召喚＝一時味方（菫色）
@@ -367,7 +369,7 @@ function draw() {
       cls = companionThreatened ? "g-companion-danger" : `g-companion${(companion!.erratic ?? 0) > 0 ? " g-companion-erratic" : ""}${companion!.intent?.type === "attack" ? " g-mon-atk" : ""}`;
     }
     const isPlayer = x === player.x && y === player.y;
-    if (isPlayer) { glyph = "@"; cls = playerThreatened ? "g-player-danger" : "g-player"; }
+    if (isPlayer) { glyph = "@"; cls = playerThreatened ? (playerHeavy ? "g-player-heavy" : "g-player-danger") : "g-player"; }
     c.classList.toggle("tele-atk", (isPlayer && playerThreatened) || (isCompanion && companionThreatened)); // 攻撃予告の赤枠
     span.textContent = glyph;
     span.className = cls;
@@ -2200,7 +2202,9 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
   // 同行（4-14C）：相棒がいれば @ の隣に展開（階段は隣接で同行降下）。ephemeral＝再訪でも再展開。
   companion = null;
   if (world.companion?.alive) spawnCompanionNear(player);
+  bossEnragedSeen.clear(); bossHeavySeen.clear(); // ボス告知状態をフロアごとにリセット（B）
   planMonsters(floor, player, rng, companion); // 入った瞬間に見えている敵は予告を出す
+  announceBossCues(); // 入った瞬間に見えるボスの大技構えも告知（B）
   if (companion) planCompanion(floor, player, companion, rng);
   setAmbient(true, depth); // 環境ドローン（深いほど低い）
   // 場面 BGM：深淵帯=③沈淵／通常迷宮=②冷たい石の広間（深度連動で暗く低くなる）
@@ -2681,6 +2685,10 @@ async function endTurn() {
       if (deathDoorTurns > 0) dmg = 0; // 死戸＝無敵
       if (dmg > 0 && shadowGuard > 0) { shadowGuard--; dmg = 0; log(`${h.monster.kind.name}の一撃を、影が引き受けた。`, "dim"); } // 影分け
       else if (deathDoorTurns > 0) log(`${h.monster.kind.name}の一撃を、死戸が弾く。`, "warn");
+      else if (h.effect === "heavy") { // ①溜め大技（B）：渾身の一撃を受けた＝重い被弾の演出
+        hp -= dmg; sfx("boss", 0.16); flashFx("warp");
+        log(`${h.monster.kind.name}の渾身の一撃が炸裂した！ ${dmg}の大ダメージ。`, "warn");
+      }
       else {
         hp -= dmg; log(`${h.monster.kind.name}の一撃！ ${dmg}の傷。`, "warn");
         if (h.effect === "poison") { // venom（4-11G）：傷が通ると毒が回り始める（次手から継続ダメ）
@@ -2699,6 +2707,7 @@ async function endTurn() {
   // 次の一手を予告する（プレイヤーが見て動けるように。相棒は連帯深蝕で erratic にぶれる）
   planMonsters(floor, player, rng, companion);
   if (companion) planCompanion(floor, player, companion, rng);
+  announceBossCues(); // ボスの覚醒・大技の溜めを告知（B）
 
   draw();
   updateStatus(); // HP/深蝕の即時反映（蝕み・被弾・持ち物使用が毎手バーに出る）
@@ -2729,6 +2738,27 @@ async function endTurn() {
 // ---------- 装備（4-11F④）。拾得＝装備プロンプト。ボス/宝箱から入手。 ----------
 let pendingDrops: Item[] = [];
 let pendingBossResolve: Monster[] = [];
+
+// ボスの戦術化（B）の演出告知：engine（dungeon.ts）は純粋ゆえ、覚醒・大技の溜めは web 側で一度ずつログ＋音に。
+const bossEnragedSeen = new Set<string>();
+const bossHeavySeen = new Set<string>();
+function announceBossCues() {
+  if (!floor) return;
+  for (const m of floor.monsters) {
+    if (m.boss !== "area" || m.hp <= 0) continue;
+    if (m.enraged && !bossEnragedSeen.has(m.id)) { // ②怒りフェーズ：覚醒の瞬間を告知（一度きり）
+      bossEnragedSeen.add(m.id);
+      sfx("boss"); flashFx("warp");
+      log(`${m.kind.name}が覚醒した……！ 攻撃が鋭さを増し、眷属を呼び始める。`, "warn");
+    }
+    const heavy = m.intent?.type === "attack" && m.intent.heavy; // ①溜め大技：構えを告知（構え直すたび）
+    if (heavy && !bossHeavySeen.has(m.id)) {
+      bossHeavySeen.add(m.id);
+      sfx("drain", 0.05);
+      log(`${m.kind.name}が渾身の一撃を溜めている！ 間合いから退くか、備えよ。`, "warn");
+    } else if (!heavy) bossHeavySeen.delete(m.id);
+  }
+}
 
 /** 撃破処理の入口。敵性化探索者ボス（出自=化石）は「討つ/鎮める」へ。それ以外は通常撃破。 */
 function downOrKill(mon: Monster, killLine?: string) {

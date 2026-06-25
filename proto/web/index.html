@@ -143,6 +143,10 @@
     /* 攻撃を予告中：色はtierのまま、強く明滅して「来る」と知らせる */
     .g-mon-atk { animation: monatk .5s ease-in-out infinite; }
     @keyframes monatk { 0%,100% { text-shadow: 0 0 6px currentColor; } 50% { text-shadow: 0 0 16px currentColor, 0 0 26px currentColor; filter: brightness(1.5); } }
+    /* ボスの渾身の一撃（B・テレグラフ）：溜め中のボスは橙白で激しく脈動＝「退け／備えよ」の合図。被予告マスも橙の危険枠。 */
+    .g-boss-heavy { color: #fff; text-shadow: 0 0 16px #ffb000, 0 0 34px rgba(255,120,0,.9); animation: bossheavy .42s ease-in-out infinite; }
+    @keyframes bossheavy { 0%,100% { filter: brightness(1.2); } 50% { filter: brightness(2); text-shadow: 0 0 22px #ffcf4a, 0 0 46px rgba(255,90,0,.95); } }
+    .g-player-heavy { color: #fff; text-shadow: 0 0 16px rgba(255,120,0,1), 0 0 34px rgba(255,60,0,.85); animation: danger .4s ease-in-out infinite; }
     .g-fossil { color: var(--g-fossil); text-shadow: 0 0 10px rgba(159,216,207,.75); animation: pulse 2.6s ease-in-out infinite; }
     .g-fossil-quiet { color: var(--g-fossil-quiet); }
     .g-chest { color: var(--g-chest); text-shadow: 0 0 9px rgba(232,192,106,.7); }
