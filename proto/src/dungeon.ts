@@ -11,7 +11,7 @@ export const VIEW_H = 23;
 export type Tile = 0 | 1; // 0=岩盤(壁) 1=床
 export interface Pos { x: number; y: number; }
 
-export interface MonsterKind {
+interface MonsterKind {
   key: string; glyph: string; name: string;
   hp: number; dmg: number; minDepth: number; erratic: number; // erratic=ランダム移動率
   tier: number; // 強さの段（1=雑魚 … 5=最危険）。記号=種類／色=tier で可視化（4-11F）。
@@ -105,7 +105,7 @@ export interface Monster extends Pos {
   fossilId?: string;             // 出自の化石（敵性化した探索者）。⑤鎮め筋の対象（4-11D）
   breedCd?: number;              // breeder：眷属を湧かしたあとの待機手数（4-11G）
 }
-export interface FossilEntity extends Pos {
+interface FossilEntity extends Pos {
   id: string; fossilId: string; resolved: boolean; // resolved=このフロアで対面済み
 }
 export interface Chest extends Pos {
@@ -415,10 +415,10 @@ export function computeFov(f: Floor, p: Pos): Set<number> {
 }
 
 // ---------- モンスターのターン（テレグラフ＝予告 → 実行の2段：4-11A） ----------
-export interface MonsterHit { monster: Monster; dmg: number; target: "player" | "companion"; effect?: "poison"; }
-export interface Resolution { hits: MonsterHit[]; dodges: Monster[]; }
+interface MonsterHit { monster: Monster; dmg: number; target: "player" | "companion"; effect?: "poison"; }
+interface Resolution { hits: MonsterHit[]; dodges: Monster[]; }
 /** 相棒の一手の結果（プレイヤー手番末に解決）。 */
-export interface CompanionResolution { hit: Monster | null; dmg: number; }
+interface CompanionResolution { hit: Monster | null; dmg: number; }
 
 // dmg は kind に深度係数を焼き込み済み（scaleKind / ボス・エリート・追手とも）。蝕み（weak）中は減算（下限1）。
 export const WEAK_AMT = 4;

@@ -54,7 +54,7 @@ function gGenFloor(): string {
       const w = newWorld(seed >>> 0);
       createCharacter(w, "T", "delver", { relation: "none" });
       const f = genFloor(w, depth);
-      const floorTiles = f.tiles.reduce((a, t) => a + (t === 1 ? 1 : 0), 0);
+      const floorTiles = f.tiles.reduce<number>((a, t) => a + (t === 1 ? 1 : 0), 0);
       r.add("F", depth, f.w, f.h, floorTiles, f.stairsUp.x, f.stairsUp.y, f.stairsDown.x, f.stairsDown.y, f.monsters.length);
       for (const m of f.monsters) r.add(m.x, m.y, m.kind.key, m.hp);
     }

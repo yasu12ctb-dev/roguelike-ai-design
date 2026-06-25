@@ -2971,7 +2971,7 @@ async function castSpell(key: string) {
   const def = spellByKey(key);
   if (!def) return;
   const vis = computeFov(floor, player);
-  const visMon = floor.monsters.filter((m) => m.hp > 0 && vis.has(mapIdx(floor, m.x, m.y)));
+  const visMon = floor.monsters.filter((m) => m.hp > 0 && vis.has(mapIdx(floor!, m.x, m.y)));
 
   if (key === "warp_strike") {
     if (!visMon.length) { log("討つべき敵が見えない。", "dim"); draw(); return; }
@@ -3317,7 +3317,7 @@ async function autoTravel(dest: Pos) {
     if (busy || mode !== "dive" || !floor) break;
     // 敵が見えていたら自動移動は危険なので止める
     const vis = computeFov(floor, player);
-    if (floor.monsters.some((m) => m.hp > 0 && vis.has(mapIdx(floor, m.x, m.y)))) { log("敵の気配。自動移動を止めた。", "warn"); break; }
+    if (floor.monsters.some((m) => m.hp > 0 && vis.has(mapIdx(floor!, m.x, m.y)))) { log("敵の気配。自動移動を止めた。", "warn"); break; }
     const dx = Math.sign(step.x - player.x), dy = Math.sign(step.y - player.y);
     const px = player.x, py = player.y;
     if (!moveOrInteract(player.x + dx, player.y + dy)) break; // 壁
@@ -3724,7 +3724,7 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   let spType = setPiece ? matchSetPiece(db, fossil, v)?.type : undefined; // 山場の型（遭-④）
   // 4-10H 第二層・山場連発防止：直近に山場を見せていれば、この遭遇は山場演出を抑え通常遭遇に落とす
   // （大マップで化石が複数並んでも legend_return/grudge_hunt が立て続けに起きない）。
-  if (spType && setPieceCooldown > 0) { spType = undefined; setPiece = undefined; }
+  if (spType && setPieceCooldown > 0) { spType = undefined; setPiece = null; }
   if (spType) setPieceCooldown = SETPIECE_COOLDOWN; // 山場を見せる＝以後 N 手は次の山場を抑制
   const baseText = setPiece ?? renderRediscovery(db, rng, fossil, v);
   // 相棒由来の化石は「相棒だと分かる」一言を添える（4-14C Phase C・固有性）。
