@@ -25417,6 +25417,865 @@
      ]
     }
    ]
+  },
+  {
+   "id": "en_b17_lv_loss",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "loss",
+    "minLevel": 8
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "経験を積んだ目には、#origin_name# の#origin_gear# の傷の意味がわかる。逃げず、最後まで踏みとどまった者の傷だ。駆け出しの頃なら、見過ごしていた。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "見抜いたもの:#origin_name#の踏みとどまった傷"
+     },
+     {
+      "chronicle": "深度#depth#で、熟練の目で#origin_name# の最期の覚悟を読み取った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "骸の配置から、退路を断たれてなお仲間を逃がした動きが読める。腕が上がるほど、死者の物語がよく見えるようになる。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# が仲間を逃がした最期を読み解いた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_lv_grudge",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "grudge",
+    "minLevel": 8
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "熟練の目は、#origin_name# の致命傷が背後からのものだと見抜く。これは戦死ではない。裏切りだ。その無念が、今になって読み取れてしまう。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.06
+     },
+     {
+      "trait": "見抜いたもの:#origin_name#を討った背後の刃"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の死が裏切りだったと見抜いた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "現場に残る二人ぶんの足跡。片方は、相手を見送るように去っている。下手人は、悠々と生き延びたらしい。",
+    "effects": [
+     {
+      "exposure": 0.04
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# を裏切った者の足跡を読んだ。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_lv_myth",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "myth",
+    "minLevel": 16
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "酒場で何度も聞いた#origin_name# の伝説。今の自分の力量になって初めて、その偉業がどれほどの難事だったかが、骨身に染みて分かる。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": -0.03
+     },
+     {
+      "trait": "理解したもの:#origin_name#の偉業の重み"
+     },
+     {
+      "chronicle": "深度#depth#で、熟練の身で#origin_name# の偉業の真価を悟った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "伝説の現場を検めると、語りでは省かれた数々の小さな判断が見えてくる。英雄譚は、無数の正しい選択の堆積だった。",
+    "effects": [
+     {
+      "trait": "学んだもの:#origin_name#の無数の英断"
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の偉業に隠れた英断の数々を読んだ。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_lv_explorer",
+   "context": "encounter",
+   "prerequisites": {
+    "kind": "explorer",
+    "minLevel": 16
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "熟練の目には、#origin_name# の死因が一目で分かる。ありふれた、しかし致命的な初歩の油断。かつての自分も、こうなっていたかもしれない。",
+    "effects": [
+     {
+      "exposure": 0.03
+     },
+     {
+      "trait": "戒めたもの:#origin_name#の初歩の油断"
+     },
+     {
+      "chronicle": "深度#depth#で、無名の#origin_name# の油断の死を戒めとした。"
+     }
+    ]
+   },
+   "search": {
+    "text": "手元の#origin_gear# は、まだ使える。だが整備を怠った跡が痛々しい。道具の手入れは、命の手入れだ。譲り受け、丁寧に拭った。",
+    "effects": [
+     {
+      "item": "salve"
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の遺した道具を、戒めとともに受け継いだ。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_lv_relic",
+   "context": "encounter",
+   "prerequisites": {
+    "kind": "relic",
+    "minLevel": 16
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "目利きの域に達した今なら分かる。#origin_gear# のなれの果ては、ただの遺物ではない。銘の格も、孕む危うさも、熟練の目だけが見抜ける。",
+    "effects": [
+     {
+      "exposure": 0.04
+     },
+     {
+      "trait": "見極めたもの:#origin_gear#の真贋"
+     },
+     {
+      "chronicle": "深度#depth#で、熟練の目で#origin_gear# の真価と危うさを見極めた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "丁寧に検めると、柄の奥に隠し銘。名工の作だ。だが同じ刻印を持つ物は、いずれも持ち主を狂わせたと聞く。そっと元に戻した。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "chronicle": "深度#depth#で#origin_gear# の隠し銘と、その曰くを読んだ。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_lv_deep",
+   "context": "encounter",
+   "prerequisites": {
+    "minLevel": 28,
+    "minDepth": 25
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "ここまで降りてこられる者は、もう数えるほど。#origin_name# もまた、選ばれた手練だったのだ。同じ高みに立った者として、その死が他人事に思えない。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.04
+     },
+     {
+      "trait": "同じ高み:#origin_name#への共感"
+     },
+     {
+      "chronicle": "深度#depth#で、深部に至った同格の#origin_name# に深く共感した。"
+     }
+    ]
+   },
+   "search": {
+    "text": "#origin_gear# のそばに、この深さでしか採れぬ素材の欠片。最後まで、前へ進もうとしていた証だ。その意志を、少し分けてもらう。",
+    "effects": [
+     {
+      "gold": 8
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# が遺した深部の素材を受け取った。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_bond_loss",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "loss",
+    "minBond": 2
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "また、#origin_name# のもとへ来てしまった。幾度も向き合ううち、もう他人とは思えない。再会のたび、喪失が古い友のそれに変わっていく。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": -0.04
+     },
+     {
+      "trait": "深まる縁:#origin_name#との再会"
+     },
+     {
+      "chronicle": "深度#depth#で、幾度目かの#origin_name# との再会を果たした。"
+     }
+    ]
+   },
+   "search": {
+    "text": "通い慣れた骸の傍で、前回は気づかなかった小さな彫り物を見つけた。縁が深まると、見えるものも変わる。",
+    "effects": [
+     {
+      "chronicle": "深度#depth#で#origin_name# の傍に、新たな痕跡を見つけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_bond_grudge",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "grudge",
+    "minBond": 2
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# との因縁は、会うほどに濃くなる。憎しみではない、もっと複雑な何か。互いを理解しすぎた者だけが持つ、抜き差しならぬ縁だ。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.05
+     },
+     {
+      "trait": "抜き差しならぬ縁:#origin_name#"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# との濃い因縁を改めて噛みしめた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "幾度も触れた#origin_gear# の柄が、こちらの手に馴染み始めている。奪い合った相手の得物が、いつしか手の延長になっていた。",
+    "effects": [
+     {
+      "exposure": 0.03
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の#origin_gear# が手に馴染むのを感じた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_bond_myth",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "myth",
+    "minBond": 3
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "幾度も#origin_name# の伝説に触れ、弔ううち——いつしか自分も、その物語の一部になっていた。語り部が「あの英雄を悼み続ける者がいる」と言い添えるのだ。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": -0.03
+     },
+     {
+      "trait": "語りに連なる:#origin_name#の縁者"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の伝説に自らも連なっていると知った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "骸に供えられた花の中に、自分が前に手向けたものの名残。一度きりでなく、通い続けた証が、確かにそこにあった。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "chronicle": "深度#depth#で、自らが#origin_name# に通い続けた証を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_bond_gift",
+   "context": "encounter",
+   "prerequisites": {
+    "minBond": 3
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "深い縁で結ばれた#origin_name# の骸が、まるでこちらを待っていたかのよう。手の中に、前は無かった小さな包みが、そっと差し出されている気がした。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "託されたもの:#origin_name#の手向け"
+     },
+     {
+      "chronicle": "深度#depth#で、縁深き#origin_name# から手向けを受け取った気がした。"
+     }
+    ]
+   },
+   "search": {
+    "text": "包みの中身は、丁寧に保たれた膏薬。何度も通った者にだけ、死者は応えるのかもしれない。ありがたく頂く。",
+    "effects": [
+     {
+      "item": "salve"
+     },
+     {
+      "exposure": -0.03
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の手向けの膏薬を受け取った。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_bond_vow",
+   "context": "encounter",
+   "prerequisites": {
+    "minBond": 2
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の前に立つと、いつか交わした無言の誓いが甦る。「お前の分も」——そう胸に刻んだ約束を、また一つ、確かめに来たのだ。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": -0.03
+     },
+     {
+      "trait": "誓い:#origin_name#の分も生きる"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# との誓いを新たにした。"
+     }
+    ]
+   },
+   "search": {
+    "text": "骸の傍に、自分が以前に結んだ布の結び目。風化せず、確かに残っていた。約束は、まだ生きている。",
+    "effects": [
+     {
+      "chronicle": "深度#depth#で、#origin_name# に結んだ約束の印を確かめた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_bond_quiet",
+   "context": "encounter",
+   "prerequisites": {
+    "minBond": 2
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "もう、言葉はいらない。#origin_name# の傍に、ただ静かに腰を下ろす。縁が深まると、死者と過ごす沈黙さえ、安らぎに変わる。",
+    "effects": [
+     {
+      "exposure": -0.05
+     },
+     {
+      "trait": "安らぎ:#origin_name#との沈黙"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の傍で静かなひとときを過ごした。"
+     }
+    ]
+   },
+   "search": {
+    "text": "立ち上がる前に、骸の塵をそっと払ってやる。通い慣れた手つきで。これが、自分なりの弔いの形になっていた。",
+    "effects": [
+     {
+      "chronicle": "深度#depth#で#origin_name# の骸を、慣れた手つきで清めた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_unf_debt",
+   "context": "encounter",
+   "prerequisites": {
+    "unfinished": true
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# に、返しそびれた借りがある。ずっと胸に刺さっていた棘。今、その骸の前で、ようやく向き合う覚悟がついた。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "closeUnfinished": true
+     },
+     {
+      "exposure": -0.05
+     },
+     {
+      "trait": "返した借り:#origin_name#への恩"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# への返しそびれた借りに、ついに区切りをつけた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "けじめの代わりに、#origin_gear# の埃を払い、きちんと納めてやる。それで、長く凝っていた何かが、ようやくほどけた。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の得物を納め、けじめをつけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_unf_promise",
+   "context": "encounter",
+   "prerequisites": {
+    "unfinished": true
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "果たせぬまま終わった、#origin_name# との約束。「必ず迎えに来る」——その言葉だけが、ずっと宙に浮いたままだった。遅すぎたが、来た。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "closeUnfinished": true
+     },
+     {
+      "exposure": -0.04
+     },
+     {
+      "trait": "果たした約束:#origin_name#を迎えに"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# との果たせぬ約束に、遅れて区切りをつけた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "骸を地上の光の差す方角へ、少しだけ動かしてやった。迎えに来る、の代わりに。せめてもの、約束の履行だ。",
+    "effects": [
+     {
+      "chronicle": "深度#depth#で#origin_name# を、せめて光の方へ向けてやった。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_unf_grudge",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "grudge",
+    "unfinished": true
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# との間に燻る、晴らせぬ因縁。憎み続けるか、ここで終わらせるか。骸を前に、長すぎた執着の重さを思う。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "closeUnfinished": true
+     },
+     {
+      "exposure": -0.04
+     },
+     {
+      "trait": "手放した執着:#origin_name#との因縁"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# との因縁に、ついに自ら区切りをつけた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "握り続けた恨みを、骸の傍にそっと置いていく。持ち帰らない、と決めた。背が、不思議と軽くなった。",
+    "effects": [
+     {
+      "exposure": -0.05
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# への恨みを、置いて去ることにした。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_unf_word",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "loss",
+    "unfinished": true
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# に、言えずじまいだった言葉がある。「ありがとう」のたった一言。骸は応えないが、口に出すことに意味があるのだと、今は思える。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "closeUnfinished": true
+     },
+     {
+      "exposure": -0.05
+     },
+     {
+      "trait": "伝えた言葉:#origin_name#への感謝"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# に言えずじまいだった感謝を、ようやく告げた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "言葉の代わりに、長く握れなかった骸の手を、ほんの少しだけ握った。冷たいが、確かに、応えのような感触があった。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の手を握り、別れを告げた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_exp_alive",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "loss",
+    "minExposure": 0.6
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "深蝕に染まった目には、#origin_name# の骸が、今にも息を吹き返しそうに見える。死と生の境が、自分の中で曖昧になりつつある証だ。",
+    "effects": [
+     {
+      "exposure": 0.05
+     },
+     {
+      "trait": "視えたもの:息づくような#origin_name#"
+     },
+     {
+      "chronicle": "深度#depth#で、染まった目に#origin_name# が生きて見えた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "触れた骨が、錯覚か、ほのかに温かい。慌てて手を引く。死者に温もりを感じるようになったら、それは自分が深みに近づいた合図だ。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "trait": "心に刻んだ:死者の温もりへの警戒"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の骸に温もりを感じ、己を戒めた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_exp_speak",
+   "context": "encounter",
+   "prerequisites": {
+    "minExposure": 1.2
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の骸の口元から、声にならない声が漏れている。深く染まった耳にだけ、それは言葉の形をなしかけていた。聞き取ってはいけない気がする。",
+    "effects": [
+     {
+      "exposure": 0.06
+     },
+     {
+      "trait": "聞いたもの:#origin_name#の漏らす声"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の骸が漏らす声を聞いてしまった。"
+     }
+    ]
+   },
+   "search": {
+    "text": "耳を近づけるのをやめ、代わりに骸の口を布で覆ってやった。死者の言葉に耳を貸せば、次は自分が囁く側になる。",
+    "effects": [
+     {
+      "exposure": -0.04
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の声に抗い、その口を覆った。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_exp_myth",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "myth",
+    "minExposure": 0.6
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "染まった目を通すと、#origin_name# の伝説は、栄光ではなく警告に見える。「ここまで来た者の、これが末路だ」と。同じ淵が、自分を待っている。",
+    "effects": [
+     {
+      "exposure": 0.04
+     },
+     {
+      "trait": "視えたもの:警告としての#origin_name#"
+     },
+     {
+      "chronicle": "深度#depth#で、染まった目に#origin_name# の伝説が警告と映った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "それでも、と思う。末路だとしても、この者は確かに高みへ至った。恐れではなく、目標として骸を見つめ直す。深みに、抗うために。",
+    "effects": [
+     {
+      "exposure": -0.04
+     },
+     {
+      "trait": "定めた目標:#origin_name#の高み"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の高みを恐れでなく目標と捉え直した。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_exp_kinship",
+   "context": "encounter",
+   "prerequisites": {
+    "minExposure": 1.8
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "深く染まりきった今、#origin_name# の歪んだ骸に、奇妙な親しみすら覚える。「お前も、こちら側だろう」——そんな囁きが、自分の内側から聞こえる。",
+    "effects": [
+     {
+      "exposure": 0.07
+     },
+     {
+      "trait": "視えたもの:#origin_name#への危うい親近"
+     },
+     {
+      "chronicle": "深度#depth#で、染まりきった心が#origin_name# に親しみを覚えた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "骸に伸ばしかけた手を、奥歯を噛んで引き戻す。親近感は、深みが仲間を増やすための罠だ。まだ、こちら側には行かない。",
+    "effects": [
+     {
+      "exposure": -0.05
+     },
+     {
+      "trait": "心に刻んだ:死者への親近を断つ"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# への危うい親近を断ち切った。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_exp_pull",
+   "context": "encounter",
+   "prerequisites": {
+    "minExposure": 1.8,
+    "minDepth": 25
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の骸が、染まった体をぐいと引く。物理ではない引力。「隣へ来い、休め」と。深部で、深蝕の進んだ者ほど、死者の招きは強くなる。",
+    "effects": [
+     {
+      "exposure": 0.07
+     },
+     {
+      "trait": "感じたもの:#origin_name#の引力"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の骸の引力に抗った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "招きを振り切るため、あえて骸に背を向け、来た道を強く思い描く。地上の光、待つ者の顔。それだけが、引力に抗う錨になる。",
+    "effects": [
+     {
+      "exposure": -0.05
+     },
+     {
+      "chronicle": "深度#depth#で、地上を思い#origin_name# の招きを振り切った。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_exp_clear",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "loss",
+    "minExposure": 1.2
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "深く濁った心に、#origin_name# の骸を前にした時だけ、ふと澄んだ瞬間が訪れた。喪った誰かが、束の間、深みの霧を払ってくれたかのように。",
+    "effects": [
+     {
+      "exposure": -0.06
+     },
+     {
+      "trait": "授かったもの:#origin_name#のもたらす澄明"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の前で深蝕の霧が一瞬晴れた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "澄んだ心のうちに、骸へ丁寧な弔いを済ませる。深みに呑まれかけた身には、この一瞬の正気が、何よりの薬だった。",
+    "effects": [
+     {
+      "exposure": -0.04
+     },
+     {
+      "chronicle": "深度#depth#で、澄んだ心で#origin_name# を弔った。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_exp_future",
+   "context": "encounter",
+   "prerequisites": {
+    "minExposure": 1.2
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "染まった目に映る#origin_name# の骸は、まるで鏡だ。このまま深みに沈めば、自分もこうなる。未来の自分の姿を、先に見せられている気がした。",
+    "effects": [
+     {
+      "exposure": 0.05
+     },
+     {
+      "trait": "視たもの:骸に映る己の末路"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の骸に己の末路を見た。"
+     }
+    ]
+   },
+   "search": {
+    "text": "ならば今、引き返す理由が一つ増えた。骸に一礼し、まだ人であるうちに、と足を上へ向ける。死者は、時に最良の戒めになる。",
+    "effects": [
+     {
+      "exposure": -0.04
+     },
+     {
+      "trait": "心に刻んだ:#origin_name#を戒めに"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# を戒めに引き返す意志を固めた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b17_exp_grudge",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "grudge",
+    "minExposure": 0.6
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "深蝕に染まった心が、#origin_name# の遺した恨みと、危うく共鳴しかける。憎しみは、深みと相性がいい。気を抜けば、他人の怨念に呑まれてしまう。",
+    "effects": [
+     {
+      "exposure": 0.05
+     },
+     {
+      "trait": "感じたもの:#origin_name#の恨みとの共鳴"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の恨みに共鳴しかけた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "他人の怨念まで背負っては、身が持たない。骸に「お前の恨みは、お前のものだ」と告げ、線を引いた。自他の境を保つことが、身を守る。",
+    "effects": [
+     {
+      "exposure": -0.04
+     },
+     {
+      "trait": "心に刻んだ:他者の怨念と己を分かつ"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の恨みと己の間に線を引いた。"
+     }
+    ]
+   }
   }
  ]
 }
