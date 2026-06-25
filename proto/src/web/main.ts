@@ -53,7 +53,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.42.0";
+export const APP_VERSION = "0.42.1";
 export const APP_BUILD = "2026-06-25";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -717,16 +717,17 @@ async function oddmentsLore() {
   busy = false;
 }
 
-/** 装備の誤売防止：手放す前に必ず確認を挟む（テストプレイFB「間違って売らないように」）。売る＝true。 */
+/** 装備の誤売防止：手放す前に必ず確認を挟む（テストプレイFB「間違って売らないように」）。売る＝true。
+ *  busy は呼び出し側のロックを保ったまま確認する（false に落とすと開いたシートの裏で盤面が動き再入＝誤売バグの原因）。 */
 async function confirmSellGear(it: Item, gross: number): Promise<boolean> {
-  busy = true;
+  const prevBusy = busy; busy = true;
   const detail = it.unidentified ? "未鑑定（正体不明のまま手放す）" : itemPower(it);
   const r = await sheet({
     text: `《${it.name}》／${SLOT_LABEL[it.slot]}\n${detail}\n\nこれを ＋${gross}金貨 で手放す。よろしいか？`,
     meta: "確認 ── 装備を売る",
     options: ["売る", "やめる"],
   });
-  busy = false;
+  busy = prevBusy;
   return r.pick === 1;
 }
 
@@ -2556,7 +2557,7 @@ function resumeDive(snap: DiveSnapshot): void {
 
 // ---------- 1ターンの処理 ----------
 async function playerAct(dx: number, dy: number) {
-  if (busy || mode !== "dive" || !floor || !world.current) return;
+  if (busy || overlayEl.classList.contains("show") || mode !== "dive" || !floor || !world.current) return; // シート表示中は盤面を動かさない（入れ子シート裏での再入防止）
 
   if (!(dx === 0 && dy === 0)) {
     if (chantTurns > 0) { chantTurns = 0; log("帰還の詠唱が、途切れた。", "warn"); } // 動くと中断（v2）
@@ -4540,7 +4541,7 @@ function recordBestiary() {
 
 /** 移動入力の合流点（キー／スワイプ／D-pad）。8方向＋待機。mode と図モードの面倒を見る。 */
 function dirMove(dx: number, dy: number) {
-  if (busy) return;
+  if (busy || overlayEl.classList.contains("show")) return; // シート表示中は盤面を動かさない（街と同じ＝確認等の入れ子シート裏での誤操作・再入防止）
   ensureAudio();
   if (mode === "town" || mode === "interior") { if (dx === 0 && dy === 0) return; townAct(dx, dy); return; }
   if (mode !== "dive") return;
