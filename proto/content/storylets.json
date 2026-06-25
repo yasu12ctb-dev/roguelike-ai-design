@@ -26276,6 +26276,862 @@
      }
     ]
    }
+  },
+  {
+   "id": "en_b18_cp_loss_echo",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "loss",
+    "hasCatchphrase": true
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の骸に近づくと、生前の口癖が、耳の奥でこだまする気がした。「#origin_catchphrase#」——その声色まで、ありありと。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": -0.03
+     },
+     {
+      "trait": "耳に残る:#origin_name#の口癖"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の口癖「#origin_catchphrase#」が耳に甦った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "#origin_gear# の柄に、同じ言葉が小さく彫られていた。口にするだけでなく、刻むほどに大切にしていた一言だったのだ。",
+    "effects": [
+     {
+      "chronicle": "深度#depth#で#origin_name# が#origin_gear# に刻んだ「#origin_catchphrase#」を見つけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b18_cp_loss_unsaid",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "loss",
+    "hasCatchphrase": true
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "「#origin_catchphrase#」が#origin_name# の口癖だった。いつも軽口のように言っていたが、今その骸を前にすると、別の意味を帯びて聞こえてくる。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": -0.04
+     },
+     {
+      "trait": "聞き直した:#origin_name#の本心"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の口癖の真意に思い至った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "遺品の手帳の最後にも、同じ一言。軽口ではなく、自分に言い聞かせる呪文だったのかもしれない。",
+    "effects": [
+     {
+      "chronicle": "深度#depth#で#origin_name# の手帳に遺された「#origin_catchphrase#」を読んだ。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b18_cp_grudge_vow",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "grudge",
+    "hasCatchphrase": true
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の口癖「#origin_catchphrase#」は、もはや誓いというより呪いに近い響きを帯びている。執着が、言葉に粘りつくほど煮詰まっていた。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.06
+     },
+     {
+      "trait": "聞いたもの:#origin_name#の呪詛めいた口癖"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の口癖「#origin_catchphrase#」の執着に触れた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "壁にも、その言葉が爪で刻まれていた。何度も、何度も。言い続けることで、自分を奮い立たせ、そして縛り続けたのだ。",
+    "effects": [
+     {
+      "exposure": 0.03
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# が壁に刻み続けた口癖を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b18_cp_grudge_last",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "grudge",
+    "hasCatchphrase": true
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "斃れる間際まで、#origin_name# は「#origin_catchphrase#」と吐き続けたのだろう。歯を食いしばった骸の口元が、その言葉の形のまま固まっている。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": 0.05
+     },
+     {
+      "trait": "見たもの:#origin_name#の最期の言葉の形"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# が最期まで吐いた「#origin_catchphrase#」を悟った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "握り締めた#origin_gear# にも、その執念は残っている。言葉と得物、両方に未練を込めて逝ったのだ。",
+    "effects": [
+     {
+      "exposure": 0.03
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の#origin_gear# に残る執念に触れた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b18_cp_myth_saying",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "myth",
+    "hasCatchphrase": true
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "「#origin_catchphrase#」——今や街の誰もが知る格言だが、その出どころが#origin_name# だと知る者は少ない。言葉だけが独り歩きし、本人はここに眠る。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": -0.03
+     },
+     {
+      "trait": "語り草:#origin_name#発祥の格言"
+     },
+     {
+      "chronicle": "深度#depth#で、街の格言「#origin_catchphrase#」の主が#origin_name# だと知った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "骸の傍に、その言葉に励まされた後進が供えた品々。言葉は、本人の死後もなお、人を動かし続けている。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の言葉が後進を導いた跡を見た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b18_cp_myth_motto",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "myth",
+    "hasCatchphrase": true
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# は、何があっても「#origin_catchphrase#」と笑っていたという。伝説の豪胆さは、この一言の口癖に支えられていたのだ。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "受け取った:#origin_name#の不屈の口癖"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の不屈を支えた口癖「#origin_catchphrase#」を知った。"
+     }
+    ]
+   },
+   "search": {
+    "text": "その言葉を、自分も口にしてみる。「#origin_catchphrase#」。不思議と、強張っていた肩から力が抜けた。言葉には、確かに力がある。",
+    "effects": [
+     {
+      "exposure": -0.04
+     },
+     {
+      "trait": "口にした:#origin_name#の言葉"
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# の口癖を、自らも口にしてみた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b18_cp_comfort",
+   "context": "encounter",
+   "prerequisites": {
+    "hasCatchphrase": true
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "見知らぬ#origin_name# の骸。だが添えられた「#origin_catchphrase#」の一言が、なぜか今の自分に、ひどく沁みた。死者の言葉が、生者を励ますことがある。",
+    "effects": [
+     {
+      "exposure": -0.05
+     },
+     {
+      "trait": "沁みた言葉:#origin_name#の「#origin_catchphrase#」"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の遺した言葉「#origin_catchphrase#」に励まされた。"
+     }
+    ]
+   },
+   "search": {
+    "text": "せめてもの礼に、骸の塵を払い、その言葉を胸に刻んで先へ進む。見ず知らずの死者と、言葉一つで確かに繋がった。",
+    "effects": [
+     {
+      "chronicle": "深度#depth#で#origin_name# の言葉を胸に、先へ進んだ。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b18_cp_misheard",
+   "context": "encounter",
+   "prerequisites": {
+    "hasCatchphrase": true
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の口癖を、ずっと「#origin_catchphrase#」だと思っていた。だが骸の傍の覚書を読むと、本当の意味は、長く誤解していたものとは違っていた。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "trait": "知り直した:#origin_name#の真意"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の口癖「#origin_catchphrase#」の真意を知り直した。"
+     }
+    ]
+   },
+   "search": {
+    "text": "覚書の続きに、その言葉に込めた本心が綴られていた。人の口癖は、本人にしか分からぬ重みを抱えている。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "chronicle": "深度#depth#で#origin_name# が口癖に込めた本心を読んだ。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b18_cp_loop",
+   "context": "encounter",
+   "prerequisites": {
+    "hasCatchphrase": true,
+    "minExposure": 1.2
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "#origin_name# の前を離れても、「#origin_catchphrase#」が頭の中で繰り返し鳴り続ける。深く染まった心は、死者の言葉を手放せなくなる。",
+    "effects": [
+     {
+      "exposure": 0.06
+     },
+     {
+      "trait": "離れぬ言葉:#origin_name#の「#origin_catchphrase#」"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の口癖が頭から離れなくなった。"
+     }
+    ]
+   },
+   "search": {
+    "text": "鳴り止まぬ言葉を断つため、骸にきちんと別れを告げる。「あなたの言葉は、あなたのものだ」。ようやく、こだまが静まった。",
+    "effects": [
+     {
+      "exposure": -0.04
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の言葉に別れを告げ、こだまを鎮めた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b18_cp_inherit",
+   "context": "encounter",
+   "prerequisites": {
+    "hasCatchphrase": true,
+    "minBond": 2
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "幾度も向き合った#origin_name# の口癖「#origin_catchphrase#」が、いつしか自分の口にも馴染んでいた。縁の深い死者の言葉は、生者へと受け継がれていく。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": -0.04
+     },
+     {
+      "trait": "受け継いだ口癖:#origin_name#の「#origin_catchphrase#」"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の口癖を自らの言葉として受け継いだ。"
+     }
+    ]
+   },
+   "search": {
+    "text": "骸に向かって、その言葉を返してやる。「#origin_catchphrase#」。今度は、自分が誰かへ受け渡す番だ。",
+    "effects": [
+     {
+      "chronicle": "深度#depth#で#origin_name# へ、受け継いだ口癖を返した。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b18_cp_warning",
+   "context": "encounter",
+   "prerequisites": {
+    "hasCatchphrase": true,
+    "minLevel": 8
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "熟練の今なら分かる。#origin_name# の威勢のいい口癖「#origin_catchphrase#」こそが、慢心の芽だったのだと。言葉は人を支えもし、滅ぼしもする。",
+    "effects": [
+     {
+      "exposure": 0.03
+     },
+     {
+      "trait": "戒めた言葉:#origin_name#の慢心"
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の口癖に潜んだ慢心を戒めとした。"
+     }
+    ]
+   },
+   "search": {
+    "text": "同じ口癖を、自分も使っていないか。ふと省みる。死者の言葉は、時に最良の鏡になる。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の口癖を己の鏡とした。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "en_b18_cp_silent",
+   "context": "encounter",
+   "prerequisites": {
+    "tone": "loss",
+    "hasCatchphrase": true
+   },
+   "weight": 2,
+   "investigate": {
+    "text": "あれほど「#origin_catchphrase#」と陽気だった#origin_name# が、こんな静かな骸になっている。賑やかな口癖を知るだけに、その沈黙が、いっそう重い。",
+    "effects": [
+     {
+      "bond": 1
+     },
+     {
+      "exposure": -0.03
+     },
+     {
+      "trait": "偲んだ:#origin_name#の賑やかな口癖"
+     },
+     {
+      "chronicle": "深度#depth#で、陽気だった#origin_name# の沈黙を悼んだ。"
+     }
+    ]
+   },
+   "search": {
+    "text": "せめて賑やかに送ろうと、骸の傍で、その口癖を一度だけ大きく口にした。「#origin_catchphrase#」。沈黙に、温かい風が通った気がした。",
+    "effects": [
+     {
+      "exposure": -0.04
+     },
+     {
+      "chronicle": "深度#depth#で、#origin_name# の口癖を唱えて陽気に弔った。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "st_b18_bond_greet",
+   "context": "street",
+   "prerequisites": {
+    "minBond": 2
+   },
+   "weight": 2,
+   "text": "雑踏の中、#origin_name# がこちらを見つけ、顔をほころばせて駆け寄ってきた。「やっぱりお前か! 元気そうで何よりだ」。",
+   "choices": [
+    {
+     "label": "近況を交わす",
+     "text": "他愛のない立ち話。それでも、街に自分を気にかける顔があるというのは、迷宮帰りの身に沁みる。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "exposure": -0.04
+      },
+      {
+       "chronicle": "街で顔馴染みの#origin_name# と再会し、立ち話に花が咲いた。"
+      }
+     ]
+    },
+    {
+     "label": "短く挨拶して別れる",
+     "text": "「忙しいんだな、達者で」と#origin_name# は笑って手を振った。",
+     "effects": [
+      {
+       "chronicle": "街で#origin_name# と短い挨拶を交わした。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "st_b18_bond_help",
+   "context": "street",
+   "prerequisites": {
+    "minBond": 2
+   },
+   "weight": 2,
+   "text": "#origin_name# が荷車の車輪を直そうと難儀している。「おっ、いいところに。ちょっと手を貸してくれないか」。",
+   "choices": [
+    {
+     "label": "手を貸す",
+     "text": "二人がかりで車輪を嵌め直す。「持つべきものは顔馴染みだな」と#origin_name# は破顔した。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "街で#origin_name# の荷車直しを手伝った。"
+      }
+     ]
+    },
+    {
+     "label": "通りすがりに助言だけ",
+     "text": "コツだけ伝えて去る。「それでも助かった!」と背中に声が飛んだ。",
+     "effects": [
+      {
+       "chronicle": "街で#origin_name# に荷車直しの助言をした。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "st_b18_bond_gift",
+   "context": "street",
+   "prerequisites": {
+    "minBond": 3
+   },
+   "weight": 2,
+   "text": "#origin_name# が、市の露店で何かを買い、こちらへ差し出した。「お前の顔が浮かんでな。受け取れよ」。膏薬の包みだった。",
+   "choices": [
+    {
+     "label": "ありがたく受け取る",
+     "text": "縁の深さが、こうした何気ない一品に表れる。迷宮の外にも、確かに帰る場所ができていた。",
+     "effects": [
+      {
+       "item": "salve"
+      },
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "街で#origin_name# から、不意の手土産をもらった。"
+      }
+     ]
+    },
+    {
+     "label": "礼を返すと約束する",
+     "text": "「貸し借りなしの仲じゃないか」と#origin_name# は笑った。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "街で#origin_name# の心遣いに、礼を約した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "st_b18_unf_apology",
+   "context": "street",
+   "prerequisites": {
+    "unfinished": true
+   },
+   "weight": 2,
+   "text": "人混みの先に、#origin_name# の姿。いつか諍いのまま別れ、ずっと気にかかっていた相手だ。今なら、詫びられるだろうか。",
+   "choices": [
+    {
+     "label": "歩み寄って詫びる",
+     "text": "ぎこちなく頭を下げると、#origin_name# は意外そうに、それから穏やかに笑った。「気にしてたのか。お互い様だ」。長い澱が、ようやく流れた。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "closeUnfinished": true
+      },
+      {
+       "exposure": -0.05
+      },
+      {
+       "trait": "和解:#origin_name#との諍い"
+      },
+      {
+       "chronicle": "街で#origin_name# に歩み寄り、長年の諍いに区切りをつけた。"
+      }
+     ]
+    },
+    {
+     "label": "今日は見送る",
+     "text": "声をかけられぬまま、#origin_name# は雑踏に消えた。胸の棘は、まだ抜けない。",
+     "effects": [
+      {
+       "chronicle": "街で#origin_name# を見かけたが、声をかけられなかった。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "st_b18_unf_repay",
+   "context": "street",
+   "prerequisites": {
+    "unfinished": true
+   },
+   "weight": 2,
+   "text": "#origin_name# とすれ違う。かつて世話になったまま、返しそびれた恩がある相手だ。",
+   "choices": [
+    {
+     "label": "恩を返す",
+     "text": "心ばかりの品とともに、遅れた礼を述べる。「律儀な奴だ」と#origin_name# は受け取った。肩の荷が、一つ下りた。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "closeUnfinished": true
+      },
+      {
+       "exposure": -0.04
+      },
+      {
+       "trait": "返した恩:#origin_name#への借り"
+      },
+      {
+       "chronicle": "街で#origin_name# に、返しそびれていた恩を返した。"
+      }
+     ]
+    },
+    {
+     "label": "気後れして通り過ぎる",
+     "text": "結局、声をかけられずに通り過ぎた。返せぬ恩は、いつまでも重い。",
+     "effects": [
+      {
+       "chronicle": "街で#origin_name# を見かけたが、恩を返しそびれた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "st_b18_exp_notice",
+   "context": "street",
+   "prerequisites": {
+    "minExposure": 0.8
+   },
+   "weight": 2,
+   "text": "すれ違いざま、#origin_name# がこちらの顔を見て、わずかに身を引いた。「あんた……目の奥が、少し」。深蝕の兆しは、街の人にも見て取れるらしい。",
+   "choices": [
+    {
+     "label": "心配を受け止める",
+     "text": "「薬師に診てもらいな」という#origin_name# の言葉に、素直に頷く。他人の目が、引き返す合図になることもある。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "chronicle": "街で#origin_name# に深蝕の兆しを案じられた。"
+      }
+     ]
+    },
+    {
+     "label": "何でもないと笑う",
+     "text": "「気の所為さ」と笑って流す。だが#origin_name# の気遣わしげな視線は、背中に残った。",
+     "effects": [
+      {
+       "chronicle": "街で#origin_name# に深蝕を気遣われた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "st_b18_exp_kind",
+   "context": "street",
+   "prerequisites": {
+    "minExposure": 0.6
+   },
+   "weight": 2,
+   "text": "広場の隅で俯いていると、#origin_name# がそっと隣に腰を下ろした。「深いところから戻ったばかりだろう。少し、休んでいきな」。",
+   "choices": [
+    {
+     "label": "言葉に甘える",
+     "text": "見知らぬ親切が、強張った心を緩めてくれた。深蝕に蝕まれかけた身に、人の温もりは何よりの薬だ。",
+     "effects": [
+      {
+       "exposure": -0.05
+      },
+      {
+       "trait": "受けた情け:#origin_name#の労り"
+      },
+      {
+       "chronicle": "街で#origin_name# の労りに、深蝕の澱が和らいだ。"
+      }
+     ]
+    },
+    {
+     "label": "礼を言って立つ",
+     "text": "「無理はするなよ」と#origin_name# は見送ってくれた。短い情けが、足取りを少し軽くした。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "街で#origin_name# に労られ、気を取り直した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_b18_exp_warn",
+   "context": "delver",
+   "prerequisites": {
+    "minExposure": 0.6
+   },
+   "weight": 2,
+   "text": "すれ違った#origin_name# が、ふと足を止めて振り返った。「余計なお世話かもしれんが……あんた、そろそろ一度、上に戻った方がいい。顔に出てる」。",
+   "choices": [
+    {
+     "label": "忠告を容れる",
+     "text": "同じ道を行く者の言葉だけに、重い。深みは、こうして静かに人を蝕む。引き際を、頭の隅に刻む。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "trait": "心に刻んだ:#origin_name#の引き際の忠告"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# に、深蝕の進行を忠告された。"
+      }
+     ]
+    },
+    {
+     "label": "まだ大丈夫だと返す",
+     "text": "「そうか。なら、無事を祈る」と#origin_name# は深く頷いて去った。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# に深蝕を気遣われた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_b18_exp_share",
+   "context": "delver",
+   "prerequisites": {
+    "minExposure": 1.2
+   },
+   "weight": 2,
+   "text": "#origin_name# がこちらの目を覗き込み、自分の目も指さした。「同じだな。おれも、もう片足は向こうだ」。深く染まった者同士の、奇妙な連帯。",
+   "choices": [
+    {
+     "label": "苦笑して頷く",
+     "text": "言葉少なに、互いの淵の深さを認め合う。同じ昏さを抱える者がいる——それだけで、孤独が少し薄れた。",
+     "effects": [
+      {
+       "exposure": -0.05
+      },
+      {
+       "trait": "通じ合った:#origin_name#との深みの連帯"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# と、深みに片足を浸した者同士、通じ合った。"
+      }
+     ]
+    },
+    {
+     "label": "互いの無事を願う",
+     "text": "「お互い、まだ戻れるうちに戻ろうや」。短く言い交わし、別々の道へ。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "迷宮で#origin_name# と、深みからの生還を誓い合った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_b18_exp_charm",
+   "context": "delver",
+   "prerequisites": {
+    "minExposure": 0.6
+   },
+   "weight": 2,
+   "text": "#origin_name# が、自分の首から下げた古びた護符を外し、こちらへ差し出した。「これ、深蝕除けだ。あんたの方が、今は要りそうだろう」。",
+   "choices": [
+    {
+     "label": "ありがたく受け取る",
+     "text": "見ず知らずの相手の、命綱にも等しい品。その厚意に、胸が熱くなる。深みの中にも、人の情けは確かにある。",
+     "effects": [
+      {
+       "exposure": -0.05
+      },
+      {
+       "trait": "遺品:#origin_name#の深蝕除け"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# から、深蝕除けの護符を譲られた。"
+      }
+     ]
+    },
+    {
+     "label": "あなたが持つべきだと返す",
+     "text": "「強情だな。だが、その気概があるなら大丈夫か」と#origin_name# は護符を仕舞った。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# に深蝕除けを勧められた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_b18_bond_reunion",
+   "context": "delver",
+   "prerequisites": {
+    "minBond": 2
+   },
+   "weight": 2,
+   "text": "深い通路の先に、見覚えのある背中。#origin_name# だ。「奇遇だな! こんな下で、また会うとは」。互いに、無事を喜び合う。",
+   "choices": [
+    {
+     "label": "再会を喜ぶ",
+     "text": "迷宮で再び生きて巡り会える——それがどれほど稀で、得難いことか。短い邂逅が、足取りを軽くした。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "exposure": -0.04
+      },
+      {
+       "chronicle": "迷宮の深部で、顔馴染みの#origin_name# と再会した。"
+      }
+     ]
+    },
+    {
+     "label": "互いの健闘を祈る",
+     "text": "「無事に上で会おう」。それだけ言い交わし、それぞれの淵へ。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# と、健闘を祈り合って別れた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_b18_bond_team",
+   "context": "delver",
+   "prerequisites": {
+    "minBond": 2
+   },
+   "weight": 2,
+   "text": "#origin_name# が、行く手の暗がりを顎で示した。「この先、厄介なのが巣くってる。顔馴染みのよしみだ、一区画だけ、背中を預け合わないか」。",
+   "choices": [
+    {
+     "label": "短く共闘する",
+     "text": "息の合った連携で、難所を切り抜けた。「やっぱりお前とは組みやすい」と#origin_name# は笑う。一人ではない時間が、心強い。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "exposure": -0.03
+      },
+      {
+       "trait": "並び立った:#origin_name#との共闘"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# と背中を預け合い、難所を越えた。"
+      }
+     ]
+    },
+    {
+     "label": "別々の道を選ぶ",
+     "text": "「だよな、お前は一人が性に合ってる」と#origin_name# は気を悪くもせず頷いた。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# の共闘の誘いを、丁重に断った。"
+      }
+     ]
+    }
+   ]
   }
  ]
 }
