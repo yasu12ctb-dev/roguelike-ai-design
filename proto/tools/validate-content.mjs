@@ -32,7 +32,10 @@ try { ROSTER_IDS = new Set(JSON.parse(read("content/adventurers.json")).adventur
 // context ごとに本文へ充填できるスロット（fillDungeonText/fillStoryletText/fillActorText に対応）
 const SLOTS = {
   dungeon: new Set(["depth"]), chest: new Set(["depth"]),
-  encounter: new Set(["origin_name", "origin_gear", "origin_epithet", "origin_catchphrase", "depth"]),
+  // encounter は化石にアンカー。epithet は化石では任意（fossilizeCurrent 等は付けない）＝
+  // #origin_epithet# を使うと epithet 無し化石で render の fillSlots が throw する。だから encounter では禁止。
+  // （街/delver の生者は mintActor が epithet を必ず付けるので下の street セットでは許可。）
+  encounter: new Set(["origin_name", "origin_gear", "origin_catchphrase", "depth"]),
   street: new Set(["origin_name", "origin_gear", "origin_epithet"]),
 };
 for (const c of ["tavern", "guild", "shop", "quest", "delver"]) SLOTS[c] = SLOTS.street;
