@@ -36,21 +36,13 @@ jobs:
         working-directory: proto
         run: npm ci
 
-      - name: Build PWA bundle
+      # 受理ゲート一式（npm run check）＝ローカルと同一順：
+      #   validate-content → demo → companion-check → item-check → echo-check
+      #   → event-check → golden → build:web
+      # check に新チェックを足せば CI も自動追従する（ドリフト防止）。
+      - name: Acceptance gate (npm run check)
         working-directory: proto
-        run: npm run build:web
-
-      - name: Smoke test (deterministic demo must pass)
-        working-directory: proto
-        run: npm run demo
-
-      - name: Companion contract/grade checks (4-14C/4-4E)
-        working-directory: proto
-        run: node --experimental-strip-types src/companion-check.ts
-
-      - name: Content admission gate (4-9 鋳造所：storylets schema validation)
-        working-directory: proto
-        run: node tools/validate-content.mjs
+        run: npm run check
 
       - uses: actions/configure-pages@v5
 
