@@ -1,0 +1,22 @@
+{
+  "// 用途": "型チェック専用（noEmit）。実行は node --experimental-strip-types / esbuild が担う。",
+  "// 構成メモ": "src は .ts 拡張子つき相対 import・JSON import・DOM(web)・Node(*-node.ts) が混在するため許容設定。",
+  "compilerOptions": {
+    "noEmit": true,
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "lib": ["es2022", "dom"],
+    "types": ["node"],
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*.ts"]
+}

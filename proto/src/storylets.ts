@@ -84,8 +84,8 @@ function matches(p: Prereq, world: World, ch: Character, fossil: Fossil, v: Vari
 export function candidateStorylets(
   db: ContentDb, world: World, ch: Character, fossil: Fossil, v: VariationResult,
 ): Storylet[] {
-  return db.storylets.filter(
-    (s) => (s.context ?? "encounter") === "encounter" && matches(s.prerequisites, world, ch, fossil, v),
+  return (db.byContext.get("encounter") ?? []).filter(
+    (s) => matches(s.prerequisites, world, ch, fossil, v),
   );
 }
 
@@ -144,9 +144,8 @@ function pickByContext(
   exposure = 0, world?: World, level = 1, avoid?: Set<string>,
 ): Storylet | null {
   const band = depthBand(depth);
-  const pool = db.storylets.filter((s) => {
+  const pool = (db.byContext.get(context) ?? []).filter((s) => {
     const p = s.prerequisites;
-    if (s.context !== context) return false;
     if (p.depthBand !== undefined && p.depthBand !== band) return false;
     if (p.minDepth !== undefined && depth < p.minDepth) return false;
     if (p.maxDepth !== undefined && depth > p.maxDepth) return false;
@@ -239,7 +238,7 @@ export function selectTownStorylet(
 export function selectDelverStorylet(
   db: ContentDb, world: World, ch: Character, la: LivingActor, rng: Rng, avoid?: Set<string>,
 ): Storylet | null {
-  const pool = db.storylets.filter((s) => s.context === "delver" && townMatches(s.prerequisites, world, ch, la));
+  const pool = (db.byContext.get("delver") ?? []).filter((s) => townMatches(s.prerequisites, world, ch, la));
   return pickPreferArc(pool, rng, avoid);
 }
 

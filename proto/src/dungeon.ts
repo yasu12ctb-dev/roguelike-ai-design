@@ -11,7 +11,7 @@ export const VIEW_H = 23;
 export type Tile = 0 | 1; // 0=岩盤(壁) 1=床
 export interface Pos { x: number; y: number; }
 
-export interface MonsterKind {
+interface MonsterKind {
   key: string; glyph: string; name: string;
   hp: number; dmg: number; minDepth: number; erratic: number; // erratic=ランダム移動率
   tier: number; // 強さの段（1=雑魚 … 5=最危険）。記号=種類／色=tier で可視化（4-11F）。
@@ -105,7 +105,7 @@ export interface Monster extends Pos {
   fossilId?: string;             // 出自の化石（敵性化した探索者）。⑤鎮め筋の対象（4-11D）
   breedCd?: number;              // breeder：眷属を湧かしたあとの待機手数（4-11G）
 }
-export interface FossilEntity extends Pos {
+interface FossilEntity extends Pos {
   id: string; fossilId: string; resolved: boolean; // resolved=このフロアで対面済み
 }
 export interface Chest extends Pos {
@@ -415,10 +415,10 @@ export function computeFov(f: Floor, p: Pos): Set<number> {
 }
 
 // ---------- モンスターのターン（テレグラフ＝予告 → 実行の2段：4-11A） ----------
-export interface MonsterHit { monster: Monster; dmg: number; target: "player" | "companion"; effect?: "poison"; }
-export interface Resolution { hits: MonsterHit[]; dodges: Monster[]; }
+interface MonsterHit { monster: Monster; dmg: number; target: "player" | "companion"; effect?: "poison"; }
+interface Resolution { hits: MonsterHit[]; dodges: Monster[]; }
 /** 相棒の一手の結果（プレイヤー手番末に解決）。 */
-export interface CompanionResolution { hit: Monster | null; dmg: number; }
+interface CompanionResolution { hit: Monster | null; dmg: number; }
 
 // dmg は kind に深度係数を焼き込み済み（scaleKind / ボス・エリート・追手とも）。蝕み（weak）中は減算（下限1）。
 export const WEAK_AMT = 4;
@@ -618,4 +618,65 @@ export function resolveCompanion(f: Floor, player: Pos, comp: CompanionEntity): 
   }
   comp.intent = null;
   return res;
+}
+
+// ---------- 経路・到達判定（既踏破の床のみ。FOV と同じく純粋・DOMフリー：web の自動移動/照準が使う） ----------
+
+/** from→to の最短経路（既踏破の床マスのみ・4近傍 BFS）。到達不能/未踏破/壁なら null。 */
+export function bfsPath(f: Floor, from: Pos, to: Pos): Pos[] | null {
+  const W = f.w, H = f.h;
+  if (to.x < 0 || to.y < 0 || to.x >= W || to.y >= H) return null;
+  if (!f.explored[mapIdx(f, to.x, to.y)] || f.tiles[mapIdx(f, to.x, to.y)] !== 1) return null;
+  const prev = new Int32Array(W * H).fill(-1);
+  const start = mapIdx(f, from.x, from.y);
+  prev[start] = start;
+  const q: Pos[] = [from];
+  for (let head = 0; head < q.length; head++) {
+    const c = q[head];
+    if (c.x === to.x && c.y === to.y) break;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      const nx = c.x + dx, ny = c.y + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const i = mapIdx(f, nx, ny);
+      if (prev[i] !== -1 || !f.explored[i] || f.tiles[i] !== 1) continue;
+      prev[i] = mapIdx(f, c.x, c.y);
+      q.push({ x: nx, y: ny });
+    }
+  }
+  const ti = mapIdx(f, to.x, to.y);
+  if (prev[ti] === -1) return null;
+  const path: Pos[] = [];
+  for (let cur = ti; cur !== start; cur = prev[cur]) path.push({ x: cur % W, y: Math.floor(cur / W) });
+  path.reverse();
+  return path;
+}
+
+/** プレイヤーから到達できる既踏破の床マス集合（BFS フラッド）。最寄りスナップと到達判定に使う。 */
+export function reachableSet(f: Floor, from: Pos): Set<number> {
+  const W = f.w, H = f.h, seen = new Set<number>();
+  const si = mapIdx(f, from.x, from.y); seen.add(si);
+  const q: Pos[] = [from];
+  for (let h = 0; h < q.length; h++) {
+    const c = q[h];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      const nx = c.x + dx, ny = c.y + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const i = mapIdx(f, nx, ny);
+      if (seen.has(i) || !f.explored[i] || f.tiles[i] !== 1) continue;
+      seen.add(i); q.push({ x: nx, y: ny });
+    }
+  }
+  return seen;
+}
+
+/** タップ座標に最も近い「到達可能な既踏破の床」マス（指のズレを吸収）。無ければ null。 */
+export function nearestReachable(f: Floor, from: Pos, cx: number, cy: number): Pos | null {
+  let best: Pos | null = null, bd = Infinity;
+  for (const i of reachableSet(f, from)) {
+    const x = i % f.w, y = Math.floor(i / f.w);
+    if (x === from.x && y === from.y) continue;
+    const d = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+    if (d < bd) { bd = d; best = { x, y }; }
+  }
+  return best;
 }

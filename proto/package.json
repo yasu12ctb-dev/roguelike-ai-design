@@ -6,13 +6,16 @@
     "demo": "node --experimental-strip-types src/demo.ts",
     "cli": "node --experimental-strip-types src/cli.ts",
     "validate": "node tools/validate-content.mjs",
-    "check": "node tools/validate-content.mjs && node --experimental-strip-types src/demo.ts && node --experimental-strip-types src/companion-check.ts && node --experimental-strip-types src/item-check.ts && node --experimental-strip-types src/echo-check.ts && node --experimental-strip-types src/event-check.ts && node --experimental-strip-types src/golden.ts && npm run build:web",
+    "typecheck": "tsc --noEmit",
+    "check": "node tools/validate-content.mjs && npm run typecheck && node --experimental-strip-types src/demo.ts && node --experimental-strip-types src/companion-check.ts && node --experimental-strip-types src/item-check.ts && node --experimental-strip-types src/echo-check.ts && node --experimental-strip-types src/event-check.ts && node --experimental-strip-types src/golden.ts && npm run build:web",
     "golden": "node --experimental-strip-types src/golden.ts",
     "golden:print": "node --experimental-strip-types src/golden.ts --print",
     "build:web": "esbuild src/web/main.ts --bundle --format=esm --charset=utf8 --minify --outfile=web/app.js"
   },
   "devDependencies": {
-    "esbuild": "^0.28.1"
+    "@types/node": "^22.20.0",
+    "esbuild": "^0.28.1",
+    "typescript": "^5.9.3"
   },
   "private": true,
   "type": "module"

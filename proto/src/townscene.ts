@@ -60,8 +60,6 @@ export interface CrowdActor {
   bgLine?: string;
 }
 
-export type Scene = "town" | "interior";
-
 export interface TownGrid {
   data: TownData;
   tiles: TownTile[][]; // [y][x]
@@ -121,12 +119,6 @@ export function townTileAt(g: TownGrid, x: number, y: number): TownTile {
 /** 床（景物が無い）か。歩行・群衆配置の基準。 */
 function isFloorCell(g: TownGrid, x: number, y: number): boolean {
   return townTileAt(g, x, y) === "floor" && !g.propMap.has(key(x, y));
-}
-
-/** 街路として歩けるか（床 or 門。景物は塞ぐ）。看板/群衆/門番は移動側で先に判定する。 */
-export function isWalkableTown(g: TownGrid, x: number, y: number): boolean {
-  const t = townTileAt(g, x, y);
-  return (t === "floor" || t === "gate") && !g.propMap.has(key(x, y));
 }
 
 // ---------------- 屋内シーン ----------------

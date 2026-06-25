@@ -45,6 +45,7 @@ import {
 import {
   genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx, spawnPursuer,
   planCompanion, resolveCompanion, randomFloorAway, inBounds, companionMaxHp, companionDmg,
+  bfsPath, reachableSet, nearestReachable,
   VIEW_W, VIEW_H, MONSTER_KINDS, type Floor, type Pos, type Chest, type Monster, type CompanionEntity, type DownedActor, type DelverActor, type Shrine,
 } from "../dungeon.ts";
 import type { Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, LivingActor, RosterActor, SetPiece, Storylet, TownContext, World } from "../types.ts";
@@ -2971,7 +2972,7 @@ async function castSpell(key: string) {
   const def = spellByKey(key);
   if (!def) return;
   const vis = computeFov(floor, player);
-  const visMon = floor.monsters.filter((m) => m.hp > 0 && vis.has(mapIdx(floor, m.x, m.y)));
+  const visMon = floor.monsters.filter((m) => m.hp > 0 && vis.has(mapIdx(floor!, m.x, m.y)));
 
   if (key === "warp_strike") {
     if (!visMon.length) { log("討つべき敵が見えない。", "dim"); draw(); return; }
@@ -3280,34 +3281,6 @@ async function handleLevelUps() {
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /** 既踏破の床のみを通って from→to の最短経路を返す（4方向BFS）。到達不能なら null。 */
-function bfsPath(f: Floor, from: Pos, to: Pos): Pos[] | null {
-  const W = f.w, H = f.h;
-  if (to.x < 0 || to.y < 0 || to.x >= W || to.y >= H) return null;
-  if (!f.explored[mapIdx(f, to.x, to.y)] || f.tiles[mapIdx(f, to.x, to.y)] !== 1) return null;
-  const prev = new Int32Array(W * H).fill(-1);
-  const start = mapIdx(f, from.x, from.y);
-  prev[start] = start;
-  const q: Pos[] = [from];
-  for (let head = 0; head < q.length; head++) {
-    const c = q[head];
-    if (c.x === to.x && c.y === to.y) break;
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-      const nx = c.x + dx, ny = c.y + dy;
-      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-      const i = mapIdx(f, nx, ny);
-      if (prev[i] !== -1 || !f.explored[i] || f.tiles[i] !== 1) continue;
-      prev[i] = mapIdx(f, c.x, c.y);
-      q.push({ x: nx, y: ny });
-    }
-  }
-  const ti = mapIdx(f, to.x, to.y);
-  if (prev[ti] === -1) return null;
-  const path: Pos[] = [];
-  for (let cur = ti; cur !== start; cur = prev[cur]) path.push({ x: cur % W, y: Math.floor(cur / W) });
-  path.reverse();
-  return path;
-}
-
 /** 図でタップした既踏破地点まで自動移動。敵が見えたら/場面が開いたら止まる（4-11 便利機能）。 */
 async function autoTravel(dest: Pos) {
   if (busy || mode !== "dive" || !floor) return;
@@ -3317,7 +3290,7 @@ async function autoTravel(dest: Pos) {
     if (busy || mode !== "dive" || !floor) break;
     // 敵が見えていたら自動移動は危険なので止める
     const vis = computeFov(floor, player);
-    if (floor.monsters.some((m) => m.hp > 0 && vis.has(mapIdx(floor, m.x, m.y)))) { log("敵の気配。自動移動を止めた。", "warn"); break; }
+    if (floor.monsters.some((m) => m.hp > 0 && vis.has(mapIdx(floor!, m.x, m.y)))) { log("敵の気配。自動移動を止めた。", "warn"); break; }
     const dx = Math.sign(step.x - player.x), dy = Math.sign(step.y - player.y);
     const px = player.x, py = player.y;
     if (!moveOrInteract(player.x + dx, player.y + dy)) break; // 壁
@@ -3329,34 +3302,6 @@ async function autoTravel(dest: Pos) {
 }
 
 // ---------- 照準モード（地図でタップ→マーカー→D-padで微調整→確定・改善FB 2026-06-23）----------
-/** プレイヤーから到達できる既踏破の床マス集合（BFS フラッド）。最寄りスナップと到達判定に使う。 */
-function reachableSet(f: Floor, from: Pos): Set<number> {
-  const W = f.w, H = f.h, seen = new Set<number>();
-  const si = mapIdx(f, from.x, from.y); seen.add(si);
-  const q: Pos[] = [from];
-  for (let h = 0; h < q.length; h++) {
-    const c = q[h];
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-      const nx = c.x + dx, ny = c.y + dy;
-      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-      const i = mapIdx(f, nx, ny);
-      if (seen.has(i) || !f.explored[i] || f.tiles[i] !== 1) continue;
-      seen.add(i); q.push({ x: nx, y: ny });
-    }
-  }
-  return seen;
-}
-/** タップ座標に最も近い「到達可能な既踏破の床」マス（指のズレを吸収）。無ければ null。 */
-function nearestReachable(f: Floor, from: Pos, cx: number, cy: number): Pos | null {
-  let best: Pos | null = null, bd = Infinity;
-  for (const i of reachableSet(f, from)) {
-    const x = i % f.w, y = Math.floor(i / f.w);
-    if (x === from.x && y === from.y) continue;
-    const d = (x - cx) * (x - cx) + (y - cy) * (y - cy);
-    if (d < bd) { bd = d; best = { x, y }; }
-  }
-  return best;
-}
 /** 照準バーの表示更新（到達可否で「ここへ移動」を活性/非活性）。 */
 function updateAimBar(): void {
   const bar = $("aimBar");
@@ -3724,7 +3669,7 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   let spType = setPiece ? matchSetPiece(db, fossil, v)?.type : undefined; // 山場の型（遭-④）
   // 4-10H 第二層・山場連発防止：直近に山場を見せていれば、この遭遇は山場演出を抑え通常遭遇に落とす
   // （大マップで化石が複数並んでも legend_return/grudge_hunt が立て続けに起きない）。
-  if (spType && setPieceCooldown > 0) { spType = undefined; setPiece = undefined; }
+  if (spType && setPieceCooldown > 0) { spType = undefined; setPiece = null; }
   if (spType) setPieceCooldown = SETPIECE_COOLDOWN; // 山場を見せる＝以後 N 手は次の山場を抑制
   const baseText = setPiece ?? renderRediscovery(db, rng, fossil, v);
   // 相棒由来の化石は「相棒だと分かる」一言を添える（4-14C Phase C・固有性）。
