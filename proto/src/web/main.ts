@@ -52,8 +52,8 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.35.0";
-export const APP_BUILD = "2026-06-22";
+export const APP_VERSION = "0.35.1";
+export const APP_BUILD = "2026-06-25";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
 const db = makeContentDb(
@@ -2133,6 +2133,7 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
   armorBuffTurns = 0; attackBuffTurns = 0; hasteTurns = 0; deathDoorTurns = 0; chantTurns = 0; // 術バフはフロアを跨がない（戦闘内のみ）
   poisonTurns = 0; poisonDmg = 0; // 毒もフロアを跨がない（4-11G）
   summons = []; shadowGuard = 0; // 召喚・影分けもフロアを跨がない
+  mendTick = 0; // 遺物 mending の回復タイマーもフロア毎に仕切り直す（前フロアの貯めで降下直後に回復させない）
   const ch = world.current!;
   ch.depth = depth;
   // 深蝕リワーク v2：降下・探索・移動では深蝕は増えない（じっくり攻略を罰しない）。
