@@ -24733,6 +24733,690 @@
      }
     ]
    }
+  },
+  {
+   "id": "ch_b16_shallow_letter",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "shallow"
+   },
+   "weight": 2,
+   "result": {
+    "text": "箱の底に、宛名の滲んだ古い手紙が一通。読めるのは「無事を祈る」の一行だけ。誰かの帰りを、ここで待っていたらしい。",
+    "effects": [
+     {
+      "exposure": -0.02
+     },
+     {
+      "trait": "遺品:浅層の祈りの手紙"
+     },
+     {
+      "chronicle": "深度#depth#の箱で、宛名の滲んだ祈りの手紙を見つけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_b16_shallow_coins",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "shallow"
+   },
+   "weight": 2,
+   "result": {
+    "text": "蓋を開けると、擦り切れた巾着に銅貨が数枚。誰かのなけなしの蓄えだったのだろう。ありがたく頂く。",
+    "effects": [
+     {
+      "gold": 4
+     },
+     {
+      "chronicle": "深度#depth#の箱で、銅貨の入った古い巾着を見つけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_b16_shallow_ration",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "shallow"
+   },
+   "weight": 2,
+   "result": {
+    "text": "乾いた携行食と、未使用の膏薬が一つ。包みには几帳面な結び目。用心深い誰かの、置き土産だ。",
+    "effects": [
+     {
+      "item": "salve"
+     },
+     {
+      "chronicle": "深度#depth#の箱で、手つかずの膏薬を見つけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_b16_shallow_toy",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "shallow"
+   },
+   "weight": 2,
+   "result": {
+    "text": "小さな木彫りの玩具が、布に包まれて眠っていた。なぜ、こんな所に。問うても、答える者はもういない。",
+    "effects": [
+     {
+      "exposure": -0.03
+     },
+     {
+      "trait": "見たもの:浅層の木彫りの玩具"
+     },
+     {
+      "chronicle": "深度#depth#の箱で、布に包まれた子供の玩具を見つけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_b16_mid_ledger",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 2,
+   "result": {
+    "text": "中身は、几帳面な取引台帳。末尾に挟まれた支払い証文が、まだ換金できそうだ。前の持ち主の律儀さに、少し救われる。",
+    "effects": [
+     {
+      "gold": 6
+     },
+     {
+      "trait": "読んだもの:中層の取引台帳"
+     },
+     {
+      "chronicle": "深度#depth#の箱で、換金できる古い証文を見つけた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_b16_mid_charm",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "mid"
+   },
+   "weight": 2,
+   "result": {
+    "text": "厳重に布を巻かれた、深蝕除けの護符。使い込まれて角が丸い。手にすると、胸の澱みがわずかに引いた。",
+    "effects": [
+     {
+      "exposure": -0.05
+     },
+     {
+      "chronicle": "深度#depth#の箱で、使い込まれた深蝕除けの護符を得た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_b16_deep_hoard",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 2,
+   "result": {
+    "text": "死蔵された金貨が、ぎっしりと。だが箱の内側は黒く焼け爛れ、触れた指先に冷たい疼きが走る。富には、深部の値札がついている。",
+    "effects": [
+     {
+      "gold": 10
+     },
+     {
+      "exposure": 0.05
+     },
+     {
+      "chronicle": "深度#depth#の箱で、深部の疼きを纏う金貨の死蔵を得た。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_b16_deep_journal",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 2,
+   "result": {
+    "text": "先達の手記が一冊。深部を生き抜く要領が、几帳面に綴られている。最後の頁だけが、白紙のままだった。",
+    "effects": [
+     {
+      "exposure": -0.04
+     },
+     {
+      "trait": "読んだもの:深層の先達の手記"
+     },
+     {
+      "chronicle": "深度#depth#の箱で、先達の深層攻略の手記を読んだ。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_b16_deep_reliquary",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "deep"
+   },
+   "weight": 2,
+   "result": {
+    "text": "小さな聖遺の欠片が、淡く脈打っている。尊い。だが見つめるほど、こちらの奥の何かを、向こうも見つめ返してくる気がする。",
+    "effects": [
+     {
+      "exposure": 0.06
+     },
+     {
+      "trait": "携えしもの:深層の聖遺の欠片"
+     },
+     {
+      "chronicle": "深度#depth#の箱で、脈打つ聖遺の欠片に触れた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_b16_abyss_offering",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 2,
+   "result": {
+    "text": "それは箱ではなく、供物台だった。何かが捧げられ、受け取られた跡。残された窪みが、次はお前だと囁いている。そっと蓋を戻した。",
+    "effects": [
+     {
+      "exposure": 0.08
+     },
+     {
+      "trait": "見たもの:深淵の供物台"
+     },
+     {
+      "chronicle": "深度#depth#で、供物の跡が残る深淵の匣を覗いた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_b16_abyss_relic_ward",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 2,
+   "result": {
+    "text": "深淵の只中に、なぜか清浄な匣。中の浄水を一口含むと、喉の奥まで澄み渡る。誰が、こんな所に救いを残したのか。",
+    "effects": [
+     {
+      "exposure": -0.06
+     },
+     {
+      "item": "salve"
+     },
+     {
+      "chronicle": "深度#depth#の深淵で、清浄な浄水の匣に救われた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "ch_b16_abyss_echo",
+   "context": "chest",
+   "prerequisites": {
+    "depthBand": "abyss"
+   },
+   "weight": 2,
+   "result": {
+    "text": "蓋を開けた瞬間、覚えのある声が一言だけ漏れた。とうに喪った誰かの声。匣はすぐ静まったが、耳の奥に余韻が残り続ける。",
+    "effects": [
+     {
+      "exposure": 0.09
+     },
+     {
+      "trait": "聞いたもの:深淵の匣の遺響"
+     },
+     {
+      "chronicle": "深度#depth#の深淵の匣から、喪った者の声が漏れた。"
+     }
+    ]
+   }
+  },
+  {
+   "id": "dg_b16_exp_whisper",
+   "context": "dungeon",
+   "prerequisites": {
+    "minExposure": 0.6
+   },
+   "weight": 2,
+   "text": "壁の継ぎ目から、聞き取れぬほど低い囁きが滲み出ている。深蝕に染まり始めた耳にだけ、それは言葉の形をなしかけていた。",
+   "choices": [
+    {
+     "label": "耳を澄ます",
+     "text": "囁きは「もっと下へ」と繰り返していた。意味を解した瞬間、背筋が冷えた。聞いてしまった分だけ、深みが近づく。",
+     "effects": [
+      {
+       "exposure": 0.05
+      },
+      {
+       "trait": "聞いたもの:壁の囁き"
+      },
+      {
+       "chronicle": "深度#depth#で、壁の囁きに耳を傾けてしまった。"
+      }
+     ]
+    },
+    {
+     "label": "意識から締め出す",
+     "text": "歯を食いしばり、囁きを雑音として押しのける。耳鳴りは残ったが、引きずられずに済んだ。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "深度#depth#で、壁の囁きを意志で振り払った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_b16_exp_doubles",
+   "context": "dungeon",
+   "prerequisites": {
+    "minExposure": 0.6,
+    "depthBand": "mid"
+   },
+   "weight": 2,
+   "text": "松明の影が、自分の動きより一拍遅れて動いた。染まった目には、影がもう一人の自分のように見える。",
+   "choices": [
+    {
+     "label": "影を見据える",
+     "text": "影は確かに、こちらが動く前に動いていた。先回りされている——その確信が、胸の奥に冷たく根を張る。",
+     "effects": [
+      {
+       "exposure": 0.05
+      },
+      {
+       "trait": "見たもの:遅れて動く影"
+      },
+      {
+       "chronicle": "深度#depth#で、自分より先に動く影を見た。"
+      }
+     ]
+    },
+    {
+     "label": "松明を掲げ直す",
+     "text": "光の角度を変えると、影はただの影に戻った。気の所為だ——そう言い聞かせて、足を速めた。",
+     "effects": [
+      {
+       "chronicle": "深度#depth#で、奇妙な影を松明で払った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_b16_exp_sweet",
+   "context": "dungeon",
+   "prerequisites": {
+    "minExposure": 0.6
+   },
+   "weight": 2,
+   "text": "淀んだ空気の中に、ふいに甘い香りが混じった。深蝕が進んだ者ほど、深部の腐臭を芳しく感じ始めるという。",
+   "choices": [
+    {
+     "label": "香りを辿る",
+     "text": "誘われるまま数歩。だが足元に、同じく誘われた者の白骨があった。慌てて引き返す。甘さは、罠の匂いだ。",
+     "effects": [
+      {
+       "exposure": 0.04
+      },
+      {
+       "chronicle": "深度#depth#で、甘い腐臭に誘われかけた。"
+      }
+     ]
+    },
+    {
+     "label": "鼻を覆って離れる",
+     "text": "布で鼻を覆い、香りの源から遠ざかる。芳しいと感じた自分に、ぞっとした。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "trait": "心に刻んだ:甘い腐臭への警戒"
+      },
+      {
+       "chronicle": "深度#depth#で、腐臭を芳しく感じる己を戒めた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_b16_exp_mirror",
+   "context": "dungeon",
+   "prerequisites": {
+    "minExposure": 1.2,
+    "depthBand": "deep"
+   },
+   "weight": 2,
+   "text": "磨かれた黒い壁が、鏡のようにこちらを映す。だが映った自分の目は、とうに人のものではない色をしていた。",
+   "choices": [
+    {
+     "label": "鏡像に近づく",
+     "text": "近づくほど、向こうの自分が嬉しげに笑う。これが行く末か。手を触れる寸前で、辛うじて踏みとどまった。",
+     "effects": [
+      {
+       "exposure": 0.06
+      },
+      {
+       "trait": "見たもの:深みに染まった己の像"
+      },
+      {
+       "chronicle": "深度#depth#で、変わり果てた自分の鏡像と対峙した。"
+      }
+     ]
+    },
+    {
+     "label": "壁から目を逸らす",
+     "text": "見てはいけない。直感に従い、壁を背にして進む。背中に、向こうの視線がいつまでも貼りついていた。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "chronicle": "深度#depth#で、己を映す黒い壁から目を逸らした。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_b16_exp_familiar",
+   "context": "dungeon",
+   "prerequisites": {
+    "minExposure": 1.2,
+    "depthBand": "deep"
+   },
+   "weight": 2,
+   "text": "通路の先に、見覚えのある背中が立っていた。とうに喪ったはずの誰か。染まった心が、見せたい幻を見せている。",
+   "choices": [
+    {
+     "label": "呼びかける",
+     "text": "名を呼ぶと、背中はゆっくり振り向き——顔が無かった。幻は、こちらの未練の形しか持たないのだ。",
+     "effects": [
+      {
+       "exposure": 0.06
+      },
+      {
+       "trait": "見たもの:顔の無い面影"
+      },
+      {
+       "chronicle": "深度#depth#で、喪った者の幻に呼びかけてしまった。"
+      }
+     ]
+    },
+    {
+     "label": "幻と知って進む",
+     "text": "あれは記憶の残響だ。胸の痛みを噛み殺し、背中をすり抜けて先へ。振り返らなかった。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "深度#depth#で、亡き者の幻を振り切って進んだ。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_b16_exp_pulse",
+   "context": "dungeon",
+   "prerequisites": {
+    "minExposure": 1.2
+   },
+   "weight": 2,
+   "text": "床が、心臓のように脈打っているのが分かる。深蝕が深まると、迷宮そのものの鼓動が聞こえ始めるという。",
+   "choices": [
+    {
+     "label": "鼓動に歩調を合わせる",
+     "text": "脈動に呼吸を重ねると、不思議と疲れが引く。だがそれは、迷宮に取り込まれていく心地よさだった。",
+     "effects": [
+      {
+       "exposure": 0.05
+      },
+      {
+       "chronicle": "深度#depth#で、迷宮の鼓動に呼吸を重ねてしまった。"
+      }
+     ]
+    },
+    {
+     "label": "自分の鼓動を数える",
+     "text": "迷宮の脈に呑まれぬよう、己の鼓動だけを数えて歩く。人であることを、手放さずに済んだ。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "trait": "心に刻んだ:己の鼓動を数える術"
+      },
+      {
+       "chronicle": "深度#depth#で、迷宮の鼓動に抗い己を保った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_b16_exp_path",
+   "context": "dungeon",
+   "prerequisites": {
+    "minExposure": 1.2,
+    "depthBand": "deep"
+   },
+   "weight": 2,
+   "text": "染まった目に、壁の一画が淡く発光して見える。そこだけ、抜けられそうな『近道』に思える。だが他の者には、ただの壁だ。",
+   "choices": [
+    {
+     "label": "光る壁に賭ける",
+     "text": "手を当てると、壁は霧のように崩れ、本当に短い抜け道が現れた。深みは、便宜と引き換えに澱を残す。",
+     "effects": [
+      {
+       "exposure": 0.05
+      },
+      {
+       "gold": 6
+      },
+      {
+       "chronicle": "深度#depth#で、深蝕が見せた近道を抜けた。"
+      }
+     ]
+    },
+    {
+     "label": "正規の道を行く",
+     "text": "深みの示す道は信じない。遠回りでも、確かな床だけを踏んでいく。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "深度#depth#で、深蝕の示す近道を避けた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_b16_exp_name",
+   "context": "dungeon",
+   "prerequisites": {
+    "minExposure": 1.8,
+    "depthBand": "abyss"
+   },
+   "weight": 2,
+   "text": "深淵が、お前の名を正しく呼んだ。生まれてから誰にも告げていない、本当の響きで。深く染まった者だけが、それを聞き取れる。",
+   "choices": [
+    {
+     "label": "応える",
+     "text": "思わず返事をしかけ、舌を噛んで止めた。応えれば、何かが永久に向こうのものになる——本能がそう告げていた。",
+     "effects": [
+      {
+       "exposure": 0.07
+      },
+      {
+       "trait": "聞いたもの:深淵に呼ばれた己の名"
+      },
+      {
+       "chronicle": "深度#depth#で、深淵に本当の名を呼ばれた。"
+      }
+     ]
+    },
+    {
+     "label": "名を否む",
+     "text": "それは私の名ではない。心の中で三度否み、呼び声を断ち切る。深淵は、惜しむように静まった。",
+     "effects": [
+      {
+       "exposure": -0.05
+      },
+      {
+       "trait": "心に刻んだ:深淵に名を渡さぬ誓い"
+      },
+      {
+       "chronicle": "深度#depth#で、深淵の呼び声に名を渡さなかった。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_b16_exp_door",
+   "context": "dungeon",
+   "prerequisites": {
+    "minExposure": 1.8,
+    "depthBand": "abyss"
+   },
+   "weight": 2,
+   "text": "壁の染みが、染まった目には『扉』に見える。その向こうに、苦しみの無い場所がある——そんな確信が、勝手に湧いてくる。",
+   "choices": [
+    {
+     "label": "扉に手をかける",
+     "text": "触れた瞬間、扉は嗤うように消えた。深淵は、安息の幻で淵へ誘う。危うく、自ら踏み込むところだった。",
+     "effects": [
+      {
+       "exposure": 0.07
+      },
+      {
+       "chronicle": "深度#depth#で、深淵が見せた『安息の扉』に触れてしまった。"
+      }
+     ]
+    },
+    {
+     "label": "幻の扉に背を向ける",
+     "text": "安息など、ここには無い。湧き上がる誘惑を理性で押し殺し、扉だったものに背を向けた。",
+     "effects": [
+      {
+       "exposure": -0.05
+      },
+      {
+       "chronicle": "深度#depth#で、深淵の『安息の扉』の誘いを断った。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_b16_exp_kin",
+   "context": "dungeon",
+   "prerequisites": {
+    "minExposure": 1.8,
+    "depthBand": "abyss"
+   },
+   "weight": 2,
+   "text": "淵の底から、無数の声が和して囁く。「こちらへ来い、もう独りではない」。染まりきった者には、それが救いの合唱に聞こえる。",
+   "choices": [
+    {
+     "label": "合唱に聞き入る",
+     "text": "孤独な潜行の果てに、その『仲間』の誘いは甘く沁みた。一歩、淵へ。寸前で、地上に残した縁の顔が脳裏をよぎり、止まる。",
+     "effects": [
+      {
+       "exposure": 0.08
+      },
+      {
+       "trait": "聞いたもの:深淵の招きの合唱"
+      },
+      {
+       "chronicle": "深度#depth#で、深淵の招きの合唱に呑まれかけた。"
+      }
+     ]
+    },
+    {
+     "label": "地上の縁を思う",
+     "text": "まだ還る場所がある。淵の合唱より、待つ者の顔を思い浮かべ、耳を塞いで進んだ。",
+     "effects": [
+      {
+       "exposure": -0.05
+      },
+      {
+       "trait": "心に刻んだ:還る場所への想い"
+      },
+      {
+       "chronicle": "深度#depth#で、地上の縁を支えに深淵の招きを退けた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dg_b16_exp_gift",
+   "context": "dungeon",
+   "prerequisites": {
+    "minExposure": 1.8,
+    "depthBand": "abyss"
+   },
+   "weight": 2,
+   "text": "染まった掌に、淵がそっと『贈り物』を載せようとする。受け取れば力が増す——その甘い予感が、確かに伝わってくる。",
+   "choices": [
+    {
+     "label": "受け取る",
+     "text": "掌に冷たい何かが宿り、力が漲る。だが同時に、自分の輪郭が少し滲んだ。淵の贈与には、必ず代償がある。",
+     "effects": [
+      {
+       "exposure": 0.08
+      },
+      {
+       "gold": 8
+      },
+      {
+       "trait": "携えしもの:深淵の贈り物"
+      },
+      {
+       "chronicle": "深度#depth#で、深淵の贈り物を受け取った。"
+      }
+     ]
+    },
+    {
+     "label": "掌を返す",
+     "text": "ただより高いものはない。掌を伏せ、淵の贈与を拒む。失ったものは無いが、惜しむ自分がいたことに、ぞっとした。",
+     "effects": [
+      {
+       "exposure": -0.05
+      },
+      {
+       "chronicle": "深度#depth#で、深淵の贈り物を拒んだ。"
+      }
+     ]
+    }
+   ]
   }
  ]
 }
