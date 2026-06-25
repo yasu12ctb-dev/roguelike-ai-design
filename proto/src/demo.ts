@@ -87,7 +87,7 @@ if (enc2) {
   const v2 = computeVariation(enc2, world.generation);
   say(`遭遇: ${enc2.origin.name}の化石（極=${poleLabel(enc2.tonePole)} / 段階=${v2.stage} / 歪み=${v2.distort.toFixed(2)}）`);
   say("─".repeat(40));
-  const setPiece = renderSetPieceIfAny(db, enc2, v2);
+  const setPiece = renderSetPieceIfAny(db, enc2, v2, rng);
   say(setPiece ?? renderRediscovery(db, rng, enc2, v2));
   if (setPiece) say("  【山場：予約セットピース発火】");
   say("─".repeat(40));

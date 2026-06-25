@@ -84,28 +84,29 @@ function slotMap(slot: string): string {
   }
 }
 
-/** 山場：条件を満たす予約セットピースの定義を返す（4-9C／遭-④）。型で固有の決着を分岐するため。 */
+/** 山場：条件を満たす予約セットピースの定義を返す（4-9C／遭-④）。型で固有の決着を分岐するため。
+ *  prereq（tone/minBond）一致かつ frame のスロットが全て充填可（口癖/異名を持たぬ化石は当該frameを除外）
+ *  かつ痕跡を保つ候補を「全て」集め、その中から rng で1件選ぶ＝同型でも frame が多様化し、
+ *  「最初の1件が充填不可だと山場が出ない」死蔵も解消する。 */
 export function matchSetPiece(
-  db: ContentDb, fossil: Fossil, variation: VariationResult,
+  db: ContentDb, fossil: Fossil, variation: VariationResult, rng: Rng,
 ): SetPiece | null {
   if (variation.stage === "weathered") return null; // 山場は変質が進んだ相手のみ
-  const sp = db.setpieces.find(
-    (s: SetPiece) =>
-      (s.prerequisites.tone === undefined || s.prerequisites.tone === fossil.tonePole) &&
-      (s.prerequisites.minBond === undefined || fossil.bondAtDeath >= s.prerequisites.minBond),
-  );
-  if (!sp) return null;
   const values = originSlotValues(fossil);
-  if (slotsOf(sp.frame).some((s) => values[s] === undefined)) return null;
-  const text = fillSlots(sp.frame, values);
-  return hasOriginTrace(text, fossil) ? sp : null;
+  const cands = db.setpieces.filter((s: SetPiece) =>
+    (s.prerequisites.tone === undefined || s.prerequisites.tone === fossil.tonePole) &&
+    (s.prerequisites.minBond === undefined || fossil.bondAtDeath >= s.prerequisites.minBond) &&
+    slotsOf(s.frame).every((sl) => values[sl] !== undefined) && // 充填できない frame（口癖無し化石等）は候補から外す
+    hasOriginTrace(fillSlots(s.frame, values), fossil),
+  );
+  return cands.length ? rng.pick(cands) : null;
 }
 
 /** 山場：予約セットピース（4-9C）。条件を満たす型があればその地の文を使う。 */
 export function renderSetPieceIfAny(
-  db: ContentDb, fossil: Fossil, variation: VariationResult,
+  db: ContentDb, fossil: Fossil, variation: VariationResult, rng: Rng,
 ): string | null {
-  const sp = matchSetPiece(db, fossil, variation);
+  const sp = matchSetPiece(db, fossil, variation, rng);
   return sp ? fillSlots(sp.frame, originSlotValues(fossil)) : null;
 }
 

@@ -20,7 +20,7 @@ import {
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
 import { rollItem, rollItemOfSlot, itemByName, enchantUp, itemPower, itemLabel, itemValue, SLOT_LABEL, CONSUMABLES, consumableByKey, grantConsumable } from "../items.ts";
 import {
-  renderDeathLine, renderRediscovery, renderRumor, renderArcBeat, renderSetPieceIfAny, matchSetPiece, fillStoryletText, fillDungeonText, fillActorText,
+  renderDeathLine, renderRediscovery, renderRumor, renderArcBeat, matchSetPiece, fillStoryletText, fillDungeonText, fillActorText,
   requiemLine, leaveLine, inheritLine, REQUIEM_RELIEF,
 } from "../render.ts";
 import { rollEncounter } from "../weights.ts";
@@ -53,7 +53,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.40.1";
+export const APP_VERSION = "0.41.0";
 export const APP_BUILD = "2026-06-25";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -3684,8 +3684,10 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   const fossil = world.fossils.find((f) => f.id === fe.fossilId)!;
   sfx("ui");
   const v = computeVariation(fossil, world.generation);
-  let setPiece = renderSetPieceIfAny(db, fossil, v);
-  let spType = setPiece ? matchSetPiece(db, fossil, v)?.type : undefined; // 山場の型（遭-④）
+  // 山場（遭-④）：有効候補から rng で1件選ぶ＝frame文と型を「同じ1件」から導く（二重抽選を避ける）。
+  const sp0 = matchSetPiece(db, fossil, v, rng);
+  let setPiece = sp0 ? fillStoryletText(fossil, sp0.frame) : null;
+  let spType = sp0?.type; // 山場の型（遭-④）
   // 4-10H 第二層・山場連発防止：直近に山場を見せていれば、この遭遇は山場演出を抑え通常遭遇に落とす
   // （大マップで化石が複数並んでも legend_return/grudge_hunt が立て続けに起きない）。
   if (spType && setPieceCooldown > 0) { spType = undefined; setPiece = null; }
