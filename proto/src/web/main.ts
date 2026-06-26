@@ -53,7 +53,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.51.0";
+export const APP_VERSION = "0.52.0";
 export const APP_BUILD = "2026-06-25";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -248,6 +248,7 @@ let interior: Interior | null = null; // 屋内シーン（null=街路）
 let townReturn: Pos | null = null;    // 屋内に入る直前の街路位置（出たら戻る）
 let wanderTimer: ReturnType<typeof setInterval> | null = null;
 let townDescendResolve: (() => void) | null = null; // 門で潜行＝townLoop を解決
+let pendingReturnDepth: number | null = null; // 帰還の扉で一時帰還中＝門は「あのフロアへ戻る」になる（returnViaDoor が設定）
 
 // ---------- ステータスバー ----------
 function updateStatus() {
@@ -1720,6 +1721,20 @@ async function talkGuard(g: GuardDef) {
 async function promptDescend() {
   if (busy) return;
   busy = true;
+  // 帰還の扉が開いている（ボス撃破後の一時帰還中）：門は新規潜行でなく「あのフロアへ戻る」になる。
+  if (pendingReturnDepth != null) {
+    const unlockedR = abyssUnlocked(world);
+    const back = `▶ あのフロアへ戻る（帰還の扉・深度${pendingReturnDepth}）`;
+    const opts = unlockedR ? [back, "奉献の試練へ潜る（深淵帯）", "とどまる"] : [back, "とどまる"];
+    const r = await sheet({
+      text: `迷宮の口に立った。\n帰還の扉は、まだ あのフロア（深度${pendingReturnDepth}）へ繋がっている。\n降りれば、討ち倒した相手のいた場所へ戻る（潜行は続いている）。`,
+      meta: "街 ── 迷宮の口（帰還の扉）", options: opts,
+    });
+    busy = false;
+    if (unlockedR && r.pick === 2) { abyssDivePending = true; leaveTownToDive(); return; } // 深淵帯＝この潜行を畳んで試練へ
+    if (r.pick === 1) leaveTownToDive(); else drawTown();
+    return;
+  }
   const unlocked = abyssUnlocked(world);
   const opts = unlocked
     ? ["潜行する（迷宮へ降りる）", "奉献の試練へ潜る（深淵帯・聖遺物を持ち帰る）", "とどまる"]
@@ -3677,8 +3692,11 @@ async function returnViaDoor() {
   save();
   sfx("stairs_up"); flashFx("warp");
   log("帰還の扉をくぐる――束の間の地上。扉は、あのフロアへ繋がったままだ。", "cue");
+  log("（街の「迷宮の口（>）」から、いつでも あのフロアへ戻れる）", "dim");
   busy = false;
+  pendingReturnDepth = depth; // 街の門を「あのフロアへ戻る」表示に（一時帰還中の目印）
   await townLoop();
+  pendingReturnDepth = null;  // 街を出た＝目印を解除
   if (abyssDivePending) { await startDive(); return; } // 街で奉献の試練を選んだ＝通常の新規潜行へ（floorCache リセット）
   // 同一潜行を継続：floorCache が同じ盤面を復元（diveCount/seenThisDive は据え置き＝farm根絶を侵さない）。
   mode = "dive";
