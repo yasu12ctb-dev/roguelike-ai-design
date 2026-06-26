@@ -53,7 +53,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.46.0";
+export const APP_VERSION = "0.48.0";
 export const APP_BUILD = "2026-06-25";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -605,6 +605,94 @@ async function chronicleScene() {
   const mark = { birth: "生", death: "死", rediscovery: "再", intervention: "干", legend: "伝", rumor: "噂" } as const;
   const tail = world.chronicle.slice(-14).map((e) => `世代${e.generation} [${mark[e.kind]}] ${e.text}`).join("\n");
   await sheet({ text: tail || "まだ何も記されていない。", meta: `年代記 ── 全${world.chronicle.length}件`, options: ["頁を閉じる"] });
+  busy = false;
+}
+// 酒場 act1「旧き名・化石のことを尋ねる」：縁ある名（伝説/宿敵=tracked／絆ある化石）を選んで素性・末路・弧を聞く。
+// act0 rumorScene（ランダムな噂）と差別化＝「特定の名を尋ねる」。新規 content 不要（既存 render を再利用）。
+async function tavernLore() {
+  busy = true;
+  type Cand = { label: string; tracked?: World["tracked"][number]; fossil?: Fossil };
+  const cands: Cand[] = [];
+  const seen = new Set<string>();
+  for (const t of world.tracked) { // 伝説・宿敵・弧（プレイヤーが残した名）を優先
+    if (seen.has(t.name)) continue; seen.add(t.name);
+    cands.push({ label: t.name, tracked: t });
+  }
+  for (const f of world.fossils) { // 縁ある化石（絆 or 旧キャラ）
+    if (!(f.bondAtDeath > 0 || f.kind === "character")) continue;
+    if (seen.has(f.origin.name)) continue; seen.add(f.origin.name);
+    cands.push({ label: f.origin.name, fossil: f });
+  }
+  if (!cands.length) {
+    await sheet({ text: "「旧い名か。……お前にはまだ、尋ねるほど深い縁の名がないようだ」と女将は笑った。", meta: "酒場 ── 旧き名を尋ねる", options: ["わかった"] });
+    busy = false; return;
+  }
+  const pool = cands.slice(0, 6);
+  const r = await sheet({
+    text: "「誰のことが知りたい？　名のある者なら、酔客の誰かが何か覚えている」。",
+    meta: "酒場 ── 旧き名を尋ねる",
+    options: [...pool.map((c) => c.label), "やめる"],
+  });
+  const i = r.pick - 1;
+  busy = false;
+  if (i < 0 || i >= pool.length) return;
+  const c = pool[i];
+  const tale = c.tracked ? renderArcBeat(db, rng, c.tracked) : renderRumor(db, rng, c.fossil!);
+  busy = true;
+  await sheet({ text: `女将が古い客に水を向ける──\n\n${tale}`, meta: `酒場 ── ${c.label}`, options: ["席を立つ"] });
+  chronicle(world, "rumor", `酒場で${c.label}の来し方が語られた。`, c.tracked ? [c.tracked.id] : [c.fossil!.id]);
+  save();
+  busy = false;
+}
+// 酒場 act2「休む（一杯やる）」：英気を養う小休息。1世代1回だけ深蝕がわずかに退く（shrinePray と同方式・gated）。
+async function tavernRest() {
+  busy = true;
+  const ch = world.current!;
+  if (ch.restedTavernGen === world.generation) {
+    await sheet({ text: "「もう十分やっただろう。残りは、還ってからの楽しみに取っておきな」。女将は次の客へ向き直った。", meta: "酒場 ── 休む", options: ["わかった"] });
+    busy = false; return;
+  }
+  ch.restedTavernGen = world.generation;
+  const before = ch.exposure;
+  ch.exposure = Math.max(0, ch.exposure - 0.05);
+  sfx("heal");
+  const note = ch.exposure < before ? `\n張りつめた芯が、ほんの少しほどけた（深蝕 -${(before - ch.exposure).toFixed(2)}）。` : "";
+  await sheet({ text: `安酒を一杯。喧噪と温もりが、深みの冷たさを束の間だけ忘れさせる。${note}`, meta: "酒場 ── 休む（一杯やる）", options: ["席を立つ"] });
+  save();
+  busy = false;
+}
+// 薬師 act0「傷を癒す」：街に戻れば傷は既に塞がっている（4-10C）。基本は flavor、念のため HP を満たす。
+async function healerHeal() {
+  busy = true;
+  const ch = world.current!;
+  const max = maxHp(ch);
+  if (hp < max) { hp = max; sfx("heal"); updateStatus(); }
+  await sheet({
+    text: "老薬師トウはお前の脈をとり、傷痕を一瞥して頷いた。「その傷は、街に戻った時にはもう塞がっている。お前を蝕むのは、肉ではなく深みのほうだ」。",
+    meta: "薬師 ── 傷を癒す", options: ["わかった"],
+  });
+  busy = false;
+}
+// 薬師 act2「薬を買う」：医薬（鎮静/治癒の消耗品）は薬師の本領。道具屋と品目は重なるが lore 的な本元。
+async function healerBuy() {
+  busy = true;
+  const ch = world.current!;
+  for (;;) {
+    const stock = CONSUMABLES.filter((c) => (c.minLevel ?? 0) <= ch.level); // 上位品は等級で解禁
+    const r = await sheet({
+      text: `老薬師トウの調剤棚。所持 金${ch.gold}。\n持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)} 枠。`,
+      meta: "薬師 ── 薬を買う",
+      options: [...stock.map((c) => `${c.name}（${c.desc}）${c.price}金貨`), "やめる"],
+    });
+    const i = r.pick - 1;
+    if (i < 0 || i >= stock.length) break;
+    const c = stock[i];
+    if (ch.gold < c.price) { await sheet({ text: "金貨が足りない。", options: ["出直す"] }); continue; }
+    if (!addConsumable(ch, c.key)) { await sheet({ text: "持ち物が一杯だ。レベルが上がれば、持てる量も増える。", options: ["わかった"] }); continue; }
+    ch.gold -= c.price; sfx("buy");
+    log(`${c.name} を薬師から求めた（−${c.price}金貨／所持 ${ch.gold}）。`);
+    save();
+  }
   busy = false;
 }
 // 回収業ギルド：依頼の受注・達成報酬の受領（4-10G）。1操作＝受注 or 受領（再入場で続けられる）。
@@ -1489,6 +1577,8 @@ async function talkKeeper(asKind?: string) {
   if (actIdx < 0 || actIdx >= d.acts.length) return; // 立ち去る
   // 既存機能の結線（機能後退させない）。他の動詞は後続 content 拡充で実装。
   if (kind === "tavern" && actIdx === 0) return void rumorScene();      // 噂を聞く
+  if (kind === "tavern" && actIdx === 1) return void tavernLore();      // 旧き名・化石のことを尋ねる
+  if (kind === "tavern" && actIdx === 2) return void tavernRest();      // 休む（一杯やる）
   if (kind === "archive" && actIdx === 0) return void chronicleScene(); // 年代記を読む
   if (kind === "archive" && actIdx === 1) return void legendApprove();  // 旧キャラを伝説として承認する（4-4）
   if (kind === "archive" && actIdx === 2) return void lineageScene();   // 系譜をたどる
@@ -1498,7 +1588,9 @@ async function talkKeeper(asKind?: string) {
   if (kind === "smith" && actIdx === 3) return void smithReforge();      // 打ち直し（+N を上げる・ルートシステム）
   if (kind === "smith_armor" && actIdx === 0) return void smithBuyKind("armor"); // 防具を買う
   if (kind === "smith_armor" && actIdx === 1) return void smithReforge(); // 打ち直し（防具担当でも可）
+  if (kind === "healer" && actIdx === 0) return void healerHeal();      // 傷を癒す（街は基本全快＝flavor）
   if (kind === "healer" && actIdx === 1) return void healerTreat();     // 深蝕の進行を診てもらう
+  if (kind === "healer" && actIdx === 2) return void healerBuy();       // 薬を買う（医薬は薬師の本領）
   if (kind === "guild" && actIdx === 0) return void questBoard();       // 依頼を受ける（回収業）
   if (kind === "guild" && actIdx === 1) return void heroRoll();         // 等級・英雄譜を見る（4-4）
   if (kind === "guild" && actIdx === 2) return void lineageBoon();      // 系譜の恩寵を確かめる

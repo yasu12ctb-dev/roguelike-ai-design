@@ -118,6 +118,7 @@ export interface Character {
   inventory?: InventorySlot[];  // 持ち物（消耗品。容量はレベルで増える＝progression.carryCapacity）。任意＝旧セーブ非破壊。
   gearBag?: Item[];             // 拾った未装備装備の袋（潜行中に携行＝世代内。街/行商人で売る。容量＝gearCapacity）。任意＝旧セーブ非破壊。
   prayedAtShrineGen?: number;   // 慰霊堂「深蝕を清める祈り」を捧げた世代（1世代1回ガード）。任意＝旧セーブ非破壊。
+  restedTavernGen?: number;     // 酒場「休む（一杯やる）」で英気を養った世代（1世代1回ガード）。任意＝旧セーブ非破壊。
   cultBoonsThisGen?: number;    // 教団「深蝕を捧げる」を今世代に受けた回数（対価の逓増に使う）。任意＝旧セーブ非破壊。
   carryingRelic?: string;       // 奉献の試練：携行中の聖遺物の名（4-13C）。設定中は深蝕急騰＋追手。生還でクリア。任意＝旧セーブ非破壊。
 }
