@@ -1,319 +1,2274 @@
 {
   "fragments": [
-    { "id": "frame_loss_weathered_1", "slotType": "rediscovery_frame", "tags": { "tone": "loss", "stage": "weathered" },
-      "text": "通路の片隅に、白骨が静かに横たわっている。傍らで#origin_gear#が錆びていた。#origin_name#――その名を、もう呼ぶ者はいない。" },
-    { "id": "frame_loss_weathered_2", "slotType": "rediscovery_frame", "tags": { "tone": "loss", "stage": "weathered" },
-      "text": "崩れた寝床の跡。色褪せた外套と#origin_gear#。壁に爪で刻まれた『#origin_name#』の文字だけが、ここに人がいたことを告げている。" },
-    { "id": "frame_loss_twisting_1", "slotType": "rediscovery_frame", "tags": { "tone": "loss", "stage": "twisting" },
-      "text": "#ghost#が、#origin_gear#を抱いたまま座っている。骨の表面にうっすらと結晶が吹き、#behavior#。#origin_name#だったものだ。" },
-    { "id": "frame_loss_alien_1", "slotType": "rediscovery_frame", "tags": { "tone": "loss", "stage": "alien" },
-      "text": "そこに人の形はもうない。ただ#ghost#が漂い、#behavior#。沈んだ輪郭の中心に、#origin_gear#の影だけが原型を保っている。#recognition#" },
-    { "id": "frame_myth_weathered_1", "slotType": "rediscovery_frame", "tags": { "tone": "myth", "stage": "weathered" },
-      "text": "小さな石塚が組まれ、#origin_gear#が突き立てられている。誰かが手向けた花は枯れて久しい。#origin_name#の名は、まだ薄れていない。" },
-    { "id": "frame_myth_twisting_1", "slotType": "rediscovery_frame", "tags": { "tone": "myth", "stage": "twisting" },
-      "text": "淡い光をまとう#ghost#が、道を示すように佇んでいる。#origin_gear#は台座のごとく岩と一体化しはじめていた。#behavior#。#origin_name#――その名は、いまや道標である。" },
-    { "id": "frame_myth_alien_1", "slotType": "rediscovery_frame", "tags": { "tone": "myth", "stage": "alien" },
-      "text": "祠のような空洞の中心に、#ghost#が鎮座している。#origin_gear#は聖遺物のように輝きを変質させ、#behavior#。#recognition#　人々が#origin_name#と呼んだ存在の、これが現在の姿だ。" },
-    { "id": "frame_grudge_twisting_1", "slotType": "rediscovery_frame", "tags": { "tone": "grudge", "stage": "twisting" },
-      "text": "#ghost#が、#origin_gear#を引きずって徘徊している。生前の口癖『#origin_catchphrase#』を、壊れたように繰り返している。#recognition#" },
-    { "id": "frame_grudge_alien_1", "slotType": "rediscovery_frame", "tags": { "tone": "grudge", "stage": "alien" },
-      "text": "淀んだ空気の奥から、#ghost#が現れる。原型はほとんど失われ、ただ#origin_gear#だけが昏く脈打っている。#behavior#。#recognition#" },
-    { "id": "frame_grudge_weathered_1", "slotType": "rediscovery_frame", "tags": { "tone": "grudge", "stage": "weathered" },
-      "text": "亡骸は壁に向かって倒れていた。#origin_gear#は最後まで手放されていない。爪痕が床に深く残る。#origin_name#は、安らかには逝かなかった。" },
-
-    { "id": "ghost_loss_1", "slotType": "ghost_noun", "tags": { "tone": "loss" }, "text": "淡い影" },
-    { "id": "ghost_loss_2", "slotType": "ghost_noun", "tags": { "tone": "loss" }, "text": "声のない残響" },
-    { "id": "ghost_loss_3", "slotType": "ghost_noun", "tags": { "tone": "loss" }, "text": "ほどけかけた人影" },
-    { "id": "ghost_myth_1", "slotType": "ghost_noun", "tags": { "tone": "myth" }, "text": "光をまとう守護者" },
-    { "id": "ghost_myth_2", "slotType": "ghost_noun", "tags": { "tone": "myth" }, "text": "静かな輝跡" },
-    { "id": "ghost_grudge_1", "slotType": "ghost_noun", "tags": { "tone": "grudge" }, "text": "慟哭する怨霊" },
-    { "id": "ghost_grudge_2", "slotType": "ghost_noun", "tags": { "tone": "grudge" }, "text": "昏い眼窩の影" },
-
-    { "id": "behavior_loss_1", "slotType": "behavior", "tags": { "tone": "loss" }, "text": "誰にも気づかぬまま、同じ数歩を往復し続けている" },
-    { "id": "behavior_loss_2", "slotType": "behavior", "tags": { "tone": "loss" }, "text": "時折、空の手で何かを拾う仕草をする" },
-    { "id": "behavior_myth_1", "slotType": "behavior", "tags": { "tone": "myth" }, "text": "迷う者へ、進むべき道をそっと指し示す" },
-    { "id": "behavior_myth_2", "slotType": "behavior", "tags": { "tone": "myth" }, "text": "近づく邪なものを、無言で退けている" },
-    { "id": "behavior_grudge_1", "slotType": "behavior", "tags": { "tone": "grudge" }, "text": "通りかかる生者の名を、ひとつずつ確かめている" },
-    { "id": "behavior_grudge_2", "slotType": "behavior", "tags": { "tone": "grudge" }, "text": "壁を引っ掻き、終わらない恨み言を刻み続けている" },
-
-    { "id": "recog_loss_1", "slotType": "recognition", "tags": { "tone": "loss" }, "text": "お前が近づいても、それは振り向かない。" },
-    { "id": "recog_myth_1", "slotType": "recognition", "tags": { "tone": "myth" }, "text": "お前を認めると、それは深く一礼した。" },
-    { "id": "recog_grudge_1", "slotType": "recognition", "tags": { "tone": "grudge" }, "text": "お前を認めた途端、その眼窩に昏い火が灯った。" },
-    { "id": "recog_grudge_2", "slotType": "recognition", "tags": { "tone": "grudge" }, "text": "それはお前の名を正確に呼び、ゆっくりとこちらを向いた。" },
-
-    { "id": "death_guard_1", "slotType": "death_line", "tags": { "finalAct": "guard_relic" }, "text": "最後の力で遺品を胸に抱き、奪われぬよう身体で覆った。" },
-    { "id": "death_curse_1", "slotType": "death_line", "tags": { "finalAct": "curse_dungeon" }, "text": "血の混じる声で迷宮を呪い、その怨嗟は壁に染み込んだ。" },
-    { "id": "death_will_1", "slotType": "death_line", "tags": { "finalAct": "leave_will" }, "text": "震える手で最後の言葉を記し、来る者へ託した。" },
-    { "id": "death_accept_1", "slotType": "death_line", "tags": { "finalAct": "accept" }, "text": "静かに目を閉じ、迷宮の闇をただ受け入れた。" },
-
-    { "id": "frame_loss_weathered_3", "slotType": "rediscovery_frame", "tags": { "tone": "loss", "stage": "weathered" }, "text": "#origin_name# は壁にもたれ、膝を抱えたまま動かない。#origin_gear# が傍らに転がり、薄い埃をかぶっている。その顔は、出口の方をじっと向いていた。" },
-    { "id": "frame_loss_weathered_4", "slotType": "rediscovery_frame", "tags": { "tone": "loss", "stage": "weathered" }, "text": "床に小さく積まれた石——道しるべのつもりだったのだろう。その先で #origin_name# は力尽き、#origin_gear# を抱いて冷たくなっていた。" },
-    { "id": "frame_loss_weathered_5", "slotType": "rediscovery_frame", "tags": { "tone": "loss", "stage": "weathered" }, "text": "乾いた手記の切れ端が、#origin_gear# の下から覗いている。最後の一行は途中で途切れていた。#origin_name# は、書き終える前に眠ったらしい。" },
-    { "id": "frame_loss_twisting_2", "slotType": "rediscovery_frame", "tags": { "tone": "loss", "stage": "twisting" }, "text": "#origin_name# だったものが、#origin_gear# を膝に揃えて座っている。輪郭はゆるやかにほどけ、#behavior#。" },
-    { "id": "frame_loss_twisting_3", "slotType": "rediscovery_frame", "tags": { "tone": "loss", "stage": "twisting" }, "text": "薄い燐光が #ghost# のかたちに溜まっている。#origin_gear# の表面に霜のような模様が広がり、#recognition#" },
-    { "id": "frame_loss_alien_2", "slotType": "rediscovery_frame", "tags": { "tone": "loss", "stage": "alien" }, "text": "そこにあるのは、もう人ではない何かだ。#ghost# が緩慢に脈打ち、#behavior#。沈んだ核の奥に、#origin_gear# の影が辛うじて残っている。" },
-    { "id": "frame_loss_alien_3", "slotType": "rediscovery_frame", "tags": { "tone": "loss", "stage": "alien" }, "text": "空間そのものが軋む。#ghost# が滲み出し、#origin_name# という名の記憶だけが、#origin_gear# の輪郭にこびりついている。#recognition#" },
-    { "id": "frame_myth_weathered_2", "slotType": "rediscovery_frame", "tags": { "tone": "myth", "stage": "weathered" }, "text": "通路の壁に、誰かが彫った碑がある。『#origin_name# ここに眠る』——その下に #origin_gear# が供えられ、丁寧に布で巻かれていた。" },
-    { "id": "frame_myth_weathered_3", "slotType": "rediscovery_frame", "tags": { "tone": "myth", "stage": "weathered" }, "text": "灯明の跡が残る一角。#origin_gear# が祭壇のように据えられ、#origin_name# の名はまだ擦り消されていない。後から来た誰かが、手を合わせた跡がある。" },
-    { "id": "frame_myth_twisting_2", "slotType": "rediscovery_frame", "tags": { "tone": "myth", "stage": "twisting" }, "text": "#ghost# が、行く手の闇をそっと払うように佇んでいる。#origin_gear# は岩に半ば溶け込み、#behavior#。#origin_name# の名は、もはや道標だ。" },
-    { "id": "frame_myth_twisting_3", "slotType": "rediscovery_frame", "tags": { "tone": "myth", "stage": "twisting" }, "text": "淡い光の柱の中に、#origin_name# だったものがいる。#origin_gear# が静かに輝きを変じ、#recognition#" },
-    { "id": "frame_myth_alien_2", "slotType": "rediscovery_frame", "tags": { "tone": "myth", "stage": "alien" }, "text": "空洞の奥が、ささやかな聖域のように澄んでいる。#ghost# が鎮まり、#origin_gear# は遺物めいた光を放つ。#behavior#。かつて #origin_name# と呼ばれた何かの、いまの姿だ。" },
-    { "id": "frame_grudge_weathered_2", "slotType": "rediscovery_frame", "tags": { "tone": "grudge", "stage": "weathered" }, "text": "#origin_name# の亡骸は、出口とは逆——奥へ向かって倒れていた。#origin_gear# を握る指は、まだ何かを追っている。床の引っ掻き傷が、その執念を物語る。" },
-    { "id": "frame_grudge_weathered_3", "slotType": "rediscovery_frame", "tags": { "tone": "grudge", "stage": "weathered" }, "text": "壁一面に、同じ名が爪で刻まれている。読むほどに寒気がする。中央で #origin_name# が #origin_gear# を抱いて事切れていた。安らぎは、どこにもない。" },
-    { "id": "frame_grudge_twisting_2", "slotType": "rediscovery_frame", "tags": { "tone": "grudge", "stage": "twisting" }, "text": "#ghost# が #origin_gear# を引きずり、同じ一画を巡り続けている。#behavior#。近づくと、空気が粘りつくように重くなった。" },
-    { "id": "frame_grudge_twisting_3", "slotType": "rediscovery_frame", "tags": { "tone": "grudge", "stage": "twisting" }, "text": "歪んだ #ghost# が、#origin_name# と呼ばれた何かの残り滓を曳いている。#origin_gear# が昏く脈打ち、#recognition#" },
-    { "id": "frame_grudge_alien_2", "slotType": "rediscovery_frame", "tags": { "tone": "grudge", "stage": "alien" }, "text": "闇の底が、ぐぷりと盛り上がる。#ghost# が形を成し、#behavior#。原型はもう無い。ただ #origin_gear# だけが、憎しみのかたちで光っている。#recognition#" },
-    { "id": "frame_grudge_alien_3", "slotType": "rediscovery_frame", "tags": { "tone": "grudge", "stage": "alien" }, "text": "それは部屋ごと敵意だった。#ghost# が四方から滲み、#origin_gear# の残響が壁を伝う。#recognition#" },
-
-    { "id": "ghost_loss_4", "slotType": "ghost_noun", "tags": { "tone": "loss" }, "text": "うすれゆく面影" },
-    { "id": "ghost_loss_5", "slotType": "ghost_noun", "tags": { "tone": "loss" }, "text": "輪郭のぼやけた人型" },
-    { "id": "ghost_myth_3", "slotType": "ghost_noun", "tags": { "tone": "myth" }, "text": "灯火のような佇まい" },
-    { "id": "ghost_myth_4", "slotType": "ghost_noun", "tags": { "tone": "myth" }, "text": "凪いだ光の影" },
-    { "id": "ghost_grudge_3", "slotType": "ghost_noun", "tags": { "tone": "grudge" }, "text": "軋みを上げる黒い影" },
-    { "id": "ghost_grudge_4", "slotType": "ghost_noun", "tags": { "tone": "grudge" }, "text": "歯を鳴らす亡魂" },
-
-    { "id": "behavior_loss_3", "slotType": "behavior", "tags": { "tone": "loss" }, "text": "誰かの名を呼ぼうとして、声にならず口だけを動かしている" },
-    { "id": "behavior_loss_4", "slotType": "behavior", "tags": { "tone": "loss" }, "text": "落ちた何かを拾おうと、いつまでも手を伸ばし続けている" },
-    { "id": "behavior_myth_3", "slotType": "behavior", "tags": { "tone": "myth" }, "text": "通り過ぎる者の傷を、見えぬ手でなぞって癒すように動く" },
-    { "id": "behavior_myth_4", "slotType": "behavior", "tags": { "tone": "myth" }, "text": "闇の奥を見据え、何かが来るのを静かに防いでいる" },
-    { "id": "behavior_grudge_3", "slotType": "behavior", "tags": { "tone": "grudge" }, "text": "自分を見捨てた者の影を、執拗に探し回っている" },
-    { "id": "behavior_grudge_4", "slotType": "behavior", "tags": { "tone": "grudge" }, "text": "聞き取れない呪詛を、休みなく唇に乗せている" },
-
-    { "id": "recog_loss_2", "slotType": "recognition", "tags": { "tone": "loss" }, "text": "お前の気配にも、それは何の反応も見せなかった。" },
-    { "id": "recog_loss_3", "slotType": "recognition", "tags": { "tone": "loss" }, "text": "ほんの一瞬こちらを見た気がしたが、それはもう俯いていた。" },
-    { "id": "recog_myth_2", "slotType": "recognition", "tags": { "tone": "myth" }, "text": "お前を認めると、それは行く道の方角を指し示した。" },
-    { "id": "recog_myth_3", "slotType": "recognition", "tags": { "tone": "myth" }, "text": "それは静かにうなずき、来た意味を問うように佇んだ。" },
-    { "id": "recog_grudge_3", "slotType": "recognition", "tags": { "tone": "grudge" }, "text": "お前と目が合うなり、それは低く軋む声を漏らした。" },
-    { "id": "recog_grudge_4", "slotType": "recognition", "tags": { "tone": "grudge" }, "text": "近づくほどに、その敵意がこちらの肌を刺してくる。" },
-
-    { "id": "death_guard_2", "slotType": "death_line", "tags": { "finalAct": "guard_relic" }, "text": "亡骸はなお遺品の上に覆い被さり、奪う手を拒むように固まっていた。" },
-    { "id": "death_guard_3", "slotType": "death_line", "tags": { "finalAct": "guard_relic" }, "text": "託されたものを最後まで離さず、その腕は石のように守りの形で固まっていた。" },
-    { "id": "death_curse_2", "slotType": "death_line", "tags": { "finalAct": "curse_dungeon" }, "text": "事切れる間際まで呪詛を吐き、その声は今も壁の奥でくぐもって響く。" },
-    { "id": "death_curse_3", "slotType": "death_line", "tags": { "finalAct": "curse_dungeon" }, "text": "迷宮への憎しみを血で床に書きつけ、最後の一字の途中で力尽きた。" },
-    { "id": "death_will_2", "slotType": "death_line", "tags": { "finalAct": "leave_will" }, "text": "最後の力で遺すべき言葉を刻み、来る者へ道を残して逝った。" },
-    { "id": "death_will_3", "slotType": "death_line", "tags": { "finalAct": "leave_will" }, "text": "託す相手の顔も知らぬまま、それでも筆を執り、想いを一行に込めた。" },
-    { "id": "death_accept_2", "slotType": "death_line", "tags": { "finalAct": "accept" }, "text": "抗うことをやめ、深い息をひとつ吐いて、闇に身を預けた。" },
-    { "id": "death_accept_3", "slotType": "death_line", "tags": { "finalAct": "accept" }, "text": "恐れも悔いも溶けたような顔で、ただ静かに終わりを迎えた。" },
-
-    { "id": "quirk_1", "slotType": "exposure_quirk", "tags": {}, "text": "暗闇で目が利くようになった気がする" },
-    { "id": "quirk_2", "slotType": "exposure_quirk", "tags": {}, "text": "深層の夢を毎夜見る" },
-    { "id": "quirk_3", "slotType": "exposure_quirk", "tags": {}, "text": "左手が時々、他人の手に見える" },
-    { "id": "quirk_4", "slotType": "exposure_quirk", "tags": {}, "text": "静寂の中に、底からの呼び声を聞く" },
-    { "id": "quirk_5", "slotType": "exposure_quirk", "tags": {}, "text": "傷の治りが妙に早い。早すぎる" },
-    { "id": "quirk_6", "slotType": "exposure_quirk", "tags": {}, "text": "鏡を覗くと、像が一拍遅れて動く" },
-    { "id": "quirk_7", "slotType": "exposure_quirk", "tags": {}, "text": "食事の味が、日ごとに分からなくなっていく" },
-    { "id": "quirk_8", "slotType": "exposure_quirk", "tags": {}, "text": "自分の影が、時々こちらを見ている気がする" },
-    { "id": "quirk_9", "slotType": "exposure_quirk", "tags": {}, "text": "眠ると、知らない言葉で寝言を言うと、人に指摘された" },
-    { "id": "quirk_10", "slotType": "exposure_quirk", "tags": {}, "text": "流れる血の色が、ほんの少しだけ黒い" },
-    { "id": "quirk_11", "slotType": "exposure_quirk", "tags": {}, "text": "雑踏の中で、ふと、行き交う全員の顔が同じに見える" },
-    { "id": "quirk_12", "slotType": "exposure_quirk", "tags": {}, "text": "痛みを、どこか遠いもののように感じる" },
-    { "id": "quirk_13", "slotType": "exposure_quirk", "tags": {}, "text": "物を数えると、いつも一つだけ多い" },
-    { "id": "quirk_14", "slotType": "exposure_quirk", "tags": {}, "text": "暗がりのほうが、明るい場所より落ち着く" },
-    { "id": "quirk_15", "slotType": "exposure_quirk", "tags": {}, "text": "指先が、たまに自分のものでないように冷たい" },
-    { "id": "quirk_16", "slotType": "exposure_quirk", "tags": {}, "text": "声に出して笑う、その笑い方を、思い出せない時がある" },
-    { "id": "quirk_17", "slotType": "exposure_quirk", "tags": {}, "text": "知らないはずの古い名で呼ばれた気がして、振り返る癖がついた" },
-
-    { "id": "rumor_1", "slotType": "rumor", "tags": {}, "text": "「#origin_name#を見たって奴がいる。……いや、あれはもう、本人じゃあない」" },
-    { "id": "rumor_2", "slotType": "rumor", "tags": {}, "text": "「#depth#のあたりで、#origin_gear#を持った何かが彷徨ってるらしい」" },
-    { "id": "rumor_3", "slotType": "rumor", "tags": {}, "text": "「#origin_name#の亡骸、まだ誰も弔ってないんだとさ」" },
-    { "id": "rumor_4", "slotType": "rumor", "tags": {}, "text": "「#origin_epithet#か……あの#origin_gear#を継ぐ度胸のある奴は、まだ現れんのか」" },
-    { "id": "rumor_5", "slotType": "rumor", "tags": {}, "text": "「#depth#より下じゃ、#origin_name#の声が聞こえるそうだ。名を呼ばれても、答えちゃいけねえ」" },
-    { "id": "rumor_6", "slotType": "rumor", "tags": {}, "text": "「#origin_name#? ああ、#origin_epithet#だろ。今や、化けて出るって噂さ」" },
-    { "id": "rumor_7", "slotType": "rumor", "tags": {}, "text": "「#origin_gear#を提げた影を見たら、近づくな。持ち主は、もう人じゃあない」" },
-    { "id": "rumor_8", "slotType": "rumor", "tags": {}, "text": "「ギルドが#origin_name#の名を、討伐の名簿に載せたとか。生きてるのか、あれは」" },
-    { "id": "rumor_9", "slotType": "rumor", "tags": {}, "text": "「#depth#で#origin_name#に出くわしたら、目を合わせるな。連れていかれるぞ」" },
-    { "id": "rumor_10", "slotType": "rumor", "tags": {}, "text": "「あの#origin_epithet#でさえ、底からは還れなかった。俺たちに、何ができるってんだ」" },
-    { "id": "rumor_11", "slotType": "rumor", "tags": {}, "text": "「#origin_name#の名を出すと、酒場が静まる。皆、心当たりがあるのさ」" },
-    { "id": "rumor_12", "slotType": "rumor", "tags": {}, "text": "「夢に#origin_gear#の輝きを見る。あれを継げと、誰かが呼んでる気がしてな……」" },
-
-    { "id": "arole_1", "slotType": "actor_role", "tags": {}, "text": "行商人" },
-    { "id": "arole_2", "slotType": "actor_role", "tags": {}, "text": "傷だらけの斥候" },
-    { "id": "arole_3", "slotType": "actor_role", "tags": {}, "text": "老いた巡礼者" },
-    { "id": "arole_4", "slotType": "actor_role", "tags": {}, "text": "酒場の語り部" },
-    { "id": "arole_5", "slotType": "actor_role", "tags": {}, "text": "迷宮帰りの元探索者" },
-    { "id": "arole_6", "slotType": "actor_role", "tags": {}, "text": "宿無しの占い師" },
-
-    { "id": "aname_1", "slotType": "actor_name", "tags": {}, "text": "ヴェル" },
-    { "id": "aname_2", "slotType": "actor_name", "tags": {}, "text": "サグ" },
-    { "id": "aname_3", "slotType": "actor_name", "tags": {}, "text": "老イド" },
-    { "id": "aname_4", "slotType": "actor_name", "tags": {}, "text": "リサ" },
-    { "id": "aname_5", "slotType": "actor_name", "tags": {}, "text": "ノエ" },
-    { "id": "aname_6", "slotType": "actor_name", "tags": {}, "text": "片目のタス" },
-
-    { "id": "agear_1", "slotType": "actor_gear", "tags": {}, "text": "擦り切れた背嚢" },
-    { "id": "agear_2", "slotType": "actor_gear", "tags": {}, "text": "節くれだった杖" },
-    { "id": "agear_3", "slotType": "actor_gear", "tags": {}, "text": "古びた地図筒" },
-    { "id": "agear_4", "slotType": "actor_gear", "tags": {}, "text": "欠けた角灯" },
-    { "id": "agear_5", "slotType": "actor_gear", "tags": {}, "text": "色褪せた護符" },
-    { "id": "agear_6", "slotType": "actor_gear", "tags": {}, "text": "鞣革の手袋" },
-
-    { "id": "aepi_1", "slotType": "actor_epithet", "tags": {}, "text": "辻の" },
-    { "id": "aepi_2", "slotType": "actor_epithet", "tags": {}, "text": "三度死にかけた" },
-    { "id": "aepi_3", "slotType": "actor_epithet", "tags": {}, "text": "底知らずの" },
-    { "id": "aepi_4", "slotType": "actor_epithet", "tags": {}, "text": "口の減らない" },
-    { "id": "aepi_5", "slotType": "actor_epithet", "tags": {}, "text": "懐かしがりの" },
-    { "id": "aepi_6", "slotType": "actor_epithet", "tags": {}, "text": "迷い慣れた" },
-    { "id": "aname_7", "slotType": "actor_name", "tags": {}, "text": "カイ" },
-    { "id": "aname_8", "slotType": "actor_name", "tags": {}, "text": "ドラ" },
-    { "id": "aname_9", "slotType": "actor_name", "tags": {}, "text": "ミラ" },
-    { "id": "aname_10", "slotType": "actor_name", "tags": {}, "text": "ゼフ" },
-    { "id": "aname_11", "slotType": "actor_name", "tags": {}, "text": "ハト" },
-    { "id": "aname_12", "slotType": "actor_name", "tags": {}, "text": "ルゥ" },
-    { "id": "aname_13", "slotType": "actor_name", "tags": {}, "text": "ベナ" },
-    { "id": "aname_14", "slotType": "actor_name", "tags": {}, "text": "ソル" },
-    { "id": "aname_15", "slotType": "actor_name", "tags": {}, "text": "ヤナ" },
-    { "id": "aname_16", "slotType": "actor_name", "tags": {}, "text": "グレン" },
-    { "id": "aname_17", "slotType": "actor_name", "tags": {}, "text": "トビ" },
-    { "id": "aname_18", "slotType": "actor_name", "tags": {}, "text": "ネス" },
-    { "id": "aname_19", "slotType": "actor_name", "tags": {}, "text": "ウルカ" },
-    { "id": "aname_20", "slotType": "actor_name", "tags": {}, "text": "シマ" },
-    { "id": "aname_21", "slotType": "actor_name", "tags": {}, "text": "ロゥド" },
-    { "id": "aname_22", "slotType": "actor_name", "tags": {}, "text": "フェン" },
-    { "id": "aname_23", "slotType": "actor_name", "tags": {}, "text": "アキ" },
-    { "id": "aname_24", "slotType": "actor_name", "tags": {}, "text": "モル" },
-    { "id": "aname_25", "slotType": "actor_name", "tags": {}, "text": "ジン" },
-    { "id": "aname_26", "slotType": "actor_name", "tags": {}, "text": "クレハ" },
-    { "id": "aname_27", "slotType": "actor_name", "tags": {}, "text": "バルド" },
-    { "id": "aname_28", "slotType": "actor_name", "tags": {}, "text": "セナ" },
-    { "id": "aname_29", "slotType": "actor_name", "tags": {}, "text": "ティル" },
-    { "id": "aname_30", "slotType": "actor_name", "tags": {}, "text": "ナハ" },
-    { "id": "aname_31", "slotType": "actor_name", "tags": {}, "text": "エド" },
-    { "id": "aname_32", "slotType": "actor_name", "tags": {}, "text": "ヴィカ" },
-    { "id": "aname_33", "slotType": "actor_name", "tags": {}, "text": "ラム" },
-    { "id": "aname_34", "slotType": "actor_name", "tags": {}, "text": "ホズ" },
-    { "id": "aname_35", "slotType": "actor_name", "tags": {}, "text": "ギオ" },
-    { "id": "aname_36", "slotType": "actor_name", "tags": {}, "text": "隻眼のゴル" },
-    { "id": "arole_7", "slotType": "actor_role", "tags": {}, "text": "駆け出しの探索者" },
-    { "id": "arole_8", "slotType": "actor_role", "tags": {}, "text": "隻腕の傭兵" },
-    { "id": "arole_9", "slotType": "actor_role", "tags": {}, "text": "物乞いの老人" },
-    { "id": "arole_10", "slotType": "actor_role", "tags": {}, "text": "薬草売り" },
-    { "id": "arole_11", "slotType": "actor_role", "tags": {}, "text": "棺桶職人" },
-    { "id": "arole_12", "slotType": "actor_role", "tags": {}, "text": "元・聖堂の書記" },
-    { "id": "arole_13", "slotType": "actor_role", "tags": {}, "text": "鉱夫あがり" },
-    { "id": "arole_14", "slotType": "actor_role", "tags": {}, "text": "流れの吟遊詩人" },
-    { "id": "arole_15", "slotType": "actor_role", "tags": {}, "text": "賞金稼ぎ" },
-    { "id": "arole_16", "slotType": "actor_role", "tags": {}, "text": "迷宮案内人くずれ" },
-    { "id": "arole_17", "slotType": "actor_role", "tags": {}, "text": "香具師" },
-    { "id": "arole_18", "slotType": "actor_role", "tags": {}, "text": "露天の鍛冶弟子" },
-    { "id": "arole_19", "slotType": "actor_role", "tags": {}, "text": "子連れの寡婦" },
-    { "id": "arole_20", "slotType": "actor_role", "tags": {}, "text": "病みあがりの坑夫" },
-    { "id": "arole_21", "slotType": "actor_role", "tags": {}, "text": "義足の元門番" },
-    { "id": "aepi_7", "slotType": "actor_epithet", "tags": {}, "text": "名うての" },
-    { "id": "aepi_8", "slotType": "actor_epithet", "tags": {}, "text": "影の薄い" },
-    { "id": "aepi_9", "slotType": "actor_epithet", "tags": {}, "text": "訳ありの" },
-    { "id": "aepi_10", "slotType": "actor_epithet", "tags": {}, "text": "ひと癖ある" },
-    { "id": "aepi_11", "slotType": "actor_epithet", "tags": {}, "text": "物静かな" },
-    { "id": "aepi_12", "slotType": "actor_epithet", "tags": {}, "text": "やけに陽気な" },
-    { "id": "aepi_13", "slotType": "actor_epithet", "tags": {}, "text": "痩せこけた" },
-    { "id": "aepi_14", "slotType": "actor_epithet", "tags": {}, "text": "古傷だらけの" },
-    { "id": "aepi_15", "slotType": "actor_epithet", "tags": {}, "text": "噂好きの" },
-    { "id": "aepi_16", "slotType": "actor_epithet", "tags": {}, "text": "抜け目ない" },
-    { "id": "aepi_17", "slotType": "actor_epithet", "tags": {}, "text": "くたびれた" },
-    { "id": "aepi_18", "slotType": "actor_epithet", "tags": {}, "text": "妙に身綺麗な" },
-    { "id": "aepi_19", "slotType": "actor_epithet", "tags": {}, "text": "大柄な" },
-    { "id": "aepi_20", "slotType": "actor_epithet", "tags": {}, "text": "しわがれ声の" },
-    { "id": "aepi_21", "slotType": "actor_epithet", "tags": {}, "text": "人見知りの" },
-    { "id": "agear_7", "slotType": "actor_gear", "tags": {}, "text": "鉄縁の眼鏡" },
-    { "id": "agear_8", "slotType": "actor_gear", "tags": {}, "text": "血錆びた手斧" },
-    { "id": "agear_9", "slotType": "actor_gear", "tags": {}, "text": "継ぎ接ぎの外套" },
-    { "id": "agear_10", "slotType": "actor_gear", "tags": {}, "text": "重そうな鍵束" },
-    { "id": "agear_11", "slotType": "actor_gear", "tags": {}, "text": "干からびた携行食" },
-    { "id": "agear_12", "slotType": "actor_gear", "tags": {}, "text": "黒ずんだ銅貨袋" },
-    { "id": "agear_13", "slotType": "actor_gear", "tags": {}, "text": "油紙の包み" },
-    { "id": "agear_14", "slotType": "actor_gear", "tags": {}, "text": "軋む義足" },
-    { "id": "agear_15", "slotType": "actor_gear", "tags": {}, "text": "縄と鉤爪" },
-    { "id": "agear_16", "slotType": "actor_gear", "tags": {}, "text": "香の数珠" },
-    { "id": "agear_17", "slotType": "actor_gear", "tags": {}, "text": "細身の刺突剣" },
-    { "id": "agear_18", "slotType": "actor_gear", "tags": {}, "text": "泥だらけの長靴" },
-    { "id": "agear_19", "slotType": "actor_gear", "tags": {}, "text": "ひしゃげた水筒" },
-    { "id": "agear_20", "slotType": "actor_gear", "tags": {}, "text": "護符だらけの帯" },
-    { "id": "agear_21", "slotType": "actor_gear", "tags": {}, "text": "ささくれた木札" },
-    { "id": "agrade_iron_1", "slotType": "actor_grade", "tags": {}, "text": "iron" },
-    { "id": "agrade_iron_2", "slotType": "actor_grade", "tags": {}, "text": "iron" },
-    { "id": "agrade_iron_3", "slotType": "actor_grade", "tags": {}, "text": "iron" },
-    { "id": "agrade_iron_4", "slotType": "actor_grade", "tags": {}, "text": "iron" },
-    { "id": "agrade_iron_5", "slotType": "actor_grade", "tags": {}, "text": "iron" },
-    { "id": "agrade_bronze_1", "slotType": "actor_grade", "tags": {}, "text": "bronze" },
-    { "id": "agrade_bronze_2", "slotType": "actor_grade", "tags": {}, "text": "bronze" },
-    { "id": "agrade_bronze_3", "slotType": "actor_grade", "tags": {}, "text": "bronze" },
-    { "id": "agrade_bronze_4", "slotType": "actor_grade", "tags": {}, "text": "bronze" },
-    { "id": "agrade_silver_1", "slotType": "actor_grade", "tags": {}, "text": "silver" },
-    { "id": "agrade_silver_2", "slotType": "actor_grade", "tags": {}, "text": "silver" },
-    { "id": "agrade_silver_3", "slotType": "actor_grade", "tags": {}, "text": "silver" },
-    { "id": "agrade_gold_1", "slotType": "actor_grade", "tags": {}, "text": "gold" },
-    { "id": "agrade_gold_2", "slotType": "actor_grade", "tags": {}, "text": "gold" },
-    { "id": "agrade_platinum_1", "slotType": "actor_grade", "tags": {}, "text": "platinum" },
-
-    { "id": "arc_doom_1a", "slotType": "arc_beat", "tags": { "arc": "doom", "beat": 1 }, "text": "「#tracked_name#か。ここんとこ、取り憑かれたみたいに毎日潜ってるそうだ」" },
-    { "id": "arc_doom_1b", "slotType": "arc_beat", "tags": { "arc": "doom", "beat": 1 }, "text": "「#tracked_name#が浅層を素通りして、もっと下へ下へと急いでるらしい」" },
-    { "id": "arc_doom_2a", "slotType": "arc_beat", "tags": { "arc": "doom", "beat": 2 }, "text": "「#tracked_name#と深層ですれ違った奴が言うには……目が、こっちを見ていなかったとさ」" },
-    { "id": "arc_doom_2b", "slotType": "arc_beat", "tags": { "arc": "doom", "beat": 2 }, "text": "「#tracked_name#の声が、人のものじゃなくなってきたって噂だ。気味が悪い」" },
-    { "id": "arc_doom_3a", "slotType": "arc_beat", "tags": { "arc": "doom", "beat": 3 }, "text": "「#tracked_name#は、もう戻らないだろうよ。深みが気に入っちまったのさ」" },
-    { "id": "arc_doom_3b", "slotType": "arc_beat", "tags": { "arc": "doom", "beat": 3 }, "text": "「#tracked_name#の名は、これからは“喪われた英雄”の側に並ぶことになる」" },
-
-    { "id": "arc_retire_1a", "slotType": "arc_beat", "tags": { "arc": "retire", "beat": 1 }, "text": "「#tracked_name#、そろそろ潮時だと洩らしてたな。賢い引き際ってもんだ」" },
-    { "id": "arc_retire_1b", "slotType": "arc_beat", "tags": { "arc": "retire", "beat": 1 }, "text": "「#tracked_name#が深層通いをやめたらしい。あれだけの腕で、惜しいもんだ」" },
-    { "id": "arc_retire_2a", "slotType": "arc_beat", "tags": { "arc": "retire", "beat": 2 }, "text": "「#tracked_name#は今、若い連中に手ほどきしてるってさ。いい先生になったもんだ」" },
-    { "id": "arc_retire_2b", "slotType": "arc_beat", "tags": { "arc": "retire", "beat": 2 }, "text": "「#tracked_name#を広場で見かけたよ。剣じゃなく、酒を傾けてた。穏やかな顔でな」" },
-    { "id": "arc_retire_3a", "slotType": "arc_beat", "tags": { "arc": "retire", "beat": 3 }, "text": "「#tracked_name#の武勇伝、もう吟遊詩人が歌にしてる。生きて伝説になるとはな」" },
-    { "id": "arc_retire_3b", "slotType": "arc_beat", "tags": { "arc": "retire", "beat": 3 }, "text": "「#tracked_name#は街の守り神みたいなもんさ。あの人がいる限り、ここは安泰だ」" },
-
-    { "id": "arc_fall_1a", "slotType": "arc_beat", "tags": { "arc": "fall", "beat": 1 }, "text": "「#tracked_name#は今が絶頂だな。……だが、ああいうのは長くないってのが相場だ」" },
-    { "id": "arc_fall_1b", "slotType": "arc_beat", "tags": { "arc": "fall", "beat": 1 }, "text": "「#tracked_name#、近頃ちょっと天狗になってないか? 危なっかしいぜ」" },
-    { "id": "arc_fall_2a", "slotType": "arc_beat", "tags": { "arc": "fall", "beat": 2 }, "text": "「#tracked_name#、仲間と袂を分かったらしい。今は一人で無茶な深さに挑んでるとか」" },
-    { "id": "arc_fall_2b", "slotType": "arc_beat", "tags": { "arc": "fall", "beat": 2 }, "text": "「#tracked_name#を諫めた奴が、突き放されたって聞いた。もう誰の声も届かんのだろう」" },
-    { "id": "arc_fall_3a", "slotType": "arc_beat", "tags": { "arc": "fall", "beat": 3 }, "text": "「#tracked_name#は変わっちまった。出くわした者を片端から敵と見るそうだ。近づくな」" },
-    { "id": "arc_fall_3b", "slotType": "arc_beat", "tags": { "arc": "fall", "beat": 3 }, "text": "「#tracked_name#か……あれはもう、昔の#tracked_name#じゃない。災いそのものだ」" },
-
-    { "id": "arc_lore_1a", "slotType": "arc_beat", "tags": { "arc": "lore_drift", "beat": 1 }, "text": "「#tracked_name#の手柄話、語り手によって微妙に違うんだよな。どれが本当やら」" },
-    { "id": "arc_lore_1b", "slotType": "arc_beat", "tags": { "arc": "lore_drift", "beat": 1 }, "text": "「#tracked_name#の武勇伝、聞くたびに尾ひれが増えてる気がするぜ」" },
-    { "id": "arc_lore_2a", "slotType": "arc_beat", "tags": { "arc": "lore_drift", "beat": 2 }, "text": "「#tracked_name#の逸話に、別の誰かの手柄が紛れ込んでる。もう誰も正せんよ」" },
-    { "id": "arc_lore_2b", "slotType": "arc_beat", "tags": { "arc": "lore_drift", "beat": 2 }, "text": "「#tracked_name#がやったって話、実は隣町の別人だったって説もあってな」" },
-    { "id": "arc_lore_3a", "slotType": "arc_beat", "tags": { "arc": "lore_drift", "beat": 3 }, "text": "「#tracked_name#? その名の英雄談なら山ほどあるが……どれが本人のものやら、もう誰も知らん」" },
-    { "id": "arc_lore_3b", "slotType": "arc_beat", "tags": { "arc": "lore_drift", "beat": 3 }, "text": "「#tracked_name#の名は、いまや伝説そのものの代名詞さ。中身が誰かなんて、どうでもよくなった」" },
-    {"id":"ghost_b19_loss_1","slotType":"ghost_noun","tags":{"tone":"loss"},"text":"薄れゆく面影"},
-    {"id":"ghost_b19_loss_2","slotType":"ghost_noun","tags":{"tone":"loss"},"text":"うつろな佇まい"},
-    {"id":"ghost_b19_loss_3","slotType":"ghost_noun","tags":{"tone":"loss"},"text":"輪郭の溶けた人型"},
-    {"id":"ghost_b19_myth_1","slotType":"ghost_noun","tags":{"tone":"myth"},"text":"燐光を帯びた立ち姿"},
-    {"id":"ghost_b19_myth_2","slotType":"ghost_noun","tags":{"tone":"myth"},"text":"古き威を残す影"},
-    {"id":"ghost_b19_myth_3","slotType":"ghost_noun","tags":{"tone":"myth"},"text":"侵しがたい気配"},
-    {"id":"ghost_b19_grudge_1","slotType":"ghost_noun","tags":{"tone":"grudge"},"text":"歯を軋ませる亡霊"},
-    {"id":"ghost_b19_grudge_2","slotType":"ghost_noun","tags":{"tone":"grudge"},"text":"黒い焔をまとう影"},
-    {"id":"ghost_b19_grudge_3","slotType":"ghost_noun","tags":{"tone":"grudge"},"text":"凝り固まった憤怒"},
-    {"id":"beh_b19_loss_1","slotType":"behavior","tags":{"tone":"loss"},"text":"失くしたものを探すように、床をいつまでも撫でている"},
-    {"id":"beh_b19_loss_2","slotType":"behavior","tags":{"tone":"loss"},"text":"誰かの帰りを、ひたすら待ち続けている"},
-    {"id":"beh_b19_loss_3","slotType":"behavior","tags":{"tone":"loss"},"text":"声にならぬ名を、繰り返し口の形にしている"},
-    {"id":"beh_b19_myth_1","slotType":"behavior","tags":{"tone":"myth"},"text":"後から来る者のために、道の罠を払い続けている"},
-    {"id":"beh_b19_myth_2","slotType":"behavior","tags":{"tone":"myth"},"text":"倒れた誰かを庇うように、その場に佇み続けている"},
-    {"id":"beh_b19_myth_3","slotType":"behavior","tags":{"tone":"myth"},"text":"古い誓いを守り、決して持ち場を離れようとしない"},
-    {"id":"beh_b19_grudge_1","slotType":"behavior","tags":{"tone":"grudge"},"text":"果たせなかった一撃を、虚空に振り続けている"},
-    {"id":"beh_b19_grudge_2","slotType":"behavior","tags":{"tone":"grudge"},"text":"裏切り者の名を、低く唱え続けている"},
-    {"id":"beh_b19_grudge_3","slotType":"behavior","tags":{"tone":"grudge"},"text":"己の亡骸を、誰にも触れさせまいと睨んでいる"},
-    {"id":"recog_b19_loss_1","slotType":"recognition","tags":{"tone":"loss"},"text":"お前を見ても、それはただ、もっと遠くを見ていた。"},
-    {"id":"recog_b19_loss_2","slotType":"recognition","tags":{"tone":"loss"},"text":"近づくと、それはわずかに身を縮めた——怯えるように。"},
-    {"id":"recog_b19_loss_3","slotType":"recognition","tags":{"tone":"loss"},"text":"それはお前を、ずっと待っていた誰かと、見間違えたようだった。"},
-    {"id":"recog_b19_myth_1","slotType":"recognition","tags":{"tone":"myth"},"text":"お前を認めると、それは道を譲るように半歩退いた。"},
-    {"id":"recog_b19_myth_2","slotType":"recognition","tags":{"tone":"myth"},"text":"視線が合うと、それは何かを託すように、深く頷いた。"},
-    {"id":"recog_b19_myth_3","slotType":"recognition","tags":{"tone":"myth"},"text":"それはお前の覚悟を量るように、静かに見据えた。"},
-    {"id":"recog_b19_grudge_1","slotType":"recognition","tags":{"tone":"grudge"},"text":"お前の姿に、それは噛みつかんばかりに身を乗り出した。"},
-    {"id":"recog_b19_grudge_2","slotType":"recognition","tags":{"tone":"grudge"},"text":"それはお前を憎き誰かと取り違え、喉の奥で低く唸った。"},
-    {"id":"recog_b19_grudge_3","slotType":"recognition","tags":{"tone":"grudge"},"text":"お前が近づくほどに、その憤怒は赤々と燃え上がった。"},
-    {"id":"death_b19_guard_1","slotType":"death_line","tags":{"finalAct":"guard_relic"},"text":"事切れてなお、託されたものを抱く腕は、決して緩まなかった。"},
-    {"id":"death_b19_guard_2","slotType":"death_line","tags":{"finalAct":"guard_relic"},"text":"最後の息で宝を体の下に隠し、奪う者への呪いを遺した。"},
-    {"id":"death_b19_curse_1","slotType":"death_line","tags":{"finalAct":"curse_dungeon"},"text":"崩れ落ちる間際まで、この淵への呪詛を吐き続けた。"},
-    {"id":"death_b19_curse_2","slotType":"death_line","tags":{"finalAct":"curse_dungeon"},"text":"最後の血で壁に呪いを描きつけ、こと切れた。"},
-    {"id":"death_b19_will_1","slotType":"death_line","tags":{"finalAct":"leave_will"},"text":"力尽きる前に、後の者への言伝を石へ刻みつけた。"},
-    {"id":"death_b19_will_2","slotType":"death_line","tags":{"finalAct":"leave_will"},"text":"遺す言葉を握りしめたまま、その手は冷たくなった。"},
-    {"id":"death_b19_accept_1","slotType":"death_line","tags":{"finalAct":"accept"},"text":"抗うことをやめ、深い吐息とともに闇へ身を委ねた。"},
-    {"id":"death_b19_accept_2","slotType":"death_line","tags":{"finalAct":"accept"},"text":"穏やかな面持ちのまま、訪れる終わりを静かに迎えた。"},
-    {"id":"rumor_b19_1","slotType":"rumor","tags":{},"text":"「#origin_name#の亡骸に手を合わせると、深みで運が向くって験担ぎがあるのさ」"},
-    {"id":"rumor_b19_2","slotType":"rumor","tags":{},"text":"「#depth#のあたりで松明が急に消えたら、#origin_name#が傍にいる合図だとよ」"},
-    {"id":"rumor_b19_3","slotType":"rumor","tags":{},"text":"「#origin_gear#を見つけても、持ち主の名を呼ぶなよ。#origin_name#が気づいちまう」"},
-    {"id":"rumor_b19_4","slotType":"rumor","tags":{},"text":"「#origin_name#? 弔ってやりゃ夢枕に立って、下への近道を教えるって話だ」"},
-    {"id":"rumor_b19_5","slotType":"rumor","tags":{},"text":"「あの#origin_epithet#でさえ還れなかった淵だ。生半可な覚悟で潜るんじゃねえ」"},
-    {"id":"rumor_b19_6","slotType":"rumor","tags":{},"text":"「#origin_name#の声が聞こえ出したら、そりゃ深蝕が回ってる証さ。引き返しな」"},
-    {"id":"rumor_b19_7","slotType":"rumor","tags":{},"text":"「#depth#より下は#origin_name#みたいな手練れの墓場よ。腕に覚えがあるほど油断すんな」"},
-    {"id":"rumor_b19_8","slotType":"rumor","tags":{},"text":"「#origin_gear#を継いだ奴が、先月また一人、還らなかったとさ」"},
-    {"id":"rumor_b19_9","slotType":"rumor","tags":{},"text":"「#origin_name#を悼む花が、誰の仕業か、今も絶えないんだ」"}
+    {
+      "id": "frame_loss_weathered_1",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "loss",
+        "stage": "weathered"
+      },
+      "text": "通路の片隅に、白骨が静かに横たわっている。傍らで#origin_gear#が錆びていた。#origin_name#――その名を、もう呼ぶ者はいない。"
+    },
+    {
+      "id": "frame_loss_weathered_2",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "loss",
+        "stage": "weathered"
+      },
+      "text": "崩れた寝床の跡。色褪せた外套と#origin_gear#。壁に爪で刻まれた『#origin_name#』の文字だけが、ここに人がいたことを告げている。"
+    },
+    {
+      "id": "frame_loss_twisting_1",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "loss",
+        "stage": "twisting"
+      },
+      "text": "#ghost#が、#origin_gear#を抱いたまま座っている。骨の表面にうっすらと結晶が吹き、#behavior#。#origin_name#だったものだ。"
+    },
+    {
+      "id": "frame_loss_alien_1",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "loss",
+        "stage": "alien"
+      },
+      "text": "そこに人の形はもうない。ただ#ghost#が漂い、#behavior#。沈んだ輪郭の中心に、#origin_gear#の影だけが原型を保っている。#recognition#"
+    },
+    {
+      "id": "frame_myth_weathered_1",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "myth",
+        "stage": "weathered"
+      },
+      "text": "小さな石塚が組まれ、#origin_gear#が突き立てられている。誰かが手向けた花は枯れて久しい。#origin_name#の名は、まだ薄れていない。"
+    },
+    {
+      "id": "frame_myth_twisting_1",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "myth",
+        "stage": "twisting"
+      },
+      "text": "淡い光をまとう#ghost#が、道を示すように佇んでいる。#origin_gear#は台座のごとく岩と一体化しはじめていた。#behavior#。#origin_name#――その名は、いまや道標である。"
+    },
+    {
+      "id": "frame_myth_alien_1",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "myth",
+        "stage": "alien"
+      },
+      "text": "祠のような空洞の中心に、#ghost#が鎮座している。#origin_gear#は聖遺物のように輝きを変質させ、#behavior#。#recognition#　人々が#origin_name#と呼んだ存在の、これが現在の姿だ。"
+    },
+    {
+      "id": "frame_grudge_twisting_1",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "grudge",
+        "stage": "twisting"
+      },
+      "text": "#ghost#が、#origin_gear#を引きずって徘徊している。生前の口癖『#origin_catchphrase#』を、壊れたように繰り返している。#recognition#"
+    },
+    {
+      "id": "frame_grudge_alien_1",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "grudge",
+        "stage": "alien"
+      },
+      "text": "淀んだ空気の奥から、#ghost#が現れる。原型はほとんど失われ、ただ#origin_gear#だけが昏く脈打っている。#behavior#。#recognition#"
+    },
+    {
+      "id": "frame_grudge_weathered_1",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "grudge",
+        "stage": "weathered"
+      },
+      "text": "亡骸は壁に向かって倒れていた。#origin_gear#は最後まで手放されていない。爪痕が床に深く残る。#origin_name#は、安らかには逝かなかった。"
+    },
+    {
+      "id": "ghost_loss_1",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "淡い影"
+    },
+    {
+      "id": "ghost_loss_2",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "声のない残響"
+    },
+    {
+      "id": "ghost_loss_3",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "ほどけかけた人影"
+    },
+    {
+      "id": "ghost_myth_1",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "光をまとう守護者"
+    },
+    {
+      "id": "ghost_myth_2",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "静かな輝跡"
+    },
+    {
+      "id": "ghost_grudge_1",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "慟哭する怨霊"
+    },
+    {
+      "id": "ghost_grudge_2",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "昏い眼窩の影"
+    },
+    {
+      "id": "behavior_loss_1",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "誰にも気づかぬまま、同じ数歩を往復し続けている"
+    },
+    {
+      "id": "behavior_loss_2",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "時折、空の手で何かを拾う仕草をする"
+    },
+    {
+      "id": "behavior_myth_1",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "迷う者へ、進むべき道をそっと指し示す"
+    },
+    {
+      "id": "behavior_myth_2",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "近づく邪なものを、無言で退けている"
+    },
+    {
+      "id": "behavior_grudge_1",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "通りかかる生者の名を、ひとつずつ確かめている"
+    },
+    {
+      "id": "behavior_grudge_2",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "壁を引っ掻き、終わらない恨み言を刻み続けている"
+    },
+    {
+      "id": "recog_loss_1",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "お前が近づいても、それは振り向かない。"
+    },
+    {
+      "id": "recog_myth_1",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "お前を認めると、それは深く一礼した。"
+    },
+    {
+      "id": "recog_grudge_1",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "お前を認めた途端、その眼窩に昏い火が灯った。"
+    },
+    {
+      "id": "recog_grudge_2",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "それはお前の名を正確に呼び、ゆっくりとこちらを向いた。"
+    },
+    {
+      "id": "death_guard_1",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "guard_relic"
+      },
+      "text": "最後の力で遺品を胸に抱き、奪われぬよう身体で覆った。"
+    },
+    {
+      "id": "death_curse_1",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "curse_dungeon"
+      },
+      "text": "血の混じる声で迷宮を呪い、その怨嗟は壁に染み込んだ。"
+    },
+    {
+      "id": "death_will_1",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "leave_will"
+      },
+      "text": "震える手で最後の言葉を記し、来る者へ託した。"
+    },
+    {
+      "id": "death_accept_1",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "accept"
+      },
+      "text": "静かに目を閉じ、迷宮の闇をただ受け入れた。"
+    },
+    {
+      "id": "frame_loss_weathered_3",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "loss",
+        "stage": "weathered"
+      },
+      "text": "#origin_name# は壁にもたれ、膝を抱えたまま動かない。#origin_gear# が傍らに転がり、薄い埃をかぶっている。その顔は、出口の方をじっと向いていた。"
+    },
+    {
+      "id": "frame_loss_weathered_4",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "loss",
+        "stage": "weathered"
+      },
+      "text": "床に小さく積まれた石——道しるべのつもりだったのだろう。その先で #origin_name# は力尽き、#origin_gear# を抱いて冷たくなっていた。"
+    },
+    {
+      "id": "frame_loss_weathered_5",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "loss",
+        "stage": "weathered"
+      },
+      "text": "乾いた手記の切れ端が、#origin_gear# の下から覗いている。最後の一行は途中で途切れていた。#origin_name# は、書き終える前に眠ったらしい。"
+    },
+    {
+      "id": "frame_loss_twisting_2",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "loss",
+        "stage": "twisting"
+      },
+      "text": "#origin_name# だったものが、#origin_gear# を膝に揃えて座っている。輪郭はゆるやかにほどけ、#behavior#。"
+    },
+    {
+      "id": "frame_loss_twisting_3",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "loss",
+        "stage": "twisting"
+      },
+      "text": "薄い燐光が #ghost# のかたちに溜まっている。#origin_gear# の表面に霜のような模様が広がり、#recognition#"
+    },
+    {
+      "id": "frame_loss_alien_2",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "loss",
+        "stage": "alien"
+      },
+      "text": "そこにあるのは、もう人ではない何かだ。#ghost# が緩慢に脈打ち、#behavior#。沈んだ核の奥に、#origin_gear# の影が辛うじて残っている。"
+    },
+    {
+      "id": "frame_loss_alien_3",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "loss",
+        "stage": "alien"
+      },
+      "text": "空間そのものが軋む。#ghost# が滲み出し、#origin_name# という名の記憶だけが、#origin_gear# の輪郭にこびりついている。#recognition#"
+    },
+    {
+      "id": "frame_myth_weathered_2",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "myth",
+        "stage": "weathered"
+      },
+      "text": "通路の壁に、誰かが彫った碑がある。『#origin_name# ここに眠る』——その下に #origin_gear# が供えられ、丁寧に布で巻かれていた。"
+    },
+    {
+      "id": "frame_myth_weathered_3",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "myth",
+        "stage": "weathered"
+      },
+      "text": "灯明の跡が残る一角。#origin_gear# が祭壇のように据えられ、#origin_name# の名はまだ擦り消されていない。後から来た誰かが、手を合わせた跡がある。"
+    },
+    {
+      "id": "frame_myth_twisting_2",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "myth",
+        "stage": "twisting"
+      },
+      "text": "#ghost# が、行く手の闇をそっと払うように佇んでいる。#origin_gear# は岩に半ば溶け込み、#behavior#。#origin_name# の名は、もはや道標だ。"
+    },
+    {
+      "id": "frame_myth_twisting_3",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "myth",
+        "stage": "twisting"
+      },
+      "text": "淡い光の柱の中に、#origin_name# だったものがいる。#origin_gear# が静かに輝きを変じ、#recognition#"
+    },
+    {
+      "id": "frame_myth_alien_2",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "myth",
+        "stage": "alien"
+      },
+      "text": "空洞の奥が、ささやかな聖域のように澄んでいる。#ghost# が鎮まり、#origin_gear# は遺物めいた光を放つ。#behavior#。かつて #origin_name# と呼ばれた何かの、いまの姿だ。"
+    },
+    {
+      "id": "frame_grudge_weathered_2",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "grudge",
+        "stage": "weathered"
+      },
+      "text": "#origin_name# の亡骸は、出口とは逆——奥へ向かって倒れていた。#origin_gear# を握る指は、まだ何かを追っている。床の引っ掻き傷が、その執念を物語る。"
+    },
+    {
+      "id": "frame_grudge_weathered_3",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "grudge",
+        "stage": "weathered"
+      },
+      "text": "壁一面に、同じ名が爪で刻まれている。読むほどに寒気がする。中央で #origin_name# が #origin_gear# を抱いて事切れていた。安らぎは、どこにもない。"
+    },
+    {
+      "id": "frame_grudge_twisting_2",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "grudge",
+        "stage": "twisting"
+      },
+      "text": "#ghost# が #origin_gear# を引きずり、同じ一画を巡り続けている。#behavior#。近づくと、空気が粘りつくように重くなった。"
+    },
+    {
+      "id": "frame_grudge_twisting_3",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "grudge",
+        "stage": "twisting"
+      },
+      "text": "歪んだ #ghost# が、#origin_name# と呼ばれた何かの残り滓を曳いている。#origin_gear# が昏く脈打ち、#recognition#"
+    },
+    {
+      "id": "frame_grudge_alien_2",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "grudge",
+        "stage": "alien"
+      },
+      "text": "闇の底が、ぐぷりと盛り上がる。#ghost# が形を成し、#behavior#。原型はもう無い。ただ #origin_gear# だけが、憎しみのかたちで光っている。#recognition#"
+    },
+    {
+      "id": "frame_grudge_alien_3",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "grudge",
+        "stage": "alien"
+      },
+      "text": "それは部屋ごと敵意だった。#ghost# が四方から滲み、#origin_gear# の残響が壁を伝う。#recognition#"
+    },
+    {
+      "id": "ghost_loss_4",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "うすれゆく面影"
+    },
+    {
+      "id": "ghost_loss_5",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "輪郭のぼやけた人型"
+    },
+    {
+      "id": "ghost_myth_3",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "灯火のような佇まい"
+    },
+    {
+      "id": "ghost_myth_4",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "凪いだ光の影"
+    },
+    {
+      "id": "ghost_grudge_3",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "軋みを上げる黒い影"
+    },
+    {
+      "id": "ghost_grudge_4",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "歯を鳴らす亡魂"
+    },
+    {
+      "id": "behavior_loss_3",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "誰かの名を呼ぼうとして、声にならず口だけを動かしている"
+    },
+    {
+      "id": "behavior_loss_4",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "落ちた何かを拾おうと、いつまでも手を伸ばし続けている"
+    },
+    {
+      "id": "behavior_myth_3",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "通り過ぎる者の傷を、見えぬ手でなぞって癒すように動く"
+    },
+    {
+      "id": "behavior_myth_4",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "闇の奥を見据え、何かが来るのを静かに防いでいる"
+    },
+    {
+      "id": "behavior_grudge_3",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "自分を見捨てた者の影を、執拗に探し回っている"
+    },
+    {
+      "id": "behavior_grudge_4",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "聞き取れない呪詛を、休みなく唇に乗せている"
+    },
+    {
+      "id": "recog_loss_2",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "お前の気配にも、それは何の反応も見せなかった。"
+    },
+    {
+      "id": "recog_loss_3",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "ほんの一瞬こちらを見た気がしたが、それはもう俯いていた。"
+    },
+    {
+      "id": "recog_myth_2",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "お前を認めると、それは行く道の方角を指し示した。"
+    },
+    {
+      "id": "recog_myth_3",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "それは静かにうなずき、来た意味を問うように佇んだ。"
+    },
+    {
+      "id": "recog_grudge_3",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "お前と目が合うなり、それは低く軋む声を漏らした。"
+    },
+    {
+      "id": "recog_grudge_4",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "近づくほどに、その敵意がこちらの肌を刺してくる。"
+    },
+    {
+      "id": "death_guard_2",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "guard_relic"
+      },
+      "text": "亡骸はなお遺品の上に覆い被さり、奪う手を拒むように固まっていた。"
+    },
+    {
+      "id": "death_guard_3",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "guard_relic"
+      },
+      "text": "託されたものを最後まで離さず、その腕は石のように守りの形で固まっていた。"
+    },
+    {
+      "id": "death_curse_2",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "curse_dungeon"
+      },
+      "text": "事切れる間際まで呪詛を吐き、その声は今も壁の奥でくぐもって響く。"
+    },
+    {
+      "id": "death_curse_3",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "curse_dungeon"
+      },
+      "text": "迷宮への憎しみを血で床に書きつけ、最後の一字の途中で力尽きた。"
+    },
+    {
+      "id": "death_will_2",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "leave_will"
+      },
+      "text": "最後の力で遺すべき言葉を刻み、来る者へ道を残して逝った。"
+    },
+    {
+      "id": "death_will_3",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "leave_will"
+      },
+      "text": "託す相手の顔も知らぬまま、それでも筆を執り、想いを一行に込めた。"
+    },
+    {
+      "id": "death_accept_2",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "accept"
+      },
+      "text": "抗うことをやめ、深い息をひとつ吐いて、闇に身を預けた。"
+    },
+    {
+      "id": "death_accept_3",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "accept"
+      },
+      "text": "恐れも悔いも溶けたような顔で、ただ静かに終わりを迎えた。"
+    },
+    {
+      "id": "quirk_1",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "暗闇で目が利くようになった気がする"
+    },
+    {
+      "id": "quirk_2",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "深層の夢を毎夜見る"
+    },
+    {
+      "id": "quirk_3",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "左手が時々、他人の手に見える"
+    },
+    {
+      "id": "quirk_4",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "静寂の中に、底からの呼び声を聞く"
+    },
+    {
+      "id": "quirk_5",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "傷の治りが妙に早い。早すぎる"
+    },
+    {
+      "id": "quirk_6",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "鏡を覗くと、像が一拍遅れて動く"
+    },
+    {
+      "id": "quirk_7",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "食事の味が、日ごとに分からなくなっていく"
+    },
+    {
+      "id": "quirk_8",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "自分の影が、時々こちらを見ている気がする"
+    },
+    {
+      "id": "quirk_9",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "眠ると、知らない言葉で寝言を言うと、人に指摘された"
+    },
+    {
+      "id": "quirk_10",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "流れる血の色が、ほんの少しだけ黒い"
+    },
+    {
+      "id": "quirk_11",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "雑踏の中で、ふと、行き交う全員の顔が同じに見える"
+    },
+    {
+      "id": "quirk_12",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "痛みを、どこか遠いもののように感じる"
+    },
+    {
+      "id": "quirk_13",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "物を数えると、いつも一つだけ多い"
+    },
+    {
+      "id": "quirk_14",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "暗がりのほうが、明るい場所より落ち着く"
+    },
+    {
+      "id": "quirk_15",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "指先が、たまに自分のものでないように冷たい"
+    },
+    {
+      "id": "quirk_16",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "声に出して笑う、その笑い方を、思い出せない時がある"
+    },
+    {
+      "id": "quirk_17",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "知らないはずの古い名で呼ばれた気がして、振り返る癖がついた"
+    },
+    {
+      "id": "rumor_1",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「#origin_name#を見たって奴がいる。……いや、あれはもう、本人じゃあない」"
+    },
+    {
+      "id": "rumor_2",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「#depth#のあたりで、#origin_gear#を持った何かが彷徨ってるらしい」"
+    },
+    {
+      "id": "rumor_3",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「#origin_name#の亡骸、まだ誰も弔ってないんだとさ」"
+    },
+    {
+      "id": "rumor_4",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「#origin_epithet#か……あの#origin_gear#を継ぐ度胸のある奴は、まだ現れんのか」"
+    },
+    {
+      "id": "rumor_5",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「#depth#より下じゃ、#origin_name#の声が聞こえるそうだ。名を呼ばれても、答えちゃいけねえ」"
+    },
+    {
+      "id": "rumor_6",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「#origin_name#? ああ、#origin_epithet#だろ。今や、化けて出るって噂さ」"
+    },
+    {
+      "id": "rumor_7",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「#origin_gear#を提げた影を見たら、近づくな。持ち主は、もう人じゃあない」"
+    },
+    {
+      "id": "rumor_8",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「ギルドが#origin_name#の名を、討伐の名簿に載せたとか。生きてるのか、あれは」"
+    },
+    {
+      "id": "rumor_9",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「#depth#で#origin_name#に出くわしたら、目を合わせるな。連れていかれるぞ」"
+    },
+    {
+      "id": "rumor_10",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「あの#origin_epithet#でさえ、底からは還れなかった。俺たちに、何ができるってんだ」"
+    },
+    {
+      "id": "rumor_11",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「#origin_name#の名を出すと、酒場が静まる。皆、心当たりがあるのさ」"
+    },
+    {
+      "id": "rumor_12",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「夢に#origin_gear#の輝きを見る。あれを継げと、誰かが呼んでる気がしてな……」"
+    },
+    {
+      "id": "arole_1",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "行商人"
+    },
+    {
+      "id": "arole_2",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "傷だらけの斥候"
+    },
+    {
+      "id": "arole_3",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "老いた巡礼者"
+    },
+    {
+      "id": "arole_4",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "酒場の語り部"
+    },
+    {
+      "id": "arole_5",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "迷宮帰りの元探索者"
+    },
+    {
+      "id": "arole_6",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "宿無しの占い師"
+    },
+    {
+      "id": "aname_1",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ヴェル"
+    },
+    {
+      "id": "aname_2",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "サグ"
+    },
+    {
+      "id": "aname_3",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "老イド"
+    },
+    {
+      "id": "aname_4",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "リサ"
+    },
+    {
+      "id": "aname_5",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ノエ"
+    },
+    {
+      "id": "aname_6",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "片目のタス"
+    },
+    {
+      "id": "agear_1",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "擦り切れた背嚢"
+    },
+    {
+      "id": "agear_2",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "節くれだった杖"
+    },
+    {
+      "id": "agear_3",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "古びた地図筒"
+    },
+    {
+      "id": "agear_4",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "欠けた角灯"
+    },
+    {
+      "id": "agear_5",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "色褪せた護符"
+    },
+    {
+      "id": "agear_6",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "鞣革の手袋"
+    },
+    {
+      "id": "aepi_1",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "辻の"
+    },
+    {
+      "id": "aepi_2",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "三度死にかけた"
+    },
+    {
+      "id": "aepi_3",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "底知らずの"
+    },
+    {
+      "id": "aepi_4",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "口の減らない"
+    },
+    {
+      "id": "aepi_5",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "懐かしがりの"
+    },
+    {
+      "id": "aepi_6",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "迷い慣れた"
+    },
+    {
+      "id": "aname_7",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "カイ"
+    },
+    {
+      "id": "aname_8",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ドラ"
+    },
+    {
+      "id": "aname_9",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ミラ"
+    },
+    {
+      "id": "aname_10",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ゼフ"
+    },
+    {
+      "id": "aname_11",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ハト"
+    },
+    {
+      "id": "aname_12",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ルゥ"
+    },
+    {
+      "id": "aname_13",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ベナ"
+    },
+    {
+      "id": "aname_14",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ソル"
+    },
+    {
+      "id": "aname_15",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ヤナ"
+    },
+    {
+      "id": "aname_16",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "グレン"
+    },
+    {
+      "id": "aname_17",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "トビ"
+    },
+    {
+      "id": "aname_18",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ネス"
+    },
+    {
+      "id": "aname_19",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ウルカ"
+    },
+    {
+      "id": "aname_20",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "シマ"
+    },
+    {
+      "id": "aname_21",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ロゥド"
+    },
+    {
+      "id": "aname_22",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "フェン"
+    },
+    {
+      "id": "aname_23",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "アキ"
+    },
+    {
+      "id": "aname_24",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "モル"
+    },
+    {
+      "id": "aname_25",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ジン"
+    },
+    {
+      "id": "aname_26",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "クレハ"
+    },
+    {
+      "id": "aname_27",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "バルド"
+    },
+    {
+      "id": "aname_28",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "セナ"
+    },
+    {
+      "id": "aname_29",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ティル"
+    },
+    {
+      "id": "aname_30",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ナハ"
+    },
+    {
+      "id": "aname_31",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "エド"
+    },
+    {
+      "id": "aname_32",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ヴィカ"
+    },
+    {
+      "id": "aname_33",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ラム"
+    },
+    {
+      "id": "aname_34",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ホズ"
+    },
+    {
+      "id": "aname_35",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ギオ"
+    },
+    {
+      "id": "aname_36",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "隻眼のゴル"
+    },
+    {
+      "id": "arole_7",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "駆け出しの探索者"
+    },
+    {
+      "id": "arole_8",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "隻腕の傭兵"
+    },
+    {
+      "id": "arole_9",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "物乞いの老人"
+    },
+    {
+      "id": "arole_10",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "薬草売り"
+    },
+    {
+      "id": "arole_11",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "棺桶職人"
+    },
+    {
+      "id": "arole_12",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "元・聖堂の書記"
+    },
+    {
+      "id": "arole_13",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "鉱夫あがり"
+    },
+    {
+      "id": "arole_14",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "流れの吟遊詩人"
+    },
+    {
+      "id": "arole_15",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "賞金稼ぎ"
+    },
+    {
+      "id": "arole_16",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "迷宮案内人くずれ"
+    },
+    {
+      "id": "arole_17",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "香具師"
+    },
+    {
+      "id": "arole_18",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "露天の鍛冶弟子"
+    },
+    {
+      "id": "arole_19",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "子連れの寡婦"
+    },
+    {
+      "id": "arole_20",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "病みあがりの坑夫"
+    },
+    {
+      "id": "arole_21",
+      "slotType": "actor_role",
+      "tags": {},
+      "text": "義足の元門番"
+    },
+    {
+      "id": "aepi_7",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "名うての"
+    },
+    {
+      "id": "aepi_8",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "影の薄い"
+    },
+    {
+      "id": "aepi_9",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "訳ありの"
+    },
+    {
+      "id": "aepi_10",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "ひと癖ある"
+    },
+    {
+      "id": "aepi_11",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "物静かな"
+    },
+    {
+      "id": "aepi_12",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "やけに陽気な"
+    },
+    {
+      "id": "aepi_13",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "痩せこけた"
+    },
+    {
+      "id": "aepi_14",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "古傷だらけの"
+    },
+    {
+      "id": "aepi_15",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "噂好きの"
+    },
+    {
+      "id": "aepi_16",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "抜け目ない"
+    },
+    {
+      "id": "aepi_17",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "くたびれた"
+    },
+    {
+      "id": "aepi_18",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "妙に身綺麗な"
+    },
+    {
+      "id": "aepi_19",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "大柄な"
+    },
+    {
+      "id": "aepi_20",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "しわがれ声の"
+    },
+    {
+      "id": "aepi_21",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "人見知りの"
+    },
+    {
+      "id": "agear_7",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "鉄縁の眼鏡"
+    },
+    {
+      "id": "agear_8",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "血錆びた手斧"
+    },
+    {
+      "id": "agear_9",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "継ぎ接ぎの外套"
+    },
+    {
+      "id": "agear_10",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "重そうな鍵束"
+    },
+    {
+      "id": "agear_11",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "干からびた携行食"
+    },
+    {
+      "id": "agear_12",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "黒ずんだ銅貨袋"
+    },
+    {
+      "id": "agear_13",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "油紙の包み"
+    },
+    {
+      "id": "agear_14",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "軋む義足"
+    },
+    {
+      "id": "agear_15",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "縄と鉤爪"
+    },
+    {
+      "id": "agear_16",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "香の数珠"
+    },
+    {
+      "id": "agear_17",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "細身の刺突剣"
+    },
+    {
+      "id": "agear_18",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "泥だらけの長靴"
+    },
+    {
+      "id": "agear_19",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "ひしゃげた水筒"
+    },
+    {
+      "id": "agear_20",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "護符だらけの帯"
+    },
+    {
+      "id": "agear_21",
+      "slotType": "actor_gear",
+      "tags": {},
+      "text": "ささくれた木札"
+    },
+    {
+      "id": "agrade_iron_1",
+      "slotType": "actor_grade",
+      "tags": {},
+      "text": "iron"
+    },
+    {
+      "id": "agrade_iron_2",
+      "slotType": "actor_grade",
+      "tags": {},
+      "text": "iron"
+    },
+    {
+      "id": "agrade_iron_3",
+      "slotType": "actor_grade",
+      "tags": {},
+      "text": "iron"
+    },
+    {
+      "id": "agrade_iron_4",
+      "slotType": "actor_grade",
+      "tags": {},
+      "text": "iron"
+    },
+    {
+      "id": "agrade_iron_5",
+      "slotType": "actor_grade",
+      "tags": {},
+      "text": "iron"
+    },
+    {
+      "id": "agrade_bronze_1",
+      "slotType": "actor_grade",
+      "tags": {},
+      "text": "bronze"
+    },
+    {
+      "id": "agrade_bronze_2",
+      "slotType": "actor_grade",
+      "tags": {},
+      "text": "bronze"
+    },
+    {
+      "id": "agrade_bronze_3",
+      "slotType": "actor_grade",
+      "tags": {},
+      "text": "bronze"
+    },
+    {
+      "id": "agrade_bronze_4",
+      "slotType": "actor_grade",
+      "tags": {},
+      "text": "bronze"
+    },
+    {
+      "id": "agrade_silver_1",
+      "slotType": "actor_grade",
+      "tags": {},
+      "text": "silver"
+    },
+    {
+      "id": "agrade_silver_2",
+      "slotType": "actor_grade",
+      "tags": {},
+      "text": "silver"
+    },
+    {
+      "id": "agrade_silver_3",
+      "slotType": "actor_grade",
+      "tags": {},
+      "text": "silver"
+    },
+    {
+      "id": "agrade_gold_1",
+      "slotType": "actor_grade",
+      "tags": {},
+      "text": "gold"
+    },
+    {
+      "id": "agrade_gold_2",
+      "slotType": "actor_grade",
+      "tags": {},
+      "text": "gold"
+    },
+    {
+      "id": "agrade_platinum_1",
+      "slotType": "actor_grade",
+      "tags": {},
+      "text": "platinum"
+    },
+    {
+      "id": "arc_doom_1a",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "doom",
+        "beat": 1
+      },
+      "text": "「#tracked_name#か。ここんとこ、取り憑かれたみたいに毎日潜ってるそうだ」"
+    },
+    {
+      "id": "arc_doom_1b",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "doom",
+        "beat": 1
+      },
+      "text": "「#tracked_name#が浅層を素通りして、もっと下へ下へと急いでるらしい」"
+    },
+    {
+      "id": "arc_doom_2a",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "doom",
+        "beat": 2
+      },
+      "text": "「#tracked_name#と深層ですれ違った奴が言うには……目が、こっちを見ていなかったとさ」"
+    },
+    {
+      "id": "arc_doom_2b",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "doom",
+        "beat": 2
+      },
+      "text": "「#tracked_name#の声が、人のものじゃなくなってきたって噂だ。気味が悪い」"
+    },
+    {
+      "id": "arc_doom_3a",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "doom",
+        "beat": 3
+      },
+      "text": "「#tracked_name#は、もう戻らないだろうよ。深みが気に入っちまったのさ」"
+    },
+    {
+      "id": "arc_doom_3b",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "doom",
+        "beat": 3
+      },
+      "text": "「#tracked_name#の名は、これからは“喪われた英雄”の側に並ぶことになる」"
+    },
+    {
+      "id": "arc_retire_1a",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "retire",
+        "beat": 1
+      },
+      "text": "「#tracked_name#、そろそろ潮時だと洩らしてたな。賢い引き際ってもんだ」"
+    },
+    {
+      "id": "arc_retire_1b",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "retire",
+        "beat": 1
+      },
+      "text": "「#tracked_name#が深層通いをやめたらしい。あれだけの腕で、惜しいもんだ」"
+    },
+    {
+      "id": "arc_retire_2a",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "retire",
+        "beat": 2
+      },
+      "text": "「#tracked_name#は今、若い連中に手ほどきしてるってさ。いい先生になったもんだ」"
+    },
+    {
+      "id": "arc_retire_2b",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "retire",
+        "beat": 2
+      },
+      "text": "「#tracked_name#を広場で見かけたよ。剣じゃなく、酒を傾けてた。穏やかな顔でな」"
+    },
+    {
+      "id": "arc_retire_3a",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "retire",
+        "beat": 3
+      },
+      "text": "「#tracked_name#の武勇伝、もう吟遊詩人が歌にしてる。生きて伝説になるとはな」"
+    },
+    {
+      "id": "arc_retire_3b",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "retire",
+        "beat": 3
+      },
+      "text": "「#tracked_name#は街の守り神みたいなもんさ。あの人がいる限り、ここは安泰だ」"
+    },
+    {
+      "id": "arc_fall_1a",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "fall",
+        "beat": 1
+      },
+      "text": "「#tracked_name#は今が絶頂だな。……だが、ああいうのは長くないってのが相場だ」"
+    },
+    {
+      "id": "arc_fall_1b",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "fall",
+        "beat": 1
+      },
+      "text": "「#tracked_name#、近頃ちょっと天狗になってないか? 危なっかしいぜ」"
+    },
+    {
+      "id": "arc_fall_2a",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "fall",
+        "beat": 2
+      },
+      "text": "「#tracked_name#、仲間と袂を分かったらしい。今は一人で無茶な深さに挑んでるとか」"
+    },
+    {
+      "id": "arc_fall_2b",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "fall",
+        "beat": 2
+      },
+      "text": "「#tracked_name#を諫めた奴が、突き放されたって聞いた。もう誰の声も届かんのだろう」"
+    },
+    {
+      "id": "arc_fall_3a",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "fall",
+        "beat": 3
+      },
+      "text": "「#tracked_name#は変わっちまった。出くわした者を片端から敵と見るそうだ。近づくな」"
+    },
+    {
+      "id": "arc_fall_3b",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "fall",
+        "beat": 3
+      },
+      "text": "「#tracked_name#か……あれはもう、昔の#tracked_name#じゃない。災いそのものだ」"
+    },
+    {
+      "id": "arc_lore_1a",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "lore_drift",
+        "beat": 1
+      },
+      "text": "「#tracked_name#の手柄話、語り手によって微妙に違うんだよな。どれが本当やら」"
+    },
+    {
+      "id": "arc_lore_1b",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "lore_drift",
+        "beat": 1
+      },
+      "text": "「#tracked_name#の武勇伝、聞くたびに尾ひれが増えてる気がするぜ」"
+    },
+    {
+      "id": "arc_lore_2a",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "lore_drift",
+        "beat": 2
+      },
+      "text": "「#tracked_name#の逸話に、別の誰かの手柄が紛れ込んでる。もう誰も正せんよ」"
+    },
+    {
+      "id": "arc_lore_2b",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "lore_drift",
+        "beat": 2
+      },
+      "text": "「#tracked_name#がやったって話、実は隣町の別人だったって説もあってな」"
+    },
+    {
+      "id": "arc_lore_3a",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "lore_drift",
+        "beat": 3
+      },
+      "text": "「#tracked_name#? その名の英雄談なら山ほどあるが……どれが本人のものやら、もう誰も知らん」"
+    },
+    {
+      "id": "arc_lore_3b",
+      "slotType": "arc_beat",
+      "tags": {
+        "arc": "lore_drift",
+        "beat": 3
+      },
+      "text": "「#tracked_name#の名は、いまや伝説そのものの代名詞さ。中身が誰かなんて、どうでもよくなった」"
+    },
+    {
+      "id": "ghost_b19_loss_1",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "薄れゆく面影"
+    },
+    {
+      "id": "ghost_b19_loss_2",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "うつろな佇まい"
+    },
+    {
+      "id": "ghost_b19_loss_3",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "輪郭の溶けた人型"
+    },
+    {
+      "id": "ghost_b19_myth_1",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "燐光を帯びた立ち姿"
+    },
+    {
+      "id": "ghost_b19_myth_2",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "古き威を残す影"
+    },
+    {
+      "id": "ghost_b19_myth_3",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "侵しがたい気配"
+    },
+    {
+      "id": "ghost_b19_grudge_1",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "歯を軋ませる亡霊"
+    },
+    {
+      "id": "ghost_b19_grudge_2",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "黒い焔をまとう影"
+    },
+    {
+      "id": "ghost_b19_grudge_3",
+      "slotType": "ghost_noun",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "凝り固まった憤怒"
+    },
+    {
+      "id": "beh_b19_loss_1",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "失くしたものを探すように、床をいつまでも撫でている"
+    },
+    {
+      "id": "beh_b19_loss_2",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "誰かの帰りを、ひたすら待ち続けている"
+    },
+    {
+      "id": "beh_b19_loss_3",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "声にならぬ名を、繰り返し口の形にしている"
+    },
+    {
+      "id": "beh_b19_myth_1",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "後から来る者のために、道の罠を払い続けている"
+    },
+    {
+      "id": "beh_b19_myth_2",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "倒れた誰かを庇うように、その場に佇み続けている"
+    },
+    {
+      "id": "beh_b19_myth_3",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "古い誓いを守り、決して持ち場を離れようとしない"
+    },
+    {
+      "id": "beh_b19_grudge_1",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "果たせなかった一撃を、虚空に振り続けている"
+    },
+    {
+      "id": "beh_b19_grudge_2",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "裏切り者の名を、低く唱え続けている"
+    },
+    {
+      "id": "beh_b19_grudge_3",
+      "slotType": "behavior",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "己の亡骸を、誰にも触れさせまいと睨んでいる"
+    },
+    {
+      "id": "recog_b19_loss_1",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "お前を見ても、それはただ、もっと遠くを見ていた。"
+    },
+    {
+      "id": "recog_b19_loss_2",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "近づくと、それはわずかに身を縮めた——怯えるように。"
+    },
+    {
+      "id": "recog_b19_loss_3",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "loss"
+      },
+      "text": "それはお前を、ずっと待っていた誰かと、見間違えたようだった。"
+    },
+    {
+      "id": "recog_b19_myth_1",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "お前を認めると、それは道を譲るように半歩退いた。"
+    },
+    {
+      "id": "recog_b19_myth_2",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "視線が合うと、それは何かを託すように、深く頷いた。"
+    },
+    {
+      "id": "recog_b19_myth_3",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "myth"
+      },
+      "text": "それはお前の覚悟を量るように、静かに見据えた。"
+    },
+    {
+      "id": "recog_b19_grudge_1",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "お前の姿に、それは噛みつかんばかりに身を乗り出した。"
+    },
+    {
+      "id": "recog_b19_grudge_2",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "それはお前を憎き誰かと取り違え、喉の奥で低く唸った。"
+    },
+    {
+      "id": "recog_b19_grudge_3",
+      "slotType": "recognition",
+      "tags": {
+        "tone": "grudge"
+      },
+      "text": "お前が近づくほどに、その憤怒は赤々と燃え上がった。"
+    },
+    {
+      "id": "death_b19_guard_1",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "guard_relic"
+      },
+      "text": "事切れてなお、託されたものを抱く腕は、決して緩まなかった。"
+    },
+    {
+      "id": "death_b19_guard_2",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "guard_relic"
+      },
+      "text": "最後の息で宝を体の下に隠し、奪う者への呪いを遺した。"
+    },
+    {
+      "id": "death_b19_curse_1",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "curse_dungeon"
+      },
+      "text": "崩れ落ちる間際まで、この淵への呪詛を吐き続けた。"
+    },
+    {
+      "id": "death_b19_curse_2",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "curse_dungeon"
+      },
+      "text": "最後の血で壁に呪いを描きつけ、こと切れた。"
+    },
+    {
+      "id": "death_b19_will_1",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "leave_will"
+      },
+      "text": "力尽きる前に、後の者への言伝を石へ刻みつけた。"
+    },
+    {
+      "id": "death_b19_will_2",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "leave_will"
+      },
+      "text": "遺す言葉を握りしめたまま、その手は冷たくなった。"
+    },
+    {
+      "id": "death_b19_accept_1",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "accept"
+      },
+      "text": "抗うことをやめ、深い吐息とともに闇へ身を委ねた。"
+    },
+    {
+      "id": "death_b19_accept_2",
+      "slotType": "death_line",
+      "tags": {
+        "finalAct": "accept"
+      },
+      "text": "穏やかな面持ちのまま、訪れる終わりを静かに迎えた。"
+    },
+    {
+      "id": "rumor_b19_1",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「#origin_name#の亡骸に手を合わせると、深みで運が向くって験担ぎがあるのさ」"
+    },
+    {
+      "id": "rumor_b19_2",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「#depth#のあたりで松明が急に消えたら、#origin_name#が傍にいる合図だとよ」"
+    },
+    {
+      "id": "rumor_b19_3",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「#origin_gear#を見つけても、持ち主の名を呼ぶなよ。#origin_name#が気づいちまう」"
+    },
+    {
+      "id": "rumor_b19_4",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「#origin_name#? 弔ってやりゃ夢枕に立って、下への近道を教えるって話だ」"
+    },
+    {
+      "id": "rumor_b19_5",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「あの#origin_epithet#でさえ還れなかった淵だ。生半可な覚悟で潜るんじゃねえ」"
+    },
+    {
+      "id": "rumor_b19_6",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「#origin_name#の声が聞こえ出したら、そりゃ深蝕が回ってる証さ。引き返しな」"
+    },
+    {
+      "id": "rumor_b19_7",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「#depth#より下は#origin_name#みたいな手練れの墓場よ。腕に覚えがあるほど油断すんな」"
+    },
+    {
+      "id": "rumor_b19_8",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「#origin_gear#を継いだ奴が、先月また一人、還らなかったとさ」"
+    },
+    {
+      "id": "rumor_b19_9",
+      "slotType": "rumor",
+      "tags": {},
+      "text": "「#origin_name#を悼む花が、誰の仕業か、今も絶えないんだ」"
+    },
+    {
+      "id": "frame_loss_weathered_b24_1",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "loss",
+        "stage": "weathered"
+      },
+      "text": "#origin_name# は隅の暗がりで膝を折り、もう動かない。差し出した片手の先に #origin_gear# が落ちている――誰かに渡したかったのか、それとも縋ろうとしたのか。"
+    },
+    {
+      "id": "frame_loss_twisting_b24_1",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "loss",
+        "stage": "twisting"
+      },
+      "text": "#ghost# が、#origin_gear# のまわりをゆっくりと巡っている。骨はやわらかな結晶に覆われ、#behavior#。#origin_name# だった頃の輪郭が、まだ薄く残っていた。"
+    },
+    {
+      "id": "frame_loss_twisting_b24_2",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "loss",
+        "stage": "twisting"
+      },
+      "text": "#origin_name# だったものが、#origin_gear# に手をかけたまま半ば透けている。その輪郭から #ghost# がゆらりと立ちのぼり、#behavior#。"
+    },
+    {
+      "id": "frame_loss_twisting_b24_3",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "loss",
+        "stage": "twisting"
+      },
+      "text": "#origin_name# の名残が、ほどけかけた #ghost# となって揺らいでいる。#origin_gear# だけが、変わらぬ重さでそこに留まっていた。#recognition#"
+    },
+    {
+      "id": "frame_loss_alien_b24_1",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "loss",
+        "stage": "alien"
+      },
+      "text": "もう人の名残はわずかだ。#ghost# が緩慢に明滅し、#behavior#。その奥で #origin_gear# の影だけが、かつての #origin_name# を示している。"
+    },
+    {
+      "id": "frame_loss_alien_b24_2",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "loss",
+        "stage": "alien"
+      },
+      "text": "空間がたわむように歪む。#ghost# が滲み広がり、#origin_gear# の輪郭が芯のように残されている。#recognition#"
+    },
+    {
+      "id": "frame_loss_alien_b24_3",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "loss",
+        "stage": "alien"
+      },
+      "text": "静寂が形を持ったような #ghost# が漂っている。触れれば消えそうな淡さで、#origin_name# という記憶が #origin_gear# にこびりついていた。#behavior#。"
+    },
+    {
+      "id": "frame_myth_weathered_b24_1",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "myth",
+        "stage": "weathered"
+      },
+      "text": "崩れた回廊の奥に、#origin_gear# が剣山のように供えられている。誰かが #origin_name# を悼んで積んだものだ。風化してなお、整然としていた。"
+    },
+    {
+      "id": "frame_myth_weathered_b24_2",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "myth",
+        "stage": "weathered"
+      },
+      "text": "壁龕に #origin_gear# が安置され、その下に小さな灯明の跡がいくつも重なっている。#origin_name# の名は、巡礼の手で磨かれ続けてきたらしい。"
+    },
+    {
+      "id": "frame_myth_weathered_b24_3",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "myth",
+        "stage": "weathered"
+      },
+      "text": "『#origin_name# 終焉の地』と刻まれた石板。傍らの #origin_gear# は錆びてなお、不思議と気高い。後から来た探索者が、ここで足を止めてきたのだろう。"
+    },
+    {
+      "id": "frame_myth_twisting_b24_1",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "myth",
+        "stage": "twisting"
+      },
+      "text": "淡い光をまとった #ghost# が、まどろむように宙へ浮いている。#origin_gear# は岩へ溶け込みながらも輝きを保ち、#behavior#。#origin_name# の名は、今も導きの光だ。"
+    },
+    {
+      "id": "frame_myth_twisting_b24_2",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "myth",
+        "stage": "twisting"
+      },
+      "text": "#ghost# が一歩ぶんだけ先の道を照らして佇んでいる。#origin_gear# が静かに脈を変え、#recognition#"
+    },
+    {
+      "id": "frame_myth_twisting_b24_3",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "myth",
+        "stage": "twisting"
+      },
+      "text": "光の帯の中に、#origin_name# だったものの姿がぼんやりと立っている。#origin_gear# は祭具のように変質し、#behavior#。"
+    },
+    {
+      "id": "frame_myth_alien_b24_1",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "myth",
+        "stage": "alien"
+      },
+      "text": "空洞そのものが祈りのかたちに澄んでいる。中心に #ghost# が鎮もり、#origin_gear# は聖遺物めいた光を放つ。#recognition#"
+    },
+    {
+      "id": "frame_myth_alien_b24_2",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "myth",
+        "stage": "alien"
+      },
+      "text": "#ghost# が星のように静止し、まわりの闇を従えている。#origin_gear# の輝きは別の理に属し、#behavior#。かつて #origin_name# と呼ばれた何かだ。"
+    },
+    {
+      "id": "frame_myth_alien_b24_3",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "myth",
+        "stage": "alien"
+      },
+      "text": "近づくほどに、空気が荘厳に張りつめる。#ghost# が玲瓏と佇み、#origin_gear# が変質した光で応える。#origin_name# の名が、まだ奥底で響いていた。"
+    },
+    {
+      "id": "frame_myth_alien_b24_4",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "myth",
+        "stage": "alien"
+      },
+      "text": "それはもう英雄ではなく、英雄であった記憶の結晶だ。#ghost# が静かに燃え、#origin_gear# を核として #behavior#。#recognition#"
+    },
+    {
+      "id": "frame_grudge_weathered_b24_1",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "grudge",
+        "stage": "weathered"
+      },
+      "text": "#origin_name# は奥へ這った跡を残して事切れていた。#origin_gear# を握る指は固く、爪は割れ、追っていた何かを今も離していない。"
+    },
+    {
+      "id": "frame_grudge_weathered_b24_2",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "grudge",
+        "stage": "weathered"
+      },
+      "text": "床にも壁にも、同じ呪詛が刻みつけられている。その渦の中心で #origin_gear# が打ち捨てられ、#origin_name# の骸が天井を睨んだまま乾いていた。"
+    },
+    {
+      "id": "frame_grudge_weathered_b24_3",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "grudge",
+        "stage": "weathered"
+      },
+      "text": "出口を背にして倒れた #origin_name#。#origin_gear# の刃は無数に欠け、振るい続けた果てのかたちだ。安らぎの気配は、どこにもない。"
+    },
+    {
+      "id": "frame_grudge_twisting_b24_1",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "grudge",
+        "stage": "twisting"
+      },
+      "text": "#ghost# が #origin_gear# を引きずって、同じ場所をぐるぐると巡っている。#behavior#。近づくと、肌が粟立つほどの恨みが押し寄せてきた。"
+    },
+    {
+      "id": "frame_grudge_twisting_b24_2",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "grudge",
+        "stage": "twisting"
+      },
+      "text": "歪んだ #ghost# が、#origin_name# だった残り滓を曳いて漂う。#origin_gear# が昏く脈打ち、#recognition#"
+    },
+    {
+      "id": "frame_grudge_twisting_b24_3",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "grudge",
+        "stage": "twisting"
+      },
+      "text": "壁の影が、#ghost# のかたちに膨れてこちらを向いた。#origin_gear# の軋む音だけが、#origin_name# の名残を告げている。#behavior#。"
+    },
+    {
+      "id": "frame_grudge_alien_b24_1",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "grudge",
+        "stage": "alien"
+      },
+      "text": "踏み込んだ瞬間、空気が牙を剥いた。#ghost# が渦を巻いて立ち上がり、その中心で #origin_gear# が黒い火のように燃える。#recognition#"
+    },
+    {
+      "id": "frame_grudge_alien_b24_2",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "grudge",
+        "stage": "alien"
+      },
+      "text": "天井から滴るように #ghost# が垂れ落ち、床で再び形を結ぶ。#origin_gear# はもはや武器ではなく、凝った怨念の核だ。#behavior#。"
+    },
+    {
+      "id": "frame_grudge_alien_b24_3",
+      "slotType": "rediscovery_frame",
+      "tags": {
+        "tone": "grudge",
+        "stage": "alien"
+      },
+      "text": "幾重にも分裂した #ghost# が、#origin_name# の名ごと呑み込もうと押し寄せる。#origin_gear# の脈動だけが、かろうじて元の一個を示していた。#behavior#。"
+    }
   ]
 }
