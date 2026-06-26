@@ -53,7 +53,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.52.0";
+export const APP_VERSION = "0.53.0";
 export const APP_BUILD = "2026-06-25";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -606,6 +606,27 @@ async function chronicleScene() {
   const mark = { birth: "生", death: "死", rediscovery: "再", intervention: "干", legend: "伝", rumor: "噂" } as const;
   const tail = world.chronicle.slice(-14).map((e) => `世代${e.generation} [${mark[e.kind]}] ${e.text}`).join("\n");
   await sheet({ text: tail || "まだ何も記されていない。", meta: `年代記 ── 全${world.chronicle.length}件`, options: ["頁を閉じる"] });
+  busy = false;
+}
+// 書記の館「拾得品を読み返す」：迷宮で拾った詩情系の品＝読み物コレクション（世代を越えて堆積）。
+async function keepsakeShelf() {
+  busy = true;
+  for (;;) {
+    const list = world.keepsakes ?? [];
+    if (!list.length) {
+      await sheet({ text: "「珍しい拾い物があれば、ここで預かろう。今はまだ、棚は空だ」。\n――迷宮の宝箱や遭遇で見つけた品が、ここに並ぶ。", meta: "書記の館 ── 好古の棚", options: ["わかった"] });
+      break;
+    }
+    const r = await sheet({
+      text: `老書記イェンが、集めた品々の棚を示す。\n「君がここまでに見つけたものだ。どれでも、語って聞かせよう」。`,
+      meta: `書記の館 ── 好古の棚（${list.length}点）`,
+      options: [...list.map((k) => `${k.title}（第${k.gen}世代・深度${k.depth}）`), "棚を離れる"],
+    });
+    const i = r.pick - 1;
+    if (i < 0 || i >= list.length) break;
+    const k = list[i];
+    await sheet({ text: k.story, meta: `好古の棚 ── ${k.title}（第${k.gen}世代・深度${k.depth}で発見）`, options: ["棚に戻す"] });
+  }
   busy = false;
 }
 // 酒場 act1「旧き名・化石のことを尋ねる」：縁ある名（伝説/宿敵=tracked／絆ある化石）を選んで素性・末路・弧を聞く。
@@ -1583,6 +1604,7 @@ async function talkKeeper(asKind?: string) {
   if (kind === "archive" && actIdx === 0) return void chronicleScene(); // 年代記を読む
   if (kind === "archive" && actIdx === 1) return void legendApprove();  // 旧キャラを伝説として承認する（4-4）
   if (kind === "archive" && actIdx === 2) return void lineageScene();   // 系譜をたどる
+  if (kind === "archive" && actIdx === 3) return void keepsakeShelf();  // 拾得品を読み返す（読み物コレクション）
   if (kind === "smith" && actIdx === 0) return void smithBuyKind("weapon"); // 武器を買う
   if (kind === "smith" && actIdx === 1) return void smithSell();         // 拾い物を売る（袋を買い取る）
   if (kind === "smith" && actIdx === 2) return void smithLore();         // 先代の刻印武器について訊く（4-11E）

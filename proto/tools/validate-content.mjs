@@ -15,7 +15,7 @@ const read = (p) => readFileSync(join(ROOT, p), "utf-8");
 const CONTEXTS = new Set(["encounter", "dungeon", "street", "tavern", "guild", "shop", "quest", "chest", "delver"]);
 const TOWN = new Set(["street", "tavern", "guild", "shop", "quest"]);
 const PREREQ_KEYS = new Set(["tone", "stage", "finalAct", "kind", "minBond", "unfinished", "minExposure", "minLevel", "minDepth", "maxDepth", "hasCatchphrase", "depthBand", "flag", "notFlag", "arc", "arcStep", "arcPick", "arcActor", "actorId", "notArc"]);
-const EFFECT_KEYS = new Set(["bond", "closeUnfinished", "exposure", "trait", "chronicle", "plant", "arc", "gold", "item"]);
+const EFFECT_KEYS = new Set(["bond", "closeUnfinished", "exposure", "trait", "chronicle", "plant", "arc", "gold", "item", "keepsake"]);
 const TONES = new Set(["loss", "myth", "grudge"]);
 const STAGES = new Set(["weathered", "twisting", "alien"]);
 const FINALACTS = new Set(["guard_relic", "curse_dungeon", "leave_will", "accept"]);
@@ -69,6 +69,8 @@ function checkEffects(id, ctx, effects, where) {
     if (e.bond !== undefined && typeof e.bond !== "number") E(id, `${where} bond は number`);
     if (e.exposure !== undefined && typeof e.exposure !== "number") E(id, `${where} exposure は number`);
     if (e.trait !== undefined) checkSlots(id, ctx, e.trait);
+    if (e.keepsake !== undefined && (typeof e.keepsake !== "object" || typeof e.keepsake.title !== "string" || typeof e.keepsake.story !== "string"))
+      E(id, `${where} effect.keepsake は {title:string, story:string} が必須`);
     if (e.chronicle !== undefined) checkSlots(id, ctx, e.chronicle);
   }
 }
