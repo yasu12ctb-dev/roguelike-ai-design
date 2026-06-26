@@ -39,7 +39,7 @@ import {
   type TownData, type TownGrid, type Interior, type CrowdActor, type InteriorActor, type GuardDef,
 } from "../townscene.ts";
 import {
-  ensureAudio, sfx, setAmbient, setMuted, isMuted, loadMutePref,
+  ensureAudio, audioStarted, sfx, setAmbient, setMuted, isMuted, loadMutePref,
   setBgm, setBgmDepth, setBgmEnabled, isBgmOn, setBgmVolume, bgmVolume, loadBgmPref, setSfxVolume, sfxVolume,
 } from "./audio.ts";
 import {
@@ -53,7 +53,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.50.0";
+export const APP_VERSION = "0.51.0";
 export const APP_BUILD = "2026-06-25";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -4812,6 +4812,22 @@ addEventListener("resize", () => {
 //   起動でいきなり街/キャラ作成に入らず、まず一枚挟む（最初の操作音＋版数確認＋途中再開の明示化）。
 //   ゲーム本体は townLoop→startDive→… の自己連鎖。タイトルはそこへ一度分岐するだけ（設定は自分へ戻る）。
 /** 専用タイトル画面（#title オーバーレイ）にメニューを流し込み、選んだ index を返す（横断F 段階1）。 */
+// タイトルの音声ゲート（autoplay 対策）：ブラウザは初回ユーザー操作まで音を出せないため、
+// コールド起動時のみ「画面に触れてはじめる」を一枚挟み、その一手で AudioContext を起こして
+// ④追憶（setBgm("title")）を立ち上げてからメニューを出す。音声解禁済み／BGMオフ／ミュート時は出さない。
+function titleGate(sub: string): Promise<void> {
+  return new Promise((resolve) => {
+    $("titleSub").textContent = sub;
+    $("titleVer").textContent = `v${APP_VERSION} ／ build ${APP_BUILD}`;
+    const menu = $("titleMenu");
+    menu.innerHTML = "";
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "primary"; b.textContent = "▶ 画面に触れて、はじまり";
+    b.onclick = () => { ensureAudio(); resolve(); }; // この一手で音声解禁＝タイトルBGMが立ち上がる
+    menu.appendChild(b);
+    $("title").classList.add("show");
+  });
+}
 function titleChoose(items: { label: string; primary?: boolean }[], sub: string): Promise<number> {
   return new Promise((resolve) => {
     $("titleSub").textContent = sub;
@@ -4841,6 +4857,8 @@ async function titleScreen(): Promise<void> {
   const items = living
     ? [{ label: "▶ 続きから", primary: true }, { label: "新しい物語をはじめる" }, { label: "設定" }]
     : [{ label: "▶ 新しい物語をはじめる", primary: true }, { label: "設定" }];
+  // autoplay 対策：コールド起動（音声未解禁）かつ BGM 有効時のみ、最初の一手でタイトルBGMを立ち上げる。
+  if (!audioStarted() && isBgmOn() && !isMuted()) await titleGate(sub);
   const pick = await titleChoose(items, sub);
   const chosen = items[pick]?.label ?? items[0].label;
   if (chosen.includes("続きから")) {                       // 途中再開（潜行中ならその深度・街なら街）
