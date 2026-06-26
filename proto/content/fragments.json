@@ -2269,6 +2269,102 @@
         "stage": "alien"
       },
       "text": "幾重にも分裂した #ghost# が、#origin_name# の名ごと呑み込もうと押し寄せる。#origin_gear# の脈動だけが、かろうじて元の一個を示していた。#behavior#。"
+    },
+    {
+      "id": "quirk_b25_1",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "自分の足音が、一歩ぶん多く聞こえる時がある"
+    },
+    {
+      "id": "quirk_b25_2",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "水面に映る顔を、一瞬、自分のものだとわからない"
+    },
+    {
+      "id": "quirk_b25_3",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "古傷の縫い目が、夜になると微かに脈打つ"
+    },
+    {
+      "id": "quirk_b25_4",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "空腹も渇きも、もう体が訴えてこない"
+    },
+    {
+      "id": "quirk_b25_5",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "自分の名を書こうとすると、二画目で手が止まる"
+    },
+    {
+      "id": "quirk_b25_6",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "深く息を吸うと、土と石の匂いが胸の奥から立ちのぼる"
+    },
+    {
+      "id": "quirk_b25_7",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "人の話し声が、時々ひどく遠い祈りのように聞こえる"
+    },
+    {
+      "id": "quirk_b25_8",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "爪の根元が、貝殻のように硬くなってきた"
+    },
+    {
+      "id": "quirk_b25_9",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "階段の数を、降りるたびに一段多く数えてしまう"
+    },
+    {
+      "id": "quirk_b25_10",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "眠りの淵で、自分の名を呼ぶ自分の声がする"
+    },
+    {
+      "id": "quirk_b25_11",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "影を誰かに踏まれても、もう何も感じない"
+    },
+    {
+      "id": "quirk_b25_12",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "鼓動の合間に、もうひとつ別の拍が混じる"
+    },
+    {
+      "id": "quirk_b25_13",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "街の灯りが、潜るたびに少しずつ眩しくなる"
+    },
+    {
+      "id": "quirk_b25_14",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "握った金属が、しばらく自分の体温で温まらない"
+    },
+    {
+      "id": "quirk_b25_15",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "寝床に就くと、天井のさらに上から見下ろされている気がする"
+    },
+    {
+      "id": "quirk_b25_16",
+      "slotType": "exposure_quirk",
+      "tags": {},
+      "text": "笑おうとすると、口の端が思ったより上がってしまう"
     }
   ]
 }
