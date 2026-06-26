@@ -53,7 +53,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.49.0";
+export const APP_VERSION = "0.50.0";
 export const APP_BUILD = "2026-06-25";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1826,7 +1826,7 @@ async function maybeIntro() {
   busy = true;
   await sheet({
     text: "灰の街の中央に、ぽっかりと迷宮の口が開いている。冷たい風が、底から吹き上げてくる。\nお前は、そこへ潜る者の一人だ――深く潜るほど、見たことのない景色と、見たくなかったものに出会うだろう。",
-    meta: "堆積する世界 ── はじめに", options: ["……潜る覚悟はある"],
+    meta: "深蝕 ── はじめに", options: ["……潜る覚悟はある"],
   });
   await sheet({
     text: "ひとつ、知っておくといい。\nこの街へ生きて還れば、傷はすべて癒える。疲れも痛みも、まるで無かったかのように。\n――この地が覆せないのは、ただ一つ「死」だけだ。倒れた者は深みで化石となり、その物語は次の世代へ受け継がれていく。",

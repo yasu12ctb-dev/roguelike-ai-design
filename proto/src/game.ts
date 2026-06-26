@@ -309,7 +309,7 @@ export async function runGame(
   }
 
   // ---------- メイン ----------
-  say("\n＝＝＝ 迷宮の口 ── 堆積する世界 v0 ＝＝＝");
+  say("\n＝＝＝ 迷宮の口 ── 深蝕 The Corroding Deep ＝＝＝");
   for (;;) {
     if (!world.current || !world.current.alive) await characterCreation();
     const ch = world.current!;
