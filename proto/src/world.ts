@@ -54,6 +54,7 @@ export function migrateWorld(w: World): World {
   if (typeof w.plagueCooldown !== "number") w.plagueCooldown = 0; // 疫病の冷却：欠落は0で補完
   if (typeof w.diveCount !== "number") w.diveCount = 0; // 潜行回数（再潜行farm防止のseed nonce）：欠落は0で補完
   if (!Array.isArray(w.echoes)) w.echoes = []; // 残響召喚の遺灰（4-10I）：欠落は空で補完
+  if (!Array.isArray(w.keepsakes)) w.keepsakes = []; // 拾得品の蒐集（読み物コレクション）：欠落は空で補完
   if (!Array.isArray(w.seals)) w.seals = [];       // 奉献の試練・集めた印（4-13A）：欠落は空で補完
   if (typeof w.ascended !== "number") w.ascended = 0; // 奉献の試練・クリア回数（4-13D）
   if (typeof w.questsDone !== "number") w.questsDone = 0; // 4-4E 実績スコア（達成依頼数）：欠落は0
@@ -88,6 +89,7 @@ export function newWorld(seed: number): World {
     homeUnlocked: false, // 自宅は初期未所持＝銀昇格で「倒れた冒険者の家を継ぐ」（4-10C）。明示 false＝再読込でも未解禁を保つ。
     seals: [],
     ascended: 0,
+    keepsakes: [],
   };
   // シード化石①：老兵の亡骸（喪失・浅層）
   world.fossils.push({

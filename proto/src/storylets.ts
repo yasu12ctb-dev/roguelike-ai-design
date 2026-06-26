@@ -24,6 +24,16 @@ function applyReward(ch: Character, e: Effect, logs: string[]): void {
   }
 }
 
+/** 拾得品（蒐集）：読み物コレクションへ追加（書記の館で再読）。純フレーバー・重複は弾く。 */
+function applyKeepsake(world: World, e: Effect, depth: number, logs: string[]): void {
+  if (!e.keepsake) return;
+  const { title, story } = e.keepsake;
+  const list = (world.keepsakes ??= []);
+  if (list.some((k) => k.title === title)) { logs.push(`「${title}」――同じ品を、いつか手にした気がする。`); return; }
+  list.push({ title, story, gen: world.generation, depth });
+  logs.push(`好古の棚に加えた──「${title}」（書記の館で読み返せる）`);
+}
+
 /** 長尺アークの前提照合（4-12(I)：世界スコープ）。arc=進行中かつ step/pick が一致／notArc=未開始（done含む）。 */
 function arcMatches(p: Prereq, world: World): boolean {
   if (p.notArc !== undefined && (world.arcs ?? []).some((x) => x.key === p.notArc)) return false;
@@ -131,6 +141,7 @@ export function applyEffects(
     }
     if (e.arc !== undefined) setArc(world, e.arc); // 長尺アーク（4-12(I)）
     applyReward(ch, e, logs); // 報酬（金貨/消耗品）
+    applyKeepsake(world, e, fossil.laidDepth ?? fossil.death?.depth ?? 0, logs); // 拾得品の蒐集
   }
   return logs;
 }
@@ -190,6 +201,7 @@ export function applyDungeonEffects(world: World, ch: Character, depth: number, 
     }
     if (e.arc !== undefined) setArc(world, e.arc); // 長尺アークの開始/前進/分岐/完了（4-12(I)）
     applyReward(ch, e, logs); // 報酬（金貨/消耗品）
+    applyKeepsake(world, e, depth, logs); // 拾得品の蒐集（読み物コレクション）
   }
   return logs;
 }
@@ -288,6 +300,7 @@ export function applyActorEffects(world: World, ch: Character, la: LivingActor, 
       if (e.arc.anchor) referenced = true;
     }
     applyReward(ch, e, logs); // 報酬（金貨/消耗品）
+    applyKeepsake(world, e, 0, logs); // 拾得品の蒐集（街の生者から貰う品も棚へ）
   }
   if (referenced) rememberActor(world, la); // 参照された生者だけ永続（lazy：4-12C/4-6）
   return logs;
