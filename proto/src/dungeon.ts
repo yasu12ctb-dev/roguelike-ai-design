@@ -452,8 +452,53 @@ export function computeFov(f: Floor, p: Pos): Set<number> {
   return vis;
 }
 
+// ---------- 街防衛戦の戦場（街襲撃の盤上化・4-4B/4-12J）：迷宮ではない特設アリーナ ----------
+//   迷宮の戦闘エンジン（planMonsters/resolveMonsters＋味方）をそのまま回すため Floor を手組みする。
+//   広場＝開けた床／要所に瓦礫の遮蔽／上辺中央＝迷宮の口（敵の湧き口）／下辺＝自陣（@・味方・市民）。
+//   pseudoDepth＝tier 由来の擬似深度（敵を深度スケールさせる）。web 限定の raid モードが使う。純粋・決定論。
+export interface RaidField {
+  floor: Floor;
+  playerStart: Pos;
+  allySpots: Pos[];   // 味方冒険者の初期配置（自陣＝プレイヤー周囲）
+  civicSpots: Pos[];  // 逃げ遅れた市民の位置（大規模のみ）
+  spawnZone: Pos[];   // 敵の湧き候補（上辺付近の床）
+}
+export function genRaidField(seed: number, scale: "small" | "medium" | "large", pseudoDepth: number): RaidField {
+  const rng = makeRng((seed ^ 0x7a1d ^ (pseudoDepth * 2654435761)) >>> 0);
+  const dim = scale === "large" ? { w: 35, h: 29 } : scale === "medium" ? { w: 27, h: 23 } : { w: 21, h: 19 };
+  const W = dim.w, H = dim.h, cx = W >> 1;
+  const tiles: Tile[] = new Array(W * H).fill(1);
+  for (let x = 0; x < W; x++) { tiles[x] = 0; tiles[(H - 1) * W + x] = 0; }        // 上下の外壁
+  for (let y = 0; y < H; y++) { tiles[y * W] = 0; tiles[y * W + (W - 1)] = 0; }    // 左右の外壁
+  // 遮蔽（瓦礫/建物）：小ブロックを散らす。中央縦レーン・上辺の湧き口・下辺の自陣は空ける（敵が必ず来られる）。
+  const blocks = scale === "large" ? 7 : scale === "medium" ? 5 : 3;
+  for (let i = 0; i < blocks; i++) {
+    const bw = 1 + rng.int(2), bh = 1 + rng.int(2);
+    const bx = 3 + rng.int(Math.max(1, W - 6 - bw)), by = 5 + rng.int(Math.max(1, H - 11 - bh));
+    for (let y = by; y < by + bh; y++) for (let x = bx; x < bx + bw; x++) {
+      if (Math.abs(x - cx) <= 1) continue; // 中央レーンは塞がない
+      if (x > 0 && y > 0 && x < W - 1 && y < H - 1) tiles[y * W + x] = 0;
+    }
+  }
+  const f: Floor = {
+    depth: pseudoDepth, w: W, h: H, tiles,
+    stairsUp: { x: cx, y: H - 2 }, stairsDown: { x: cx, y: 1 },
+    monsters: [], fossils: [], chests: [], shrines: [],
+    explored: new Array(W * H).fill(true), // 戦場は全可視（街の出来事＝霧なし）
+    downed: null, delver: null,
+  };
+  const playerStart: Pos = { x: cx, y: H - 3 };
+  const allySpots = ([{ x: cx - 1, y: H - 3 }, { x: cx + 1, y: H - 3 }, { x: cx - 2, y: H - 4 }, { x: cx + 2, y: H - 4 }, { x: cx, y: H - 2 }] as Pos[])
+    .filter((p) => tileAt(f, p.x, p.y) === 1);
+  const civicSpots = ([{ x: 2, y: H - 2 }, { x: W - 3, y: H - 2 }, { x: 3, y: H - 3 }, { x: W - 4, y: H - 3 }] as Pos[])
+    .filter((p) => tileAt(f, p.x, p.y) === 1);
+  const spawnZone: Pos[] = [];
+  for (let y = 1; y <= 3; y++) for (let x = 1; x < W - 1; x++) if (tileAt(f, x, y) === 1) spawnZone.push({ x, y });
+  return { floor: f, playerStart, allySpots, civicSpots, spawnZone };
+}
+
 // ---------- モンスターのターン（テレグラフ＝予告 → 実行の2段：4-11A） ----------
-interface MonsterHit { monster: Monster; dmg: number; target: "player" | "companion"; effect?: "poison" | "heavy"; }
+interface MonsterHit { monster: Monster; dmg: number; target: "player" | "companion"; effect?: "poison" | "heavy"; tx?: number; ty?: number; } // tx/ty=被弾マス（街防衛戦で複数味方の誰が撃たれたかを web 側が特定するため。dive/golden では未使用）
 interface Resolution { hits: MonsterHit[]; dodges: Monster[]; }
 /** 相棒の一手の結果（プレイヤー手番末に解決）。 */
 interface CompanionResolution { hit: Monster | null; dmg: number; }
@@ -478,19 +523,22 @@ export function companionDmg(grade: number, depth = 0): number {
   return 2 + Math.max(0, Math.min(5, grade)) + Math.round(depth * 0.15);
 }
 
-// 移動先が他者で塞がっているか（モンスター同士・化石・相棒・手負いと重ならない）。
-const occupiedBy = (f: Floor, x: number, y: number, self: Monster | null, comp?: Pos | null) =>
+// 移動先が他者で塞がっているか（モンスター同士・化石・味方・手負いと重ならない）。
+// friends＝味方エンティティ（相棒1体／街防衛戦の複数の冒険者）。空なら従来どおり（相棒なし＝golden 不変）。
+const occupiedBy = (f: Floor, x: number, y: number, self: Monster | null, friends?: readonly Pos[] | null) =>
   f.monsters.some((m) => m !== self && m.hp > 0 && m.x === x && m.y === y) ||
   f.fossils.some((e) => e.x === x && e.y === y) ||
-  (!!comp && comp.x === x && comp.y === y) ||
+  (!!friends && friends.some((c) => c.x === x && c.y === y)) ||
   (!!f.downed && f.downed.x === x && f.downed.y === y) ||
   (!!f.delver && f.delver.x === x && f.delver.y === y);
 
 /** 各モンスターの次手を決め、intent に予告として書く（プレイヤーが見て動ける）。
  *  覚醒判定もここで行う：新たに気づいた敵はまず予告し、実行は次ターン（理不尽な不意打ちを排す）。
  *  相棒がいる場合は @ と相棒のうち近い方を標的にする（4-14C）。 */
-export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: CompanionEntity | null): void {
+export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: CompanionEntity | null, allies?: readonly CompanionEntity[] | null): void {
   const comp = companion && companion.hp > 0 ? companion : null;
+  // 味方の一覧（相棒＋街防衛戦の冒険者）。空なら従来どおり＝相棒なしと完全一致（golden 不変）。
+  const friends: CompanionEntity[] = [...(comp ? [comp] : []), ...(allies ?? []).filter((a) => a.hp > 0)];
   const births: Pos[] = []; // breeder が産む眷属の位置（ループ後にまとめて追加＝反復中の配列変更を避ける）
   for (const m of f.monsters) {
     if (m.hp <= 0) { m.intent = null; continue; }
@@ -498,11 +546,13 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
     if (m.stunned && m.stunned > 0) { m.stunned--; m.intent = { type: "wait" }; continue; } // 静止の眼
     if (m.slowed && m.slowed > 0) { m.slowed--; if (m.slowed % 2 === 1) { m.intent = { type: "wait" }; continue; } } // 鈍り＝1手おき
     const dPlayer = Math.hypot(m.x - player.x, m.y - player.y);
-    const dComp = comp ? Math.hypot(m.x - comp.x, m.y - comp.y) : Infinity;
-    // 覚醒：プレイヤー or 相棒のいずれかを視認したら起きる
+    // 最寄りの味方（複数の冒険者にも対応。味方なしなら nearAlly=null＝従来どおり）
+    let nearAlly: CompanionEntity | null = null, dAlly = Infinity;
+    for (const a of friends) { const da = Math.hypot(m.x - a.x, m.y - a.y); if (da < dAlly) { dAlly = da; nearAlly = a; } }
+    // 覚醒：プレイヤー or 味方のいずれかを視認したら起きる
     if (!m.awake) {
       if (dPlayer <= FOV_RADIUS && losClear(f, m.x, m.y, player.x, player.y)) m.awake = true;
-      else if (comp && dComp <= FOV_RADIUS && losClear(f, m.x, m.y, comp.x, comp.y)) m.awake = true;
+      else if (nearAlly && dAlly <= FOV_RADIUS && losClear(f, m.x, m.y, nearAlly.x, nearAlly.y)) m.awake = true;
     }
     if (!m.awake) { m.intent = null; continue; }
 
@@ -517,7 +567,7 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
           for (let dy = -1; dy <= 1 && !placed; dy++) for (let dx = -1; dx <= 1 && !placed; dx++) {
             if (dx === 0 && dy === 0) continue;
             const cx = m.x + dx, cy = m.y + dy;
-            if (tileAt(f, cx, cy) === 1 && !(cx === player.x && cy === player.y) && !occupiedBy(f, cx, cy, m, comp)) {
+            if (tileAt(f, cx, cy) === 1 && !(cx === player.x && cy === player.y) && !occupiedBy(f, cx, cy, m, friends)) {
               births.push({ x: cx, y: cy }); m.summonCd = BOSS_SUMMON_CD; placed = true;
             }
           }
@@ -532,7 +582,7 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
         for (let dy = -1; dy <= 1 && !placed; dy++) for (let dx = -1; dx <= 1 && !placed; dx++) {
           if (dx === 0 && dy === 0) continue;
           const cx = m.x + dx, cy = m.y + dy;
-          if (tileAt(f, cx, cy) === 1 && !(cx === player.x && cy === player.y) && !occupiedBy(f, cx, cy, m, comp)) {
+          if (tileAt(f, cx, cy) === 1 && !(cx === player.x && cy === player.y) && !occupiedBy(f, cx, cy, m, friends)) {
             births.push({ x: cx, y: cy }); m.breedCd = BREED_CD; placed = true;
           }
         }
@@ -543,14 +593,14 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
       m.confused--;
       const cx = rng.int(3) - 1, cy = rng.int(3) - 1;
       const c = { x: m.x + cx, y: m.y + cy };
-      m.intent = (tileAt(f, c.x, c.y) === 1 && !(c.x === player.x && c.y === player.y) && !occupiedBy(f, c.x, c.y, m, comp))
+      m.intent = (tileAt(f, c.x, c.y) === 1 && !(c.x === player.x && c.y === player.y) && !occupiedBy(f, c.x, c.y, m, friends))
         ? { type: "move", x: c.x, y: c.y } : { type: "wait" };
       continue;
     }
 
     // 標的＝近い方（同距離はプレイヤー優先）
-    const target = comp && dComp < dPlayer ? comp : player;
-    const d = comp && dComp < dPlayer ? dComp : dPlayer;
+    const target = nearAlly && dAlly < dPlayer ? nearAlly : player;
+    const d = nearAlly && dAlly < dPlayer ? dAlly : dPlayer;
     if (m.rooted && m.rooted > 0) { // 縛鎖＝その場に縫い止める（隣接なら討てるが動けない）
       m.rooted--;
       m.intent = d < 1.5 ? { type: "attack", x: target.x, y: target.y } : { type: "wait" };
@@ -563,7 +613,7 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
       const flee: Pos[] = [{ x: m.x + fx, y: m.y + fy }, { x: m.x + fx, y: m.y }, { x: m.x, y: m.y + fy }];
       let dest: Pos | null = null;
       for (const c of flee) {
-        if (tileAt(f, c.x, c.y) === 1 && !(c.x === player.x && c.y === player.y) && !occupiedBy(f, c.x, c.y, m, comp)) { dest = c; break; }
+        if (tileAt(f, c.x, c.y) === 1 && !(c.x === player.x && c.y === player.y) && !occupiedBy(f, c.x, c.y, m, friends)) { dest = c; break; }
       }
       m.intent = dest ? { type: "move", x: dest.x, y: dest.y } : { type: "wait" };
       continue;
@@ -577,7 +627,7 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
         const bx = Math.sign(m.x - target.x) || 1, by = Math.sign(m.y - target.y);
         const back: Pos[] = [{ x: m.x + bx, y: m.y + by }, { x: m.x + bx, y: m.y }, { x: m.x, y: m.y + by }];
         let dest: Pos | null = null;
-        for (const c of back) if (tileAt(f, c.x, c.y) === 1 && !(c.x === player.x && c.y === player.y) && !occupiedBy(f, c.x, c.y, m, comp)) { dest = c; break; }
+        for (const c of back) if (tileAt(f, c.x, c.y) === 1 && !(c.x === player.x && c.y === player.y) && !occupiedBy(f, c.x, c.y, m, friends)) { dest = c; break; }
         m.intent = dest ? { type: "move", x: dest.x, y: dest.y } : { type: "attack", x: target.x, y: target.y };
         continue;
       }
@@ -602,7 +652,7 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
     ];
     let dest: Pos | null = null;
     for (const c of cand) {
-      if (tileAt(f, c.x, c.y) === 1 && !(c.x === player.x && c.y === player.y) && !occupiedBy(f, c.x, c.y, m, comp)) { dest = c; break; }
+      if (tileAt(f, c.x, c.y) === 1 && !(c.x === player.x && c.y === player.y) && !occupiedBy(f, c.x, c.y, m, friends)) { dest = c; break; }
     }
     m.intent = dest ? { type: "move", x: dest.x, y: dest.y } : { type: "wait" };
   }
@@ -615,27 +665,29 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
 /** 予告した intent を実行する。攻撃は確定命中・確定ダメージ（miss無し）だが、
  *  予告マスから退いていれば空振り（見切り）＝負けは読み違えとして納得できる（4-11A）。
  *  攻撃の標的は予告マスに居る者＝@ なら player ヒット、相棒なら companion ヒット。 */
-export function resolveMonsters(f: Floor, player: Pos, companion?: CompanionEntity | null): Resolution {
+export function resolveMonsters(f: Floor, player: Pos, companion?: CompanionEntity | null, allies?: readonly CompanionEntity[] | null): Resolution {
   const comp = companion && companion.hp > 0 ? companion : null;
+  const friends: CompanionEntity[] = [...(comp ? [comp] : []), ...(allies ?? []).filter((a) => a.hp > 0)];
   const hits: MonsterHit[] = [];
   const dodges: Monster[] = [];
   for (const m of f.monsters) {
     if (m.hp <= 0 || !m.intent) continue;
     if (m.intent.type === "attack") {
-      const onPlayer = player.x === m.intent.x && player.y === m.intent.y;
-      const onComp = !!comp && comp.x === m.intent.x && comp.y === m.intent.y;
+      const ix = m.intent.x, iy = m.intent.y; // 局所化（クロージャ内では m.intent の絞り込みが失われるため）
+      const onPlayer = player.x === ix && player.y === iy;
+      const onComp = !onPlayer && friends.some((c) => c.x === ix && c.y === iy);
       if (onPlayer || onComp) {
         const heavy = m.intent.heavy === true; // ①溜め大技（B）：渾身の一撃＝倍率
         const dmg = monsterDmg(m, f) * (heavy ? BOSS_HEAVY_MULT : 1);
         if (m.kind.ability === "leech") m.hp = Math.min(m.kind.hp, m.hp + dmg); // 吸命＝命中ぶん自己回復（しぶとい）
-        const hit: MonsterHit = { monster: m, dmg, target: onPlayer ? "player" : "companion" };
+        const hit: MonsterHit = { monster: m, dmg, target: onPlayer ? "player" : "companion", tx: m.intent.x, ty: m.intent.y };
         if (heavy) hit.effect = "heavy"; // web 側の演出（強い被弾）
         else if (m.kind.ability === "venom" && onPlayer) hit.effect = "poison"; // 毒はプレイヤーのみ（相棒に毒tickの器が無い）
         hits.push(hit);
       } else dodges.push(m); // 予告マスから退いた＝見切り
     } else if (m.intent.type === "move") {
       const { x, y } = m.intent;
-      if (tileAt(f, x, y) === 1 && !(x === player.x && y === player.y) && !occupiedBy(f, x, y, m, comp)) { m.x = x; m.y = y; }
+      if (tileAt(f, x, y) === 1 && !(x === player.x && y === player.y) && !occupiedBy(f, x, y, m, friends)) { m.x = x; m.y = y; }
     }
     m.intent = null;
   }
@@ -644,14 +696,15 @@ export function resolveMonsters(f: Floor, player: Pos, companion?: CompanionEnti
 
 /** 相棒の次手を予告（@に追従し、隣接した覚醒敵を討つ）。
  *  通常は決定論で rng を消費しないが、連帯深蝕で erratic>0 になると rng でぶれる（Phase B・テレグラフされる）。 */
-export function planCompanion(f: Floor, player: Pos, comp: CompanionEntity, rng?: Rng): void {
+export function planCompanion(f: Floor, player: Pos, comp: CompanionEntity, rng?: Rng, blockers?: readonly Pos[]): void {
   if (comp.hp <= 0) { comp.intent = null; return; }
   if (comp.stunned && comp.stunned > 0) { comp.stunned--; comp.intent = { type: "wait" }; return; }
+  const block = blockers ?? null; // 街防衛戦＝他の味方の位置（互いに重ならない）。dive は未指定＝従来どおり。
   // 連帯深蝕の逸脱：奇癖が出ると、追従も攻撃も投げ出して当て所なく彷徨う（読める＝テレグラフ）。
   if (rng && comp.erratic && comp.erratic > 0 && rng.next() < comp.erratic) {
     const dx = rng.int(3) - 1, dy = rng.int(3) - 1;
     const x = comp.x + dx, y = comp.y + dy;
-    const ok = tileAt(f, x, y) === 1 && !(x === player.x && y === player.y) && !occupiedBy(f, x, y, null, null);
+    const ok = tileAt(f, x, y) === 1 && !(x === player.x && y === player.y) && !occupiedBy(f, x, y, null, block);
     comp.intent = ok ? { type: "move", x, y } : { type: "wait" };
     return;
   }
@@ -664,14 +717,14 @@ export function planCompanion(f: Floor, player: Pos, comp: CompanionEntity, rng?
   const dx = Math.sign(player.x - comp.x), dy = Math.sign(player.y - comp.y);
   const cand: Pos[] = [{ x: comp.x + dx, y: comp.y + dy }, { x: comp.x + dx, y: comp.y }, { x: comp.x, y: comp.y + dy }];
   for (const c of cand) {
-    const blocked = (c.x === player.x && c.y === player.y) || occupiedBy(f, c.x, c.y, null, null);
+    const blocked = (c.x === player.x && c.y === player.y) || occupiedBy(f, c.x, c.y, null, block);
     if (tileAt(f, c.x, c.y) === 1 && !blocked) { comp.intent = { type: "move", x: c.x, y: c.y }; return; }
   }
   comp.intent = { type: "wait" };
 }
 
 /** 相棒の予告を実行（攻撃＝予告マスの敵に確定ダメージ／移動＝空きへ一歩）。撃破した敵を返す。 */
-export function resolveCompanion(f: Floor, player: Pos, comp: CompanionEntity): CompanionResolution {
+export function resolveCompanion(f: Floor, player: Pos, comp: CompanionEntity, blockers?: readonly Pos[]): CompanionResolution {
   if (comp.hp <= 0 || !comp.intent) return { hit: null, dmg: 0 };
   let res: CompanionResolution = { hit: null, dmg: 0 };
   if (comp.intent.type === "attack") {
@@ -681,7 +734,7 @@ export function resolveCompanion(f: Floor, player: Pos, comp: CompanionEntity): 
     if (m) { m.hp -= dmg; res = { hit: m, dmg }; }
   } else if (comp.intent.type === "move") {
     const { x, y } = comp.intent;
-    if (tileAt(f, x, y) === 1 && !(x === player.x && y === player.y) && !occupiedBy(f, x, y, null, null)) { comp.x = x; comp.y = y; }
+    if (tileAt(f, x, y) === 1 && !(x === player.x && y === player.y) && !occupiedBy(f, x, y, null, blockers ?? null)) { comp.x = x; comp.y = y; }
   }
   comp.intent = null;
   return res;

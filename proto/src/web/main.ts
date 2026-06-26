@@ -43,18 +43,18 @@ import {
   setBgm, setBgmDepth, setBgmEnabled, isBgmOn, setBgmVolume, bgmVolume, loadBgmPref, setSfxVolume, sfxVolume,
 } from "./audio.ts";
 import {
-  genFloor, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx, spawnPursuer,
-  planCompanion, resolveCompanion, randomFloorAway, inBounds, companionMaxHp, companionDmg,
+  genFloor, genRaidField, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx, spawnPursuer,
+  planCompanion, resolveCompanion, randomFloorAway, inBounds, companionMaxHp, companionDmg, scaleKind,
   bfsPath, reachableSet, nearestReachable,
   VIEW_W, VIEW_H, MONSTER_KINDS, type Floor, type Pos, type Chest, type Monster, type CompanionEntity, type DownedActor, type DelverActor, type Shrine,
 } from "../dungeon.ts";
-import type { Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, LivingActor, RosterActor, SetPiece, Storylet, TownContext, World } from "../types.ts";
+import type { Actor, Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, LivingActor, RosterActor, SetPiece, Storylet, TownContext, World } from "../types.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.53.0";
-export const APP_BUILD = "2026-06-25";
+export const APP_VERSION = "0.54.0";
+export const APP_BUILD = "2026-06-26";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
 const db = makeContentDb(
@@ -228,10 +228,15 @@ function loadDive(): DiveSnapshot | null {
 let world = loadOrCreateWorld();
 let rng: Rng = makeRng((world.seed ^ (world.chronicle.length * 2654435761) ^ (Date.now() & 0xffff)) >>> 0);
 let hp = world.current ? maxHp(world.current) : 12;
-let mode: "town" | "dive" | "interior" = "town";
+let mode: "town" | "dive" | "interior" | "raid" = "town"; // raid＝街防衛戦（街襲撃の盤上化・4-12J）
 let floor: Floor | null = null;
 let player: Pos = { x: 0, y: 0 };
 let companion: CompanionEntity | null = null; // 同行の盤上エンティティ（潜行中のみ。世代越えは world.companion：4-14C）
+// 街防衛戦（raid）の盤上 ephemeral。共闘する冒険者（allies）と守る市民（civics）。戦闘終了でクリア。
+let allies: RaidAlly[] = [];
+let civics: RaidCivic[] = [];
+let raid: RaidState | null = null;
+let raidResolve: (() => void) | null = null; // 戦闘終了で resolve＝maybeTownEvent の await を解く
 let busy = false; // シート表示中の入力ロック
 let mapMode = false; // 地図表示（踏破範囲の俯瞰）
 let aim: Pos | null = null;   // 照準モード（地図でタップ→マーカー→D-padで微調整→確定で自動移動）
@@ -276,7 +281,7 @@ function updateStatus() {
   if (poisonTurns > 0) buffs.push(`毒${poisonTurns}`); // 敵 venom の被毒（4-11G・デバフ）
   if (summons.length) buffs.push(`召${summons.length}`);
   if (world.echoes?.length) buffs.push(`遺灰${world.echoes.length}`); // 残響召喚の遺灰（4-10I）：保有数＝「術」ボタンから展開可
-  $("stBuff").textContent = (mode === "dive" && buffs.length) ? buffs.map((b) => `⟡${b}`).join("  ") : "";
+  $("stBuff").textContent = ((mode === "dive" || mode === "raid") && buffs.length) ? buffs.map((b) => `⟡${b}`).join("  ") : "";
   applyChrome(); // 下部の操作系（タブバー・D-pad）を mode に応じて表示更新
 }
 
@@ -318,11 +323,14 @@ function draw() {
   let playerThreatened = false;              // 自分のマスが攻撃予告されている
   let playerHeavy = false;                   // 自分のマスがボスの渾身の一撃で予告されている（B・橙の危険枠）
   let companionThreatened = false;           // 相棒のマスが攻撃予告されている（4-14C）
+  const friendThreat = new Set<number>();    // 街防衛戦：味方（冒険者）のマスが攻撃予告されている
   for (const m of floor.monsters) {
     if (m.hp <= 0 || !m.intent || !vis.has(mapIdx(floor, m.x, m.y))) continue;
     if (m.intent.type === "attack") {
-      if (m.intent.x === player.x && m.intent.y === player.y) { playerThreatened = true; if (m.intent.heavy) playerHeavy = true; }
-      else if (companion && m.intent.x === companion.x && m.intent.y === companion.y) companionThreatened = true;
+      const ix = m.intent.x, iy = m.intent.y; // 局所化（クロージャ内で intent の絞り込みが失われるため）
+      if (ix === player.x && iy === player.y) { playerThreatened = true; if (m.intent.heavy) playerHeavy = true; }
+      else if (companion && ix === companion.x && iy === companion.y) companionThreatened = true;
+      else if (allies.some((a) => a.hp > 0 && ix === a.x && iy === a.y)) friendThreat.add(mapIdx(floor, ix, iy));
     } else if (m.intent.type === "move") {
       teleMove.add(mapIdx(floor, m.intent.x, m.intent.y));
     }
@@ -369,9 +377,14 @@ function draw() {
       glyph = "@";
       cls = companionThreatened ? "g-companion-danger" : `g-companion${(companion!.erratic ?? 0) > 0 ? " g-companion-erratic" : ""}${companion!.intent?.type === "attack" ? " g-mon-atk" : ""}`;
     }
+    // 街防衛戦：共闘する冒険者（青系@）と、逃げ遅れた市民（琥珀の「民」）。
+    const ae = visible ? allies.find((a) => a.hp > 0 && a.x === x && a.y === y) : undefined;
+    const allyThreatened = !!ae && friendThreat.has(mi);
+    if (ae) { glyph = "@"; cls = allyThreatened ? "g-companion-danger" : `g-companion${ae.intent?.type === "attack" ? " g-mon-atk" : ""}`; }
+    else if (visible && civics.some((cv) => cv.hp > 0 && cv.x === x && cv.y === y)) { glyph = "民"; cls = "g-downed"; }
     const isPlayer = x === player.x && y === player.y;
     if (isPlayer) { glyph = "@"; cls = playerThreatened ? (playerHeavy ? "g-player-heavy" : "g-player-danger") : "g-player"; }
-    c.classList.toggle("tele-atk", (isPlayer && playerThreatened) || (isCompanion && companionThreatened)); // 攻撃予告の赤枠
+    c.classList.toggle("tele-atk", (isPlayer && playerThreatened) || (isCompanion && companionThreatened) || allyThreatened); // 攻撃予告の赤枠
     span.textContent = glyph;
     span.className = cls;
     const d = Math.hypot(x - player.x, y - player.y);
@@ -1951,11 +1964,34 @@ async function townOmenScene(): Promise<void> {
   busy = false;
 }
 
+// 街襲撃（4-12J）＝3規模。小＝テキスト寸劇（即決）／中・大＝盤上の防衛戦（迎え撃つ／手早く捌くを選択）。
+// 規模はレベル帯で決める（早期は小・中盤は中・高レベルは大）。盤上戦は迷宮の戦闘エンジンを街の特設戦場で回す。
 async function townRaidScene(): Promise<void> {
-  busy = true;
   const ch = world.current!;
   world.raidCooldown = 14 + Math.floor(rng.next() * 7); // 次の襲撃まで最短14〜20帰還（一度起きたら長く空く）
-  const tier = Math.min(6, 1 + Math.floor(ch.level / 8)); // 規模＝報酬/危険の係数（Lv8ごとに+1・Lv40で頭打ち。旧 min(3,L/5) は Lv10 で飽和＝深部でも Lv10 並み報酬だった）
+  const tier = Math.min(6, 1 + Math.floor(ch.level / 8));
+  const scale: "small" | "medium" | "large" = ch.level >= 34 ? "large" : ch.level >= 20 ? "medium" : "small";
+  if (scale === "small") { await raidTextScene(tier); return; } // 小規模＝従来のテキスト寸劇
+  // 中・大規模：街マップで実際に迎え撃つか、采配だけで手早く捌くか。
+  busy = true;
+  sfx("hurt"); flashFx("warp");
+  log("警鐘——街が、襲われている。", "warn");
+  const r = await sheet({
+    text: scale === "large"
+      ? "街へ戻ると、警鐘が半鐘を打ち鳴らしていた。迷宮の口が大きく裂け、深層の獣が街路へ雪崩れ込んでくる。冒険者たちが武器を取り、逃げ遅れた者が悲鳴をあげる。総力戦だ――お前は、どうする？"
+      : "街へ戻ると、警鐘が鳴っていた。広場に深層の獣が湧き出している。居合わせた冒険者が身構える。お前は、どうする？",
+    meta: scale === "large" ? "街の防衛 ── 総力戦" : "街の防衛 ── 襲撃",
+    options: ["街で共に迎え撃つ（盤上で戦う）", "采配で手早く捌く（テキスト）"],
+  });
+  busy = false;
+  if (r.pick === 1) await enterRaid(scale, tier);
+  else await raidTextScene(tier);
+}
+
+// 小規模／「手早く捌く」＝テキスト寸劇（従来の街襲撃）。報酬/深蝕は tier で規模化。
+async function raidTextScene(tier: number): Promise<void> {
+  busy = true;
+  const ch = world.current!;
   let gold = 0, exposure = 0, item: string | null = null;
   sfx("hurt"); flashFx("warp");
   log("警鐘——街が、襲われている。", "warn");
@@ -1993,6 +2029,250 @@ async function townRaidScene(): Promise<void> {
     meta: "街の防衛 ── 鎮静", options: ["街へ"],
   });
   updateStatus(); save(); busy = false;
+}
+
+// ========== 街防衛戦（街襲撃の盤上化・4-12J／4-14 共闘）：迷宮の戦闘エンジンを街の特設戦場で回す ==========
+// 味方＝共闘する冒険者（縁あるNPC優先＝再会）。市民＝守る対象（大規模）。敵＝wave で押し寄せ、大規模は最後にボス。
+// プレイヤー死＝通常の死（deathFlow）／味方の戦死＝化石化（後世で再会）／市民の喪失＝年代記。
+interface RaidAlly extends CompanionEntity { name: string; actor: Actor; actorId?: string; grade: number; }
+interface RaidCivic extends Pos { hp: number; }
+interface RaidState {
+  scale: "small" | "medium" | "large"; tier: number; pseudoDepth: number;
+  wave: number; totalWaves: number; bossSpawned: boolean;
+  spawnZone: Pos[]; killed: number; civicsSaved: number; civicsLost: number;
+  fallen: RaidAlly[];
+}
+
+/** 戦場のあるマスが他者で塞がっているか（敵スポーン位置の選別に使う）。 */
+function raidOccupied(p: Pos): boolean {
+  if (!floor) return true;
+  return floor.monsters.some((m) => m.hp > 0 && m.x === p.x && m.y === p.y)
+    || (player.x === p.x && player.y === p.y)
+    || allies.some((a) => a.hp > 0 && a.x === p.x && a.y === p.y)
+    || civics.some((c) => c.hp > 0 && c.x === p.x && c.y === p.y);
+}
+/** ある味方の移動で避ける相手（他の味方＋市民。プレイヤーは planCompanion 内で別途回避）。 */
+const allyBlockers = (self: RaidAlly): Pos[] => [...allies.filter((a) => a !== self && a.hp > 0), ...civics.filter((c) => c.hp > 0)];
+
+/** 共闘する冒険者を1体抽選：縁あるNPC（再会）優先→名簿→新規。 */
+function pickRaidAlly(): { name: string; actor: Actor; actorId?: string; grade: number } {
+  const remembered = (world.actors ?? []).filter((la) => la.actor && la.actor.alive !== false);
+  if (remembered.length && rng.next() < 0.6) {
+    const la = rng.pick(remembered);
+    return { name: la.actor.name, actor: la.actor, actorId: la.id, grade: Math.min(4, la.actor.grade ?? 1) };
+  }
+  const roster = pickRosterActor(world, db, rng);
+  if (roster) return { name: roster.actor.name, actor: roster.actor, actorId: roster.id, grade: Math.min(4, roster.actor.grade ?? 1) };
+  const a = mintActor(db, rng);
+  return { name: a.name, actor: a, grade: 1 + rng.int(3) };
+}
+
+/** 1波ぶんのモンスターを湧き口（上辺）に出す。数＝規模×波×tier。種は擬似深度でスケール。 */
+function spawnRaidWave(): void {
+  if (!floor || !raid) return;
+  const r = raid; // クロージャ内では module let の絞り込みが失われるため局所化
+  const base = r.scale === "large" ? 6 : 4;
+  const count = base + r.wave + Math.floor(r.tier / 2);
+  const pool = MONSTER_KINDS.filter((k) => k.minDepth <= r.pseudoDepth && (k.maxDepth === undefined || r.pseudoDepth <= k.maxDepth));
+  for (let i = 0; i < count; i++) {
+    const free = r.spawnZone.filter((p) => !raidOccupied(p));
+    const p = free.length ? free[rng.int(free.length)] : r.spawnZone[rng.int(r.spawnZone.length)];
+    const k = scaleKind(pool[rng.int(pool.length)], r.pseudoDepth);
+    floor.monsters.push({ id: `raid_${r.wave}_${i}_${floor.monsters.length}`, kind: k, hp: k.hp, x: p.x, y: p.y, awake: true, intent: null });
+  }
+}
+/** 大規模の山場：襲撃の主（エリアボス・厚いHP＋戦術化）。 */
+function spawnRaidBoss(): void {
+  if (!floor || !raid) return;
+  const bk = scaleKind({ key: "raidboss", glyph: "Ω", name: "襲撃の主", hp: 30, dmg: 7, minDepth: 1, erratic: 0.05, tier: 5 }, raid.pseudoDepth);
+  bk.hp = bk.hp * 3 + 20; // エリアボス相当の堅さ（makeAreaBoss に倣う）
+  const free = raid.spawnZone.filter((p) => !raidOccupied(p));
+  const p = free.length ? free[rng.int(free.length)] : raid.spawnZone[0];
+  floor.monsters.push({ id: "raid_boss", kind: bk, hp: bk.hp, x: p.x, y: p.y, awake: true, intent: null, boss: "area" });
+}
+
+/** 街防衛戦に突入（中・大規模）。戦闘が終わるまで解決しない Promise を返す＝maybeTownEvent の await を保持。 */
+function enterRaid(scale: "small" | "medium" | "large", tier: number): Promise<void> {
+  const ch = world.current!;
+  stopWander();
+  const pseudoDepth = Math.min(ABYSS_DEPTH - 1, Math.max(3, tier * 6)); // 擬似深度＝敵スケール（tier1≈6 … tier6=36）
+  const seed = (world.seed ^ (world.generation * 131) ^ ((world.diveCount ?? 0) * 7) ^ (ch.level * 1009)) >>> 0;
+  const field = genRaidField(seed, scale, pseudoDepth);
+  floor = field.floor;
+  player = { ...field.playerStart };
+  hp = maxHp(ch); ch.depth = 0; // 街＝癒えた状態から
+  mode = "raid";
+  mapMode = false; aim = null; // 地図/照準の持ち越しを断つ
+  // 共闘する冒険者を配置（大=3〜5／中=1〜2）。
+  allies = [];
+  const allyCount = scale === "large" ? 3 + rng.int(3) : 1 + rng.int(2);
+  for (let i = 0; i < allyCount && i < field.allySpots.length; i++) {
+    const pick = pickRaidAlly();
+    allies.push({
+      ...field.allySpots[i], hp: companionMaxHp(pick.grade, pseudoDepth), maxHp: companionMaxHp(pick.grade, pseudoDepth),
+      dmg: companionDmg(pick.grade, pseudoDepth), intent: null, name: pick.name, actor: pick.actor, actorId: pick.actorId, grade: pick.grade,
+    });
+  }
+  // 逃げ遅れた市民（大規模のみ＝守る対象）。
+  civics = scale === "large" ? field.civicSpots.map((p) => ({ ...p, hp: 1 })) : [];
+  raid = { scale, tier, pseudoDepth, wave: 1, totalWaves: scale === "large" ? 3 : 2, bossSpawned: false, spawnZone: field.spawnZone, killed: 0, civicsSaved: 0, civicsLost: 0, fallen: [] };
+  buildGridDom(VIEW_W, VIEW_H);
+  setAmbient(true, pseudoDepth);
+  setBgm(scale === "large" ? "abyss" : "dungeon", pseudoDepth);
+  applyChrome();
+  spawnRaidWave();
+  planMonsters(floor, player, rng, null, allies);
+  for (const a of allies) planCompanion(floor, player, a, rng, allyBlockers(a));
+  draw(); updateStatus();
+  log(scale === "large"
+    ? "総力戦――冒険者たちと肩を並べ、街路に雪崩れ込む獣を迎え撃て。逃げ遅れた者（民）を、獣の手から守れ。"
+    : "迎え撃て――広場に湧く獣を、居合わせた冒険者と討ち払え。", "warn");
+  log("（移動＝攻撃／術・持ち物も使える。下辺は自陣＝味方）", "dim");
+  return new Promise<void>((res) => { raidResolve = res; });
+}
+
+/** 街防衛戦のプレイヤー入力：移動＝攻撃。市民へ踏み込む＝避難誘導／味方は位置入替。 */
+async function raidAct(dx: number, dy: number): Promise<void> {
+  if (busy || overlayEl.classList.contains("show") || mode !== "raid" || !floor || !world.current) return;
+  ensureAudio();
+  if (!(dx === 0 && dy === 0)) {
+    if (!raidMoveOrAttack(player.x + dx, player.y + dy)) return; // 壁/不可＝手番を消費しない
+  }
+  if (busy) { draw(); return; } // 途中でシートが開いた
+  await raidEndTurn();
+}
+/** 戦場での一歩：敵＝攻撃／市民＝避難誘導／味方＝入替／空き＝移動。階段・宝箱等は無い。 */
+function raidMoveOrAttack(nx: number, ny: number): boolean {
+  const f = floor!;
+  if (tileAt(f, nx, ny) !== 1) return false;
+  const mon = f.monsters.find((m) => m.hp > 0 && m.x === nx && m.y === ny);
+  if (mon) {
+    const ch = world.current!;
+    const dmg = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
+    mon.hp -= dmg; sfx(mon.boss ? "crit" : "hit");
+    if (mon.hp <= 0) raidKill(mon); else log(`${mon.kind.name}に${dmg}の一撃。`);
+    return true;
+  }
+  const cv = civics.find((c) => c.hp > 0 && c.x === nx && c.y === ny);
+  if (cv) { cv.hp = 0; raid!.civicsSaved++; sfx("buy"); log("逃げ遅れた者を、安全な路地へ逃がした。", "cue"); return true; }
+  const ae = allies.find((a) => a.hp > 0 && a.x === nx && a.y === ny);
+  if (ae) { ae.x = player.x; ae.y = player.y; player = { x: nx, y: ny }; sfx("move"); return true; }
+  player = { x: nx, y: ny }; sfx("move"); return true;
+}
+/** 街防衛戦の撃破処理（XP・撃破数・ボス処遇）。dive の rewardKill とは別＝迷宮の年代記/扉を出さない。 */
+function raidKill(mon: Monster): void {
+  const ch = world.current!;
+  ch.xp += Math.round(xpForKill(mon.kind.hp) * xpMul(ch));
+  if (raid) raid.killed++;
+  if (mon.boss) {
+    sfx("boss_down"); flashFx("warp");
+    log(`★ ${mon.kind.name}を打ち倒した！`, "warn");
+    pendingDrops.push(rollItem(raid?.pseudoDepth ?? 10, rng, { boss: true }));
+  } else sfx("kill");
+}
+
+/** 街防衛戦の一手（味方→敵→市民被害→波/ボス進行→勝敗）。術/持ち物/melee が turnPass 経由でここへ。 */
+async function raidEndTurn(): Promise<void> {
+  if (!floor || !world.current || !raid) return;
+  const ch = world.current;
+  if (armorBuffTurns > 0) armorBuffTurns--;
+  if (attackBuffTurns > 0) attackBuffTurns--;
+  const hasted = hasteTurns > 0; if (hasteTurns > 0) hasteTurns--;
+  if (deathDoorTurns > 0) { deathDoorTurns--; if (deathDoorTurns === 0) { ch.exposure += 0.4; log("死戸が閉じる……（深蝕＋0.4）。", "warn"); } }
+  for (const m of floor.monsters) if (m.hp > 0 && m.poison && m.poison > 0) { m.hp -= (m.poisonDmg ?? 1); m.poison--; if (m.hp <= 0) raidKill(m); }
+  if (poisonTurns > 0) { poisonTurns--; if (deathDoorTurns === 0) { hp -= poisonDmg; sfx("drain"); log(`毒が回る……（HP -${poisonDmg}）`, "warn"); } }
+  resolveSummons();
+  if (hasted) log("疾走――もう一手。", "dim");
+  if (!hasted) {
+    // 味方の手番（隣接敵を討つ／@に追従）。
+    for (const a of allies) {
+      if (a.hp <= 0) continue;
+      const cr = resolveCompanion(floor, player, a, allyBlockers(a));
+      if (cr.hit) { sfx("hit"); if (cr.hit.hp <= 0) { log(`${a.name}が${cr.hit.kind.name}を討ち取った。`); raidKill(cr.hit); } else log(`${a.name}が${cr.hit.kind.name}に${cr.dmg}の一撃。`, "dim"); }
+    }
+    // 敵の手番（標的＝@ or 味方の近い方）。
+    const res = resolveMonsters(floor, player, null, allies);
+    if (res.hits.length) sfx("hurt", 0.14);
+    for (const h of res.hits) {
+      if (h.target === "companion") {
+        const a = allies.find((x) => x.hp > 0 && x.x === h.tx && x.y === h.ty);
+        if (a) { a.hp -= h.dmg; log(`${h.monster.kind.name}の一撃が${a.name}を襲う！ ${h.dmg}の傷。`, "warn"); if (a.hp <= 0) log(`${a.name}が斃れた……。`, "warn"); }
+      } else {
+        let dmg = Math.max(1, h.dmg - armorReduce(ch) - (armorBuffTurns > 0 ? ARMOR_BUFF : 0));
+        if (deathDoorTurns > 0) dmg = 0;
+        if (dmg > 0 && shadowGuard > 0) { shadowGuard--; dmg = 0; log(`${h.monster.kind.name}の一撃を、影が引き受けた。`, "dim"); }
+        else if (h.effect === "heavy") { hp -= dmg; sfx("boss", 0.16); flashFx("warp"); log(`${h.monster.kind.name}の渾身の一撃！ ${dmg}の大ダメージ。`, "warn"); }
+        else { hp -= dmg; log(`${h.monster.kind.name}の一撃！ ${dmg}の傷。`, "warn"); if (h.effect === "poison") { poisonTurns = Math.max(poisonTurns, VENOM_TURNS); poisonDmg = Math.max(poisonDmg, venomDmgAt(raid.pseudoDepth)); log("牙に毒が仕込まれていた。", "warn"); } }
+      }
+    }
+    for (const m of res.dodges) log(`${m.kind.name}の一撃を見切った。`, "dim");
+    for (const a of allies) if (a.hp <= 0 && !raid.fallen.includes(a)) raid.fallen.push(a);
+    // 市民への被害：隣接した獣が、逃げ遅れた者を呑む（守れなかった＝喪失）。
+    for (const cv of civics) {
+      if (cv.hp <= 0) continue;
+      if (floor.monsters.some((m) => m.hp > 0 && Math.max(Math.abs(m.x - cv.x), Math.abs(m.y - cv.y)) <= 1)) { cv.hp = 0; raid.civicsLost++; sfx("hurt"); log("逃げ遅れた者が、獣に呑まれた……。", "warn"); }
+    }
+  }
+  recordBestiary();
+  if (hp <= 0) { draw(); updateStatus(); await raidDefeat(); return; }
+  // 波／ボスの進行。
+  const aliveMon = floor.monsters.filter((m) => m.hp > 0).length;
+  if (aliveMon === 0) {
+    if (raid.wave < raid.totalWaves) { raid.wave++; spawnRaidWave(); sfx("hurt"); log(`第${raid.wave}波――まだ来る。`, "warn"); }
+    else if (raid.scale === "large" && !raid.bossSpawned) { raid.bossSpawned = true; spawnRaidBoss(); sfx("boss"); flashFx("warp"); log("地が揺れる――瓦礫を割って、一際大きな影が現れた。", "warn"); }
+    else { planMonsters(floor, player, rng, null, allies); draw(); updateStatus(); await raidVictory(); return; }
+  }
+  planMonsters(floor, player, rng, null, allies);
+  for (const a of allies) if (a.hp > 0) planCompanion(floor, player, a, rng, allyBlockers(a));
+  draw(); updateStatus();
+  await handleLevelUps();
+  await handleDrops();
+}
+
+/** 戦死した味方を化石化（後世で再会＝4-14）。勝敗どちらでも呼ぶ。 */
+function fossilizeRaidFallen(): void {
+  if (!raid) return;
+  for (const a of allies) if (a.hp <= 0 && !raid.fallen.includes(a)) raid.fallen.push(a);
+  for (const a of raid.fallen) fossilizeCompanion(world, a.actor, { depth: raid.pseudoDepth, exposure: 0.6, bond: 1 });
+}
+/** 戦場の後片付け（盤上 ephemeral とバフ/毒/召喚をクリア）。 */
+function clearRaidBoard(): void {
+  raid = null; allies = []; civics = []; floor = null;
+  armorBuffTurns = attackBuffTurns = hasteTurns = deathDoorTurns = poisonTurns = poisonDmg = shadowGuard = 0;
+  summons = [];
+}
+/** 勝利＝街へ。報酬（規模×tier＋撃破＋救助＋生存仲間）・称号・年代記・戦死仲間の化石化。 */
+async function raidVictory(): Promise<void> {
+  busy = true;
+  await handleLevelUps(); await handleDrops();
+  const ch = world.current!; const r = raid!;
+  let gold = (r.scale === "large" ? 20 : 12) * r.tier + r.killed + r.civicsSaved * 4;
+  const survivors = allies.filter((a) => a.hp > 0).length;
+  gold += survivors * 3;
+  ch.gold += gold;
+  const title = r.scale === "large" ? `守護者:第${world.generation}世代の総力戦` : `守護者:第${world.generation}世代の防衛`;
+  if (!ch.traits.includes(title)) ch.traits.push(title);
+  chronicle(world, "legend", `第${world.generation}世代、${ch.name}は街を襲った深層の獣を退けた（撃破${r.killed}${r.fallen.length ? `・斃れた仲間${r.fallen.length}` : ""}）。`, [ch.id]);
+  sfx("intervene");
+  fossilizeRaidFallen();
+  const lines = [`〔報酬〕金貨 ＋${gold}`];
+  if (r.civicsSaved) lines.push(`救った市民 ${r.civicsSaved}人`);
+  if (r.civicsLost) lines.push(`喪われた者 ${r.civicsLost}人`);
+  if (survivors) lines.push(`生き延びた仲間 ${survivors}人`);
+  if (r.fallen.length) lines.push(`斃れた仲間 ${r.fallen.length}人（その亡骸は迷宮に還り、いつか再会するだろう）`);
+  await sheet({ text: `静けさが戻った。街の者たちが、口々に礼を述べる。\n\n${lines.join("\n")}`, meta: "街の防衛 ── 鎮静", options: ["街へ"] });
+  clearRaidBoard();
+  busy = false; updateStatus(); save();
+  const res = raidResolve; raidResolve = null; if (res) res(); // maybeTownEvent の await を解く→townLoop で街へ
+}
+/** 敗北＝プレイヤーの死。戦死仲間を化石化してから通常の死亡フローへ（deathFlow が次代の街ループを起こす）。 */
+async function raidDefeat(): Promise<void> {
+  fossilizeRaidFallen();
+  raid = null; allies = []; civics = [];
+  armorBuffTurns = attackBuffTurns = hasteTurns = deathDoorTurns = poisonTurns = poisonDmg = shadowGuard = 0; summons = [];
+  raidResolve = null; // deathFlow が新しいゲームループを起こす＝この raid の await は孤児化（既存の死亡と同じ作法）
+  log("街の防衛に斃れた――。", "warn");
+  await deathFlow();
 }
 
 // ④ 追悼の日（祭礼）＝襲撃の"対"になる好機の定期イベント（4-12 J）。死者を悼み、深蝕（深みの蝕み）を人の温もりで和らげる。
@@ -2715,6 +2995,9 @@ const HOMEWARD_CHANT = 3;
  *  両異物(0.05)×10×心係数 ≈ 0.5/floor（heart2）＝予測可能な呪いの代償。 */
 const ODDITY_DESCENT_MULT = 10;
 /** 1手ぶんの後処理：深蝕→奇癖→蝕み→敵の手番→予告更新→描画→昇級→死。移動も詠唱もここに合流する。 */
+// 一手の経過＝場面に応じた手番処理（迷宮＝endTurn／街防衛戦＝raidEndTurn）。術・消耗品・残響が共用。
+const turnPass = (): Promise<void> => (mode === "raid" ? raidEndTurn() : endTurn());
+
 async function endTurn() {
   if (!floor || !world.current) return;
   const ch = world.current;
@@ -3073,7 +3356,7 @@ $("spellBtn").onclick = async () => {
 };
 // 持ち物ボタン（潜行中）：消耗品を使う。使うと一手かかる＝敵が動く（戦術的判断）。
 $("bagBtn").onclick = async () => {
-  if (busy || mode !== "dive" || !floor || !world.current) return;
+  if (busy || (mode !== "dive" && mode !== "raid") || !floor || !world.current) return;
   const ch = world.current;
   const inv = ch.inventory ?? [];
   if (!inv.length) { log("持ち物は空だ。街の道具屋ハルで消耗品を仕入れられる。", "dim"); return; }
@@ -3089,7 +3372,7 @@ $("bagBtn").onclick = async () => {
   const msg = applyConsumable(ch, s.key); consumeOne(ch, s.key);
   sfx("consume");
   log(`${def?.name} を使った（${msg}）。`, "warn");
-  await endTurn(); // 一手経過＝敵の手番
+  await turnPass(); // 一手経過＝敵の手番（迷宮／街防衛戦）
 };
 
 /** 視界内の最寄りの敵。 */
@@ -3122,7 +3405,7 @@ function spawnSummon(near: Pos, glyph: string, name: string, dmg: number, turns:
 /** 残響の遺灰を展開（4-10I）：神話極の鎮魂で得た遺灰を1つ消費し、強めの一時味方を喚ぶ。代償＝深蝕。一手かかる。 */
 async function deployEcho(ch: Character) {
   const echoes = world.echoes ?? [];
-  if (!echoes.length || mode !== "dive" || !floor) return;
+  if (!echoes.length || (mode !== "dive" && mode !== "raid") || !floor) return;
   busy = true;
   const cells = echoes.map((e) => ({
     html: `<span class="chip c-sup">残響</span><div class="nm">${e.name}の残響</div><div class="sub">威力${e.dmg}・8手・追従／代償 深蝕＋${ECHO_DEPLOY_COST}</div>`,
@@ -3137,7 +3420,7 @@ async function deployEcho(ch: Character) {
   sfx("spell_summon"); flashFx("warp", { x: player.x, y: player.y });
   log(`${e.name}の残響が、傍らに立った（威力${e.dmg}・8手・深蝕＋${ECHO_DEPLOY_COST}）。`, "cue");
   save(); updateStatus();
-  await endTurn(); // 一手経過＝敵の手番（術・消耗品と同じ）
+  await turnPass(); // 一手経過＝敵の手番（術・消耗品と同じ。街防衛戦でも可）
 }
 /** 召喚の手番：隣接敵を討つ／いなければ最寄り敵（follow なら @）へ1歩。寿命を消費し、尽きたら霧散。 */
 function resolveSummons() {
@@ -3179,7 +3462,7 @@ function adjacentSpotToward(t: Monster): Pos | null {
 }
 
 async function castSpell(key: string) {
-  if (busy || mode !== "dive" || !floor || !world.current) return;
+  if (busy || (mode !== "dive" && mode !== "raid") || !floor || !world.current) return;
   const ch = world.current;
   const def = spellByKey(key);
   if (!def) return;
@@ -3438,7 +3721,7 @@ async function castSpell(key: string) {
   const gain = def.cost * heartFactor(ch); // 心（染み込み係数）で術の深蝕代償が和らぐ＝v2 の主累積源①
   ch.exposure += gain;
   log(`（${def.name}の代償：深蝕＋${gain.toFixed(2)}）`, "dim");
-  await endTurn();
+  await turnPass();
 }
 
 /** 撃破で貯まったXPがレベル閾値を超えていれば、超えたぶんだけ昇級＝ステ選択（4-11F②）。 */
@@ -4666,13 +4949,14 @@ function loadDpadPref() {
 function applyChrome() {
   const inGame = !!world.current;
   const dive = mode === "dive";
-  const walk = dive || mode === "town" || mode === "interior";
+  const combat = dive || mode === "raid"; // 術/品は街防衛戦でも使える
+  const walk = combat || mode === "town" || mode === "interior";
   // 下部タブバー＝在ゲーム中は常駐（術/品/地図/ステータス/設定）。position:fixed で最下端固定。
   $("tabbar").classList.toggle("show", inGame);
   document.body.classList.toggle("has-tabbar", inGame); // バー高ぶんの下部余白を本体に確保
-  // 術/品/地図 は迷宮でのみ有効（それ以外は淡色＝無効）。ステータス/設定は常時有効。
-  ($("spellBtn") as HTMLElement).classList.toggle("dis", !dive);
-  ($("bagBtn") as HTMLElement).classList.toggle("dis", !dive);
+  // 術/品 は迷宮＋街防衛戦で有効／地図は迷宮のみ。ステータス/設定は常時有効。
+  ($("spellBtn") as HTMLElement).classList.toggle("dis", !combat);
+  ($("bagBtn") as HTMLElement).classList.toggle("dis", !combat);
   ($("mapBtn") as HTMLElement).classList.toggle("dis", !dive);
   // D-pad 帯（移動補助）＝歩ける場面で常駐・タブバーの上。
   const showDpad = dpadOn && walk;
@@ -4742,6 +5026,7 @@ function dirMove(dx: number, dy: number) {
   if (busy || overlayEl.classList.contains("show")) return; // シート表示中は盤面を動かさない（街と同じ＝確認等の入れ子シート裏での誤操作・再入防止）
   ensureAudio();
   if (mode === "town" || mode === "interior") { if (dx === 0 && dy === 0) return; townAct(dx, dy); return; }
+  if (mode === "raid") { void raidAct(dx, dy); return; } // 街防衛戦＝盤上で迎え撃つ
   if (mode !== "dive") return;
   if (mapMode) {
     if (aim) { // 照準モード：方向で1マス調整／中央(0,0)で確定
@@ -4831,12 +5116,13 @@ $("mapWrap").addEventListener("touchend", (e) => {
     return;
   }
 
+  const act = mode === "raid" ? raidAct : playerAct; // 街防衛戦も同じ操作で迎え撃つ
   if (!tap) { // スワイプ＝8方向移動
-    const [sx, sy] = octant(dx, dy); void playerAct(sx, sy);
+    const [sx, sy] = octant(dx, dy); void act(sx, sy);
     return;
   }
   // タップ（ボタン以外の任意位置）＝待機。移動はスワイプ／D-pad で行う。
-  void playerAct(0, 0);
+  void act(0, 0);
 }, { passive: true });
 
 addEventListener("resize", () => {
