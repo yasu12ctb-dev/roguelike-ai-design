@@ -28,6 +28,10 @@ const CONSUMABLES = new Set([...CONSUMABLES_SRC.matchAll(/key:\s*"([a-z0-9_]+)"/
 // 名簿id（actorId prereq の突合・4-14）。adventurers.json があれば集める。
 let ROSTER_IDS = new Set();
 try { ROSTER_IDS = new Set(JSON.parse(read("content/adventurers.json")).adventurers.map((a) => a.id)); } catch { /* 名簿なし＝空 */ }
+// 拾得品プール（keepsakes.json）。effect.keepsake の参照整合に使う。あれば集める。
+let KEEPSAKES = [];
+try { KEEPSAKES = JSON.parse(read("content/keepsakes.json")).keepsakes ?? []; } catch { /* プールなし＝空 */ }
+const KEEPSAKE_IDS = new Set(KEEPSAKES.map((k) => k.id));
 
 // context ごとに本文へ充填できるスロット（fillDungeonText/fillStoryletText/fillActorText に対応）
 const SLOTS = {
@@ -69,8 +73,10 @@ function checkEffects(id, ctx, effects, where) {
     if (e.bond !== undefined && typeof e.bond !== "number") E(id, `${where} bond は number`);
     if (e.exposure !== undefined && typeof e.exposure !== "number") E(id, `${where} exposure は number`);
     if (e.trait !== undefined) checkSlots(id, ctx, e.trait);
-    if (e.keepsake !== undefined && (typeof e.keepsake !== "object" || typeof e.keepsake.title !== "string" || typeof e.keepsake.story !== "string"))
-      E(id, `${where} effect.keepsake は {title:string, story:string} が必須`);
+    if (e.keepsake !== undefined) {
+      if (typeof e.keepsake !== "string") E(id, `${where} effect.keepsake は keepsakes.json の id（string）`);
+      else if (!KEEPSAKE_IDS.has(e.keepsake)) E(id, `${where} 不明な keepsake id "${e.keepsake}"（keepsakes.json に未定義）`);
+    }
     if (e.chronicle !== undefined) checkSlots(id, ctx, e.chronicle);
   }
 }
@@ -222,6 +228,28 @@ for (const [ctx, items] of ndBuckets) for (let i = 0; i < items.length; i++) for
 ndPairs.sort((a, b) => b[0] - a[0]);
 for (const [j, ctx, a, b] of ndPairs.slice(0, 20)) W(`${a}~${b}`, `近似重複の恐れ（${ctx}・bigram類似 ${j.toFixed(2)}）＝本文が酷似。表現の差別化を推奨`);
 if (ndPairs.length) console.log(`== 近似重複（量産QA）：類似≥${NEARDUP_WARN} のペア ${ndPairs.length}件（warn）==`);
+
+// ---- 拾得品プール（keepsakes.json）の検証＝量産しても typo/重複/形不整合を機械検出 ----
+{
+  const kseen = new Set();
+  for (const k of KEEPSAKES) {
+    const kid = k?.id ?? "(no-id)";
+    if (typeof k.id !== "string" || !k.id) E(kid, "keepsake.id は非空 string");
+    else if (kseen.has(k.id)) E(kid, "keepsake.id が重複"); else kseen.add(k.id);
+    if (typeof k.title !== "string" || !k.title) E(kid, "keepsake.title は非空 string");
+    if (typeof k.story !== "string" || !k.story) E(kid, "keepsake.story は非空 string");
+    if (!BANDS.has(k.band)) E(kid, `keepsake.band は ${[...BANDS].join("/")} のいずれか（今: ${k.band}）`);
+  }
+  // 近似重複（量産QA）：story 本文の文字bigram Jaccard。閾値は storylet と同じ 0.50。
+  const kg = KEEPSAKES.map((k) => [k.id, bigrams(String(k.story).replace(/[\s　、。「」『』（）()！？,.!?:：・…—-]/g, "").toLowerCase())]);
+  const kp = [];
+  for (let i = 0; i < kg.length; i++) for (let j = i + 1; j < kg.length; j++) {
+    const s = jaccard(kg[i][1], kg[j][1]); if (s >= NEARDUP_WARN) kp.push([s, kg[i][0], kg[j][0]]);
+  }
+  kp.sort((a, b) => b[0] - a[0]);
+  for (const [s, a, b] of kp.slice(0, 20)) W(`${a}~${b}`, `拾得品の近似重複（bigram類似 ${s.toFixed(2)}）＝story が酷似。差別化を推奨`);
+  if (KEEPSAKES.length) console.log(`== 拾得品プール：keepsakes ${KEEPSAKES.length}件（近似重複 ${kp.length}件）==`);
+}
 
 console.log(`== コンテンツ検証：storylets ${list.length}件 / 消耗品キー [${[...CONSUMABLES].join(",")}] ==`);
 if (warn.length) { console.log(`\n[警告 ${warn.length}]`); warn.forEach((w) => console.log("  " + w)); }

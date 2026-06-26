@@ -36,8 +36,12 @@ export interface World {
   keepsakes?: Keepsake[];       // 拾得品の蒐集（読み物コレクション・書記の館で再読）。世代を越えて堆積する好古の棚。任意＝旧セーブ非破壊。
 }
 
-/** 拾得品（蒐集・読み物）：詩情系の拾得を再読できるショートストーリー付きの収集品にする。 */
-export interface Keepsake { title: string; story: string; gen: number; depth: number; }
+/** 拾得品の収集記録（セーブ側）：id 参照のみ＝本文は content/keepsakes.json から引く（複製しない＝後の文章修正も既収集に反映）。
+ *  title は旧セーブ移行用のフォールバック（新規収集は id だけで解決）。 */
+export interface Keepsake { id: string; gen: number; depth: number; title?: string; }
+
+/** 拾得品の定義（プール・content/keepsakes.json）：書記の館で再読できる詩情系の収集品。純フレーバー・効果なし。 */
+export interface KeepsakeDef { id: string; title: string; story: string; band: "shallow" | "mid" | "deep" | "abyss"; }
 
 /** 残響召喚の遺灰（4-10I・Elden Ring の遺灰型）。神話極の化石の鎮魂で得て、潜行中に1回だけ展開して消費する。 */
 export interface EchoAsh {
@@ -313,11 +317,8 @@ export interface Effect {
   arc?: ArcEffect;         // 長尺アークを開始/前進/分岐記録/完了（4-12(I)）
   gold?: number;           // 報酬：金貨の増減（4-10G 経済）
   item?: string;           // 報酬：消耗品キーを1つ持ち物へ（容量超過なら持ちきれず破棄）
-  keepsake?: KeepsakeDef;  // 拾得品（蒐集）：読み物コレクションへ追加（書記の館で再読）。純フレーバー・効果なし。
+  keepsake?: string;       // 拾得品（蒐集）：keepsakes.json の id を1つ収集記録へ（書記の館で再読）。純フレーバー・効果なし。
 }
-
-/** 拾得品 effect の中身：題と再読用のショートストーリー。 */
-export interface KeepsakeDef { title: string; story: string }
 
 /** 長尺アークの進行操作（Effect.arc）。step を設定し、pick で分岐を記録、done で弧を閉じる。anchor で今の生者をアンカー。 */
 export interface ArcEffect { key: string; step: number; pick?: string; done?: boolean; anchor?: boolean; actorRef?: string }

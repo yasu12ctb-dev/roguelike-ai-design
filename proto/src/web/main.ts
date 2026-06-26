@@ -34,6 +34,8 @@ import {
 import storyletsJson from "../../content/storylets.json";
 import adventurersJson from "../../content/adventurers.json";
 import townJson from "../../content/town.json";
+import keepsakesJson from "../../content/keepsakes.json";
+import type { KeepsakeDef } from "../types.ts";
 import {
   buildTownGrid, buildInterior, spawnCrowd, wanderCrowd, crowdAt, townTileAt, interiorActorAt,
   type TownData, type TownGrid, type Interior, type CrowdActor, type InteriorActor, type GuardDef,
@@ -53,8 +55,8 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.53.0";
-export const APP_BUILD = "2026-06-25";
+export const APP_VERSION = "0.54.0";
+export const APP_BUILD = "2026-06-26";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
 const db = makeContentDb(
@@ -63,6 +65,24 @@ const db = makeContentDb(
   storyletsJson as { storylets: Storylet[] },
   adventurersJson as { adventurers: RosterActor[] },
 );
+
+// 拾得品プール（読み物コレクション）：id→定義の索引。本文はここから引く＝セーブに複製しない。
+const KEEPSAKES = (keepsakesJson as { keepsakes: KeepsakeDef[] }).keepsakes;
+const KEEPSAKE_BY_ID = new Map(KEEPSAKES.map((k) => [k.id, k]));
+const BAND_OF = (depth: number) => depth <= 8 ? "shallow" : depth <= 24 ? "mid" : depth <= 37 ? "deep" : "abyss";
+const KEEPSAKE_CHANCE = 0.12; // 宝箱を開けた時に拾得品が出る確率（定義数と独立＝何個足しても頻度一定）
+/** 深度 band に合う未収集の拾得品を1点付与（無ければ null）。出現頻度は KEEPSAKE_CHANCE が司る。 */
+function grantKeepsake(depth: number): KeepsakeDef | null {
+  const got = new Set((world.keepsakes ?? []).map((k) => k.id));
+  const band = BAND_OF(depth);
+  // band 適合の未収集を優先。尽きたら band 不問の未収集へ広げる（収集の取りこぼし防止）。
+  let pool = KEEPSAKES.filter((k) => !got.has(k.id) && k.band === band);
+  if (!pool.length) pool = KEEPSAKES.filter((k) => !got.has(k.id));
+  if (!pool.length) return null; // 全収集済み
+  const k = rng.pick(pool);
+  (world.keepsakes ??= []).push({ id: k.id, gen: world.generation, depth });
+  return k;
+}
 
 // ---------- DOM ----------
 const $ = (id: string) => document.getElementById(id)!;
@@ -611,21 +631,27 @@ async function chronicleScene() {
 // 書記の館「拾得品を読み返す」：迷宮で拾った詩情系の品＝読み物コレクション（世代を越えて堆積）。
 async function keepsakeShelf() {
   busy = true;
+  const total = KEEPSAKES.length;
   for (;;) {
     const list = world.keepsakes ?? [];
     if (!list.length) {
-      await sheet({ text: "「珍しい拾い物があれば、ここで預かろう。今はまだ、棚は空だ」。\n――迷宮の宝箱や遭遇で見つけた品が、ここに並ぶ。", meta: "書記の館 ── 好古の棚", options: ["わかった"] });
+      await sheet({ text: `「珍しい拾い物があれば、ここで預かろう。今はまだ、棚は空だ」。\n――迷宮の宝箱で見つけた詩情ある品が、ここに並ぶ（全${total}種を集められる）。`, meta: "書記の館 ── 好古の棚", options: ["わかった"] });
       break;
     }
+    // 本文・題はプール（keepsakes.json）から id で解決。旧セーブの未知idは保持した title でフォールバック。
+    const resolve = (k: { id: string; title?: string }) => KEEPSAKE_BY_ID.get(k.id) ?? null;
     const r = await sheet({
       text: `老書記イェンが、集めた品々の棚を示す。\n「君がここまでに見つけたものだ。どれでも、語って聞かせよう」。`,
-      meta: `書記の館 ── 好古の棚（${list.length}点）`,
-      options: [...list.map((k) => `${k.title}（第${k.gen}世代・深度${k.depth}）`), "棚を離れる"],
+      meta: `書記の館 ── 好古の棚（${list.length}／${total}種）`,
+      options: [...list.map((k) => `${resolve(k)?.title ?? k.title ?? "失われた品"}（第${k.gen}世代・深度${k.depth}）`), "棚を離れる"],
     });
     const i = r.pick - 1;
     if (i < 0 || i >= list.length) break;
     const k = list[i];
-    await sheet({ text: k.story, meta: `好古の棚 ── ${k.title}（第${k.gen}世代・深度${k.depth}で発見）`, options: ["棚に戻す"] });
+    const def = resolve(k);
+    const story = def?.story ?? "この品の詳しい記録は、もう失われてしまった。";
+    const title = def?.title ?? k.title ?? "失われた品";
+    await sheet({ text: story, meta: `好古の棚 ── ${title}（第${k.gen}世代・深度${k.depth}で発見）`, options: ["棚に戻す"] });
   }
   busy = false;
 }
@@ -4097,11 +4123,16 @@ async function chestScene(ce: Chest) {
     const i = floor!.chests.indexOf(ce);
     if (i >= 0) floor!.chests.splice(i, 1);
     const roll = rng.next();
+    const kept = roll >= 0.15 && roll < 0.15 + KEEPSAKE_CHANCE ? grantKeepsake(depth) : null; // 拾得品（詩情系の収集物・band 適合）
     if (roll < 0.15) { // 罠
       const dmg = 0.12 + rng.next() * 0.12;
       ch.exposure += dmg;
       log("蓋を開けた瞬間、淀んだ気が噴き上がった——罠だ。", "warn");
       log(`深みが、まともに染みた（深蝕 +${dmg.toFixed(2)}）。`, "dim");
+    } else if (kept) { // 拾得品＝書記の館で読み返せる収集物（出現頻度は KEEPSAKE_CHANCE が司る）
+      sfx("pickup");
+      await sheet({ text: kept.story, meta: `深度${depth} ── 拾得品「${kept.title}」`, options: ["懐に納める"] });
+      log(`心に残る品を見つけた──「${kept.title}」。書記の館で読み返せる。`);
     } else if (roll < 0.55) { // 装備ドロップ
       const item = rollItem(depth, rng);
       log("宝箱から、何かを手にした。");
