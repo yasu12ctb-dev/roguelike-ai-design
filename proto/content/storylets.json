@@ -20523,7 +20523,7 @@
    "id": "gl_m4c_whisper",
    "context": "guild",
    "prerequisites": {
-    "minExposure": 1.0
+    "minExposure": 1
    },
    "weight": 2,
    "text": "お前が通ると、若い職員たちが声を潜めた。「あれが……」「深みに片足を……」。#origin_name# が、たしなめるように咳払いする。",
@@ -22578,7 +22578,7 @@
    "id": "sp_m4f_warn",
    "context": "shop",
    "prerequisites": {
-    "minExposure": 1.0
+    "minExposure": 1
    },
    "weight": 2,
    "text": "店に入るなり、#origin_name# が鼻に皺を寄せた。「……あんた、何か連れてきてるね。品物に移っちゃ困る。表で、少し祓ってきちゃくれないか」。",
@@ -27591,6 +27591,564 @@
      }
     ]
    }
+  },
+  {
+   "id": "dv_b23_exp1",
+   "context": "delver",
+   "prerequisites": {
+    "minExposure": 0.7
+   },
+   "weight": 2,
+   "text": "#origin_name# がふと足を止め、お前の顔をのぞき込んだ。「……目の縁が翳ってる。深みに食われかけだ。これを噛め、気休めにはなる」。乾いた薬草を差し出してくる。",
+   "choices": [
+    {
+     "label": "受け取る",
+     "text": "土臭い苦みが舌に広がり、霞んでいた頭が少し晴れた。同じ道を行く者の気遣いが、芯に沁みる。",
+     "effects": [
+      {
+       "exposure": -0.05
+      },
+      {
+       "bond": 1
+      },
+      {
+       "trait": "受けた情け:#origin_name#の薬草"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# に深蝕を見抜かれ、薬草で和らげてもらった。"
+      }
+     ]
+    },
+    {
+     "label": "自分は大丈夫だと返す",
+     "text": "「強がるなよ」と#origin_name# は薬草を引っ込めた。だが気にかけてくれたこと自体が、少し心強い。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "迷宮で#origin_name# に深蝕を案じられた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_b23_exp2",
+   "context": "delver",
+   "prerequisites": {
+    "minExposure": 1
+   },
+   "weight": 2,
+   "text": "すれ違いざま、#origin_name# が一歩あとずさった。「おい……あんた、もう際どいぞ。その澱みは、放っておくと戻れなくなる」。声に怯えが滲んでいる。",
+   "choices": [
+    {
+     "label": "忠告を受け止める",
+     "text": "その怯えが、かえって己の状態を正視させた。引き返す勇気もまた、強さだ。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "trait": "胸に刻んだ:深みの際の自覚"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# に深蝕の深さを指摘され、際を悟った。"
+      }
+     ]
+    },
+    {
+     "label": "黙って奥へ向かう",
+     "text": "#origin_name# は何も言わず、ただ道を空けた。背に視線が刺さる。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# の怯えを背に、なお奥へ進んだ。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_b23_exp3",
+   "context": "delver",
+   "prerequisites": {
+    "minExposure": 0.6
+   },
+   "weight": 2,
+   "text": "崩れた壁を背に、#origin_name# が小さな火を熾していた。「座れよ。お前さん、ずいぶん深いところを引きずってる顔だ。火だけでも、人に戻る助けになる」。",
+   "choices": [
+    {
+     "label": "火を囲む",
+     "text": "揺れる炎を二人で眺めるうち、強張っていた何かがほどけていった。言葉は要らなかった。",
+     "effects": [
+      {
+       "exposure": -0.05
+      },
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "迷宮で#origin_name# と火を囲み、澱んだ心が和らいだ。"
+      }
+     ]
+    },
+    {
+     "label": "礼だけ言って発つ",
+     "text": "「無理すんな」と#origin_name# は火に枝をくべた。短い温もりが、足取りを軽くした。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "迷宮で#origin_name# の焚火に、束の間の安らぎを得た。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_b23_lv1",
+   "context": "delver",
+   "prerequisites": {
+    "minLevel": 16
+   },
+   "weight": 2,
+   "text": "#origin_name# がこちらに気づき、軽く目を瞠った。「あんた、噂の。……一度、潜り方を見せてもらいたかった」。同業者の眼に、まじりけのない敬意がある。",
+   "choices": [
+    {
+     "label": "並んで一区画進む",
+     "text": "互いの呼吸を読みながら、難所を危なげなく抜けた。「やはり噂どおりだ」と#origin_name# は満足げに頷く。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "trait": "並び立った:#origin_name#との同行"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# に見込まれ、肩を並べて潜った。"
+      }
+     ]
+    },
+    {
+     "label": "先を急ぐ",
+     "text": "「邪魔したな。達者でな」と#origin_name# は道を譲った。名が知れているのも、悪くない。",
+     "effects": [
+      {
+       "chronicle": "迷宮で#origin_name# に名を知られていた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_b23_lv2",
+   "context": "delver",
+   "prerequisites": {
+    "minLevel": 22
+   },
+   "weight": 2,
+   "text": "若い探索者の一団が、#origin_name# を先頭にお前を遠巻きにしている。「あれが……」とささやき合う声。#origin_name# が代表して進み出た。「一つ、教えを乞いたい」。",
+   "choices": [
+    {
+     "label": "一つだけ授ける",
+     "text": "間合いの取り方を一つ、手短に説いてやった。若者たちの目が輝く。語り継がれることもまた、堆積だ。",
+     "effects": [
+      {
+       "trait": "遺した教え:後進への一言"
+      },
+      {
+       "chronicle": "迷宮で後進の探索者に、潜りの心得を授けた。"
+      }
+     ]
+    },
+    {
+     "label": "自分で掴めと返す",
+     "text": "「……だよな」と#origin_name# は笑った。「答えを貰っちゃ、意味がない」。芯のある若者だ。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "迷宮で#origin_name# に、自ら掴めと突き放した。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dv_b23_lv3",
+   "context": "delver",
+   "prerequisites": {
+    "minLevel": 28
+   },
+   "weight": 2,
+   "text": "#origin_name# が深々と頭を下げた。「あんたが切り開いた道を、俺たちは辿らせてもらってる。礼を言いたかった」。お前の歩みが、すでに後続の地図になっている。",
+   "choices": [
+    {
+     "label": "先へ託す",
+     "text": "「この先は、お前たちの番だ」。短く告げると、#origin_name# は誇らしげに胸を張った。",
+     "effects": [
+      {
+       "trait": "継がれゆく:切り開いた道"
+      },
+      {
+       "chronicle": "迷宮で#origin_name# に、開いた道を継ぐよう託した。"
+      }
+     ]
+    },
+    {
+     "label": "ともに少し進む",
+     "text": "しばし轡を並べた。先達と後続が同じ闇を分かち合う、稀な時間だった。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "exposure": -0.03
+      },
+      {
+       "chronicle": "迷宮で#origin_name# と、世代を越えて肩を並べた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sh_b23_exp1",
+   "context": "shop",
+   "prerequisites": {
+    "minExposure": 0.7
+   },
+   "weight": 2,
+   "text": "品を検める#origin_name# の手が止まった。「お客さん……その澱み、商売柄わかる。これを持っていきな、安くしとく。深みに呑まれる前に、薬師へ行きな」。鎮静の小瓶を差し出す。",
+   "choices": [
+    {
+     "label": "受け取って礼を言う",
+     "text": "気遣いの滲んだ小瓶を懐に収めた。街の情けは、深みの底で削られた芯に効く。",
+     "effects": [
+      {
+       "exposure": -0.05
+      },
+      {
+       "trait": "受けた情け:#origin_name#の心配り"
+      },
+      {
+       "chronicle": "店で#origin_name# に深蝕を見抜かれ、鎮静の小瓶を分けてもらった。"
+      }
+     ]
+    },
+    {
+     "label": "代金は払うと断る",
+     "text": "「律儀だね」と#origin_name# は笑い、それでも一言、薬師へ行けと念を押した。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "店で#origin_name# に深蝕を案じられた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sh_b23_exp2",
+   "context": "shop",
+   "prerequisites": {
+    "minExposure": 1
+   },
+   "weight": 2,
+   "text": "#origin_name# がカウンター越しに身を引いた。「……すまないが、その状態じゃ売れない。あんたに渡した品が、よくないものを呼ぶ。まず身を清めてきてくれ」。",
+   "choices": [
+    {
+     "label": "忠告に従う",
+     "text": "商人の勘は侮れない。素直に踵を返した。引き際を知るのも、長く潜る者の器量だ。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "trait": "胸に刻んだ:商人の警句"
+      },
+      {
+       "chronicle": "店で#origin_name# に取引を断られ、身を清める要を悟った。"
+      }
+     ]
+    },
+    {
+     "label": "食い下がる",
+     "text": "#origin_name# は首を振るばかりだった。深みの匂いは、街では歓迎されない。",
+     "effects": [
+      {
+       "chronicle": "店で#origin_name# に深蝕ゆえ取引を拒まれた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sh_b23_exp3",
+   "context": "shop",
+   "prerequisites": {
+    "minExposure": 0.6
+   },
+   "weight": 2,
+   "text": "#origin_name# が茶を一杯、黙って差し出した。「顔色が悪い。深いとこから戻ったばかりだろう。商いは急がない。座っていきな」。",
+   "choices": [
+    {
+     "label": "茶を馳走になる",
+     "text": "温かい茶が、冷えた指先と荒んだ心に沁みた。買い物より先に、人心地がついた。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "店で#origin_name# の茶に、深蝕の澱が和らいだ。"
+      }
+     ]
+    },
+    {
+     "label": "用件だけ済ませる",
+     "text": "「無理はするなよ」と#origin_name# は茶を下げた。気遣いだけ、懐に残った。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "店で#origin_name# に体を気遣われた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_b23_exp1",
+   "context": "guild",
+   "prerequisites": {
+    "minExposure": 0.7
+   },
+   "weight": 2,
+   "text": "受付の#origin_name# が名簿から顔を上げ、眉を寄せた。「……あなた、深蝕がだいぶ進んでいる。次の依頼を回す前に、薬師で診てもらいなさい。死なれては困るのよ」。",
+   "choices": [
+    {
+     "label": "忠告を容れる",
+     "text": "記録を預かる者の目は確かだ。素直に頷いた。生き延びてこその冒険者だと、改めて思う。",
+     "effects": [
+      {
+       "exposure": -0.03
+      },
+      {
+       "trait": "胸に刻んだ:#origin_name#の戒め"
+      },
+      {
+       "chronicle": "ギルドで#origin_name# に深蝕を諫められ、無理を控えた。"
+      }
+     ]
+    },
+    {
+     "label": "まだやれると返す",
+     "text": "#origin_name# は溜息をつき、それでも一筆、薬師宛ての紹介状を書いてくれた。",
+     "effects": [
+      {
+       "chronicle": "ギルドで#origin_name# に深蝕を案じられ、紹介状を受けた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_b23_exp2",
+   "context": "guild",
+   "prerequisites": {
+    "minExposure": 1
+   },
+   "weight": 2,
+   "text": "#origin_name# が静かに名簿を閉じた。「正直に言う。この澱みのあなたを、もう奥へは送り出せない。何人も、そうやって還らなくなった。今日は、帰って休んで」。",
+   "choices": [
+    {
+     "label": "素直に帰る",
+     "text": "受付の声に滲む、見送ってきた者たちの影。逆らう気は起きなかった。",
+     "effects": [
+      {
+       "exposure": -0.04
+      },
+      {
+       "trait": "受け止めた:還らぬ者たちの重み"
+      },
+      {
+       "chronicle": "ギルドで#origin_name# に潜行を止められ、身を退いた。"
+      }
+     ]
+    },
+    {
+     "label": "自己責任だと告げる",
+     "text": "「……それでも、記録には残す」と#origin_name# は硬い声で言った。誰かが見ている。",
+     "effects": [
+      {
+       "chronicle": "ギルドで#origin_name# の制止を押し切る構えを見せた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gl_b23_exp3",
+   "context": "guild",
+   "prerequisites": {
+    "minExposure": 0.6
+   },
+   "weight": 2,
+   "text": "#origin_name# が奥から香草の包みを持ってきた。「ギルドの備えよ。深く潜る子に渡してる。……あなた、ちょっと翳ってきてるから」。さりげない気遣いだ。",
+   "choices": [
+    {
+     "label": "ありがたく受ける",
+     "text": "事務的な顔の裏の優しさが、こわばった心をほどいた。組織にも、人の温もりはある。",
+     "effects": [
+      {
+       "exposure": -0.05
+      },
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "ギルドで#origin_name# から香草を受け、深蝕が和らいだ。"
+      }
+     ]
+    },
+    {
+     "label": "他の者に回せと辞す",
+     "text": "「律儀ね」と#origin_name# は微かに笑った。気持ちだけ、懐に残した。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "ギルドで#origin_name# の気遣いに触れた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_b23_bond1",
+   "context": "tavern",
+   "prerequisites": {
+    "minBond": 3
+   },
+   "weight": 2,
+   "text": "暖簾をくぐると、#origin_name# が顔をほころばせた。「お、来たな。お前の席、空けといたぞ」。奥のいつもの席に、すでに一杯が置かれている。",
+   "choices": [
+    {
+     "label": "並んで飲む",
+     "text": "他愛ない話に夜が更けた。帰る場所と待つ顔がある——それだけで、また深みへ降りていける。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "exposure": -0.04
+      },
+      {
+       "trait": "通う場所:#origin_name#の店の定席"
+      },
+      {
+       "chronicle": "酒場で#origin_name# と杯を交わし、心がほどけた。"
+      }
+     ]
+    },
+    {
+     "label": "一杯だけで切り上げる",
+     "text": "「無理すんな、また来い」と#origin_name# は手を振った。短い団欒が、芯を温めた。",
+     "effects": [
+      {
+       "exposure": -0.02
+      },
+      {
+       "chronicle": "酒場で#origin_name# と短い一杯を分けた。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_b23_bond2",
+   "context": "tavern",
+   "prerequisites": {
+    "minBond": 4
+   },
+   "weight": 2,
+   "text": "#origin_name# が声を落とした。「ここだけの話だ。お前だから言う——奥の常連が、深いとこで妙なものを見たとさ」。馴染みにしか回ってこない噂だ。",
+   "choices": [
+    {
+     "label": "耳を傾ける",
+     "text": "縁あればこそ届く話に、行く先の手がかりがひとつ増えた。",
+     "effects": [
+      {
+       "trait": "小耳に挟んだ:#origin_name#の内緒話"
+      },
+      {
+       "chronicle": "酒場で#origin_name# から、馴染みだけの噂を聞いた。"
+      }
+     ]
+    },
+    {
+     "label": "深入りはよすと笑う",
+     "text": "「違いない」と#origin_name# も笑った。知らぬが花のこともある。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "酒場で#origin_name# と軽口を交わした。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tv_b23_bond3",
+   "context": "tavern",
+   "prerequisites": {
+    "minBond": 5
+   },
+   "weight": 2,
+   "text": "発とうとするお前を、#origin_name# が呼び止めた。「持っていけ」。布に包んだ携行食を押し付けてくる。「縁起物だ。……ちゃんと還ってこいよ」。",
+   "choices": [
+    {
+     "label": "ありがたく受け取る",
+     "text": "餞別の重みが、懐より胸に応えた。待つ者のために、必ず還ると決める。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "exposure": -0.03
+      },
+      {
+       "trait": "背に負った:#origin_name#の餞"
+      },
+      {
+       "chronicle": "酒場で#origin_name# から餞別を受け、還ると誓った。"
+      }
+     ]
+    },
+    {
+     "label": "気持ちだけ頂く",
+     "text": "「強情だな」と#origin_name# は笑い、代わりに固い握手をよこした。",
+     "effects": [
+      {
+       "bond": 1
+      },
+      {
+       "chronicle": "酒場で#origin_name# に見送られて発った。"
+      }
+     ]
+    }
+   ]
   }
  ]
 }
