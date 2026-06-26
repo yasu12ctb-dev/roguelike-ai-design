@@ -21,6 +21,9 @@ export function loadMutePref(): void {
   try { muted = localStorage.getItem(MUTE_KEY) === "1"; } catch { /* ignore */ }
 }
 
+/** AudioContext が起動済み（最初のユーザー操作を受けた）か。タイトルの音声ゲート判定に使う。 */
+export const audioStarted = (): boolean => started;
+
 /** 最初のユーザー操作で呼ぶ：AudioContext を作って resume する。 */
 export function ensureAudio(): void {
   if (started) { if (ctx && ctx.state === "suspended") void ctx.resume(); if (ambOn) scheduleAmbient(); kickBgm(); return; }
