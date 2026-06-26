@@ -7,10 +7,10 @@
        タブバーと同色(#0c0f14)にして帯とバーを連続させ「最下端まで」見せる（2026-06-20）。 -->
   <meta name="theme-color" content="#0c0f14" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="堆積する世界" />
+  <meta name="apple-mobile-web-app-title" content="深蝕" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>堆積する世界</title>
+  <title>深蝕 — The Corroding Deep</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icon.svg" />
@@ -295,9 +295,11 @@
     #title .embers { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
     #title .embers span { position: absolute; font-family: "Menlo", monospace; font-weight: 700; color: #ffcf7a; }
     #title .crest { margin-top: 17vh; text-align: center; z-index: 2; }
-    #title .name { font-size: 40px; font-weight: 700; letter-spacing: .06em; line-height: 1.25;
+    #title .name { font-size: 52px; font-weight: 700; letter-spacing: .14em; line-height: 1.2;
       color: #ffe6ad; text-shadow: 0 0 18px rgba(255,216,122,.55), 0 0 44px rgba(255,160,60,.30); }
-    #title .tagline { margin-top: 20px; font-size: 13px; line-height: 1.95; color: var(--tx-dim); letter-spacing: .04em; z-index: 2; text-align: center; }
+    #title .entitle { margin-top: 12px; font-family: "Hiragino Mincho ProN", serif; font-size: 15px; font-style: italic;
+      letter-spacing: .12em; color: var(--tx-dim); text-shadow: 0 0 12px rgba(159,143,216,.25); z-index: 2; }
+    #title .tagline { margin-top: 22px; font-size: 13px; line-height: 1.95; color: var(--tx-dim); letter-spacing: .04em; z-index: 2; text-align: center; }
     #title .menu { margin-top: auto; width: 100%; max-width: 340px; z-index: 2; }
     #title .menu button { display: block; width: 100%; text-align: center; font-family: "Hiragino Mincho ProN", serif;
       font-size: 15px; color: var(--tx-strong); background: rgba(28,35,45,.66); border: 1px solid var(--line-2);
@@ -375,7 +377,7 @@
       <span style="left:66%; top:72%; font-size:10px; opacity:.12;">·</span>
       <span style="left:50%; top:86%; font-size:12px; opacity:.10;">＊</span>
     </div>
-    <div class="crest"><div class="name">堆積する<br>世界</div></div>
+    <div class="crest"><div class="name">深蝕</div><div class="entitle">The Corroding Deep</div></div>
     <div class="tagline">あなたの死が、<br>世界の歴史になる。</div>
     <div class="menu" id="titleMenu"></div>
     <div class="sub" id="titleSub"></div>
