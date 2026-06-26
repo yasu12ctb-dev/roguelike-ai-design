@@ -14,6 +14,14 @@ const newId = (prefix: string) => `${prefix}_${(++idCounter).toString(36)}`;
 /** セーブ版数（v2=②ステ／v3=③ spells／v4=④ equipment／v6=歩ける街シーン／v7=金貨／v8=依頼／v9=同行。横断D）。 */
 export const SAVE_VERSION = 9;
 
+/** 旧セーブ（v0.53.0）の拾得品＝題で保存されていた11件を、現プール（keepsakes.json）の安定idへ移行する対応表。 */
+const LEGACY_KEEPSAKE_ID: Record<string, string> = {
+  "宛名のない手紙": "ks_letter", "錆びた鍵束": "ks_keys", "開かぬ小箱": "ks_locked",
+  "木彫りの玩具": "ks_toy", "名もなき欠片": "ks_fragment", "片身の首飾り": "ks_locket",
+  "誓いの指輪": "ks_ring", "壊れたオルゴール": "ks_musicbox", "ふやけた日誌の頁": "ks_diary",
+  "笑みの形の面": "ks_mask", "削られた名札": "ks_nameplate",
+};
+
 /** 旧セーブを現行スキーマへ補完（破壊しない）。
  *  欠落フィールドは版数に関わらず常に補う（版数判定だけに頼ると、追加フィールドの
  *  取りこぼしが起きる＝v2セーブに spells が無くフリーズした不具合の再発防止）。 */
@@ -55,6 +63,13 @@ export function migrateWorld(w: World): World {
   if (typeof w.diveCount !== "number") w.diveCount = 0; // 潜行回数（再潜行farm防止のseed nonce）：欠落は0で補完
   if (!Array.isArray(w.echoes)) w.echoes = []; // 残響召喚の遺灰（4-10I）：欠落は空で補完
   if (!Array.isArray(w.keepsakes)) w.keepsakes = []; // 拾得品の蒐集（読み物コレクション）：欠落は空で補完
+  else for (const k of w.keepsakes as any[]) { // 旧形式 {title,story,gen,depth} → {id,gen,depth,title}（本文複製を廃し id 参照へ・v0.54.0）
+    if (k && typeof k.id !== "string") {
+      const t = typeof k.title === "string" ? k.title : "";
+      k.id = LEGACY_KEEPSAKE_ID[t] ?? `legacy:${t}`; // 旧11題は安定idへ・未知題はフォールバックid（題を保持）
+      delete k.story; // 本文はプール（keepsakes.json）から引く＝セーブから本文を落とす
+    }
+  }
   if (!Array.isArray(w.seals)) w.seals = [];       // 奉献の試練・集めた印（4-13A）：欠落は空で補完
   if (typeof w.ascended !== "number") w.ascended = 0; // 奉献の試練・クリア回数（4-13D）
   if (typeof w.questsDone !== "number") w.questsDone = 0; // 4-4E 実績スコア（達成依頼数）：欠落は0
