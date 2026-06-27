@@ -170,6 +170,34 @@ for (const fa of FINALACTS) {
   ok(filterByTags(db, "death_line", { finalAct: fa }).length > 0,
     `death_line 欠落：finalAct=${fa} の死の一手の地の文が無い`);
 }
+// 5d. storylet の任意スロット安全性（catchphrase/epithet を「持たないアンカー」で充填して実行時 throw するのを静的に防ぐ）。
+//   ・#origin_catchphrase# は化石の口癖。どのアンカー源も常には持たない＝encounter で hasCatchphrase:true ゲートが必須
+//     （selectStorylet が口癖を持つ化石にだけ選ぶ＝fillStoryletText の throw 回避）。
+//   ・#origin_epithet# は異名。生者アンカー（mintActor＝常に付与／名簿＝全員が持つ・下の 5e で担保）でのみ安全。
+//     encounter の化石は異名を持たぬ個体がある＝encounter/dungeon/chest では禁止（throw する）。
+const TOWN_FAMILY = new Set(["street", "tavern", "guild", "shop", "delver", "quest"]);
+const storyletText = (s: Storylet): string => [
+  s.text, (s as any).investigate?.text, (s as any).search?.text, (s as any).result?.text,
+  ...(s.choices ?? []).map((c) => c.text),
+].filter(Boolean).join(" ");
+for (const s of storylets) {
+  const t = storyletText(s);
+  const ctx = ctxOf(s);
+  if (/#origin_catchphrase#/.test(t)) {
+    ok(ctx === "encounter" && (s.prerequisites as any)?.hasCatchphrase === true,
+      `スロット throw 危険：${s.id}（${ctx}）が #origin_catchphrase# を使うが、encounter かつ hasCatchphrase:true ゲートが無い＝口癖を持たぬアンカーで fillSlots が throw する`);
+  }
+  if (/#origin_epithet#/.test(t)) {
+    ok(TOWN_FAMILY.has(ctx),
+      `スロット throw 危険：${s.id}（${ctx}）が #origin_epithet# を使う＝異名を持たぬアンカー（化石/環境）で fillSlots が throw する（異名は生者 context のみ安全）`);
+  }
+}
+// 5e. 名簿（adventurers）の異名充足：town/delver は #origin_epithet# を無ゲートで使うため、名簿員が
+//   アンカーになっても throw しないよう、全員が epithet を持つことを担保（mintActor 産は常に付与）。
+for (const a of (db.adventurers ?? [])) {
+  ok(typeof (a as any).epithet === "string" && (a as any).epithet.length > 0,
+    `名簿 ${(a as any).id} に epithet が無い＝town/delver で #origin_epithet# 充填時に throw する`);
+}
 
 // ============================================================
 console.log("== 6. flag 伏線の対応（prereq.flag は plant かコード側で必ず立つ） ==");
