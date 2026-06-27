@@ -125,6 +125,17 @@ for (const ctx of Object.keys(ctxCount)) {
 }
 
 // ============================================================
+console.log("== 4b. keeper-voiced 充足（speaker:keeper の reachability・talkKeeper 結線ドリフト検出） ==");
+const KEEPER_CTX = ["guild", "shop", "tavern"] as const;
+const keeperCount: Record<string, number> = {};
+for (const s of storylets) if ((s as { speaker?: string }).speaker === "keeper") keeperCount[ctxOf(s)] = (keeperCount[ctxOf(s)] ?? 0) + 1;
+for (const c of KEEPER_CTX) ok((keeperCount[c] ?? 0) > 0, `keeper context "${c}" に speaker:"keeper" storylet が無い`);
+{
+  const mainSrc = readFileSync(join(__dirname, "web", "main.ts"), "utf8");
+  ok(mainSrc.includes("selectKeeperStorylet("), "talkKeeper が selectKeeperStorylet を呼んでいない（keeper vignette 未結線）");
+}
+
+// ============================================================
 console.log("== 5. 断片 tone×stage×slot 網羅（renderRediscovery の throw を静的に防ぐ） ==");
 // 5a. 全 tone×stage に rediscovery_frame が ≥1（render.ts:50-51 の throw 防止）
 for (const tone of TONES) for (const stage of STAGES) {

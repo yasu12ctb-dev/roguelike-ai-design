@@ -371,6 +371,7 @@ export interface Storylet {
   text?: string;                 // 状況の地の文（dungeon。#depth# スロット可）
   choices?: StoryletChoice[];    // 環境イベントの選択肢（dungeon）
   result?: StoryletBranch;       // 開封結果（chest。開けると自動適用。空/拾得/異物/罠）
+  speaker?: "keeper";            // 話者＝固定NPC本人（店主/受付等）。既定=雑踏(talkCrowd)／"keeper"=店主に話しかけた時 talkKeeper が本人として語る（#origin_name#=店主名）。街 context 限定・#origin_name# 以外のスロット不可（4-4B 辻褄整合）
 }
 
 // ---- 変質計算の結果 ----
