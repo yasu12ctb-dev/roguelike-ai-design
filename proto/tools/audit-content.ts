@@ -69,6 +69,20 @@ for (const s of arr) {
 
   // 7. minLevel が極端（Lv50 上限超過＝事実上死蔵）
   if (p.minLevel !== undefined && p.minLevel > 50) dead(s.id, `minLevel(${p.minLevel}) が Lv上限(50)超過`);
+
+  // 8. バランス外れ値（warn）：「バランス中立 ＋ 大報酬はゲートで守る」方針の逸脱を検出。
+  //   現 corpus は gold p95=26/exposure p95=0.1＝外れ値（大 gold／大浄化）が無ゲートだと序盤で farm 可能＝
+  //   終始シビアを崩す。閾値は p95 を大きく超える地点に置き、ゲート（Lv/深度/帯/arc/flag/actor/絆/深蝕）が
+  //   あれば終盤報酬として許容、無ければ警告。能動的バランス調整中の事故（無ゲート大報酬の混入）を抑止。
+  const gated = !!(p.minLevel || p.minDepth || (p.depthBand && p.depthBand !== "shallow") || p.arc || p.flag || p.actorId || p.minBond || p.minExposure);
+  const allEff = [
+    ...choices.flatMap((c: any) => c.effects ?? []),
+    ...(s.investigate?.effects ?? []), ...(s.search?.effects ?? []), ...(s.result?.effects ?? []),
+  ];
+  for (const e of allEff) {
+    if (typeof e.gold === "number" && e.gold > 40 && !gated) warn(s.id, `無ゲートで大 gold +${e.gold}（p95=26 超／序盤 farm 可能＝終始シビアを崩す恐れ）`);
+    if (typeof e.exposure === "number" && e.exposure < -0.3 && !gated) warn(s.id, `無ゲートで大浄化 ${e.exposure}（深蝕を安価に消せる＝深蝕圧の意義を損なう恐れ）`);
+  }
 }
 
 console.log(`=== audit-content 完了：${arr.length} storylets ===`);
