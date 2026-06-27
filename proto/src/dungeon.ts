@@ -3,6 +3,7 @@
 
 import { makeRng, type Rng } from "./rng.ts";
 import type { World, Fossil, Actor } from "./types.ts";
+import { diffMods, EASY_MODS, type DifficultyMods } from "./difficulty.ts";
 
 // 表示ビューポート（DOMグリッド）のサイズ。マップ自体はこれより大きく、カメラが @ を追う。
 export const VIEW_W = 21;
@@ -40,8 +41,8 @@ export const BOSS_SUMMON_CHANCE = 0.2;   // 覚醒中に眷属を呼ぶ確率（
 export const BOSS_SUMMON_CD = 4;         // 召喚後の待機手数
 const SPAWN_BASE: MonsterKind = { key: "spawn", glyph: "z", name: "蟲の眷属", hp: 2, dmg: 1, minDepth: 1, erratic: 0.3, tier: 1 };
 /** breeder が産む弱い眷属（深度連動だが通常雑魚の 35%HP/50%dmg＝数で圧すが個は脆い）。 */
-export const breederMinion = (depth: number): MonsterKind => {
-  const k = scaleKind(SPAWN_BASE, depth);
+export const breederMinion = (depth: number, mods: DifficultyMods = EASY_MODS): MonsterKind => {
+  const k = scaleKind(SPAWN_BASE, depth, mods);
   return { ...k, hp: Math.max(2, Math.round(k.hp * 0.35)), dmg: Math.max(1, Math.round(k.dmg * 0.5)) };
 };
 // 記号＝種類（小文字=並／大文字=強）、色＝tier。深いほど上位種が混じり緊張感が増す。
@@ -92,9 +93,12 @@ export const depthHpBonus = (depth: number) => Math.round(depth * 1.6);
 export const depthDmgBonus = (depth: number) => Math.round(depth * 0.18);
 /** その深度の「標準的な雑魚」HP（6+1.6d）＝ボス/エリート/追手の算出基準。 */
 export const regularHpAt = (depth: number) => 6 + depthHpBonus(depth);
-/** 種＋深度係数の実体（雑魚スポーンに使う。hp/dmg を深度ぶん底上げ＝撃破XP・被ダメも深度連動）。 */
-export const scaleKind = (k: MonsterKind, depth: number): MonsterKind =>
-  ({ ...k, hp: k.hp + depthHpBonus(depth), dmg: k.dmg + depthDmgBonus(depth) });
+/** 種＋深度係数の実体（雑魚スポーンに使う。hp/dmg を深度ぶん底上げ＝撃破XP・被ダメも深度連動）。
+ *  難易度（4-11H）は mods で乗数＋火力床を焼き込む。既定 easy＝×1.0/+0＝整数のまま＝従来値（golden 不変）。 */
+export const scaleKind = (k: MonsterKind, depth: number, mods: DifficultyMods = EASY_MODS): MonsterKind =>
+  ({ ...k,
+     hp: Math.round((k.hp + depthHpBonus(depth)) * mods.enemyHp),
+     dmg: Math.round((k.dmg + depthDmgBonus(depth)) * mods.enemyDmg) + mods.dmgFloor });
 
 /** 敵の次手のテレグラフ（4-11A 読める盤面）。move=ここへ動く / attack=このマスを討つ */
 export type MonsterIntent =
@@ -166,6 +170,7 @@ export interface Floor {
   explored: boolean[];           // 既踏破（記憶表示用）
   downed?: DownedActor | null;   // 手負いの冒険者（任意。enterFloor が稀に配置：4-14C）
   delver?: DelverActor | null;   // 同時に潜る生者の冒険者（任意。enterFloor が時々配置：すれ違いの軽イベント）
+  diff?: DifficultyMods;         // このフロアの難易度係数（genFloor で焼き込む。動的スポーン＝追手/眷属が読む）。未設定＝easy。
 }
 
 /** マップ座標 → tiles/explored の添字（フロアの幅で決まる） */
@@ -180,6 +185,7 @@ const center = (r: Room): Pos => ({ x: r.x + (r.w >> 1), y: r.y + (r.h >> 1) });
 export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }): Floor {
   // seed に潜行回数(diveCount)を混ぜる＝同一世代でも潜行ごとに別ダンジョン（生還→再潜行での宝箱/XP farm を根絶）。
   const rng = makeRng((world.seed ^ (depth * 2654435761) ^ (world.generation * 97) ^ ((world.diveCount ?? 0) * 40503) ^ (opts?.abyss ? 0x5eed : 0)) >>> 0);
+  const mods = diffMods(world.difficulty); // 難易度係数（4-11H）。easy＝×1.0＝従来値（golden 不変）。
   // マップ寸法：深いほど広い（毎回ランダムな形）。常に VIEW より大きく、カメラがスクロールする。
   // 旧 24+/28+（最大50×54）は手狭との FB を受け拡張（2026-06-17）。深度50で頭打ち＝最大 86×92（≒7,912・約2.9倍）。
   // 部屋数/敵数/宝箱は面積比で自動追従＝広いほど探索量が増え手応えになる（じっくり攻略）。
@@ -267,13 +273,14 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }
     depth, w: W, h: H, tiles, stairsUp, stairsDown,
     monsters: [], fossils: [], chests: [], shrines: [], returnDoor: null,
     explored: new Array(W * H).fill(false),
+    diff: mods, // 難易度係数を焼き込む（追手/眷属の動的スポーンが読む）
   };
 
   // ---------- モンスター配置（マップ面積＋深度でスケール。大マップでも密度を確保） ----------
   const pool = MONSTER_KINDS.filter((k) => k.minDepth <= depth && (k.maxDepth === undefined || depth <= k.maxDepth));
   const count = Math.min(Math.round((W * H) / 120) + Math.floor(depth / 3), 42); // 出現率・上限を拡張面積に追従（20→42）
   for (let i = 0; i < count; i++) {
-    const kind = scaleKind(pool[rng.int(pool.length)], depth); // 深度係数を焼き込む（HP/dmg/XP連動）
+    const kind = scaleKind(pool[rng.int(pool.length)], depth, mods); // 深度係数＋難易度を焼き込む（HP/dmg/XP連動）
     const p = randomFloorAway(floor, rng, stairsUp, 5);
     if (p) floor.monsters.push({ id: `m${depth}_${i}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: false, intent: null });
   }
@@ -284,7 +291,7 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }
     const bp = freeFloorNear(floor, stairsDown);
     if (bp) floor.monsters.push({ id: `boss${depth}`, kind, hp: kind.hp, x: bp.x, y: bp.y, awake: true, intent: null, boss: "area", fossilId });
   } else if (depth >= 5 && rng.next() < 0.3) {
-    const base = scaleKind(pool.reduce((a, b) => (b.tier > a.tier ? b : a)), depth); // 深度スケール済みの最上位種
+    const base = scaleKind(pool.reduce((a, b) => (b.tier > a.tier ? b : a)), depth, mods); // 深度＋難易度スケール済みの最上位種
     const kind: MonsterKind = {
       ...base, key: `elite${depth}`, name: `手負いの${base.name}`,
       hp: Math.round(base.hp * 2), dmg: base.dmg + 1, tier: Math.min(5, base.tier + 1), // 雑魚と area ボスの中間
@@ -341,9 +348,10 @@ export function spawnPursuer(f: Floor, rng: Rng, player: Pos, depth: number, n: 
   const p = randomFloorAway(f, rng, player, 4);
   if (!p) return null;
   const base = MONSTER_KINDS[MONSTER_KINDS.length - 1]; // 石鬼＝最上位
+  const dm = f.diff ?? EASY_MODS; // フロアに焼き込まれた難易度（4-11H）
   const kind: MonsterKind = {
     ...base, key: `pursuer${depth}_${n}`, glyph: "W", name: "追い縋る怨霊",
-    hp: Math.round(regularHpAt(depth) * 1.3), dmg: 2 + depthDmgBonus(depth), erratic: 0.1, tier: 4,
+    hp: Math.round(regularHpAt(depth) * 1.3 * dm.enemyHp), dmg: Math.round((2 + depthDmgBonus(depth)) * dm.enemyDmg) + dm.dmgFloor, erratic: 0.1, tier: 4,
   };
   const m: Monster = { id: `pursuer_${depth}_${n}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: true, intent: null };
   f.monsters.push(m);
@@ -378,8 +386,14 @@ function makeAreaBoss(world: World, depth: number, rng: Rng): { kind: MonsterKin
   const pool = world.fossils.filter((f) => f.kind === "character" || f.kind === "explorer");
   const src = pool.length ? pickBossSource(world, pool, rng) : null;
   const name = src ? `${src.origin.name}の成れの果て` : "深淵の主";
+  const mods = diffMods(world.difficulty); // 難易度（4-11H）：ボスHP/火力にも係数を焼き込む。easy＝従来値。
   // エリアボス＝雑魚baseline×4+20・dmg＝雑魚+4（硬め維持＝止め/距離/弱体/回復/遠距離の駆け引き前提 4-11F）
-  const kind: MonsterKind = { key: `boss${depth}`, glyph: "Ω", name, hp: regularHpAt(depth) * 4 + 20, dmg: 5 + depthDmgBonus(depth), minDepth: depth, erratic: 0.05, tier: 5 };
+  const kind: MonsterKind = {
+    key: `boss${depth}`, glyph: "Ω", name,
+    hp: Math.round((regularHpAt(depth) * 4 + 20) * mods.enemyHp),
+    dmg: Math.round((5 + depthDmgBonus(depth)) * mods.enemyDmg) + mods.dmgFloor,
+    minDepth: depth, erratic: 0.05, tier: 5,
+  };
   return { kind, fossilId: src?.id };
 }
 
@@ -657,7 +671,7 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
     m.intent = dest ? { type: "move", x: dest.x, y: dest.y } : { type: "wait" };
   }
   for (const b of births) { // 孵化した眷属を盤上へ（この手は無防備に現れ、次手から行動＝テレグラフ）
-    const k = breederMinion(f.depth);
+    const k = breederMinion(f.depth, f.diff ?? EASY_MODS);
     f.monsters.push({ id: `spawn_${f.depth}_${f.monsters.length}`, kind: k, hp: k.hp, x: b.x, y: b.y, awake: true, intent: null });
   }
 }

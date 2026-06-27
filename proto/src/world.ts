@@ -7,6 +7,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "./types.ts";
 import { resolveTonePole } from "./variation.ts";
 import { BASE_STATS, STASH_INHERIT, LOADOUT_CAP } from "./progression.ts";
 import { worldPlayerGrade } from "./companion.ts";
+import { diffMods } from "./difficulty.ts";
 
 let idCounter = 0;
 const newId = (prefix: string) => `${prefix}_${(++idCounter).toString(36)}`;
@@ -70,6 +71,7 @@ export function migrateWorld(w: World): World {
       delete k.story; // 本文はプール（keepsakes.json）から引く＝セーブから本文を落とす
     }
   }
+  if (typeof w.difficulty !== "string") w.difficulty = "easy"; // 難易度（4-11H）：旧セーブは現行＝easy で grandfather（途中変更させない）
   if (!Array.isArray(w.seals)) w.seals = [];       // 奉献の試練・集めた印（4-13A）：欠落は空で補完
   if (typeof w.ascended !== "number") w.ascended = 0; // 奉献の試練・クリア回数（4-13D）
   if (typeof w.questsDone !== "number") w.questsDone = 0; // 4-4E 実績スコア（達成依頼数）：欠落は0
@@ -164,11 +166,12 @@ export function createCharacter(world: World, name: string, archetype: string, l
   if (lineage.relation !== "none" && lineage.ancestorFossilId) {
     const anc = world.fossils.find((f) => f.id === lineage.ancestorFossilId);
     if (anc) {
-      ch.bonds.push({ entityRef: anc.id, value: 2, unfinished: true }); // 先代の未完を継ぐ
+      ch.bonds.push({ entityRef: anc.id, value: 2, unfinished: true }); // 先代の未完を継ぐ（因縁は難易度に依らず継ぐ＝物語の連続性）
       ch.traits.push(`${anc.origin.name}の${lineage.relation === "blood" ? "血" : "教え"}`);
       const learn = (key: string) => { if (!ch.spells.includes(key)) { ch.spells.push(key); if (ch.loadout!.length < LOADOUT_CAP) ch.loadout!.push(key); } };
       const mLv = anc.level ?? anc.laidDepth ?? 1;        // 先代Lv（旧化石は深度を代用＝Lv≈深度）
-      if (lineage.relation === "blood") {
+      if (!diffMods(world.difficulty).lineage) { /* 難易度（death 等）が系譜ボーナス無効＝術/地力は継がない（因縁のみ） */ }
+      else if (lineage.relation === "blood") {
         // 術：自分で選んだ2つ（UI 未指定＝CLI/旧経路は先頭2つ）。回復/帰還を最初から持てる質の継承。
         const picks = (lineage.chosenSpells && lineage.chosenSpells.length ? lineage.chosenSpells : (anc.spells ?? [])).slice(0, BLOOD_SPELLS);
         for (const key of picks) learn(key);

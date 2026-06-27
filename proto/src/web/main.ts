@@ -52,11 +52,12 @@ import {
   VIEW_W, VIEW_H, MONSTER_KINDS, type Floor, type Pos, type Chest, type Monster, type CompanionEntity, type DownedActor, type DelverActor, type Shrine,
 } from "../dungeon.ts";
 import type { Actor, Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, LivingActor, RosterActor, SetPiece, Storylet, TownContext, World } from "../types.ts";
+import { diffMods, SELECTABLE_DIFFICULTIES, DIFFICULTY_LABEL, DIFFICULTY_BLURB, type Difficulty } from "../difficulty.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.55.0";
+export const APP_VERSION = "0.56.0";
 export const APP_BUILD = "2026-06-27";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1162,7 +1163,7 @@ async function cultOffering() {
   const i = r.pick - 1;
   if (i < 0 || i >= boons.length) return;
   boons[i].run();
-  ch.exposure += cost;
+  addExp(cost);
   ch.cultBoonsThisGen = (ch.cultBoonsThisGen ?? 0) + 1;
   sfx("intervene");
   log(`深淵に深蝕を捧げた（深蝕 ＋${cost.toFixed(2)} → ${ch.exposure.toFixed(2)}）。`, "warn");
@@ -1891,8 +1892,37 @@ async function pickBloodSpells(anc: Fossil): Promise<string[]> {
   return chosen;
 }
 
+// 深蝕の累積（4-11H）：難易度 exposure 係数を掛けて溜める。easy=×1.0（従来）／normal=×1.2／hard=×1.4。
+// プレイヤーの深蝕加点はすべてここを通す（減算/清めは別経路＝据え置き）。
+function addExp(amount: number): void {
+  if (world.current) world.current.exposure += amount * diffMods(world.difficulty).exposure;
+}
+
+// 潜行開始時の回復量（4-11H）。難易度 townHeal が <1 なら満タンに戻らない＝消耗（attrition）が生まれる。
+// easy/normal=1.0＝全回復（従来どおり）。街そのものに戦闘はないので、潜行入口の HP だけが効く。
+function townHealHp(): number {
+  const ch = world.current!;
+  return Math.max(1, Math.round(maxHp(ch) * diffMods(world.difficulty).townHeal));
+}
+
+// 新規ワールドの最初の一度だけ、難易度を選ぶ（4-11H）。以後この世界で固定＝途中変更なし。
+// 旧セーブは migrate で "easy" に設定済み＝再プロンプトされない（grandfather）。
+async function chooseDifficultyIfNew(): Promise<void> {
+  if (world.difficulty !== undefined) return; // 既に決まっている＝再プロンプトしない
+  const opts = SELECTABLE_DIFFICULTIES.map((d) => `${DIFFICULTY_LABEL[d]}\n${DIFFICULTY_BLURB[d]}`);
+  const r = await sheet({
+    text: "この世界の手応えを選ぶ。\n――一度決めたら、この世界では変えられない。",
+    meta: "難易度 ── 世界のはじまりに一度だけ",
+    options: opts,
+  });
+  world.difficulty = SELECTABLE_DIFFICULTIES[r.pick - 1] ?? "normal";
+  log(`難易度：${DIFFICULTY_LABEL[world.difficulty]}。この世界では変えられない。`, "cue");
+  save();
+}
+
 // ---------- キャラ作成（系譜 4-10D） ----------
 async function characterCreation() {
+  await chooseDifficultyIfNew(); // 新規ワールドのみ：難易度を一度だけ選ぶ（以後この世界で固定）
   const name = (await sheet({
     text: "新たな探索者が、迷宮の口に立つ。", meta: "名を入力（空欄なら仮名）",
     options: ["この名で始める"], input: "名前",
@@ -2002,7 +2032,7 @@ async function townOmenScene(): Promise<void> {
       sfx("seal");
       await sheet({ text: `お前は兆しの源を辿り、深みの理の一端を街の者に説いた。人々は怖れながらも、お前の言葉に縋った。\n\n謝礼として ${gold} 金貨を得た。`, options: ["街へ戻る"] });
     } else {
-      ch.exposure += 0.08 * tier;
+      addExp(0.08 * tier);
       await sheet({ text: "お前は兆しを読もうと深みに意識を凝らした。だが、覗き返してくる何かに、わずかに引きずられた。\n\n（深蝕がうずいた）", options: ["街へ戻る"] });
     }
   } else if (r1.pick === 2) {
@@ -2078,7 +2108,7 @@ async function raidTextScene(tier: number): Promise<void> {
     log("民を逃がすことを選び、獣に背を向けた。誇りより、命を。", "dim"); exposure = Math.max(0, exposure - 0.04);
   }
   ch.gold += gold;
-  if (exposure > 0) ch.exposure += exposure;
+  if (exposure > 0) addExp(exposure);
   const got = item && addConsumable(ch, item) ? consumableByKey(item)?.name : null;
   chronicle(world, "legend", `第${world.generation}世代、${ch.name}は街を襲った深層の獣を退けた。`, [ch.id]);
   sfx("intervene");
@@ -2220,7 +2250,7 @@ function raidMoveOrAttack(nx: number, ny: number): boolean {
 /** 街防衛戦の撃破処理（XP・撃破数・ボス処遇）。dive の rewardKill とは別＝迷宮の年代記/扉を出さない。 */
 function raidKill(mon: Monster): void {
   const ch = world.current!;
-  ch.xp += Math.round(xpForKill(mon.kind.hp) * xpMul(ch));
+  ch.xp += Math.round(xpForKill(mon.kind.hp) * xpMul(ch) * diffMods(world.difficulty).xp);
   if (raid) raid.killed++;
   if (mon.boss) {
     sfx("boss_down"); flashFx("warp");
@@ -2236,7 +2266,7 @@ async function raidEndTurn(): Promise<void> {
   if (armorBuffTurns > 0) armorBuffTurns--;
   if (attackBuffTurns > 0) attackBuffTurns--;
   const hasted = hasteTurns > 0; if (hasteTurns > 0) hasteTurns--;
-  if (deathDoorTurns > 0) { deathDoorTurns--; if (deathDoorTurns === 0) { ch.exposure += 0.4; log("死戸が閉じる……（深蝕＋0.4）。", "warn"); } }
+  if (deathDoorTurns > 0) { deathDoorTurns--; if (deathDoorTurns === 0) { addExp(0.4); log("死戸が閉じる……（深蝕＋0.4）。", "warn"); } }
   for (const m of floor.monsters) if (m.hp > 0 && m.poison && m.poison > 0) { m.hp -= (m.poisonDmg ?? 1); m.poison--; if (m.hp <= 0) raidKill(m); }
   if (poisonTurns > 0) { poisonTurns--; if (deathDoorTurns === 0) { hp -= poisonDmg; sfx("drain"); log(`毒が回る……（HP -${poisonDmg}）`, "warn"); } }
   resolveSummons();
@@ -2388,7 +2418,7 @@ async function townPlagueScene(): Promise<void> {
   } else {
     line = "深みの病は、深みに関わる者の業だ。そう言い聞かせ、宿の戸を固く閉ざした。";
   }
-  if (exposure > 0) ch.exposure += exposure;
+  if (exposure > 0) addExp(exposure);
   if (gold) ch.gold += gold;
   const got = item && addConsumable(ch, item) ? consumableByKey(item)?.name : null;
   chronicle(world, "rediscovery", `第${world.generation}世代、街を深蝕の瘴気が襲い、${ch.name}は${r.pick === 1 ? "病者を看病した" : r.pick === 2 ? "隔離を断行した" : "関わらなかった"}。`, [ch.id]);
@@ -2987,7 +3017,7 @@ async function startDive() {
   floorCache = new Map(); // 新しい潜行＝階の記憶をリセット（深度1から）
   setPieceCooldown = 0; quietDescents = 0; // 4-10H 第二層：新しい潜行はペーシング調停層もまっさらから
   world.diveCount = (world.diveCount ?? 0) + 1; // 潜行ごとに別ダンジョン＝再潜行farm防止（genFloor のseed nonce）
-  if (world.current) hp = maxHp(world.current); // 街で癒えた状態から潜る
+  if (world.current) hp = townHealHp(); // 街で癒えた状態から潜る（難易度 townHeal<1 なら満タンに戻らない＝消耗）
   // 街/屋内の paintCell が残したインライン背景・文字色・グローを引き継がないよう、
   // ダンジョン用ビュー(VIEW)でグリッドを組み直してから描く（他遷移と同じ規約）。
   buildGridDom(VIEW_W, VIEW_H);
@@ -3070,7 +3100,7 @@ async function endTurn() {
   if (armorBuffTurns > 0) armorBuffTurns--;
   if (attackBuffTurns > 0) attackBuffTurns--;
   const hasted = hasteTurns > 0; if (hasteTurns > 0) hasteTurns--;
-  if (deathDoorTurns > 0) { deathDoorTurns--; if (deathDoorTurns === 0) { ch.exposure += 0.4; log("死戸が閉じる……深みの揺り戻し（深蝕＋0.4）。", "warn"); } }
+  if (deathDoorTurns > 0) { deathDoorTurns--; if (deathDoorTurns === 0) { addExp(0.4); log("死戸が閉じる……深みの揺り戻し（深蝕＋0.4）。", "warn"); } }
   // 腐喰（継続ダメ・4-11F③）：毒を受けた敵は毎手 poisonDmg を失う。死亡は通常の撃破処理へ。
   for (const m of floor.monsters) {
     if (m.hp > 0 && m.poison && m.poison > 0) {
@@ -3093,7 +3123,7 @@ async function endTurn() {
 
   // 帰還の試練（4-13C）：聖遺物携行中は深みが覚醒＝毎手 深蝕が騰がり、追手の怨霊が湧く。
   if (ch.carryingRelic) {
-    ch.exposure += RELIC_EXPOSURE_PER_TURN * heartFactor(ch); // ③聖遺物携行も心で和らぐ
+    addExp(RELIC_EXPOSURE_PER_TURN * heartFactor(ch)); // ③聖遺物携行も心で和らぐ
     turnsSinceFloor++;
     if (turnsSinceFloor % RELIC_PURSUER_EVERY === 0 && pursuerCount < RELIC_PURSUER_CAP) {
       const m = spawnPursuer(floor, rng, player, floor.depth, pursuerCount);
@@ -3272,7 +3302,7 @@ async function handleBossResolve() {
       meta: `${boss.kind.name} ── 決着（戦闘版の干渉）${known ? " / 縁" : ""}`,
       options: opts,
     });
-    const halfXp = () => { ch.xp += Math.round(xpForKill(boss.kind.hp) * 0.5 * xpMul(ch)); }; // 非殺＝報酬控えめ（慈悲の代償）
+    const halfXp = () => { ch.xp += Math.round(xpForKill(boss.kind.hp) * 0.5 * xpMul(ch) * diffMods(world.difficulty).xp); }; // 非殺＝報酬控えめ（慈悲の代償）
 
     if (opts[r.pick - 1] === "名を呼ぶ（呼び戻しを試みる）" && boss.fossilId) {
       // 呼び戻し＝人だった芯に届く最も人間的な決着。安らかに送り、記憶に深く刻む。
@@ -3789,7 +3819,7 @@ async function castSpell(key: string) {
   }
 
   const gain = def.cost * heartFactor(ch); // 心（染み込み係数）で術の深蝕代償が和らぐ＝v2 の主累積源①
-  ch.exposure += gain;
+  addExp(gain);
   log(`（${def.name}の代償：深蝕＋${gain.toFixed(2)}）`, "dim");
   await turnPass();
 }
@@ -3909,7 +3939,7 @@ function spawnReturnDoor(mon: Monster): void {
 /** 撃破時の報酬：XP（敵の堅さ比例）。ボスは特別演出＋年代記に刻む（4-11F）。 */
 function rewardKill(mon: Monster, killLine?: string) {
   const ch = world.current!;
-  ch.xp += Math.round(xpForKill(mon.kind.hp) * xpMul(ch)); // 遺物「貪欲」でXP増
+  ch.xp += Math.round(xpForKill(mon.kind.hp) * xpMul(ch) * diffMods(world.difficulty).xp); // 遺物「貪欲」でXP増
   if (mon.boss) {
     sfx("boss_down");
     flashFx("warp");
@@ -4076,7 +4106,7 @@ async function returnViaDoor() {
   // 同一潜行を継続：floorCache が同じ盤面を復元（diveCount/seenThisDive は据え置き＝farm根絶を侵さない）。
   mode = "dive";
   buildGridDom(VIEW_W, VIEW_H);
-  if (world.current) hp = maxHp(world.current);
+  if (world.current) hp = townHealHp(); // 難易度 townHeal<1 なら満タンに戻らない（消耗）
   enterFloor(depth, true);
   if (floor?.returnDoor) { player = { ...floor.returnDoor }; if (companion) spawnCompanionNear(player); draw(); } // 扉のあった場所へ再出現
   log(`帰還の扉――深度${depth}へ戻った。`, "cue");
@@ -4101,7 +4131,7 @@ async function stairsPrompt(dir: "down" | "up") {
       // 異物（呪い装備）の深蝕＝降下1階ごとに1回（v2 微調整・滞在ターン非依存）。装備していなければ0。
       const ch = world.current!;
       const oddity = equipExposure(ch) * ODDITY_DESCENT_MULT * heartFactor(ch);
-      if (oddity > 0) { ch.exposure += oddity; log(`異物が、深みを一段呼び込む（深蝕 ＋${oddity.toFixed(2)}）。`, "warn"); }
+      if (oddity > 0) { addExp(oddity); log(`異物が、深みを一段呼び込む（深蝕 ＋${oddity.toFixed(2)}）。`, "warn"); }
       sfx("stairs_down"); enterFloor(f.depth + 1, true);
       // 4-10H 第二層：迷宮の気配も行商人も出なかった降下は「無風」＝ピティ加算（次の降下で発火率が上がる）。
       if (!((await maybeDungeonEvent(floor!.depth)) || (await maybeMerchantEncounter()))) quietDescents++;
@@ -4338,7 +4368,7 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       break;
     }
     if (label === "怨みを撥ねつける") { // grudge_hunt（遭-④）：拒絶＝再来の種＋深蝕
-      ch.exposure += 0.2;
+      addExp(0.2);
       const gb = ch.bonds.find((b) => b.entityRef === fossil.id);
       if (gb) gb.unfinished = true; else ch.bonds.push({ entityRef: fossil.id, value: 0, unfinished: true });
       chronicle(world, "rediscovery", `${ch.name}は${fossil.origin.name}の怨みを撥ねつけた。（未完のまま・再来の種）`, [fossil.id]);
@@ -4456,7 +4486,7 @@ async function chestScene(ce: Chest) {
     const kept = roll >= 0.15 && roll < 0.15 + KEEPSAKE_CHANCE ? grantKeepsake(depth) : null; // 拾得品（詩情系の収集物・band 適合）
     if (roll < 0.15) { // 罠
       const dmg = 0.12 + rng.next() * 0.12;
-      ch.exposure += dmg;
+      addExp(dmg);
       log("蓋を開けた瞬間、淀んだ気が噴き上がった——罠だ。", "warn");
       log(`深みが、まともに染みた（深蝕 +${dmg.toFixed(2)}）。`, "dim");
     } else if (kept) { // 拾得品＝書記の館で読み返せる収集物（出現頻度は KEEPSAKE_CHANCE が司る）
@@ -4767,7 +4797,7 @@ async function charScreen() {
     const loNames = lo.map((k) => spellByKey(k)?.name ?? k).join("、");
     const loLine = ch.spells.length ? `【構え ${lo.length}/${LOADOUT_CAP}】${loNames || "なし"}` : "【術】未識得";
     const text =
-      `《${ch.name}》（第${world.generation}世代）　Lv${ch.level}\n` +
+      `《${ch.name}》（第${world.generation}世代）　Lv${ch.level}　難易度：${DIFFICULTY_LABEL[world.difficulty ?? "easy"]}\n` +
       `${statsLine(ch)}\n` +
       `最大HP ${maxHp(ch)}　攻撃 ${meleeDmg(ch)}　次のLvまで ${Math.max(0, xpToNext(ch.level) - ch.xp)}\n` +
       `深蝕 ${ch.exposure.toFixed(2)}${ch.carryingRelic ? "　★聖遺物 携行中" : ""}\n` +

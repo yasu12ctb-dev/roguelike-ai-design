@@ -1,5 +1,7 @@
 // 永続層スキーマ（prototype-spec.md §2 に準拠）
 
+import type { Difficulty } from "./difficulty.ts";
+
 export type TonePole = "loss" | "myth" | "grudge";
 export type DeathManner = "noble" | "grievous" | "betrayed" | "peaceful" | "anonymous";
 export type FinalActChoice = "guard_relic" | "curse_dungeon" | "leave_will" | "accept";
@@ -34,6 +36,7 @@ export interface World {
   diveCount?: number;           // 潜行回数（startDive ごと+1）。genFloor のseedに混ぜて潜行ごとに別ダンジョン＝再潜行farm防止。任意＝旧セーブ非破壊。
   echoes?: EchoAsh[];           // 残響召喚の遺灰（4-10I）：神話極の化石を鎮魂して得る。潜行で1回展開＝強めの一時味方。世代越え。任意＝旧セーブ非破壊。
   keepsakes?: Keepsake[];       // 拾得品の蒐集（読み物コレクション・書記の館で再読）。世代を越えて堆積する好古の棚。任意＝旧セーブ非破壊。
+  difficulty?: Difficulty;      // 難易度モード（4-11H）。新規ワールド開始時に固定（途中変更なし）。未設定/旧セーブ＝easy＝現行数値。
 }
 
 /** 拾得品の収集記録（セーブ側）：id 参照のみ＝本文は content/keepsakes.json から引く（複製しない＝後の文章修正も既収集に反映）。
