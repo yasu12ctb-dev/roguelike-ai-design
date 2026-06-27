@@ -134,6 +134,7 @@ export interface Character {
 export interface Lineage {
   relation: "blood" | "pupil" | "none";
   ancestorFossilId?: string;
+  chosenSpells?: string[];      // 血縁：継ぐ術を自分で選んだ結果（最大2）。UI で選んで createCharacter に渡す。任意（CLI/旧経路は先頭から自動）。
 }
 
 export interface Bond {
@@ -205,6 +206,8 @@ export interface Fossil {
   lastTouchedGeneration: number;
   laidDepth: number;
   spells?: string[];            // 死亡時に覚えていた術（系譜継承 4-11F②：先代の術の一部が次代に滲む）。任意＝旧セーブ非破壊。
+  level?: number;               // 死亡時のレベル（系譜の継承量＝血縁のベース加算／弟子の開始レベルの基準）。任意＝旧化石は laidDepth を代用。
+  stats?: Stats;                // 死亡時のステ分布（系譜の配分を「先代の得意ステ」に寄せるため）。任意＝旧化石は体寄せで代用。
   wasCompanion?: boolean;       // 同行（相棒）由来の化石（戦死/慈悲/見捨て）。後世の再会で「相棒だと分かる」一言に使う（4-14C）。任意＝旧セーブ非破壊。
 }
 

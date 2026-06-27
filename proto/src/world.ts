@@ -1,7 +1,7 @@
 // 世界の生成・化石化・干渉・年代記・永続化（prototype-spec.md §2 / §5）
 
 import type {
-  Actor, ArcEffect, ArcState, Character, ChronicleEntry, Companion, DeathManner, EchoAsh, FinalAct, Fossil, Lineage, SealKey, TrackedEntity, World,
+  Actor, ArcEffect, ArcState, Character, ChronicleEntry, Companion, DeathManner, EchoAsh, FinalAct, Fossil, Lineage, SealKey, Stats, TrackedEntity, World,
 } from "./types.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "./types.ts";
 import { resolveTonePole } from "./variation.ts";
@@ -133,6 +133,23 @@ export function newWorld(seed: number): World {
   return world;
 }
 
+// 系譜の継承パラメータ（4-10D／テストプレイ調整可）。血縁＝質＋恒久ベース／弟子＝量＋開始Lv（前借り）。
+export const BLOOD_SPELLS = 2;       // 血縁：継ぐ術（自分で選ぶ）
+export const PUPIL_SPELLS = 4;       // 弟子：継ぐ術（自動・多芸だが選べない）
+export const BLOOD_STAT_CAP = 5;     // 血縁：恒久ベース加算の上限（先代Lv50で +5）
+export const PUPIL_LEVEL_CAP = 8;    // 弟子：開始レベル加算の上限（先代Lv48+で +8）
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+/** 系譜のステ加算を「先代の得意ステ」に寄せて配分する（同点/不明は 体→力→理→心 の順）。決定論。 */
+function addLineageStats(into: Stats, points: number, ancStats?: Stats): void {
+  if (points <= 0) return;
+  const order: (keyof Stats)[] = ["body", "power", "reason", "heart"];
+  // 先代ステを降順（同点は order 順）に並べ、強いステから巡回して振る＝その血/教えの傾きを継ぐ。
+  const ranked = ancStats
+    ? [...order].sort((a, b) => (ancStats[b] - ancStats[a]) || (order.indexOf(a) - order.indexOf(b)))
+    : order;
+  for (let i = 0; i < points; i++) into[ranked[i % ranked.length]] += 1;
+}
+
 export function createCharacter(world: World, name: string, archetype: string, lineage: Lineage): Character {
   const ch: Character = {
     id: newId("ch"), name, archetype, lineage,
@@ -143,17 +160,25 @@ export function createCharacter(world: World, name: string, archetype: string, l
     inventory: [],
     gearBag: [],
   };
-  // 系譜（4-10D）：先代から因縁と薄い形質を継ぐ
+  // 系譜（4-10D／4-11F②）：先代から因縁・術・地力を継ぐ。血縁＝大器晩成（恒久ベース＋選んだ術2）／弟子＝スタートダッシュ（開始Lv＋術4自動）。
   if (lineage.relation !== "none" && lineage.ancestorFossilId) {
     const anc = world.fossils.find((f) => f.id === lineage.ancestorFossilId);
     if (anc) {
       ch.bonds.push({ entityRef: anc.id, value: 2, unfinished: true }); // 先代の未完を継ぐ
-      if (lineage.relation === "blood") ch.traits.push(`${anc.origin.name}の血`);
-      if (lineage.relation === "pupil") ch.traits.push(`${anc.origin.name}の教え`);
-      // 先代の術の一部が初期値に滲む（4-11F②）。弟子は教えを多く継ぎ（3）、血筋は少し（2）。構えにも自動装填。
-      const inheritN = lineage.relation === "pupil" ? 3 : 2;
-      for (const key of (anc.spells ?? []).slice(0, inheritN)) {
-        if (!ch.spells.includes(key)) { ch.spells.push(key); if (ch.loadout!.length < LOADOUT_CAP) ch.loadout!.push(key); }
+      ch.traits.push(`${anc.origin.name}の${lineage.relation === "blood" ? "血" : "教え"}`);
+      const learn = (key: string) => { if (!ch.spells.includes(key)) { ch.spells.push(key); if (ch.loadout!.length < LOADOUT_CAP) ch.loadout!.push(key); } };
+      const mLv = anc.level ?? anc.laidDepth ?? 1;        // 先代Lv（旧化石は深度を代用＝Lv≈深度）
+      if (lineage.relation === "blood") {
+        // 術：自分で選んだ2つ（UI 未指定＝CLI/旧経路は先頭2つ）。回復/帰還を最初から持てる質の継承。
+        const picks = (lineage.chosenSpells && lineage.chosenSpells.length ? lineage.chosenSpells : (anc.spells ?? [])).slice(0, BLOOD_SPELLS);
+        for (const key of picks) learn(key);
+        // 地力：恒久ベース加算（大器晩成）＝先代の得意ステへ寄せる。
+        addLineageStats(ch.stats, clamp(Math.floor(mLv / 10), 1, BLOOD_STAT_CAP), anc.stats);
+      } else { // pupil
+        for (const key of (anc.spells ?? []).slice(0, PUPIL_SPELLS)) learn(key);  // 術4つ自動（多芸・選べない）
+        // スタートダッシュ：開始レベル＝1+P＋Pぶんのステを即付与（先代の得意ステ寄せ）。前借り型＝Lv上限では無系譜と同地力。
+        const p = clamp(Math.floor(mLv / 6), 0, PUPIL_LEVEL_CAP);
+        if (p > 0) { addLineageStats(ch.stats, p, anc.stats); ch.level = 1 + p; }
       }
     }
   }
@@ -185,6 +210,8 @@ export function fossilizeCurrent(world: World, manner: DeathManner, finalAct: Fi
     lastTouchedGeneration: world.generation,
     laidDepth: ch.depth,
     spells: [...ch.spells], // 系譜継承（4-11F②）：覚えていた術を化石に遺す＝次代の血/弟子に滲む
+    level: ch.level,        // 系譜の継承量の基準（血縁のベース加算／弟子の開始レベル）
+    stats: { ...ch.stats }, // 配分を先代の得意ステに寄せるため死亡時のステ分布を遺す
   };
   world.fossils.push(fossil);
   chronicle(world, "death",

@@ -9,6 +9,7 @@ import {
   newWorld, createCharacter, fossilizeCurrent, fossilizeCompanion, fossilizeAbandoned, intervene, recordRediscovery,
   chronicle, poleLabel, finalActLabel, migrateWorld, awardSeal, abyssUnlocked, setArc, getArc,
   grantEchoOnRequiem, consumeEcho, ECHO_DEPLOY_COST,
+  BLOOD_SPELLS, PUPIL_SPELLS,
 } from "../world.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
 import {
@@ -55,7 +56,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.54.2";
+export const APP_VERSION = "0.55.0";
 export const APP_BUILD = "2026-06-27";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1871,6 +1872,25 @@ function interiorAct(dx: number, dy: number) {
   persistTown();
 }
 
+// 血縁：先代の遺した術から継ぐ2つを自分で選ぶ（回復/帰還を最初から持てる質の継承）。
+// 先代が2つ以下しか遺していなければ全継承（UIなし）。決定論には影響しない（プレイヤー選択）。
+async function pickBloodSpells(anc: Fossil): Promise<string[]> {
+  const avail = (anc.spells ?? []).filter((k) => spellByKey(k));
+  if (avail.length <= BLOOD_SPELLS) return avail.slice();
+  const chosen: string[] = [];
+  while (chosen.length < BLOOD_SPELLS) {
+    const rest = avail.filter((k) => !chosen.includes(k));
+    const r = await sheet({
+      text: `${anc.origin.name}の遺した術のうち、血に継ぐものを選べ（${chosen.length + 1}/${BLOOD_SPELLS}）。`,
+      meta: "系譜 ── 継ぐ術を選ぶ",
+      options: rest.map((k) => { const s = spellByKey(k)!; return `[${s.school}] ${s.name}（深蝕＋${s.cost}／${s.desc}）`; }),
+    });
+    const key = rest[r.pick - 1];
+    if (key) chosen.push(key);
+  }
+  return chosen;
+}
+
 // ---------- キャラ作成（系譜 4-10D） ----------
 async function characterCreation() {
   const name = (await sheet({
@@ -1881,18 +1901,26 @@ async function characterCreation() {
   const ancestors = world.fossils.filter((f) => f.kind === "character").slice(-3).reverse();
   let lineage: Character["lineage"] = { relation: "none" };
   if (ancestors.length > 0) {
+    const ancLv = (f: Fossil) => f.level ?? f.laidDepth ?? 1; // 旧化石は深度を代用
     const opts = [
-      ...ancestors.map((f) => `${f.origin.name}の血縁として（${poleLabel(f.tonePole)}の化石・深度${f.laidDepth}に眠る）`),
-      ...ancestors.map((f) => `${f.origin.name}の弟子として`),
-      "誰とも関わりなく",
+      ...ancestors.map((f) => `${f.origin.name}の血縁として（術を2つ選び継ぐ・地力が恒久的に高い＝大器晩成）`),
+      ...ancestors.map((f) => `${f.origin.name}の弟子として（術4つを継ぎ・高いレベルから始まる＝先行逃げ切り）`),
+      "誰とも関わりなく（継承なし・しがらみもなし）",
     ];
-    const r = await sheet({ text: "お前は、誰の物語を継ぐ？", options: opts });
-    if (r.pick <= ancestors.length) lineage = { relation: "blood", ancestorFossilId: ancestors[r.pick - 1].id };
-    else if (r.pick <= ancestors.length * 2) lineage = { relation: "pupil", ancestorFossilId: ancestors[r.pick - ancestors.length - 1].id };
+    const r = await sheet({ text: "お前は、誰の物語を継ぐ？\n（血縁＝序盤は控えめだが伸びしろが大きい／弟子＝序盤から強いが上限は普通）", options: opts });
+    if (r.pick <= ancestors.length) {
+      const anc = ancestors[r.pick - 1];
+      lineage = { relation: "blood", ancestorFossilId: anc.id, chosenSpells: await pickBloodSpells(anc) };
+    } else if (r.pick <= ancestors.length * 2) {
+      lineage = { relation: "pupil", ancestorFossilId: ancestors[r.pick - ancestors.length - 1].id };
+    }
   }
   const ch = createCharacter(world, name, "wanderer", lineage);
   hp = maxHp(ch);
-  log(`${ch.name}は、まっさらな素質で迷宮へ向かう（${statsLine(ch)}）。`, "dim");
+  const intro = lineage.relation === "none"
+    ? `${ch.name}は、まっさらな素質で迷宮へ向かう（${statsLine(ch)}）。`
+    : `${ch.name}は先代の${lineage.relation === "blood" ? "血" : "教え"}を継いで迷宮へ向かう（Lv${ch.level}・${statsLine(ch)}）。`;
+  log(intro, "dim");
   if (ch.bonds.some((b) => b.unfinished)) log("……先代の未完の因縁が、お前に引き継がれた。", "warn");
   await maybeIntro(); // 初回のみ：迷宮／HPは街で癒える（死だけが残る）／深蝕は薬師、の導入（4-4B）
   save();
