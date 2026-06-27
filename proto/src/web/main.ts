@@ -57,7 +57,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.56.1";
+export const APP_VERSION = "0.56.2";
 export const APP_BUILD = "2026-06-27";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1983,7 +1983,6 @@ async function characterCreation() {
   const ancestors = world.fossils.filter((f) => f.kind === "character").slice(-3).reverse();
   let lineage: Character["lineage"] = { relation: "none" };
   if (ancestors.length > 0) {
-    const ancLv = (f: Fossil) => f.level ?? f.laidDepth ?? 1; // 旧化石は深度を代用
     const opts = [
       ...ancestors.map((f) => `${f.origin.name}の血縁として（術を2つ選び継ぐ・地力が恒久的に高い＝大器晩成）`),
       ...ancestors.map((f) => `${f.origin.name}の弟子として（術4つを継ぎ・高いレベルから始まる＝先行逃げ切り）`),
@@ -2217,14 +2216,14 @@ function spawnRaidWave(): void {
   for (let i = 0; i < count; i++) {
     const free = r.spawnZone.filter((p) => !raidOccupied(p));
     const p = free.length ? free[rng.int(free.length)] : r.spawnZone[rng.int(r.spawnZone.length)];
-    const k = scaleKind(pool[rng.int(pool.length)], r.pseudoDepth);
+    const k = scaleKind(pool[rng.int(pool.length)], r.pseudoDepth, diffMods(world.difficulty)); // 街防衛も難易度に追従（4-11H）
     floor.monsters.push({ id: `raid_${r.wave}_${i}_${floor.monsters.length}`, kind: k, hp: k.hp, x: p.x, y: p.y, awake: true, intent: null });
   }
 }
 /** 大規模の山場：襲撃の主（エリアボス・厚いHP＋戦術化）。 */
 function spawnRaidBoss(): void {
   if (!floor || !raid) return;
-  const bk = scaleKind({ key: "raidboss", glyph: "Ω", name: "襲撃の主", hp: 30, dmg: 7, minDepth: 1, erratic: 0.05, tier: 5 }, raid.pseudoDepth);
+  const bk = scaleKind({ key: "raidboss", glyph: "Ω", name: "襲撃の主", hp: 30, dmg: 7, minDepth: 1, erratic: 0.05, tier: 5 }, raid.pseudoDepth, diffMods(world.difficulty));
   bk.hp = bk.hp * 3 + 20; // エリアボス相当の堅さ（makeAreaBoss に倣う）
   const free = raid.spawnZone.filter((p) => !raidOccupied(p));
   const p = free.length ? free[rng.int(free.length)] : raid.spawnZone[0];
