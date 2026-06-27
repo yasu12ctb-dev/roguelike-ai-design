@@ -55,7 +55,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.54.1";
+export const APP_VERSION = "0.54.2";
 export const APP_BUILD = "2026-06-27";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -2995,7 +2995,8 @@ function resumeDive(snap: DiveSnapshot): void {
   if (inAbyss) setBgm("abyss", floor.depth); else { setBgm("dungeon", floor.depth); setBgmDepth(floor.depth); }
   applyChrome(); // dive 用の下部タブ/術・品・地図の有効化
   draw(); updateStatus();
-  log(`（${world.current?.name ?? "探索者"}は深度${floor.depth}で潜行を続けている）`, "dim");
+  // HP0のまま閉じた＝死の選択前。盤面に戻さず、呼び出し側で即・最期の一手へ（復活に見える混乱と確定先延ばしの隙間を塞ぐ）。
+  if (hp > 0) log(`（${world.current?.name ?? "探索者"}は深度${floor.depth}で潜行を続けている）`, "dim");
 }
 
 // ---------- 1ターンの処理 ----------
@@ -5238,7 +5239,7 @@ async function titleScreen(): Promise<void> {
   const pick = await titleChoose(items, sub);
   const chosen = items[pick]?.label ?? items[0].label;
   if (chosen.includes("続きから")) {                       // 途中再開（潜行中ならその深度・街なら街）
-    if (snap) { try { resumeDive(snap); return; } catch { clearDive(); } }
+    if (snap) { try { resumeDive(snap); if (hp <= 0) { await deathFlow(); return; } return; } catch { clearDive(); } }
     world.current!.depth = 0;
     log(`（${world.current!.name}は街にいる）`, "dim");
     await townLoop(); await startDive(); return;
