@@ -7,7 +7,11 @@
     "cli": "node --experimental-strip-types src/cli.ts",
     "validate": "node tools/validate-content.mjs",
     "typecheck": "tsc --noEmit",
-    "check": "node tools/validate-content.mjs && npm run typecheck && node --experimental-strip-types src/demo.ts && node --experimental-strip-types src/companion-check.ts && node --experimental-strip-types src/item-check.ts && node --experimental-strip-types src/echo-check.ts && node --experimental-strip-types src/event-check.ts && node --experimental-strip-types src/golden.ts && npm run build:web",
+    "check": "node tools/validate-content.mjs && npm run typecheck && node --experimental-strip-types src/demo.ts && node --experimental-strip-types src/companion-check.ts && node --experimental-strip-types src/item-check.ts && node --experimental-strip-types src/echo-check.ts && node --experimental-strip-types src/event-check.ts && node --experimental-strip-types tools/audit-content.ts && node --experimental-strip-types tools/scenario-clear.ts && node --experimental-strip-types tools/stress-save.ts && node --experimental-strip-types tools/determinism.ts && node --experimental-strip-types src/golden.ts && npm run build:web",
+    "audit": "node --experimental-strip-types tools/audit-content.ts",
+    "determinism": "node --experimental-strip-types tools/determinism.ts",
+    "clear-check": "node --experimental-strip-types tools/scenario-clear.ts",
+    "save-check": "node --experimental-strip-types tools/stress-save.ts",
     "golden": "node --experimental-strip-types src/golden.ts",
     "golden:print": "node --experimental-strip-types src/golden.ts --print",
     "build:web": "esbuild src/web/main.ts --bundle --format=esm --charset=utf8 --minify --outfile=web/app.js"

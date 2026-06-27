@@ -27,6 +27,14 @@ const LEGACY_KEEPSAKE_ID: Record<string, string> = {
  *  欠落フィールドは版数に関わらず常に補う（版数判定だけに頼ると、追加フィールドの
  *  取りこぼしが起きる＝v2セーブに spells が無くフリーズした不具合の再発防止）。 */
 export function migrateWorld(w: World): World {
+  // 防御：parse できる任意オブジェクトを「エンジンが動く有効 World」に補完する（migrate の契約を全域化）。
+  // 真の旧セーブ／新規は必ずコアを持つため通常は no-op だが、iOS standalone PWA の粘着的キャッシュで
+  // セーブが部分破損しても、コア欠落で後段（chronicle.push / fossils.length / drawTown）が throw しない保険。
+  if (typeof w.seed !== "number") w.seed = 0;
+  if (typeof w.generation !== "number") w.generation = 1;
+  if (!Array.isArray(w.fossils)) w.fossils = [];
+  if (!Array.isArray(w.chronicle)) w.chronicle = [];
+  if (!w.town) w.town = { witnessNpcId: "witness_yen", safety: 3, memorials: [], scene: "town", interiorKind: null };
   if (w.current) {
     const ch = w.current as Partial<Character> & Character;
     if (!ch.stats) ch.stats = { ...BASE_STATS };
