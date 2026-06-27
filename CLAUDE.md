@@ -23,7 +23,20 @@
 ## 技術メモ
 
 - Node 22。`cd proto && node --experimental-strip-types src/demo.ts`（決定論デモ＝CIスモークテスト）。
-- **⚠ push 前は必ず CI 相当を回す＝`npm run check`**（＝受理ゲート `tools/validate-content.mjs` → demo → `companion-check` → `item-check` → `echo-check` → **`golden`（ゴールデンテスト＝B柱2）** → `build:web`。CI `deploy.yml` と同順）。**content（storylets/adventurers）や `types.ts` の `Prereq`/`Effect` スキーマを触ったら受理ゲート必須**＝未知キーは CI で exit 1＝**デプロイごと失敗する**（2026-06-21 に `minDepth/maxDepth` 追加を許可リスト未反映でデプロイを落とした実例あり。許可リストは `validate-content.mjs` の `PREREQ_KEYS`/`EFFECT_KEYS` と `types.ts` を同期）。**⚠ 純粋エンジン（dungeon/world/items/progression/rng 等）の挙動を意図的に変えたら golden が落ちる＝`npm run golden:print` で再生成し `src/golden.ts` の `EXPECTED` を貼り替える（決定論が変わった＝Swift 照合の正解データ更新）。意図しない不一致は回帰。**
+- **⚠ push 前は必ず CI 相当を回す＝`npm run check`**（＝受理ゲート `tools/validate-content.mjs` → `typecheck` → demo → `companion-check` → `item-check` → `echo-check` → `event-check` → **`tools/audit-content.ts`（死蔵/空選択肢/バランス外れ値）** → **`tools/scenario-clear.ts`（クリア可能性＝5印 awarder の突合）** → **`tools/stress-save.ts`（セーブ移行・往復）** → **`tools/determinism.ts`（同seed→同結果）** → **`golden`（ゴールデンテスト＝B柱2）** → `build:web`。CI `deploy.yml` と同順。**詳細は下の「QA スイート」項**）。**content（storylets/adventurers）や `types.ts` の `Prereq`/`Effect` スキーマを触ったら受理ゲート必須**＝未知キーは CI で exit 1＝**デプロイごと失敗する**（2026-06-21 に `minDepth/maxDepth` 追加を許可リスト未反映でデプロイを落とした実例あり。許可リストは `validate-content.mjs` の `PREREQ_KEYS`/`EFFECT_KEYS` と `types.ts` を同期）。**⚠ 純粋エンジン（dungeon/world/items/progression/rng 等）の挙動を意図的に変えたら golden が落ちる＝`npm run golden:print` で再生成し `src/golden.ts` の `EXPECTED` を貼り替える（決定論が変わった＝Swift 照合の正解データ更新）。意図しない不一致は回帰。**
+- **★QA スイート（2026-06-27・徹底テストプレイで整備・PR #234-237）＝デスクトップ版で「ウェブでは届かない領域」を機械検査する基盤。次スレッドはこれを活用して回帰を防げる。**
+  - **CI ゲート（`npm run check` 同梱・純エンジン・決定論・依存追加なし・golden 不変）：**
+    - `src/event-check.ts`（1164 pass）：弧/断片網羅・**4b** keeper 到達性・**4c** 店主口調なのに `speaker` 未タグの検出（雑踏NPCが店主として喋る辻褄崩れ＝#230/#231 の逆方向）・**5d/5e** スロット throw 安全（`#origin_catchphrase#` は encounter+`hasCatchphrase` 必須／`#origin_epithet#` は生者 context 限定／名簿は全員 epithet 必須＝異名/口癖を持たぬアンカーで `fillSlots` が実行時 throw＝会話/遭遇クラッシュを静的に防ぐ）・**7** context×prereq の no-op/死蔵・**8** setpiece 死蔵。
+    - `tools/audit-content.ts`：成立不能 prereq（minDepth>maxDepth・depthBand×深度矛盾・minBond上限）・context 必須フィールド欠落（encounter=investigate/search・chest=result・dungeon/town=choices）・**バランス外れ値 warn**（無ゲートで gold>40／exposure<-0.3＝序盤 farm 可能な大報酬＝終始シビアを崩す事故を検出。閾値は実測 gold p95=26/exposure p95=0.1 を大きく超える地点）。
+    - `tools/scenario-clear.ts`：**勝利条件（5印→深淵帯解錠→奉献）の到達可能性を静的＋動的に保証**＝全 `SEAL_KEY` に `awardSeal` 付与経路がソースに在ることを突合（awarder が欠けると `seals` が5に届かず**永遠にクリア不能**という壊滅的回帰を防止）。requiem 印は grudge 化石の `intervene`（world.ts）経由。
+    - `tools/stress-save.ts`（55,782 checks）：旧セーブ（新フィールド欠落）×多世代×全難易度を `migrateWorld`→直列化/復元で総当たり＝「非破壊バックフィル」の裏取り。**`migrateWorld` はコア（seed/generation/fossils/chronicle/town）も防御的にバックフィル＝parse できる任意オブジェクトを有効 World に（iOS PWA 部分破損の保険・通常 no-op）。**
+    - `tools/determinism.ts`（1,550 checks）：同 seed の操作を同一プロセスで二度走らせ byte 一致＝隠れたグローバル状態/反復順の非決定論を検出。**Swift 移植メモ：オブジェクト id は `world.ts newId`＝プロセス・グローバル `idCounter` 由来でシード非依存（実プロセスは counter=0 起点で完全再現／本検査は id を正規化して seed 由来の差だけ見る）。Swift は counter=0 起点踏襲か id をシード派生にする。**
+    - `tools/render-check.ts`（CI 外・手動）：全 storylet/fragment/setpiece を該当 context の fill 関数で実描画し、深度深度・重複助詞・未充填スロット等の描画破綻を静的検出。**content の本文を触ったら回すと良い**（`#origin_epithet#の…` の二重「の」型を実際に捕捉した）。
+  - **ローカル専用（実ブラウザ playwright + PIL 依存＝CI には無いので手動。Chromium は `/opt/pw-browsers/chromium-1194/...`・`executablePath` 直指定で起動）：**
+    - `tools/playtest2.mjs`：実ブラウザに本体を読み込み街/迷宮/シートをファジング（タイトル/難易度/タブ網羅）＝`main.ts` の DOM 結線ごと JS 例外を収集。**ただし霧ダンジョンの下り探索が黒箱では非効率で D1 止まり**＝深層は↓で。
+    - `tools/playtest-deep.ts`：**セーブ注入で深層から再開**＝Node でエンジンから「深層 dive 中」の有効セーブ＋`DiveSnapshot` を生成し `localStorage` に注入→「続きから」で D16〜D50/深淵帯へ直接復帰→castSpell（ロードアウト巡回で全36術網羅）・ボス戦・宝箱・状態異常をファジング。**web 限定グルー（深層 main.ts）の唯一の自動カバー手段。**
+    - `tools/visual-check.ts` ＋ `tools/visual-analyze.py`：縦持ち(480×900)で主要画面を撮影し PIL で空/破綻描画・主要帯の無内容・下部セーフエリア取りこぼしを定量検出。
+  - **方針＝バグはほぼ content の辻褄に集中していた**（エンジン・main.ts は堅牢）。content/`Prereq`/`Effect`/`speaker` を触ったら `event-check` + `audit-content` + `render-check`、エンジンを触ったら `determinism` + `stress-save` + `golden`、深層挙動を触ったら `playtest-deep` を回す。
 - `npm run build:web`（esbuild。依存は esbuild のみ）。CLI: `npm run cli`。
 - エンジンはブラウザセーフ（fs依存は `*-node.ts` に隔離）。決定論：seed → mulberry32 一本。
 - **実行時LLMは使わない**（snapshot 4-9）。LLMは制作時の素材生成（鋳造所）のみ。
