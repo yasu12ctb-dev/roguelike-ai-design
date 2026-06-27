@@ -2,5 +2,6 @@ save/
 node_modules/
 web/app.js
 tools/shots/
+tools/shots2/
 test-results/
 playwright-report/
