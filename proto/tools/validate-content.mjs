@@ -92,6 +92,15 @@ for (const s of list) {
   if (seen.has(s.id)) E(id, "id が重複"); seen.add(s.id);
   const ctx = s.context ?? "encounter";
   if (!CONTEXTS.has(ctx)) E(id, `不明な context "${ctx}"`);
+  // speaker:"keeper"（固定NPC本人が語る街イベント）の整合：値・context・スロットを機械検証（辻褄崩れ再発防止）。
+  if (s.speaker !== undefined) {
+    if (s.speaker !== "keeper") E(id, `不明な speaker "${s.speaker}"（許可:"keeper"）`);
+    if (s.speaker === "keeper" && !["guild", "shop", "tavern"].includes(ctx)) E(id, `speaker:"keeper" は guild/shop/tavern のみ（今: ${ctx}）`);
+    if (s.speaker === "keeper") { // 店主に異名/装備/口癖が無く fillSlots が throw する→#origin_name# 以外のスロット禁止
+      const slots = [...JSON.stringify(s).matchAll(/#(origin_[a-z]+|depth)#/g)].map((m) => m[1]).filter((x) => x !== "origin_name");
+      if (slots.length) E(id, `speaker:"keeper" は #origin_name# 以外のスロット不可（検出: ${[...new Set(slots)].join(",")}）`);
+    }
+  }
   // prerequisites
   const p = s.prerequisites ?? {};
   for (const k of Object.keys(p)) if (!PREREQ_KEYS.has(k)) E(id, `不明な prereq キー "${k}"`);

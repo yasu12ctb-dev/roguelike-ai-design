@@ -239,7 +239,21 @@ export function selectTownStorylet(
   contexts: readonly TownContext[] = TOWN_CONTEXTS, avoid?: Set<string>,
 ): Storylet | null {
   const allow = new Set<string>(contexts);
-  const pool = db.storylets.filter((s) => allow.has(s.context ?? "") && townMatches(s.prerequisites, world, ch, la));
+  // speaker:"keeper" は固定NPC本人の語り＝雑踏(talkCrowd)には出さない（selectKeeperStorylet が拾う）。
+  const pool = db.storylets.filter((s) => allow.has(s.context ?? "") && s.speaker !== "keeper" && townMatches(s.prerequisites, world, ch, la));
+  return pickPreferArc(pool, rng, avoid);
+}
+
+/**
+ * 固定NPC（店主/受付等）本人が語る街ストーリーレットを1つ選ぶ（無ければ null）。
+ * talkKeeper から呼び、話者＝その店主＝`keeper` LivingActor で照合・スロット充填する（4-4B 辻褄整合）。
+ * プールは speaker:"keeper" かつ当該店の context（guild/shop/tavern）限定（街路フォールバックなし＝場所固有）。
+ */
+export function selectKeeperStorylet(
+  db: ContentDb, world: World, ch: Character, kind: TownContext, rng: Rng,
+  keeper: LivingActor, avoid?: Set<string>,
+): Storylet | null {
+  const pool = db.storylets.filter((s) => (s.context ?? "") === kind && s.speaker === "keeper" && townMatches(s.prerequisites, world, ch, keeper));
   return pickPreferArc(pool, rng, avoid);
 }
 

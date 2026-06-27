@@ -26,7 +26,7 @@ import {
 } from "../render.ts";
 import { rollEncounter } from "../weights.ts";
 import { filterByTags } from "../content.ts";
-import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, selectTownStorylet, selectDelverStorylet, applyActorEffects, rollChestOutcome } from "../storylets.ts";
+import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, selectTownStorylet, selectKeeperStorylet, selectDelverStorylet, applyActorEffects, rollChestOutcome } from "../storylets.ts";
 import { meetActor, mintActor, rememberActor, pickRosterActor } from "../actors.ts";
 import {
   generateOffers, generateNobleOffers, acceptQuest, activeQuests, doneQuests, claimQuest,
@@ -57,7 +57,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.56.2";
+export const APP_VERSION = "0.56.3";
 export const APP_BUILD = "2026-06-27";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1679,12 +1679,43 @@ function keeperGreeting(kind: string, d: { name: string; title: string; line: st
   return hook ? `${opener}${hook}` : opener;
 }
 
+// 店主種別 → storylet context（その店主が語る vignette のプール。該当しない固定NPCは null＝vignette なし）。
+const KEEPER_VIGNETTE_CHANCE = 0.35; // 店主に話しかけた時、メニュー前に小イベントを挿む確率（要テストプレイ調整）
+function keeperContextFor(kind: string): TownContext | null {
+  if (kind === "tavern") return "tavern";
+  if (kind === "guild") return "guild";
+  if (SHOP_INTERIORS.has(kind)) return "shop";
+  return null; // 書記/教団/慰霊堂/自宅/民家＝固定の語りのみ（vignette 対象外）
+}
 async function talkKeeper(asKind?: string) {
   if (busy || !interior) return;
   const kind = asKind ?? interior.kind;
   const d = townGrid.data.keepers[kind];
   if (kind === "guild") await checkRankUp(); // 等級の正式認定＝昇格イベント（4-4E）
   if (busy || !interior) return; // 昇格イベント中に状況が変わっていないか再確認
+  // 店主目線の小イベント（4-4B 辻褄整合）：時々、固定の挨拶＋メニューの前に「店主本人が語る」一幕を挟む。
+  // 話者＝その店主＝#origin_name# は店主名で充填（雑踏のランダム冒険者と取り違えない）。商い導線は後続でそのまま到達。
+  const kctx = keeperContextFor(kind);
+  if (kctx && world.current && rng.next() < KEEPER_VIGNETTE_CHANCE) {
+    const ch = world.current;
+    const keeperActor: Actor = { name: d.name, archetype: d.title, gearTags: [] }; // 異名/装備/口癖は持たない＝#origin_name# だけ解決
+    const keeperLa: LivingActor = { id: d.actorId ?? ("keeper_" + kind), actor: keeperActor, metGeneration: world.generation };
+    const sl = selectKeeperStorylet(db, world, ch, kctx, rng, keeperLa, recentSet());
+    if (sl && sl.choices && sl.choices.length) {
+      noteEvent(sl.id);
+      busy = true;
+      const c = await sheet({
+        text: `${d.name} ── ${d.title}\n\n${fillActorText(keeperActor, sl.text ?? "")}`,
+        meta: "固定NPC（第2層）", options: sl.choices.map((o) => o.label),
+      });
+      const choice = sl.choices[c.pick - 1];
+      const lines = choice ? applyActorEffects(world, ch, keeperLa, choice.effects) : [];
+      const body = [choice?.text ? fillActorText(keeperActor, choice.text) : "", ...lines].filter(Boolean).join("\n");
+      if (body) await sheet({ text: body, meta: `${d.name} ── ${d.title}`, options: ["戻る"] });
+      busy = false; save();
+      if (!interior) return; // vignette 中に状況が変わっていないか
+    }
+  }
   busy = true;
   const r = await sheet({
     text: `${d.name} ── ${d.title}\n\n「${keeperGreeting(kind, d)}」`,
