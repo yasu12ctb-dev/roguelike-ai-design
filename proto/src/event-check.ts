@@ -135,6 +135,18 @@ for (const c of KEEPER_CTX) ok((keeperCount[c] ?? 0) > 0, `keeper context "${c}"
   ok(mainSrc.includes("selectKeeperStorylet("), "talkKeeper が selectKeeperStorylet を呼んでいない（keeper vignette 未結線）");
 }
 
+// 4c. 逆方向ドリフト（warn）：店主/受付/女将にしか言えない一人称セリフを持つのに speaker:"keeper" が
+//   付いていない shop/guild/tavern storylet＝雑踏NPC（別の客）が店主口調で喋る辻褄崩れ（#230/#231 再発）。
+//   4b は「タグ済み keeper の到達性」しか見ず、この未タグ方向を検出しないため補完する。高確度の売り手専用
+//   フレーズに限定（客視点の観察文を誤検出しないよう保守的）。引っかかったら speaker:"keeper" を検討する。
+const SELLER_VOICE = /負けとく|まけとく|今日の一番客|一番客だ|仕入れが滞|棚を補充|端数は負|うんと安く|安くするぞ|うちの品|まいど|毎度あり|らっしゃい|まとめてなら/;
+for (const s of storylets) {
+  if ((s as { speaker?: string }).speaker === "keeper") continue;
+  if (!KEEPER_CTX.includes(ctxOf(s) as never)) continue;
+  const quoted = [s.text ?? "", ...(s.choices ?? []).map((c) => c.text ?? "")].join(" ");
+  if (SELLER_VOICE.test(quoted)) W(`店主口調なのに speaker:"keeper" 未タグ：${s.id}（${ctxOf(s)}）＝雑踏NPCが店主として喋る辻褄崩れの恐れ`);
+}
+
 // ============================================================
 console.log("== 5. 断片 tone×stage×slot 網羅（renderRediscovery の throw を静的に防ぐ） ==");
 // 5a. 全 tone×stage に rediscovery_frame が ≥1（render.ts:50-51 の throw 防止）

@@ -8149,6 +8149,7 @@
     {
       "id": "sp_supply_run",
       "context": "shop",
+      "speaker": "keeper",
       "prerequisites": {
         "minBond": 1
       },
@@ -16129,6 +16130,7 @@
     {
       "id": "sp_b10_bulk_deal",
       "context": "shop",
+      "speaker": "keeper",
       "prerequisites": {},
       "weight": 2,
       "text": "#origin_name# がそろばんを弾いた。「まとめて買ってくれるなら、端数は負けとくぜ。常連を逃す手はないからな」。",
@@ -17167,6 +17169,7 @@
     {
       "id": "sp_b11_rationing",
       "context": "shop",
+      "speaker": "keeper",
       "prerequisites": {},
       "weight": 1,
       "text": "#origin_name# が、棚の品を数えて渋面を作った。「仕入れが滞っててな。膏薬は、一人一つまでにしてる。買い占められちゃ、後から来る奴が困る」。",
@@ -17263,6 +17266,7 @@
     {
       "id": "sp_b11_first_buyer",
       "context": "shop",
+      "speaker": "keeper",
       "prerequisites": {},
       "weight": 2,
       "text": "#origin_name# が、こちらに気づいて声を弾ませた。「お、今日の一番客だ。縁起がいい。少し負けとくぜ。朝一の客は、その日の福の神だからな」。",
@@ -20317,7 +20321,7 @@
         "minLevel": 20
       },
       "weight": 2,
-      "text": "屈強な男が、卓に肘を突いて挑んできた。「#origin_epithet#の腕、試させてもらおうか」。周りが、囃し立てる。",
+      "text": "屈強な男が、卓に肘を突いて挑んできた。「#origin_epithet#腕、試させてもらおうか」。周りが、囃し立てる。",
       "choices": [
         {
           "label": "受けて立つ",
@@ -20349,7 +20353,7 @@
         "minLevel": 16
       },
       "weight": 2,
-      "text": "店主が揉み手で寄ってきた。「#origin_epithet#ともなれば、一つ皆に振る舞っちゃどうです。景気づけに」。期待の視線が集まる。",
+      "text": "店主が揉み手で寄ってきた。「これだけ名の知れた御方ともなれば、一つ皆に振る舞っちゃどうです。景気づけに」。期待の視線が集まる。",
       "choices": [
         {
           "label": "一杯ずつ振る舞う",
@@ -20807,11 +20811,12 @@
     {
       "id": "sp_m4c_repair",
       "context": "shop",
+      "speaker": "keeper",
       "prerequisites": {
         "minBond": 1
       },
       "weight": 2,
-      "text": "#origin_name# が、お前の#origin_gear# にちらと目をやった。「刃こぼれしてるぞ。待ってろ、ちょいと直す」。手早く砥ぎ直してくれる。",
+      "text": "#origin_name# が、お前の得物にちらと目をやった。「刃こぼれしてるぞ。待ってろ、ちょいと直す」。手早く砥ぎ直してくれる。",
       "choices": [
         {
           "label": "礼を言う",
@@ -20830,11 +20835,12 @@
     {
       "id": "sp_m4c_master",
       "context": "shop",
+      "speaker": "keeper",
       "prerequisites": {
         "minLevel": 28
       },
       "weight": 2,
-      "text": "#origin_name# が、奥の錠前を開けた。「#origin_epithet#にだけ、見せよう」。布を払うと、息を呑むほどの業物が現れた。",
+      "text": "#origin_name# が、奥の錠前を開けた。「あんたにだけ、見せよう」。布を払うと、息を呑むほどの業物が現れた。",
       "choices": [
         {
           "label": "じっくり検分する",
@@ -20876,11 +20882,12 @@
     {
       "id": "sp_m4c_bulk",
       "context": "shop",
+      "speaker": "keeper",
       "prerequisites": {
         "minLevel": 20
       },
       "weight": 2,
-      "text": "#origin_name# が帳面を広げた。「#origin_epithet#ほど買ってくれる客は、そういない。まとめてなら、うんと安くするぞ」。",
+      "text": "#origin_name# が帳面を広げた。「あんたほど買ってくれる客は、そういない。まとめてなら、うんと安くするぞ」。",
       "choices": [
         {
           "label": "まとめ買いの話に乗る",
@@ -20902,11 +20909,12 @@
     {
       "id": "sp_m4c_commission",
       "context": "shop",
+      "speaker": "keeper",
       "prerequisites": {
         "minLevel": 24
       },
       "weight": 2,
-      "text": "#origin_name# が、試作品を差し出した。「#origin_epithet#。これを、実戦で試してくれんか。具合を聞かせてもらえれば、礼もする」。",
+      "text": "#origin_name# が、試作品を差し出した。「あんたに頼みたい。これを、実戦で試してくれんか。具合を聞かせてもらえれば、礼もする」。",
       "choices": [
         {
           "label": "試作を引き受ける",
@@ -20932,7 +20940,7 @@
         "minLevel": 16
       },
       "weight": 2,
-      "text": "値切ろうとすると、#origin_name# は嫌な顔ひとつせず応じた。「#origin_epithet#の言い値だ。これでどうだ」。一目置かれているのが分かる。",
+      "text": "値切ろうとすると、#origin_name# は嫌な顔ひとつせず応じた。「#origin_epithet#言い値だ。これでどうだ」。一目置かれているのが分かる。",
       "choices": [
         {
           "label": "互いの顔を立てて折り合う",
@@ -22462,11 +22470,12 @@
     {
       "id": "sp_m4f_discount",
       "context": "shop",
+      "speaker": "keeper",
       "prerequisites": {
         "minLevel": 14
       },
       "weight": 2,
-      "text": "#origin_name# が値札を指で弾いた。「#origin_epithet#には、いつもの値で売るわけにいかんな。少し負けとくよ。あんたが使ってくれりゃ、店の看板になる」。",
+      "text": "#origin_name# が値札を指で弾いた。「あんたほどの名がありゃ、いつもの値で売るわけにいかんな。少し負けとくよ。あんたが使ってくれりゃ、店の看板になる」。",
       "choices": [
         {
           "label": "好意に甘える",
@@ -22606,7 +22615,7 @@
         "minLevel": 18
       },
       "weight": 2,
-      "text": "隅の吟遊詩人が、お前を見て弦を爪弾き始めた。「#origin_epithet#の唄を、一節こしらえてみたんだ。聞いてくれるかい」。",
+      "text": "隅の吟遊詩人が、お前を見て弦を爪弾き始めた。「あんたの武勇を、一節こしらえてみたんだ。聞いてくれるかい」。",
       "choices": [
         {
           "label": "黙って聞き入る",
