@@ -1654,7 +1654,17 @@ function keeperGreeting(kind: string, d: { name: string; title: string; line: st
   const ascended = world.ascended ?? 0;
   const legends = (world.tracked ?? []).filter((t) => t.source === "player_legend").length;
   let openers: string[] | null = null;
-  if (ascended > 0) {
+  // 役割が「主人公の状態」に関わるNPC（薬師・酒場）は、深蝕が実際に濃い時だけそれに言及する
+  //  （0なのに「深蝕が進んでいる」と言う辻褄崩れを防ぐ＋濃さで段階変化）。低い時は通常の挨拶へ。
+  if (ch && ch.exposure >= 1.2 && (kind === "healer" || kind === "tavern")) {
+    const heavy = ch.exposure >= 1.8;
+    if (kind === "healer") openers = heavy
+      ? ["深蝕がかなり進んでいる……早く手を打たねば。", "ひどい蝕みだ。完全には抜けんが、進みは遅らせよう。"]
+      : ["深蝕が進んでいるね。完全には抜けんが、少し遅らせることはできる。"];
+    else openers = heavy
+      ? ["顔色が悪いよ。深蝕が、ずいぶん濃い。無理をしすぎだ。", "ひどい澱みを背負っているね……まず一杯、おいき。"]
+      : ["深蝕が滲んでいるね。根を詰めすぎだ。まず一杯おいき。"];
+  } else if (ascended > 0) {
     openers = ["奉献を成した御方が、こうして顔を出すとは。", "深淵を越えた者よ、よくぞ此処へ。", "あなたの名は、もう街の伝説だ。"];
   } else if (grade >= 3 || legends >= 1 || seals >= 3) {
     openers = [`${GRADE_LABELS[Math.max(0, Math.min(5, grade))]}の名は、聞き及んでいるよ。`, "その名、灰の街に轟いている。", "歴戦の御仁とお見受けする。"];
