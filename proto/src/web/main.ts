@@ -57,7 +57,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.56.0";
+export const APP_VERSION = "0.56.1";
 export const APP_BUILD = "2026-06-27";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1627,6 +1627,58 @@ async function lineageBoon() {
   await sheet({ text: body, meta: "ギルド ── 系譜の恩寵", options: ["わかった"] });
   busy = false;
 }
+// 固定NPCの「一言」を kind ごとに短く（挨拶の後ろに付く役割フック）。世代/系譜/名声で変わる挨拶と合成する。
+const KEEPER_HOOK: Record<string, string> = {
+  guild: "腕の立つ者には、いい依頼を回すよ。",
+  smith: "その得物、見てやろう。刃こぼれは命取りだ。",
+  smith_armor: "防具のことなら任せな。",
+  store: "下で死なないための物は、ここで揃う。",
+  tavern: "まずは一杯、おいき。",
+  archive: "君の物語も、ここに記そう。",
+  cult: "深淵は、すべてを赦し変える。",
+  oddments: "いわく付きの品を探すなら、ここだ。",
+  shrine: "還らなかった魂に、祈りを。",
+  healer: "深蝕の進み、診てやろうか。",
+  home: "ゆっくりしておいき。",
+  house: "足下に気をつけて。",
+};
+/** 固定NPCの挨拶を世代・系譜・名声で動的に選ぶ（テストPB：1代目なのに「先代の働き」と言う辻褄崩れを是正＋
+ *  代を重ね・名を上げるほど反応が多様化）。初代・無名・無系譜は作り込んだ第一印象（d.line）をそのまま使う。
+ *  優先度：奉献者 ＞ 高名 ＞ 系譜 ＞ 世代を重ねた街 ＞ 新顔。毎訪問で rng.pick＝同じ状態でも少し変わる。 */
+function keeperGreeting(kind: string, d: { name: string; title: string; line: string }): string {
+  const ch = world.current;
+  const anc = ch && ch.lineage.relation !== "none" && ch.lineage.ancestorFossilId
+    ? world.fossils.find((f) => f.id === ch.lineage.ancestorFossilId) : undefined;
+  const grade = worldPlayerGrade(world, ch?.level ?? 1);
+  const seals = world.seals?.length ?? 0;
+  const ascended = world.ascended ?? 0;
+  const legends = (world.tracked ?? []).filter((t) => t.source === "player_legend").length;
+  let openers: string[] | null = null;
+  // 役割が「主人公の状態」に関わるNPC（薬師・酒場）は、深蝕が実際に濃い時だけそれに言及する
+  //  （0なのに「深蝕が進んでいる」と言う辻褄崩れを防ぐ＋濃さで段階変化）。低い時は通常の挨拶へ。
+  if (ch && ch.exposure >= 1.2 && (kind === "healer" || kind === "tavern")) {
+    const heavy = ch.exposure >= 1.8;
+    if (kind === "healer") openers = heavy
+      ? ["深蝕がかなり進んでいる……早く手を打たねば。", "ひどい蝕みだ。完全には抜けんが、進みは遅らせよう。"]
+      : ["深蝕が進んでいるね。完全には抜けんが、少し遅らせることはできる。"];
+    else openers = heavy
+      ? ["顔色が悪いよ。深蝕が、ずいぶん濃い。無理をしすぎだ。", "ひどい澱みを背負っているね……まず一杯、おいき。"]
+      : ["深蝕が滲んでいるね。根を詰めすぎだ。まず一杯おいき。"];
+  } else if (ascended > 0) {
+    openers = ["奉献を成した御方が、こうして顔を出すとは。", "深淵を越えた者よ、よくぞ此処へ。", "あなたの名は、もう街の伝説だ。"];
+  } else if (grade >= 3 || legends >= 1 || seals >= 3) {
+    openers = [`${GRADE_LABELS[Math.max(0, Math.min(5, grade))]}の名は、聞き及んでいるよ。`, "その名、灰の街に轟いている。", "歴戦の御仁とお見受けする。"];
+  } else if (anc) {
+    openers = [`${anc.origin.name}の血筋か。覚えがある。`, `${anc.origin.name}の面影が、君にあるな。`, `${anc.origin.name}の遺志を継ぐ者か。先代の働きに免じよう。`];
+  } else if (world.generation > 1) {
+    openers = ["また新たな代が、この街に降りたか。", "代替わりか……時の流れは速いね。", "見ない顔だ。先達の多くは、深みへ還ってしまった。"];
+  }
+  if (!openers) return d.line; // 初代・無名・無系譜＝作り込んだ第一印象
+  const hook = KEEPER_HOOK[kind] ?? "";
+  const opener = rng.pick(openers);
+  return hook ? `${opener}${hook}` : opener;
+}
+
 async function talkKeeper(asKind?: string) {
   if (busy || !interior) return;
   const kind = asKind ?? interior.kind;
@@ -1635,7 +1687,7 @@ async function talkKeeper(asKind?: string) {
   if (busy || !interior) return; // 昇格イベント中に状況が変わっていないか再確認
   busy = true;
   const r = await sheet({
-    text: `${d.name} ── ${d.title}\n\n「${d.line}」`,
+    text: `${d.name} ── ${d.title}\n\n「${keeperGreeting(kind, d)}」`,
     meta: "固定NPC（第2層）",
     options: [...d.acts, "立ち去る"],
   });
