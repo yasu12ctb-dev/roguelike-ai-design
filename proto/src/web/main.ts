@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.63.1";
+export const APP_VERSION = "0.63.2";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -2747,15 +2747,16 @@ function refreshNobleQuarter() {
   courtKeys.clear();
   courtSteward ??= mkCourtActor("steward");
   courtCourtier ??= mkCourtActor("courtier");
-  // 再会の客人＝退いた英雄（retire 終端＝生者）を宮廷に招く＝育てた家系の英雄が宮廷を歩く。
-  // ※ player_legend（神話極の故人を伝説化）は除外＝死者が生者として宮廷を歩く辻褄崩れを防ぐ（4-14G・辻褄）。
-  //   伝説は謁見の言及（legendNames）と英雄譜で讃える。
-  const guestTracked = world.tracked.filter((t) =>
-    t.terminal && t.arcType === "retire" && t.pick !== "warped").slice(0, 2);
+  // 客分の英雄＝貴族街専属の英雄（COURT_CHAMPIONS）。街の英雄からスカウトされ専属となった固定キャスト。
+  // 退隠英雄（refreshRetireGuardians の街の「師」）やプレイヤーの伝説（player_legend）は宮廷の常駐には出さない
+  //  ＝二重配置・死者の生者化を防ぐ（4-14G・辻褄）。プレイヤーの伝説/退隠は街の師・謁見の言及・英雄譜で讃える。
+  // 世代でゆるく2名を巡回（来訪中は安定／世代を越えると顔ぶれが変わる）。
+  const n = COURT_CHAMPIONS.length, g = world.generation;
+  const pickedChamps = n >= 2 ? [COURT_CHAMPIONS[g % n], COURT_CHAMPIONS[(g + 1) % n]] : COURT_CHAMPIONS.slice(0, n);
   const placements: Array<{ entry: CourtEntry; glyph: string; color: string }> = [
     { entry: { role: "steward", la: courtSteward }, glyph: "家", color: "#d9b65c" },
     { entry: { role: "courtier", la: courtCourtier }, glyph: "臣", color: "#c9a8e0" },
-    ...guestTracked.map((t) => ({ entry: { role: "guest" as const, trackedId: t.id, name: t.name }, glyph: "客", color: "#7fd0e6" })),
+    ...pickedChamps.map((cm) => ({ entry: { role: "guest" as const, champion: cm }, glyph: "客", color: cm.grade === "秘銀" ? "#cfe3ea" : "#e8c860" })),
   ];
   const cands: [number, number][] = [[24, 4], [29, 4], [20, 5], [35, 5], [26, 5], [30, 5], [19, 4], [36, 4]];
   let ci = 0;
@@ -2769,15 +2770,31 @@ function refreshNobleQuarter() {
     if (!spot) break;
     const [x, y] = spot; const k = `${x},${y}`;
     courtKeys.set(k, pl.entry);
-    const name = pl.entry.role === "guest" ? pl.entry.name! : (pl.entry.la!.actor.name);
-    const label = pl.entry.role === "steward" ? "家令" : pl.entry.role === "courtier" ? "廷臣" : "招かれた客人";
-    townGrid.propMap.set(k, { x, y, glyph: pl.glyph, color: pl.color, glow: pl.entry.role === "guest",
+    const e = pl.entry;
+    const name = e.role === "guest" ? e.champion.name : e.la.actor.name;
+    const label = e.role === "guest" ? `客分の英雄（${e.champion.grade}級）` : e.role === "steward" ? "家令" : "廷臣";
+    townGrid.propMap.set(k, { x, y, glyph: pl.glyph, color: pl.color, glow: e.role === "guest",
       line: `${label} ${name}。貴族街の宮廷に在る。` });
   }
 }
 
-// 宮廷NPC（家令/廷臣/再会の客人）＝propMap key → 素性。guardianKeys と同じ管理（4-14G 後続）。
-type CourtEntry = { role: "steward" | "courtier"; la: LivingActor } | { role: "guest"; trackedId: string; name: string };
+// 宮廷NPC（家令/廷臣/客分の英雄）＝propMap key → 素性。guardianKeys と同じ管理（4-14G 後続）。
+// guest＝貴族街専属の英雄（客分）。街の英雄から貴族にスカウトされ専属となった設定の固定ロスター
+// （ミスリル/ゴールド数名）。退隠英雄（refreshRetireGuardians の街の「師」）とは別キャスト＝二重配置しない。
+interface ChampionSpec { name: string; epithet: string; grade: "秘銀" | "金"; gear: string; catchphrase: string; blurb: string; }
+const COURT_CHAMPIONS: ChampionSpec[] = [
+  { name: "ガレオン", epithet: "不落の", grade: "秘銀", gear: "古強の大盾", catchphrase: "盾は、退くためにこそある",
+    blurb: "幾度も深淵を覗き、ただ一人生きて帰り続けた不落の壁。その名を貴族が惜しみ、家門の盾として召し抱えた。" },
+  { name: "リーゼ", epithet: "灰銀の", grade: "秘銀", gear: "細身の長剣", catchphrase: "光は、底でこそ要る",
+    blurb: "深みで折れぬ剣士として街に名を馳せ、今は宮廷の守りに就く。退くことを知らぬ刃を、貴族は手放さなかった。" },
+  { name: "トバイアス", epithet: "三度の", grade: "金", gear: "使い込んだ短槍",
+    catchphrase: "もう一度、と思える間は終わらん", blurb: "三度、奉献の試練に挑んだ歴戦。その経験を見込まれ、若き探索者の指南役として専属に迎えられた。" },
+  { name: "ネリ", epithet: "風斬りの", grade: "金", gear: "投げ刃の帯", catchphrase: "速さは、臆病者の知恵さ",
+    blurb: "並ぶ者なき韋駄天として鳴らした斥候。貴族の急ぎ働きを駆け抜ける足として、宮廷に囲われた。" },
+  { name: "ドルカス", epithet: "鉄腕の", grade: "金", gear: "鉄芯の棍", catchphrase: "硬いものほど、砕き甲斐がある",
+    blurb: "怪力で鳴らした壁役。武と酒で宮廷を沸かせ、いつしか手放せぬ顔となった。" },
+];
+type CourtEntry = { role: "steward" | "courtier"; la: LivingActor } | { role: "guest"; champion: ChampionSpec };
 const courtKeys = new Map<string, CourtEntry>();
 let courtSteward: LivingActor | null = null;
 let courtCourtier: LivingActor | null = null;
@@ -2797,11 +2814,10 @@ async function courtNpcScene(entry: CourtEntry) {
   const reunion: string[] = [];
   let la: LivingActor;
   if (entry.role === "guest") {
-    const t = world.tracked.find((x) => x.id === entry.trackedId);
-    const nm = t?.name ?? entry.name;
-    // 客人＝退隠した先達（生者）。過去世代の家門の英雄ゆえ現当主とは未面識＝「再び」を避け、生者の先達として遇する（4-14G・辻褄）。
-    reunion.push(`宮廷の客人として遇されているのは、かつてあなたの家が世に送り出した英雄 ${nm} だった。\n「あなたの家が、これほどの高みへ昇るとはな。よき後継に恵まれた」。`);
-    la = { id: `court_guest_${entry.trackedId}`, actor: { name: nm, archetype: "招かれた客人", gearTags: ["宮廷の装い"], epithet: "客人", alive: true }, metGeneration: world.generation };
+    // 客分の英雄＝街の英雄からスカウトされ貴族の専属となった固定キャスト（4-14G）。出自と矜持を一言で紹介。
+    const cm = entry.champion;
+    reunion.push(`宮廷の客分として召し抱えられているのは、かつて街に名を馳せた${cm.grade}級の英雄、${cm.epithet}${cm.name}だった。\n${cm.blurb}\n「${cm.catchphrase}」と、${cm.name}は不敵に笑った。`);
+    la = { id: `court_champ_${cm.name}`, actor: { name: cm.name, archetype: "客分の英雄", gearTags: [cm.gear], epithet: cm.epithet, catchphrase: cm.catchphrase, alive: true }, metGeneration: world.generation };
   } else {
     la = entry.la;
   }
