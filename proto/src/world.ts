@@ -1,7 +1,7 @@
 // 世界の生成・化石化・干渉・年代記・永続化（prototype-spec.md §2 / §5）
 
 import type {
-  Actor, ArcEffect, ArcState, Character, ChronicleEntry, Companion, DeathManner, EchoAsh, FinalAct, Fossil, Lineage, SealKey, Stats, TrackedEntity, World,
+  Actor, ArcEffect, ArcState, Character, ChronicleEntry, Companion, DeathManner, EchoAsh, FinalAct, FinalActChoice, Fossil, Lineage, LivingActor, SealKey, Stats, TonePole, TrackedEntity, World,
 } from "./types.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "./types.ts";
 import { resolveTonePole } from "./variation.ts";
@@ -95,6 +95,45 @@ export function migrateWorld(w: World): World {
   return w;
 }
 
+/** 初期12体の先人（4-14）。adventurers.md の故人系を元に、深度帯×極×干渉動詞が散るよう編成。
+ *  全員 epithet 付き（名簿 ASSERT 4-2／event-check 5e）。catchphrase は怨念・神話の一部のみ（無い者は静かな喪失）。
+ *  finalAct=guard_relic/leave_will の5体は「遺されたものを継ぐ」（継承）が選べる。level/stats は系譜継承の配分基準。 */
+interface SeedFossilSpec {
+  name: string; epithet: string; archetype: string; gear: string; catchphrase?: string;
+  tone: TonePole; manner: DeathManner; finalAct: FinalActChoice;
+  depth: number; exposure: number; bond: number; level: number; stats: Stats;
+}
+const SEED_FOSSILS: SeedFossilSpec[] = [
+  // ── 浅層（3–8）：序盤の手触り ──
+  { name: "オック", epithet: "出戻り", archetype: "元探索者", gear: "古びた手斧", catchphrase: "まだ…やれる",
+    tone: "loss", manner: "peaceful", finalAct: "accept", depth: 8, exposure: 0.4, bond: 0, level: 8, stats: { body: 6, power: 4, reason: 2, heart: 3 } },
+  { name: "カルト", epithet: "遺された家族", archetype: "衛士", gear: "家紋入りの胸当て", catchphrase: "すまない…帰れない",
+    tone: "loss", manner: "grievous", finalAct: "leave_will", depth: 7, exposure: 0.9, bond: 1, level: 7, stats: { body: 6, power: 4, reason: 2, heart: 4 } },
+  { name: "ケス", epithet: "逃亡者", archetype: "旅芸人", gear: "質草の竪琴", catchphrase: "もう、追ってくるな",
+    tone: "grudge", manner: "betrayed", finalAct: "curse_dungeon", depth: 5, exposure: 1.1, bond: 0, level: 5, stats: { body: 3, power: 3, reason: 3, heart: 6 } },
+  // ── 中層（9–24）：主戦場・密度高め ──
+  { name: "ガロ", epithet: "粗暴", archetype: "喧嘩屋", gear: "刃こぼれの斧", catchphrase: "どけ…どけ！",
+    tone: "grudge", manner: "grievous", finalAct: "curse_dungeon", depth: 12, exposure: 1.8, bond: 0, level: 12, stats: { body: 5, power: 7, reason: 2, heart: 2 } },
+  { name: "ブレン", epithet: "鍛冶", archetype: "鍛冶師", gear: "ブレン銘の長剣", catchphrase: "鋼は、嘘をつかん",
+    tone: "loss", manner: "grievous", finalAct: "guard_relic", depth: 14, exposure: 0.8, bond: 0, level: 14, stats: { body: 7, power: 5, reason: 3, heart: 3 } },
+  { name: "クラン", epithet: "師父", archetype: "師範", gear: "古い木刀", catchphrase: "受け継いでくれ",
+    tone: "loss", manner: "peaceful", finalAct: "leave_will", depth: 16, exposure: 0.2, bond: 1, level: 16, stats: { body: 6, power: 6, reason: 3, heart: 5 } },
+  { name: "ダン", epithet: "豪傑", archetype: "重戦士", gear: "大ぶりの戦鎚", catchphrase: "ガ…ハ…ハ…",
+    tone: "loss", manner: "grievous", finalAct: "accept", depth: 20, exposure: 1.6, bond: 0, level: 20, stats: { body: 7, power: 7, reason: 2, heart: 3 } },
+  { name: "ジャス", epithet: "信仰", archetype: "祈祷師", gear: "聖印の祭具", catchphrase: "御手のままに",
+    tone: "myth", manner: "noble", finalAct: "guard_relic", depth: 22, exposure: 0.6, bond: 0, level: 22, stats: { body: 4, power: 3, reason: 5, heart: 7 } },
+  // ── 深層（25–37）：歪んだ強者 ──
+  { name: "オルド", epithet: "一匹狼", archetype: "傭兵", gear: "無頼の双刀", catchphrase: "群れぬ、馴れ合わぬ",
+    tone: "grudge", manner: "betrayed", finalAct: "curse_dungeon", depth: 28, exposure: 1.4, bond: 0, level: 28, stats: { body: 6, power: 8, reason: 3, heart: 3 } },
+  { name: "シオン", epithet: "実験者", archetype: "深淵術士", gear: "蝕みの触媒", catchphrase: "深蝕は、ちからだ",
+    tone: "grudge", manner: "grievous", finalAct: "curse_dungeon", depth: 30, exposure: 1.7, bond: 0, level: 30, stats: { body: 3, power: 3, reason: 8, heart: 4 } },
+  { name: "沈黙のヴァイス", epithet: "鎮める者", archetype: "遊行者", gear: "無銘の数珠", catchphrase: "討つな。鎮めよ",
+    tone: "myth", manner: "peaceful", finalAct: "accept", depth: 33, exposure: 0.3, bond: 0, level: 33, stats: { body: 5, power: 3, reason: 6, heart: 9 } },
+  // ── 深淵（38–50）：世界の起点 ──
+  { name: "アウレル", epithet: "黄金の烙印", archetype: "開拓者", gear: "烙印の聖印",
+    tone: "myth", manner: "noble", finalAct: "guard_relic", depth: 44, exposure: 1.0, bond: 0, level: 44, stats: { body: 8, power: 8, reason: 8, heart: 8 } },
+];
+
 /** 初期史のシード（snapshot 4-1D：薄く仕込む） */
 export function newWorld(seed: number): World {
   const world: World = {
@@ -116,24 +155,21 @@ export function newWorld(seed: number): World {
     ascended: 0,
     keepsakes: [],
   };
-  // シード化石①：老兵の亡骸（喪失・浅層）
-  world.fossils.push({
-    id: newId("fossil"),
-    kind: "explorer",
-    origin: { name: "老兵ガルム", archetype: "veteran", gearTags: ["割れた円盾"], epithet: "城壁" },
-    death: { manner: "peaceful", finalAct: { choice: "accept" }, depth: 6, generationCreated: 0 },
-    exposureAtDeath: 0.2, bondAtDeath: 0, tonePole: "loss",
-    interventions: [], lastTouchedGeneration: 0, laidDepth: 6,
-  });
-  // シード化石②：非業の探索者（怨念・中層）— 初回から「歪んだ過去」に出会わせる
-  world.fossils.push({
-    id: newId("fossil"),
-    kind: "explorer",
-    origin: { name: "踏破者レン", archetype: "delver", gearTags: ["錆びた長剣"], catchphrase: "……まだ、足りない" },
-    death: { manner: "grievous", finalAct: { choice: "curse_dungeon" }, depth: 18, generationCreated: 0 },
-    exposureAtDeath: 1.5, bondAtDeath: 0, tonePole: "grudge",
-    interventions: [], lastTouchedGeneration: 0, laidDepth: 18,
-  });
+  // シード化石（4-14・初期12体）：街に「生きている名簿」とは別に、迷宮には既に眠る先人がいる。
+  //  深度帯（浅3／中5／深3／深淵1）・極（loss5/grudge4/myth3）・継承可5体を散らし、どの深度・どの干渉動詞でも
+  //  常に複数候補が立つようにする（rollEncounter は深度近傍しか拾わない＝「いつも同じ化石」の解消）。
+  //  名簿(adventurers.json)の生者とは別人＝「街に生きる者／迷宮に骨となった者」の層を作る。
+  for (const s of SEED_FOSSILS) {
+    world.fossils.push({
+      id: newId("fossil"),
+      kind: "explorer",
+      origin: { name: s.name, archetype: s.archetype, gearTags: [s.gear], epithet: s.epithet, ...(s.catchphrase ? { catchphrase: s.catchphrase } : {}) },
+      death: { manner: s.manner, finalAct: { choice: s.finalAct }, depth: s.depth, generationCreated: 0 },
+      exposureAtDeath: s.exposure, bondAtDeath: s.bond, tonePole: s.tone,
+      interventions: [], lastTouchedGeneration: 0, laidDepth: s.depth,
+      level: s.level, stats: s.stats,
+    });
+  }
   // シード追跡対象：有名パーティー（運命の弧の最小形）
   world.tracked.push({
     id: newId("tracked"), name: "銀の三人", source: "seeded",
@@ -228,6 +264,8 @@ export function fossilizeCurrent(world: World, manner: DeathManner, finalAct: Fi
   chronicle(world, "death",
     `${ch.name}、深度${ch.depth}で斃れる。（${finalActLabel(finalAct.choice)} → ${poleLabel(fossil.tonePole)}へ）`,
     [fossil.id]);
+  // 生者→化石ループ（4-14・b）：自分が斃れた代に、縁を結んだ仲間も一人、深みで還らぬことがある。
+  maybeFossilizeBondedActor(world, ch);
   world.generation += 1;
   world.current = null;
   // 自宅の保管庫は世代を越えて残るが、遺せるのは消耗品・装備それぞれ STASH_INHERIT 枠まで（残りは歳月とともに失われる）。
@@ -307,6 +345,81 @@ export function fossilizeAbandoned(
     `${actor.name}を深度${opts.depth}に見捨てた。その怨みは、いつか宿敵となって還るだろう。`,
     [fossil.id]);
   return fossil;
+}
+
+// ---------- 生者→化石ループ（4-14・b：縁を結んだ相手だけが、後で化石になって還る） ----------
+/** 縁ある生者がいる世代に、誰か一人が深みで還らぬ確率（0〜1体/世代）。 */
+const BONDED_FALL_CHANCE = 0.5;
+/** 等級(0-4)→倒れた深度の基準（高位ほど深部で果てる）。±3 のばらつきを足す。 */
+const BONDED_FALL_DEPTH = [5, 10, 16, 24, 33];
+
+/** 文字列→[0,1) の決定論ハッシュ（FNV-1a・Date/Math.random 不使用＝再現性／stress-save・determinism 安全）。 */
+function hashUnit(s: string): number {
+  let h = 0x811c9dc5 >>> 0;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return (h >>> 0) / 0x100000000;
+}
+
+/** 縁を結んだ生者NPC（world.actors）を、深みで還らなかった化石として遺す（4-14・b）。
+ *  相棒(fossilizeCompanion)・見捨て(fossilizeAbandoned)とは別経路＝「街/迷宮で会い、絆を結んだ末に
+ *  自分の知らぬ所で力尽きた仲間」。後世で「会った相手だと分かる」一言つきで再発見される（wasAlly）。 */
+export function fossilizeBondedActor(
+  world: World, actor: Actor,
+  opts: { depth: number; tone: TonePole; manner: DeathManner; finalAct: FinalActChoice; exposure: number; bond: number },
+): Fossil {
+  const fossil: Fossil = {
+    id: newId("fossil"),
+    kind: "character",
+    origin: {
+      name: actor.name, archetype: actor.archetype,
+      gearTags: actor.gearTags.length ? actor.gearTags : [defaultGearFor(actor.archetype)],
+      catchphrase: actor.catchphrase, epithet: actor.epithet,
+    },
+    death: { manner: opts.manner, finalAct: { choice: opts.finalAct }, depth: opts.depth, generationCreated: world.generation },
+    exposureAtDeath: opts.exposure,
+    bondAtDeath: Math.min(5, 1 + opts.bond),
+    tonePole: opts.tone,
+    interventions: [],
+    lastTouchedGeneration: world.generation,
+    laidDepth: opts.depth,
+    wasAlly: true,
+  };
+  world.fossils.push(fossil);
+  chronicle(world, "death",
+    `${actor.name}が深度${opts.depth}で還らなかったと、戻った者が告げた。縁を結んだ顔が、またひとつ深みに。`,
+    [fossil.id]);
+  return fossil;
+}
+
+/** 世代交代の合間に、直前の代が縁を結んだ生者を最大1体だけ化石化する（4-14・b）。
+ *  対象＝この代が bond(value≥1) を持ち、まだ生者として残り（world.actors）、未だ化石でない者。
+ *  決定論＝seed×世代のハッシュ（rng 非依存）。極は多くが静かな喪失、高位は神話、稀に怨念（4-2 両極は稀）。
+ *  fossilizeCurrent から、世代を進める直前に呼ぶ。 */
+function maybeFossilizeBondedActor(world: World, ch: Character): void {
+  const actors = world.actors ?? [];
+  if (actors.length === 0) return;
+  const byId = new Map(actors.map((a) => [a.id, a]));
+  const deadNames = new Set(world.fossils.map((f) => f.origin.name));
+  const candidates = ch.bonds
+    .filter((b) => b.value >= 1)
+    .map((b) => byId.get(b.entityRef))
+    .filter((a): a is LivingActor => !!a && !deadNames.has(a.actor.name));
+  if (candidates.length === 0) return;
+  const base = `${world.seed}|${world.generation}|bondfall`;
+  if (hashUnit(base) >= BONDED_FALL_CHANCE) return;              // この世代は全員生還
+  const fallen = candidates[Math.floor(hashUnit(base + "|who") * candidates.length) % candidates.length];
+  const grade = Math.max(0, Math.min(4, fallen.grade ?? fallen.actor.grade ?? 0));
+  const depth = Math.max(2, Math.min(38, BONDED_FALL_DEPTH[grade] + Math.floor(hashUnit(base + "|d") * 7) - 3));
+  const tr = hashUnit(base + "|tone");
+  // 高位は神話として果て、稀に怨念、多くは静かな喪失（4-2）。継承可（guard_relic/leave_will）を喪失/神話に寄せる。
+  const m = grade >= 3 && tr < 0.5
+    ? { tone: "myth" as TonePole, manner: "noble" as DeathManner, finalAct: "guard_relic" as FinalActChoice, exposure: 0.6 }
+    : tr < 0.18
+      ? { tone: "grudge" as TonePole, manner: "grievous" as DeathManner, finalAct: "curse_dungeon" as FinalActChoice, exposure: 1.5 }
+      : { tone: "loss" as TonePole, manner: "grievous" as DeathManner, finalAct: "leave_will" as FinalActChoice, exposure: 0.7 };
+  const bondVal = ch.bonds.find((b) => b.entityRef === fallen.id)?.value ?? 1;
+  fossilizeBondedActor(world, fallen.actor, { depth, ...m, bond: bondVal });
+  world.actors = actors.filter((a) => a.id !== fallen.id);       // 生者から除く（街での生存と矛盾させない）
 }
 
 // ---------- 長尺アーク（4-12(I)：進行度クオリティで多段の弧を組む。世界スコープ） ----------

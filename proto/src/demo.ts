@@ -134,10 +134,10 @@ hr("第6世代：ハル ── 放置と鎮魂の対比（4-1C）");
 const haru = createCharacter(world, "ハル", "sage", { relation: "none" });
 dive(world, haru, 18);
 
-const ren = world.fossils.find((f) => f.origin.name === "踏破者レン")!;
+const ren = world.fossils.find((f) => f.origin.name === "シオン")!; // 深層・怨念のシード化石（世代0から放置）
 const kaiF = world.fossils.find((f) => f.origin.name === "カイ")!;
 
-say("\n[放置された化石：踏破者レン（世代0から誰も触れていない）]");
+say("\n[放置された化石：シオン（世代0から誰も触れていない）]");
 const vRen = computeVariation(ren, world.generation);
 say(`  段階=${vRen.stage} / 歪み=${vRen.distort.toFixed(2)}`);
 say("─".repeat(40));
