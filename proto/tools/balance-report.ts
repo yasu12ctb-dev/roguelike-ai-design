@@ -48,17 +48,17 @@ for (const d of [1, 10, 25, 40, 50]) {
 console.log("  ※ normal=HP×1.25 dmg×1.25+床1／hard=HP×1.5 dmg×1.4+床2。dmgFloor が序盤(深度1)から噛む。\n");
 
 // ───────── ③ 統治者の大命（noble）報酬分布 ─────────
-const CAP = 700;
+const CAP = 1500; // v0.63.4 是正（旧700）
 const cap = (g: number) => Math.min(CAP, Math.round(g));
-console.log("【③】統治者の大命 報酬（NOBLE_REWARD_CAP=" + CAP + "・式の直接評価）");
+console.log("【③】統治者の大命 報酬（NOBLE_REWARD_CAP=" + CAP + "・式の直接評価・難度順 slay>reclaim>descend）");
 console.log("  kind     | 目標深度 | 素の報酬 | 実報酬(cap) | 上限張付");
 const rows: [string, number, number][] = [
-  ["slay", 56, 56 * 14],
-  ["slay", 64, 64 * 14],
-  ["reclaim", 38, (38 * 8 + 20) * 2.2],
-  ["reclaim", 50, (50 * 8 + 20) * 2.2],
-  ["descend", 52, 52 * 9 * 2.2],
-  ["descend", 58, 58 * 9 * 2.2],
+  ["slay", 56, 56 * 22],        // 最難（ボス撃破）
+  ["slay", 64, 64 * 22],
+  ["reclaim", 38, (38 * 8 + 20) * 2.4], // 中（化石回収）
+  ["reclaim", 50, (50 * 8 + 20) * 2.4],
+  ["descend", 52, 52 * 12],     // 保険（到達のみ）
+  ["descend", 58, 58 * 12],
 ];
 let capped = 0;
 for (const [kind, d, raw] of rows) {
@@ -67,9 +67,9 @@ for (const [kind, d, raw] of rows) {
   if (hit) capped++;
   console.log(`  ${pad(kind, 8)} | ${padN(d, 6)}   | ${padN(Math.round(raw), 6)}   | ${padN(real, 7)}     | ${hit ? "★YES" : "no"}`);
 }
-console.log(`  → ${capped}/${rows.length} が上限700に張り付き＝報酬が大命の難度差を反映しない（既知issue #4）。`);
-console.log("  ※ 差別化は relic 33%（鑑定済+3遺物＋称号）＋questsDone+=2 のみ。金貨は単調。\n");
+console.log(`  → 上限張付 ${capped}/${rows.length}。難度順（slay 1232-1408 > reclaim 778-1008 > descend 624-696）で金貨が難度差を反映。`);
+console.log("  ※ 加えて relic 33%（鑑定済+3遺物＋称号）＋questsDone+=2。\n");
 
 console.log("═══════════════════════════════════════════════════════════════");
-console.log(" 調整ノブ：ABYSSAL_K(0.05) / DIFFICULTY係数 / NOBLE_REWARD_CAP・×14・×2.2 / relic率0.33");
+console.log(" 調整ノブ：ABYSSAL_K(0.05) / DIFFICULTY係数 / NOBLE_REWARD_CAP(1500)・slay×22・reclaim×2.4・descend×12 / relic率0.33");
 console.log("═══════════════════════════════════════════════════════════════");
