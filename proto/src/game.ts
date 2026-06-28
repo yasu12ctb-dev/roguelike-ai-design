@@ -7,7 +7,7 @@ import { filterByTags } from "./content.ts";
 import type { Rng } from "./rng.ts";
 import {
   createCharacter, fossilizeCurrent, intervene, poleLabel, recordRediscovery,
-  chronicle, finalActLabel,
+  chronicle, finalActLabel, worldTime,
 } from "./world.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "./variation.ts";
 import { maxHp, meleeDmg, heartFactor, xpToNext, statsLine, STAT_KEYS, STAT_LABEL, HP_PER } from "./progression.ts";
@@ -223,7 +223,7 @@ export async function runGame(
   }
 
   async function encounterScene(ch: Character, fossil: Fossil) {
-    const v = computeVariation(fossil, world.generation);
+    const v = computeVariation(fossil, worldTime(world));
     say("");
     say("─".repeat(44));
     const setPiece = renderSetPieceIfAny(db, fossil, v, rng);

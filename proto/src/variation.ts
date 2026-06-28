@@ -7,9 +7,16 @@ import type {
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-/** 化石の現在の変質状態を lazy に計算する（4-1×4-2×4-10C） */
-export function computeVariation(fossil: Fossil, currentGeneration: number): VariationResult {
-  const gens = Math.max(0, currentGeneration - fossil.lastTouchedGeneration);
+/** 化石の現在の変質状態を lazy に計算する（4-1×4-2×4-10C／4-14G 層1）。
+ *  第2引数は worldTime（= generation + eraBeats＝死だけでなく深部での営みでも進む世界時間）。
+ *  ★フロンティア相対（①）：frontierHeld の化石は reachedAt（初到達）が立つまで変質を凍結＝
+ *  「まず出会わせて、放置すれば歪む」順序を保証（出会う前に alien 化を防ぐ）。
+ *  変質の起点＝max(lastTouchedGeneration, reachedAt)＝干渉(時計リセット)も到達も尊重。
+ *  旧セーブ（reachedAt/frontierHeld 無し）は起点=lastTouchedGeneration＝従来挙動を保つ。 */
+export function computeVariation(fossil: Fossil, worldTime: number): VariationResult {
+  const held = fossil.frontierHeld && fossil.reachedAt === undefined; // 未到達＝凍結（pristine）
+  const origin = held ? worldTime : Math.max(fossil.lastTouchedGeneration, fossil.reachedAt ?? fossil.lastTouchedGeneration);
+  const gens = held ? 0 : Math.max(0, worldTime - origin);
   const depthC = clamp(fossil.death.depth / 50, 0, 1);
   const decay = clamp(gens * 0.15, 0, 1);
   const distort = clamp(depthC * gens * 0.2 + fossil.exposureAtDeath * 0.05, 0, 1);

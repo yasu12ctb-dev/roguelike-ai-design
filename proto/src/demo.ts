@@ -5,7 +5,7 @@ import { loadContent } from "./content-node.ts";
 import { makeRng } from "./rng.ts";
 import {
   createCharacter, fossilizeCurrent, intervene, newWorld,
-  poleLabel, recordRediscovery, chronicle,
+  poleLabel, recordRediscovery, chronicle, worldTime,
 } from "./world.ts";
 import { saveWorld, loadWorld } from "./persist-node.ts";
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "./variation.ts";
@@ -54,7 +54,7 @@ dive(world, kai, 12);
 say("\n[遭遇判定（重み付き抽選）]");
 const enc1 = rollEncounter(world, kai, rng);
 if (enc1) {
-  const v1 = computeVariation(enc1, world.generation);
+  const v1 = computeVariation(enc1, worldTime(world));
   say(`遭遇: ${enc1.origin.name}の化石（極=${poleLabel(enc1.tonePole)} / 段階=${v1.stage} / 歪み=${v1.distort.toFixed(2)}）`);
   say("─".repeat(40));
   say(renderRediscovery(db, rng, enc1, v1));
@@ -84,7 +84,7 @@ dive(world, aria, 12);
 say("\n[遭遇判定（未完の因縁 = 最重視重み）]");
 const enc2 = rollEncounter(world, aria, rng);
 if (enc2) {
-  const v2 = computeVariation(enc2, world.generation);
+  const v2 = computeVariation(enc2, worldTime(world));
   say(`遭遇: ${enc2.origin.name}の化石（極=${poleLabel(enc2.tonePole)} / 段階=${v2.stage} / 歪み=${v2.distort.toFixed(2)}）`);
   say("─".repeat(40));
   const setPiece = renderSetPieceIfAny(db, enc2, v2, rng);
@@ -116,7 +116,7 @@ say(`  酒場でその行く末を聞く ── ${renderArcBeat(db, rng, silver)
 if (silver.terminal && silver.originRef) {
   const remains = world.fossils.find((f) => f.id === silver.originRef);
   if (remains) {
-    const vr = computeVariation(remains, world.generation);
+    const vr = computeVariation(remains, worldTime(world));
     say(`  深層で「成れの果て」に出会う（深度${remains.laidDepth}・極=${poleLabel(remains.tonePole)}）──`);
     say(`    ${renderRediscovery(db, rng, remains, vr)}`);
   }
@@ -134,11 +134,12 @@ hr("第6世代：ハル ── 放置と鎮魂の対比（4-1C）");
 const haru = createCharacter(world, "ハル", "sage", { relation: "none" });
 dive(world, haru, 18);
 
-const ren = world.fossils.find((f) => f.origin.name === "シオン")!; // 深層・怨念のシード化石（世代0から放置）
+const ren = world.fossils.find((f) => f.origin.name === "シオン")!; // 深層・怨念のシード化石
+ren.reachedAt = 1; // フロンティア相対（4-14G 層1①）：早くに到達済み＝以後の放置で歪む、を実演（未到達なら凍結のまま）
 const kaiF = world.fossils.find((f) => f.origin.name === "カイ")!;
 
-say("\n[放置された化石：シオン（世代0から誰も触れていない）]");
-const vRen = computeVariation(ren, world.generation);
+say("\n[放置された化石：シオン（早くに見つけ、以後は誰も触れていない）]");
+const vRen = computeVariation(ren, worldTime(world));
 say(`  段階=${vRen.stage} / 歪み=${vRen.distort.toFixed(2)}`);
 say("─".repeat(40));
 say(renderRediscovery(db, rng, ren, vRen));
@@ -201,7 +202,7 @@ if (tw?.choices) {
 }
 
 say("\n[鎮魂された化石：カイ（第2世代でアリアが時計を巻き戻した）]");
-const vKai = computeVariation(kaiF, world.generation);
+const vKai = computeVariation(kaiF, worldTime(world));
 say(`  段階=${vKai.stage} / 歪み=${vKai.distort.toFixed(2)} ← 鎮魂のおかげで、まだ原型を保っている`);
 say("─".repeat(40));
 say(renderRediscovery(db, rng, kaiF, vKai));

@@ -15,6 +15,13 @@ const newId = (prefix: string) => `${prefix}_${(++idCounter).toString(36)}`;
 /** セーブ版数（v2=②ステ／v3=③ spells／v4=④ equipment／v6=歩ける街シーン／v7=金貨／v8=依頼／v9=同行。横断D）。 */
 export const SAVE_VERSION = 9;
 
+/** 世界時間（4-14G・層1）＝ generation（死/退隠でのみ増える＝家系の深さ）＋ eraBeats（深部での営み＝
+ *  生還で増える＝世界の熱）。時間系（変質・弧・遭遇重み）はこれを参照＝死を回避する熟練者でも世界が老ける。
+ *  CLI/demo/golden は eraBeats=0 ゆえ worldTime==generation＝指紋不変。 */
+export function worldTime(world: World): number {
+  return (world.generation ?? 1) + (world.eraBeats ?? 0);
+}
+
 /** 旧セーブ（v0.53.0）の拾得品＝題で保存されていた11件を、現プール（keepsakes.json）の安定idへ移行する対応表。 */
 const LEGACY_KEEPSAKE_ID: Record<string, string> = {
   "宛名のない手紙": "ks_letter", "錆びた鍵束": "ks_keys", "開かぬ小箱": "ks_locked",
@@ -70,6 +77,8 @@ export function migrateWorld(w: World): World {
   if (typeof w.memorialCooldown !== "number") w.memorialCooldown = 0; // 追悼の日の冷却：欠落は0で補完
   if (typeof w.plagueCooldown !== "number") w.plagueCooldown = 0; // 疫病の冷却：欠落は0で補完
   if (typeof w.diveCount !== "number") w.diveCount = 0; // 潜行回数（再潜行farm防止のseed nonce）：欠落は0で補完
+  if (typeof w.eraBeats !== "number") w.eraBeats = 0;   // 世界時間の加算分（4-14G 層1）：欠落は0＝旧セーブは worldTime==generation で従来挙動
+  if (typeof w.eraClock !== "number") w.eraClock = 0;   // 世界クロックのアキュムレータ：欠落は0
   if (!Array.isArray(w.echoes)) w.echoes = []; // 残響召喚の遺灰（4-10I）：欠落は空で補完
   if (!Array.isArray(w.keepsakes)) w.keepsakes = []; // 拾得品の蒐集（読み物コレクション）：欠落は空で補完
   else for (const k of w.keepsakes as any[]) { // 旧形式 {title,story,gen,depth} → {id,gen,depth,title}（本文複製を廃し id 参照へ・v0.54.0）
@@ -154,6 +163,9 @@ export function newWorld(seed: number): World {
     seals: [],
     ascended: 0,
     keepsakes: [],
+    eraBeats: 0,        // 世界時間の加算分（4-14G 層1）：新規は0＝worldTime==generation から開始
+    eraClock: 0,        // 世界クロックのアキュムレータ
+    diveMaxDepth: 0,    // 今回の潜行の最深
   };
   // シード化石（4-14・初期12体）：街に「生きている名簿」とは別に、迷宮には既に眠る先人がいる。
   //  深度帯（浅3／中5／深3／深淵1）・極（loss5/grudge4/myth3）・継承可5体を散らし、どの深度・どの干渉動詞でも
@@ -168,6 +180,7 @@ export function newWorld(seed: number): World {
       exposureAtDeath: s.exposure, bondAtDeath: s.bond, tonePole: s.tone,
       interventions: [], lastTouchedGeneration: 0, laidDepth: s.depth,
       level: s.level, stats: s.stats,
+      frontierHeld: true, // フロンティア相対（4-14G 層1①）：到達するまで変質を凍結＝出会う前に歪ませない
     });
   }
   // シード追跡対象：有名パーティー（運命の弧の最小形）
@@ -266,7 +279,8 @@ export function fossilizeCurrent(world: World, manner: DeathManner, finalAct: Fi
     bondAtDeath: Math.min(5, 1 + bondTotal), // 自キャラはプレイヤー関与が最大
     tonePole: resolveTonePole(finalAct.choice, manner, bondTotal),
     interventions: [],
-    lastTouchedGeneration: world.generation,
+    lastTouchedGeneration: worldTime(world),
+    reachedAt: worldTime(world), // 自分が斃れた地点＝到達済み＝即・変質クロック開始（4-14G 層1）
     laidDepth: ch.depth,
     spells: [...ch.spells], // 系譜継承（4-11F②）：覚えていた術を化石に遺す＝次代の血/弟子に滲む
     level: ch.level,        // 系譜の継承量の基準（血縁のベース加算／弟子の開始レベル）
@@ -312,7 +326,8 @@ export function retireCurrent(world: World): Fossil {
     bondAtDeath: Math.min(5, 1 + ch.bonds.reduce((a, b) => a + b.value, 0)),
     tonePole: "myth",                 // 退隠＝伝説として退く（legend）
     interventions: [],
-    lastTouchedGeneration: world.generation,
+    lastTouchedGeneration: worldTime(world),
+    reachedAt: worldTime(world),      // 退隠＝到達済み（遭遇除外なので実質未使用だが整合のため）
     laidDepth: depth,
     spells: [...ch.spells],
     level: ch.level,
@@ -355,7 +370,8 @@ export function fossilizeCompanion(
     bondAtDeath: Math.min(5, 1 + opts.bond), // 連れ歩いた相棒＝高関与
     tonePole: resolveTonePole(finalAct.choice, manner, opts.bond),
     interventions: [],
-    lastTouchedGeneration: world.generation,
+    lastTouchedGeneration: worldTime(world),
+    reachedAt: worldTime(world), // 相棒は共に潜行＝到達済み（4-14G 層1）
     laidDepth: opts.depth,
     wasCompanion: true,
   };
@@ -387,7 +403,8 @@ export function fossilizeAbandoned(
     bondAtDeath: 3,                                        // 裏切りの因縁＝山場（宿敵狩り）を確実に呼ぶ
     tonePole: resolveTonePole(finalAct.choice, manner, 0), // → grudge
     interventions: [],
-    lastTouchedGeneration: world.generation,
+    lastTouchedGeneration: worldTime(world),
+    reachedAt: worldTime(world), // 見捨てた地点＝到達済み（4-14G 層1）
     laidDepth: opts.depth,
     wasCompanion: true,
   };
@@ -439,9 +456,10 @@ export function fossilizeBondedActor(
     bondAtDeath: Math.min(5, 1 + opts.bond),
     tonePole: opts.tone,
     interventions: [],
-    lastTouchedGeneration: world.generation,
+    lastTouchedGeneration: worldTime(world),
     laidDepth: opts.depth,
     wasAlly: true,
+    frontierHeld: true, // 縁ある者が果てた深度＝プレイヤー未到達でありうる＝到達まで変質を凍結（4-14G 層1①）
   };
   world.fossils.push(fossil);
   chronicle(world, "death",
@@ -450,22 +468,23 @@ export function fossilizeBondedActor(
   return fossil;
 }
 
-/** 世代交代の合間に、直前の代が縁を結んだ生者を最大1体だけ化石化する（4-14・b）。
- *  対象＝この代が bond(value≥1) を持ち、まだ生者として残り（world.actors）、未だ化石でない者。
- *  決定論＝seed×世代のハッシュ（rng 非依存）。極は多くが静かな喪失、高位は神話、稀に怨念（4-2 両極は稀）。
- *  fossilizeCurrent から、世代を進める直前に呼ぶ。 */
-function maybeFossilizeBondedActor(world: World, ch: Character): void {
+/** 縁を結んだ生者を最大1体だけ化石化する（4-14・b／4-14G 層1）。
+ *  対象＝現在の代が bond(value≥1) を持ち、まだ生者として残り（world.actors）、未だ化石でない者。
+ *  決定論＝seed×worldTime×tag のハッシュ（rng 非依存）。worldTime 基準ゆえ世代交代でも世界ビートでも別判定。
+ *  呼び元＝①fossilizeCurrent（死の世代交代の直前）②worldBeat（深部での営みで世界が老ける節目・4-14G 層1）。
+ *  tag で①②を区別＝同 worldTime で二重に同じ抽選をしない。極は多くが喪失、高位は神話、稀に怨念（4-2）。 */
+function maybeFossilizeBondedActor(world: World, ch: Character, tag = "death"): string | null {
   const actors = world.actors ?? [];
-  if (actors.length === 0) return;
+  if (actors.length === 0) return null;
   const byId = new Map(actors.map((a) => [a.id, a]));
   const deadNames = new Set(world.fossils.map((f) => f.origin.name));
   const candidates = ch.bonds
     .filter((b) => b.value >= 1)
     .map((b) => byId.get(b.entityRef))
     .filter((a): a is LivingActor => !!a && !deadNames.has(a.actor.name));
-  if (candidates.length === 0) return;
-  const base = `${world.seed}|${world.generation}|bondfall`;
-  if (hashUnit(base) >= BONDED_FALL_CHANCE) return;              // この世代は全員生還
+  if (candidates.length === 0) return null;
+  const base = `${world.seed}|${worldTime(world)}|${tag}|bondfall`;
+  if (hashUnit(base) >= BONDED_FALL_CHANCE) return null;         // この節目は全員生還
   const fallen = candidates[Math.floor(hashUnit(base + "|who") * candidates.length) % candidates.length];
   const grade = Math.max(0, Math.min(4, fallen.grade ?? fallen.actor.grade ?? 0));
   const depth = Math.max(2, Math.min(38, BONDED_FALL_DEPTH[grade] + Math.floor(hashUnit(base + "|d") * 7) - 3));
@@ -479,6 +498,52 @@ function maybeFossilizeBondedActor(world: World, ch: Character): void {
   const bondVal = ch.bonds.find((b) => b.entityRef === fallen.id)?.value ?? 1;
   fossilizeBondedActor(world, fallen.actor, { depth, ...m, bond: bondVal });
   world.actors = actors.filter((a) => a.id !== fallen.id);       // 生者から除く（街での生存と矛盾させない）
+  return fallen.actor.name;
+}
+
+// ---------- 世界クロック（4-14G・層1：死を回避する熟練者でも、深部での営みで世界が老ける） ----------
+const WORLD_SHALLOW = 8;     // これ以浅の周回ではクロックは進まない（序盤の低層往復を除外＝ユーザー要件）
+const WORLD_TICK_DIV = 90;   // 深度→1生還あたりの加算の除数（大きいほど世界はゆっくり＝Bでは層1は脇役）
+const WORLD_TICK_CAP = 0.6;  // 1生還あたりの加算上限（超深度の一撃でビートを一気に飛ばさない）
+
+/** 生還1回ぶんの世界クロック加算＝最深到達の深度積分（浅層は0）。snapshot 4-1「歪み＝深度×時間」と同形。 */
+export function worldTickGain(maxDepth: number): number {
+  return Math.min(WORLD_TICK_CAP, Math.max(0, (maxDepth - WORLD_SHALLOW) / WORLD_TICK_DIV));
+}
+
+/** フロンティア相対（4-14G 層1①）：到達した深度までの frontierHeld 化石に reachedAt を刻む
+ *  ＝「まず出会わせてから、放置すれば歪む」。enterFloor（潜行中の各階）から呼ぶ。冪等。 */
+export function stampReached(world: World, depth: number): void {
+  const now = worldTime(world);
+  for (const f of world.fossils) {
+    if (f.frontierHeld && f.reachedAt === undefined && f.laidDepth <= depth + 3) f.reachedAt = now;
+  }
+}
+
+/** 世界ビート（4-14G 層1）：eraBeats を1進め、弧を前進させ、縁ある生者の脱落を抽選する。
+ *  返り値＝この節目で深みに還った縁者の名（web が「お前が生き延びる間に…」と喪失を可視化する）。 */
+function worldBeat(world: World): string | null {
+  world.eraBeats = (world.eraBeats ?? 0) + 1;
+  advanceArcs(world);                                   // worldTime が進む＝弧が1ビート前進（doom 終端の化石化等も）
+  const ch = world.current;
+  return ch && ch.alive ? maybeFossilizeBondedActor(world, ch, `era${world.eraBeats}`) : null;
+}
+
+/** 生還時に世界クロックを進める（4-14G 層1）。最深到達 maxDepth を深度積分でアキュムレータに足し、
+ *  1を超えるごとに世界ビートを発火（最大2/生還＝暴発防止）。返り値＝発火ビート数と、還った縁者の名の配列。
+ *  浅層(≤8)の周回では gain=0＝1ミリも進まない（低層farmは世界を老けさせない）。 */
+export function accrueWorldClock(world: World, maxDepth: number): { beats: number; fell: string[] } {
+  const gain = worldTickGain(maxDepth);
+  world.eraClock = (world.eraClock ?? 0) + gain;
+  const fell: string[] = [];
+  let beats = 0;
+  while (world.eraClock >= 1 && beats < 2) {            // 1生還で最大2ビート（超深度の積み上がりを緩やかに放出）
+    world.eraClock -= 1;
+    const name = worldBeat(world);
+    if (name) fell.push(name);
+    beats++;
+  }
+  return { beats, fell };
 }
 
 // ---------- 長尺アーク（4-12(I)：進行度クオリティで多段の弧を組む。世界スコープ） ----------
@@ -543,15 +608,18 @@ const ARC_BEAT_LINE: Record<TrackedEntity["arcType"], { normal: string[]; warped
   },
 };
 
-/** 弧を世代分だけ前進させる（fossilizeCurrent から世代交代のたびに呼ぶ）。
+/** 弧を経過した世界時間ぶん前進させる（世代交代＝fossilizeCurrent／世界ビート＝worldBeat の両方から呼ぶ）。
  *  「進んだことになる」を実際に beat へ反映し、節目で年代記に伝聞を1行刻む（lazy の解決＝観測点）。
+ *  ★4-14G 層1：基準を generation→worldTime に（死だけでなく深部での営みでも弧が進む）。
+ *  CLI/demo/golden は eraBeats=0 ゆえ worldTime==generation＝従来と完全一致。
  *  純ロジック（content/render 非依存）：豊かな酒場フレーバは render.ts renderArcBeat 側が担う。 */
 export function advanceArcs(world: World): void {
+  const now = worldTime(world);
   for (const t of world.tracked) {
     if (t.terminal) continue;                              // 終端済みは動かない
-    if (world.generation <= t.lastObservedGeneration) continue; // この世代は反映済み（防御的）
-    const gens = world.generation - t.lastObservedGeneration;   // 経過世代（通常1）
-    t.lastObservedGeneration = world.generation;
+    if (now <= t.lastObservedGeneration) continue;         // この時点は反映済み（防御的）
+    const gens = now - t.lastObservedGeneration;           // 経過した世界時間（通常1）
+    t.lastObservedGeneration = now;
     // 4-1 主クロック：放置（時間×深度）の連続積分で warp を進める（深いほど速い＝理が緩い）。
     if (t.originRef) {
       const f = world.fossils.find((x) => x.id === t.originRef);
@@ -590,7 +658,8 @@ function fossilizeTracked(world: World, t: TrackedEntity): void {
     },
     death: { manner: "grievous", finalAct: { choice: "curse_dungeon" }, depth, generationCreated: world.generation },
     exposureAtDeath: 1.6, bondAtDeath: 0, tonePole: "grudge",
-    interventions: [], lastTouchedGeneration: world.generation, laidDepth: depth,
+    interventions: [], lastTouchedGeneration: worldTime(world), laidDepth: depth,
+    frontierHeld: true, // 成れの果て＝深層28＝到達まで変質を凍結（4-14G 層1①）
   };
   world.fossils.push(fossil);
   t.originRef = fossil.id;
@@ -626,7 +695,7 @@ export function intervene(world: World, fossilId: string, type: "requiem" | "inh
   const fossil = world.fossils.find((f) => f.id === fossilId);
   if (!fossil) throw new Error("fossil not found");
   fossil.interventions.push({ type, generation: world.generation });
-  fossil.lastTouchedGeneration = world.generation; // 時計のリセット
+  fossil.lastTouchedGeneration = worldTime(world); // 時計のリセット（worldTime 基準・4-14G 層1）
   // 継承＝未完の目的を負う／鎮魂・供養＝因縁を閉じる（4-12B）
   const opensObligation = type === "inherit";
   const ch = world.current;
@@ -683,6 +752,9 @@ export function recordRediscovery(world: World, fossilId: string): void {
     if (bond) bond.value += 1;
     else ch.bonds.push({ entityRef: fossilId, value: 1, unfinished: false });
   }
+  // フロンティア相対（4-14G 層1①）：出会った＝到達した＝以後は変質クロックが動き出す。
+  const f = world.fossils.find((x) => x.id === fossilId);
+  if (f && f.frontierHeld && f.reachedAt === undefined) f.reachedAt = worldTime(world);
   accrueArcWarp(world, fossilId, WARP_ENGAGE); // ハイブリッド：深層の原型との再会も warp を微かに進める（4-6 法則順守）
 }
 
