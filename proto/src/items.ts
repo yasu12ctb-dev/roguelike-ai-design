@@ -20,7 +20,7 @@ export function grantConsumable(ch: Character, key: string, capacity: number): b
 // ---------- 基(base)＝テンプレ ----------
 interface Template {
   slot: ItemSlot; name: string; minDepth: number;
-  dmg?: number; reduce?: number; relic?: Item["relic"]; capacity?: number; exposurePerTurn?: number;
+  dmg?: number; reduce?: number; relic?: Item["relic"]; proc?: Item["proc"]; capacity?: number; exposurePerTurn?: number;
   oddity?: boolean; // 異物（必ず未鑑定）
 }
 
@@ -36,6 +36,12 @@ const TEMPLATES: Template[] = [
   { slot: "weapon", name: "大剣",     minDepth: 13, dmg: 3 },
   { slot: "weapon", name: "双刃",     minDepth: 18, dmg: 4 },
   { slot: "weapon", name: "深淵の刃", minDepth: 16, dmg: 4, exposurePerTurn: 0.02, oddity: true },
+  // 発動効果つき武器（物量レビュー PR4・2026-06-28）：武器に初の「挙動差」。命中時に proc が発動（web 適用）。
+  { slot: "weapon", name: "鋸刃刀",   minDepth: 7,  dmg: 2, proc: "rend" },   // 裂傷＝継続ダメ
+  { slot: "weapon", name: "戦斧",     minDepth: 9,  dmg: 3, proc: "cleave" }, // 薙ぎ＝隣接にも余波
+  { slot: "weapon", name: "鎖星",     minDepth: 12, dmg: 3, proc: "stun" },   // 当て止め（一定確率）
+  { slot: "weapon", name: "萎えの槍", minDepth: 15, dmg: 3, proc: "sap" },    // 目標の攻撃を弱める
+  { slot: "weapon", name: "断界刃",   minDepth: 22, dmg: 4, proc: "cleave" }, // 深層の薙ぎ（大）
   // 防具（被ダメ-）＝武器と同数9種
   { slot: "armor",  name: "革鎧",     minDepth: 1,  reduce: 1 },
   { slot: "armor",  name: "外套",     minDepth: 2,  reduce: 1 },
@@ -56,10 +62,16 @@ const TEMPLATES: Template[] = [
   { slot: "relic",  name: "黄金の指輪",   minDepth: 8,  relic: "fortune" },  // 拾う金貨×1.5
   { slot: "relic",  name: "再生の雫",     minDepth: 10, relic: "mending" },  // 潜行中ゆっくり回復
   { slot: "relic",  name: "巨人の心臓",   minDepth: 13, relic: "vigor" },    // 最大HP+6（深層版）
-  { slot: "relic",  name: "鉄壁の徽章",   minDepth: 16, relic: "ward" },     // 被ダメ-1（深層版）
+  { slot: "relic",  name: "棘の護符",     minDepth: 16, relic: "thorns" },   // 反射（旧・鉄壁の徽章 ward 重複を解消＝PR3）
   { slot: "relic",  name: "昏き護符",     minDepth: 12, relic: "reason",  exposurePerTurn: 0.03, oddity: true }, // 理+1（異物）
-  { slot: "relic",  name: "餓狼の爪",     minDepth: 15, relic: "might",   exposurePerTurn: 0.02, oddity: true }, // 近接+1（強いが蝕む）
+  { slot: "relic",  name: "餓狼の爪",     minDepth: 15, relic: "siphon",  exposurePerTurn: 0.02, oddity: true }, // 吸命（旧・might 重複を解消＝PR3。強いが蝕む）
   { slot: "relic",  name: "強欲の眼",     minDepth: 16, relic: "greed",   exposurePerTurn: 0.025, oddity: true }, // 撃破XP×1.5（強いが蝕む）
+  // 拡充（物量レビュー PR3・2026-06-28）：新5効果の基テンプレ。重複頼みを解消し収集/エンドゲームの幅を広げる。
+  { slot: "relic",  name: "茨の指輪",     minDepth: 8,  relic: "thorns" },   // 反射（清い版）
+  { slot: "relic",  name: "渇きの杯",     minDepth: 11, relic: "siphon" },   // 吸命（清い版）
+  { slot: "relic",  name: "澄心の数珠",   minDepth: 6,  relic: "clarity" },  // 毒・侵蝕の蓄積を半減
+  { slot: "relic",  name: "術理の宝珠",   minDepth: 10, relic: "potency" },  // 術ダメージ増
+  { slot: "relic",  name: "不死鳥の灰",   minDepth: 18, relic: "revenant" },// 潜行中一度だけ致死を耐える
   // 鞄（持ち物の枠+。持ち物システム Phase2）
   { slot: "bag",    name: "革袋",         minDepth: 1,  capacity: 3 },
   { slot: "bag",    name: "探索者の背嚢", minDepth: 6,  capacity: 5 },
@@ -131,6 +143,7 @@ function fromTemplate(t: Template, affix: Affix | null = null, enchant = 0): Ite
   if (dmg) item.dmg = dmg;
   if (reduce) item.reduce = reduce;
   if (t.relic) item.relic = t.relic;
+  if (t.proc) item.proc = t.proc; // 発動効果は基テンプレ由来＝銘/+N と独立（往復で baseName から復元）
   if (cap) item.capacity = cap;
   if (exp) item.exposurePerTurn = exp;
   if (affix) item.affix = affix.key;
@@ -241,7 +254,17 @@ export const SLOT_LABEL: Record<ItemSlot, string> = { weapon: "武器", armor: "
 export interface ConsumableDef {
   key: string; name: string; desc: string; price: number;
   minLevel?: number; // この等級未満では店頭に並ばない（深部向け上位品を序盤の棚に出さない）
-  use: { exposure?: number; healFrac?: number };
+  // 効果（web の applyConsumable が解釈）。exposure/healFrac＝街でも使える基本品。
+  // curePoison/atkBuff/armBuff/haste/burst＝戦術系（潜行中限定）。identify＝持ち物の未鑑定を見極める。
+  use: {
+    exposure?: number; healFrac?: number;
+    curePoison?: boolean;  // 巡る毒（敵 venom）を中和（poisonTurns→0）
+    atkBuff?: number;      // 近接強化を n 手（深蝕ゼロ＝術の clean 版・量は ATTACK_BUFF）
+    armBuff?: number;      // 被ダメ軽減を n 手（量は ARMOR_BUFF）
+    haste?: number;        // 疾走を n 手（離脱に）
+    burst?: number;        // 投擲＝周囲（半径1）の敵に一括ダメージ
+    identify?: boolean;    // 手持ちの未鑑定の装備をすべて鑑定
+  };
 }
 export const CONSUMABLES: ConsumableDef[] = [
   { key: "soothe", name: "鎮静の薬",   desc: "深蝕を 0.6 退ける（携行できる薬師）", price: 16, use: { exposure: -0.6 } },
@@ -250,6 +273,15 @@ export const CONSUMABLES: ConsumableDef[] = [
   { key: "salve2",  name: "治癒の秘薬", desc: "最大HPの9割を癒す（潜行中に）",   price: 30, minLevel: 14, use: { healFrac: 0.9 } },
   { key: "soothe2", name: "鎮静の劑",   desc: "深蝕を 1.4 退ける（濃い薬）",     price: 44, minLevel: 16, use: { exposure: -1.4 } },
   { key: "soothe3", name: "浄化の聖水", desc: "深蝕を 2.6 退ける（祓いの聖水）", price: 96, minLevel: 30, use: { exposure: -2.6 } },
+  // 戦術系（拡充・PR1）：NetHack 系譜の「アイテム使用の層」を厚く＝回復/除去の2系統だけだった穴を埋める。
+  // すべて深蝕ゼロ＝術（深蝕コスト）に対する「清いが有限」の対。潜行中限定（街では空振り＝使用ガード）。
+  { key: "antidote", name: "解毒の丸薬", desc: "巡る毒を中和する（潜行中）",                price: 14, minLevel: 6,  use: { curePoison: true } },
+  { key: "idscroll", name: "鑑定の巻物", desc: "手持ちの未鑑定の装備をすべて見極める",      price: 24, use: { identify: true } },
+  { key: "firebomb", name: "火炎瓶",     desc: "周囲の敵を炎で焼く（投擲・潜行中）",        price: 28, minLevel: 8,  use: { burst: 8 } },
+  { key: "fury",     name: "戦狂いの薬", desc: "数手のあいだ近接が冴える（潜行中）",        price: 36, minLevel: 12, use: { atkBuff: 5 } },
+  { key: "aegis",    name: "守魂の薬",   desc: "数手のあいだ受ける傷が和らぐ（潜行中）",    price: 36, minLevel: 12, use: { armBuff: 5 } },
+  { key: "swift",    name: "疾風の薬",   desc: "数手のあいだ駆け抜ける（離脱に・潜行中）",  price: 44, minLevel: 16, use: { haste: 3 } },
+  { key: "firebomb2",name: "業火の壺",   desc: "周囲の敵を業火で焼き尽くす（投擲・潜行中）",price: 72, minLevel: 28, use: { burst: 16 } },
 ];
 export const consumableByKey = (key: string): ConsumableDef | undefined => CONSUMABLES.find((c) => c.key === key);
 
@@ -257,12 +289,17 @@ export const consumableByKey = (key: string): ConsumableDef | undefined => CONSU
 const RELIC_DESC: Record<NonNullable<Item["relic"]>, string> = {
   calm: "深蝕レート減", reason: "理＋1", greed: "撃破XP増", might: "近接＋1",
   vigor: "最大HP＋6", ward: "被ダメ−1", fortune: "拾う金貨増", mending: "潜行中ゆっくり回復",
+  thorns: "被弾を反射", siphon: "近接で吸命", clarity: "毒・侵蝕を半減", potency: "術ダメージ増", revenant: "一度だけ致死を耐える",
 };
 
+/** 武器の発動効果の説明（PR4）。 */
+const PROC_DESC: Record<NonNullable<Item["proc"]>, string> = {
+  cleave: "薙ぎ（隣接の敵にも余波）", stun: "当て止め", rend: "裂傷（継続ダメ）", sap: "敵の攻撃を弱める",
+};
 /** 効果の説明（鑑定済み前提）。 */
 export function itemPower(it: Item): string {
   let s: string;
-  if (it.slot === "weapon") s = `攻＋${it.dmg}`;
+  if (it.slot === "weapon") s = `攻＋${it.dmg}${it.proc ? `・${PROC_DESC[it.proc]}` : ""}`;
   else if (it.slot === "armor") s = `被ダメ−${it.reduce}`;
   else if (it.slot === "bag") s = `持てる量＋${it.capacity}`;
   else s = it.relic ? RELIC_DESC[it.relic] : "遺物";

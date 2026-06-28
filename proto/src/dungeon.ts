@@ -22,7 +22,9 @@ interface MonsterKind {
 // モンスター特殊能力（4-11G・2026-06-23）：すべてテレグラフ準拠・決定論。素の dmg は据え置きテクスチャを足す方針。
 //   ranged ＝射程から狙撃（接近で間合いを取り直す＝接近が弱点）／venom ＝命中でプレイヤーに毒（継続ダメ）／
 //   leech  ＝命中ぶん自己回復（しぶとい）／breeder ＝たまに隣に弱い眷属を湧かす（数の圧・総数上限）。
-export type MonsterAbility = "ranged" | "venom" | "leech" | "breeder";
+//   reflect ＝近接で殴られると一部を反射（術/投擲を促す・深淵帯／PR2 2026-06-28）／
+//   curse  ＝命中でプレイヤーの深蝕を上塗り（深淵帯の侵蝕・PR2）。reflect/curse は minDepth>50 限定＝golden(≤42)不変。
+export type MonsterAbility = "ranged" | "venom" | "leech" | "breeder" | "reflect" | "curse";
 export const RANGED_MAX = 4;        // 狙撃の最大射程（これ以遠は間合いを詰める）
 export const BREED_CHANCE = 0.16;   // breeder が1手に眷属を湧かす確率（クールダウン併用）
 export const BREED_CD = 6;          // 眷属を湧かしたあとの待機手数
@@ -49,9 +51,9 @@ export const breederMinion = (depth: number, mods: DifficultyMods = EASY_MODS): 
 // 深度係数（scaleKind）が HP/dmg を底上げするので base は種の個性。深層（28/35/42）に上位種を追加（監査B1）。
 export const MONSTER_KINDS: MonsterKind[] = [
   { key: "rat",    glyph: "r", name: "大鼠",     hp: 3,  dmg: 1, minDepth: 1,  erratic: 0.3,  tier: 1, maxDepth: 20 },
-  { key: "beetle", glyph: "k", name: "鎧蟲",     hp: 8,  dmg: 1, minDepth: 1,  erratic: 0.1,  tier: 2 }, // 硬い・低火力（一撃で倒せない壁）
+  { key: "beetle", glyph: "k", name: "鎧蟲",     hp: 8,  dmg: 1, minDepth: 1,  erratic: 0.1,  tier: 2, maxDepth: 48 }, // 硬い・低火力（一撃で倒せない壁）。深淵帯(>48)では退場＝雑魚を間引く
   { key: "bat",    glyph: "b", name: "洞蝙蝠",   hp: 2,  dmg: 1, minDepth: 2,  erratic: 0.6,  tier: 1, maxDepth: 24 },
-  { key: "snake",  glyph: "s", name: "石蛇",     hp: 5,  dmg: 2, minDepth: 5,  erratic: 0.2,  tier: 2 },
+  { key: "snake",  glyph: "s", name: "石蛇",     hp: 5,  dmg: 2, minDepth: 5,  erratic: 0.2,  tier: 2, maxDepth: 48 },
   { key: "ghoul",  glyph: "g", name: "屍喰らい", hp: 7,  dmg: 2, minDepth: 9,  erratic: 0.1,  tier: 3 },
   { key: "wisp",   glyph: "w", name: "迷い火",   hp: 4,  dmg: 3, minDepth: 13, erratic: 0.4,  tier: 3 },
   { key: "wraith", glyph: "W", name: "怨霊",     hp: 10, dmg: 3, minDepth: 16, erratic: 0.15, tier: 4 },
@@ -66,8 +68,8 @@ export const MONSTER_KINDS: MonsterKind[] = [
   { key: "horror", glyph: "Y", name: "虚無の貌", hp: 28, dmg: 7, minDepth: 42, erratic: 0.2,  tier: 5 }, // 最深・不規則で読みにくい
   // ───── Phase 2 量産（4-11G・能力×深度帯×テーマで分散。素の dmg は据え置き＝テクスチャ重視）─────
   // 近接の個性（速い/硬い/凶悍）＝能力種を薄める母数＋戦術の手触り。
-  { key: "imp",     glyph: "i", name: "小鬼",     hp: 3,  dmg: 2, minDepth: 3,  erratic: 0.5,  tier: 1 }, // 速いが脆い（早期の手触り）
-  { key: "crawler", glyph: "n", name: "這い虫",   hp: 4,  dmg: 2, minDepth: 5,  erratic: 0.3,  tier: 2 },
+  { key: "imp",     glyph: "i", name: "小鬼",     hp: 3,  dmg: 2, minDepth: 3,  erratic: 0.5,  tier: 1, maxDepth: 48 }, // 速いが脆い（早期の手触り）。深淵帯では退場
+  { key: "crawler", glyph: "n", name: "這い虫",   hp: 4,  dmg: 2, minDepth: 5,  erratic: 0.3,  tier: 2, maxDepth: 48 },
   { key: "hound",   glyph: "h", name: "影狼",     hp: 6,  dmg: 3, minDepth: 10, erratic: 0.25, tier: 3 }, // 俊敏で詰めが速い
   { key: "brute",   glyph: "B", name: "鉄腕鬼",   hp: 16, dmg: 3, minDepth: 13, erratic: 0.05, tier: 4 }, // 硬い壁役
   { key: "reaver",  glyph: "e", name: "斬鬼",     hp: 10, dmg: 4, minDepth: 20, erratic: 0.2,  tier: 4 }, // 高火力近接
@@ -85,6 +87,15 @@ export const MONSTER_KINDS: MonsterKind[] = [
   // 吸命（leech）／増殖（breeder）の深部版。
   { key: "drainer", glyph: "H", name: "喰命鬼",   hp: 18, dmg: 5, minDepth: 26, erratic: 0.1,  tier: 4, ability: "leech" },
   { key: "mother",  glyph: "M", name: "母胎",     hp: 24, dmg: 3, minDepth: 32, erratic: 0.05, tier: 4, ability: "breeder" }, // 深部の数の圧
+  // ───── 深淵帯（深度50超）の専用種＝真のエンドゲーム（PR2・2026-06-28・abyssalScale と相乗）─────
+  //   minDepth>50 ゆえ golden 指紋深度(≤42)のスポーンプールに入らない＝genFloor/monsterAI 不変（裏取り済み）。
+  //   2つの新能力（reflect/curse）を投入し、深部が「数値スケールのみ」でなく挙動でも変わるようにする。
+  { key: "voiddrake",  glyph: "Δ", name: "虚無竜",     hp: 34, dmg: 8, minDepth: 52, erratic: 0.1,  tier: 5 },                       // 素の壁・高火力
+  { key: "thornward",  glyph: "Φ", name: "棘の番人",   hp: 32, dmg: 6, minDepth: 54, erratic: 0.05, tier: 5, ability: "reflect" },   // 近接を罰する（術/投擲を促す）
+  { key: "defiler",    glyph: "Σ", name: "蝕みの影",   hp: 28, dmg: 6, minDepth: 56, erratic: 0.2,  tier: 5, ability: "curse" },     // 命中で深蝕を上塗り
+  { key: "voideye",    glyph: "Ω", name: "虚無の瞳",   hp: 26, dmg: 7, minDepth: 60, erratic: 0.15, tier: 5, ability: "ranged" },    // 深淵の狙撃
+  { key: "abyssmaw",   glyph: "Λ", name: "群肉の母胎", hp: 36, dmg: 5, minDepth: 64, erratic: 0.05, tier: 5, ability: "breeder" },   // 深淵の数の圧
+  { key: "endbringer", glyph: "Ξ", name: "終焉の貌",   hp: 42, dmg: 9, minDepth: 70, erratic: 0.2,  tier: 5 },                       // 最深の壁・最高火力
 ];
 
 // 深度係数（終始シビア・無限スケール 4-11F②）。種の堅さ（早期の差）に深度ぶんを上乗せ＝
@@ -519,7 +530,7 @@ export function genRaidField(seed: number, scale: "small" | "medium" | "large", 
 }
 
 // ---------- モンスターのターン（テレグラフ＝予告 → 実行の2段：4-11A） ----------
-interface MonsterHit { monster: Monster; dmg: number; target: "player" | "companion"; effect?: "poison" | "heavy"; tx?: number; ty?: number; } // tx/ty=被弾マス（街防衛戦で複数味方の誰が撃たれたかを web 側が特定するため。dive/golden では未使用）
+interface MonsterHit { monster: Monster; dmg: number; target: "player" | "companion"; effect?: "poison" | "heavy" | "curse"; tx?: number; ty?: number; } // tx/ty=被弾マス（街防衛戦で複数味方の誰が撃たれたかを web 側が特定するため。dive/golden では未使用）
 interface Resolution { hits: MonsterHit[]; dodges: Monster[]; }
 /** 相棒の一手の結果（プレイヤー手番末に解決）。 */
 interface CompanionResolution { hit: Monster | null; dmg: number; }
@@ -704,6 +715,7 @@ export function resolveMonsters(f: Floor, player: Pos, companion?: CompanionEnti
         const hit: MonsterHit = { monster: m, dmg, target: onPlayer ? "player" : "companion", tx: m.intent.x, ty: m.intent.y };
         if (heavy) hit.effect = "heavy"; // web 側の演出（強い被弾）
         else if (m.kind.ability === "venom" && onPlayer) hit.effect = "poison"; // 毒はプレイヤーのみ（相棒に毒tickの器が無い）
+        else if (m.kind.ability === "curse" && onPlayer) hit.effect = "curse"; // 深蝕の上塗り（プレイヤーのみ・深淵帯 minDepth>50＝golden 不変）
         hits.push(hit);
       } else dodges.push(m); // 予告マスから退いた＝見切り
     } else if (m.intent.type === "move") {
