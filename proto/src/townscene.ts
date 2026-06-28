@@ -92,9 +92,15 @@ export function buildTownGrid(data: TownData): TownGrid {
     doorMap.set(key(b.door[0], b.door[1]), b.kind);
   }
 
-  // 封鎖ゾーン（貴族街）：仕切り壁＋居館シルエット＋閉ざされた門
+  // 封鎖ゾーン（貴族街）：仕切り壁＋区画の地（noble）＋閉ざされた門。
+  // noble は「床」の上にのみ敷く＝貴族街内に置いた建物の footprint/door（先に描画済み）を潰さない
+  // （4-14G 層4b：解禁後に歩ける区画＝館/謁見の建物が立つ）。
   for (let x = 1; x < W - 1; x++) tiles[data.partitionWallY][x] = "wall";
-  for (const [x, y, w, h] of data.nobleRects) rect(x, y, w, h, "noble");
+  for (const [x, y, w, h] of data.nobleRects) {
+    for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) {
+      if (tiles[j]?.[i] === "floor") tiles[j][i] = "noble";
+    }
+  }
   tiles[data.nobleGate.y][data.nobleGate.x] = "ngate";
 
   // 迷宮の口（門の構造物）

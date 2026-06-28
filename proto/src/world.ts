@@ -5,7 +5,7 @@ import type {
 } from "./types.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "./types.ts";
 import { resolveTonePole } from "./variation.ts";
-import { BASE_STATS, STASH_INHERIT, LOADOUT_CAP } from "./progression.ts";
+import { BASE_STATS, STASH_INHERIT, STASH_INHERIT_MANOR, LOADOUT_CAP } from "./progression.ts";
 import { worldPlayerGrade, worldAchievement } from "./companion.ts";
 import { diffMods } from "./difficulty.ts";
 
@@ -294,9 +294,11 @@ export function fossilizeCurrent(world: World, manner: DeathManner, finalAct: Fi
   maybeFossilizeBondedActor(world, ch);
   world.generation += 1;
   world.current = null;
-  // 自宅の保管庫は世代を越えて残るが、遺せるのは消耗品・装備それぞれ STASH_INHERIT 枠まで（残りは歳月とともに失われる）。
-  if (Array.isArray(world.stash) && world.stash.length > STASH_INHERIT) world.stash = world.stash.slice(0, STASH_INHERIT);
-  if (Array.isArray(world.stashGear) && world.stashGear.length > STASH_INHERIT) world.stashGear = world.stashGear.slice(0, STASH_INHERIT);
+  // 自宅の保管庫は世代を越えて残るが、遺せるのは各 STASH_INHERIT 枠まで（残りは歳月とともに失われる）。
+  // 貴族街の館（4-14G 層4）に格上げ済みなら相続枠が広がる（家が栄えるほど多くを次代へ遺せる）。
+  const inheritCap = world.manorUnlocked ? STASH_INHERIT_MANOR : STASH_INHERIT;
+  if (Array.isArray(world.stash) && world.stash.length > inheritCap) world.stash = world.stash.slice(0, inheritCap);
+  if (Array.isArray(world.stashGear) && world.stashGear.length > inheritCap) world.stashGear = world.stashGear.slice(0, inheritCap);
   // 運命の弧（4-6）：世代がひとつビートを刻む＝目を離した隙に tracked の弧が進む。
   advanceArcs(world);
   return fossil;

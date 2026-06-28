@@ -15,7 +15,7 @@ import {
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
 import {
   maxHp, meleeDmg, heartFactor, xpToNext, xpForKill, statsLine,
-  STAT_KEYS, STAT_LABEL, HP_PER, carryCapacity, STASH_CAP, STASH_INHERIT, LOADOUT_CAP, BASE_STATS,
+  STAT_KEYS, STAT_LABEL, HP_PER, carryCapacity, STASH_CAP, STASH_CAP_MANOR, STASH_INHERIT, STASH_INHERIT_MANOR, LOADOUT_CAP, BASE_STATS,
   armorReduce, effectiveReason, xpMul, equipExposure, gearCapacity,
   DEPTH_SEAL_AT, ABYSS_DEPTH, RELIC_EXPOSURE_PER_TURN, RELIC_PURSUER_EVERY, RELIC_PURSUER_CAP,
 } from "../progression.ts";
@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.59.0";
+export const APP_VERSION = "0.61.0";
 export const APP_BUILD = "2026-06-27";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -760,14 +760,16 @@ async function healerBuy() {
   busy = false;
 }
 // 回収業ギルド：依頼の受注・達成報酬の受領（4-10G）。1操作＝受注 or 受領（再入場で続けられる）。
-async function questBoard() {
+async function questBoard(board: "guild" | "noble" = "guild") {
   busy = true;
   const ch = world.current!;
   const done = doneQuests(world);
   const act = activeQuests(world);
-  const offers = generateOffers(world, ch, rng, Math.max(0, 2 - (done.length + act.length)));
-  // 奉献後＝貴族街の統治者からの大命がギルド経由で届く（Phase4・4-13D）。
-  if (getArc(world, "noble_ack")) offers.push(...generateNobleOffers(world, ch, rng, 1));
+  // 謁見の間（noble）＝統治者の大命のみ。ギルド（guild）＝通常依頼＋（noble_ack 後は）大命も相乗り。
+  const offers = board === "noble"
+    ? generateNobleOffers(world, ch, rng, 1)
+    : (() => { const o = generateOffers(world, ch, rng, Math.max(0, 2 - (done.length + act.length)));
+        if (getArc(world, "noble_ack")) o.push(...generateNobleOffers(world, ch, rng, 1)); return o; })();
   const lines: string[] = [];
   if (done.length) lines.push("【達成済】" + done.map((q) => q.title).join("／"));
   if (act.length) lines.push("【受注中】" + act.map((q) => `${q.title}`).join("／"));
@@ -789,8 +791,10 @@ async function questBoard() {
     run: () => { acceptQuest(world, q); log(`依頼を受けた：「${q.title}」。`, "dim"); },
   });
   const r = await sheet({
-    text: `回収業ギルド。所持 金${ch.gold}。\n${lines.join("\n") || "（受注中の依頼はない）"}`,
-    meta: "ギルド ── 依頼（回収業）",
+    text: board === "noble"
+      ? `玉座の間。統治者が、奉献を成した者にのみ託す大命。所持 金${ch.gold}。\n${lines.join("\n") || "（受注中の大命はない）"}`
+      : `回収業ギルド。所持 金${ch.gold}。\n${lines.join("\n") || "（受注中の依頼はない）"}`,
+    meta: board === "noble" ? "謁見の間 ── 統治者の大命" : "ギルド ── 依頼（回収業）",
     options: [...actions.map((a) => a.label), "やめる"],
   });
   busy = false;
@@ -1285,7 +1289,9 @@ async function storeManage() {
 // ---------- 自宅の保管庫＝武具庫（持ち物 Phase3）。World.stash(消耗品)/stashGear(装備) に置く＝世代を越えて残る ----------
 // 総容量は消耗品スタック＋装備の合計で STASH_CAP（収集の楽しみ）。世代交代で次代へ残るのは各 STASH_INHERIT 枠（world.ts で切詰め）。
 const homeUsed = () => (world.stash?.length ?? 0) + (world.stashGear?.length ?? 0);
-const homeFull = () => homeUsed() >= STASH_CAP;
+const stashCap = () => (world.manorUnlocked ? STASH_CAP_MANOR : STASH_CAP);           // 貴族街の館で保管庫拡張（4-14G 層4）
+const stashInherit = () => (world.manorUnlocked ? STASH_INHERIT_MANOR : STASH_INHERIT); // 相続枠も拡張
+const homeFull = () => homeUsed() >= stashCap();
 function stashAdd(key: string): boolean {
   world.stash ??= [];
   const s = world.stash.find((x) => x.key === key);
@@ -1314,7 +1320,7 @@ async function homeDeposit() {
     ];
     if (!opts.length) { await sheet({ text: "預けられる持ち物も装備もない。", options: ["閉じる"] }); break; }
     const r = await sheet({
-      text: `わが家の物入れ＝代々の武具庫。保管 ${homeUsed()}/${STASH_CAP} 枠（世代を越えて遺せるのは消耗品${STASH_INHERIT}・装備${STASH_INHERIT}枠まで）。\n何を預ける？`,
+      text: `わが家の物入れ＝代々の武具庫。保管 ${homeUsed()}/${stashCap()} 枠（世代を越えて遺せるのは消耗品${stashInherit()}・装備${stashInherit()}枠まで）。\n何を預ける？`,
       meta: "自宅 ── 預ける",
       options: [...opts, "やめる"],
     });
@@ -1347,7 +1353,7 @@ async function homeWithdraw() {
     ];
     if (!opts.length) { await sheet({ text: "保管庫は空だ。", options: ["閉じる"] }); break; }
     const r = await sheet({
-      text: `保管 ${homeUsed()}/${STASH_CAP} 枠。持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)} 枠。\n何を引き出す？`,
+      text: `保管 ${homeUsed()}/${stashCap()} 枠。持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)} 枠。\n何を引き出す？`,
       meta: "自宅 ── 引き出す",
       options: [...opts, "やめる"],
     });
@@ -1377,8 +1383,8 @@ async function homeView() {
   const cons = st.length ? st.map((s) => `・${consumableByKey(s.key)?.name ?? s.key} ×${s.qty}`).join("\n") : "・（なし）";
   const armory = gear.length ? gear.map((it) => `・${SLOT_LABEL[it.slot]} ${itemLabel(it)}`).join("\n") : "・（なし）";
   await sheet({
-    text: `代々の物入れ。世代を越えて遺せるのは消耗品${STASH_INHERIT}・装備${STASH_INHERIT}枠まで。\n\n〔消耗品〕\n${cons}\n\n〔武具庫〕\n${armory}`,
-    meta: `自宅 ── 保管 ${homeUsed()}/${STASH_CAP}`, options: ["閉じる"],
+    text: `代々の物入れ。世代を越えて遺せるのは消耗品${stashInherit()}・装備${stashInherit()}枠まで。\n\n〔消耗品〕\n${cons}\n\n〔武具庫〕\n${armory}`,
+    meta: `${world.manorUnlocked ? "貴族街の館" : "自宅"} ── 保管 ${homeUsed()}/${stashCap()}`, options: ["閉じる"],
   });
   busy = false;
 }
@@ -1413,9 +1419,12 @@ async function lineageHallScene() {
   const hr = houseRank();
   const more = recent.length < ordered.length ? `\n\n…ほか ${ordered.length - recent.length} 名、古い代の者たち。` : "";
   const boon = hr.tier >= 1 ? `\n\n家格に応じ、次の当主は家の蓄え（治癒の膏薬・餞別）を携えて発つ。` : "";
+  const hall = world.manorUnlocked
+    ? `貴族街の館・大広間。歴代の名は今、貴族の列に連なる肖像として壁を埋めている。`
+    : `世代を継ぐたび、この壁に名が刻まれる。退いた者は伝説に、斃れた者は深みで静かに変わってゆく。`;
   await sheet({
-    text: `〔${hr.label}〕（家格 ${hr.tier}/5・誉れ ${hr.score}）\n世代を継ぐたび、この壁に名が刻まれる。退いた者は伝説に、斃れた者は深みで静かに変わってゆく。${boon}\n\n${body}${more}`,
-    meta: "自宅 ── 系譜の間（家系図）", options: ["閉じる"],
+    text: `〔${hr.label}〕（家格 ${hr.tier}/5・誉れ ${hr.score}）\n${hall}${boon}\n\n${body}${more}`,
+    meta: `${world.manorUnlocked ? "貴族街の館" : "自宅"} ── 系譜の間（家系図）`, options: ["閉じる"],
   });
   busy = false;
 }
@@ -1758,6 +1767,7 @@ async function talkKeeper(asKind?: string) {
   const kind = asKind ?? interior.kind;
   const d = townGrid.data.keepers[kind];
   if (kind === "guild") await checkRankUp(); // 等級の正式認定＝昇格イベント（4-4E）
+  if (kind === "guild" || kind === "home" || kind === "manor" || kind === "audience") await maybeGrantManor(); // 館/格上げの告知（終盤メタ・4-14G・冪等）
   if (busy || !interior) return; // 昇格イベント中に状況が変わっていないか再確認
   // 店主目線の小イベント（4-4B 辻褄整合）：時々、固定の挨拶＋メニューの前に「店主本人が語る」一幕を挟む。
   // 話者＝その店主＝#origin_name# は店主名で充填（雑踏のランダム冒険者と取り違えない）。商い導線は後続でそのまま到達。
@@ -1831,6 +1841,11 @@ async function talkKeeper(asKind?: string) {
   if (kind === "home" && actIdx === 1) return void homeWithdraw();      // 保管庫から引き出す
   if (kind === "home" && actIdx === 2) return void homeView();          // 物入れを検める
   if (kind === "home" && actIdx === 3) return void lineageHallScene();   // 系譜の間（家系図・4-14G 層3）
+  if (kind === "manor" && actIdx === 0) return void homeDeposit();       // 館：保管庫に預ける（自宅と同一在庫・4-14G 層4b）
+  if (kind === "manor" && actIdx === 1) return void homeWithdraw();      // 館：保管庫から引き出す
+  if (kind === "manor" && actIdx === 2) return void lineageHallScene();  // 館：系譜の間（大広間）
+  if (kind === "audience" && actIdx === 0) return void audienceScene();  // 謁見の間：統治者に謁見する（4-14G 層4b）
+  if (kind === "audience" && actIdx === 1) return void questBoard("noble"); // 謁見の間：統治者の大命を受ける
   busy = true;
   await sheet({
     text: `${d.name}：「${d.acts[actIdx]}」\n\n……その商いは、まだ整っていない。`,
@@ -1997,12 +2012,17 @@ function townAct(dx: number, dy: number) {
   const dk = townGrid.doorMap.get(`${nx},${ny}`); if (dk) { enterBuilding(dk); return; }
   const a = crowdAt(crowd, nx, ny); if (a) { void talkCrowd(a); return; }
   const t = townTileAt(townGrid, nx, ny);
-  if (t === "ngate") { log("固く閉ざされた門。門番が見張っている。", "dim"); return; }
+  const nobleOpen = nobleQuarterOpen(); // 貴族街解禁（奉献クリア後）＝門と区画を歩ける（4-14G 層4b）
+  if (t === "ngate") {
+    if (!nobleOpen) { log("固く閉ざされた門。門番が見張っている。", "dim"); return; }
+    // 解禁時は門を通り抜ける（下の移動処理へ）
+  }
   const p = townGrid.propMap.get(`${nx},${ny}`);
   if (p && monumentKey === `${nx},${ny}`) { void monumentScene(); return; } // 奉献の像＝専用シート（Phase4）
   if (p && guardianKeys.has(`${nx},${ny}`)) { void guardianScene(guardianKeys.get(`${nx},${ny}`)!); return; } // 引退した英雄＝会話（運命の弧 4-6D）
   if (p && cenotaphKey === `${nx},${ny}`) { void memorialScene(); return; } // 慰霊碑＝歴代の死者を読む（街の差分 4-6C）
-  if (t !== "floor" && t !== "gate") { if (p?.line) log(p.line, "dim"); return; }
+  const walkable = t === "floor" || t === "gate" || (nobleOpen && (t === "noble" || t === "ngate")); // 貴族街解禁で noble/ngate も歩行可
+  if (!walkable) { if (p?.line) log(p.line, "dim"); return; }
   if (p && t !== "gate") { if (p.line) log(p.line, "dim"); return; } // 景物（木・井戸・碑）は塞ぐ
   townPlayer = { x: nx, y: ny };
   sfx("move");
@@ -2118,7 +2138,7 @@ async function characterCreation() {
   // 家格の恩恵（4-14G 層3）：家が栄えるほど、次の当主は家の蓄え（治癒の膏薬・餞別）を携えて発つ＝微小。
   const hr = houseRank();
   if (hr.tier >= 1) {
-    const salves = Math.min(3, hr.tier);
+    const salves = Math.min(world.manorUnlocked ? 4 : 3, hr.tier); // 館は蓄えが手厚い（微小・4-14G 層4）
     for (let i = 0; i < salves; i++) addConsumable(ch, "salve");
     ch.gold += hr.tier * 5;
     log(`《${hr.label}》の蓄えから、治癒の膏薬×${salves}と餞別${hr.tier * 5}金貨を授かった。`, "dim");
@@ -2673,6 +2693,75 @@ async function monumentScene() {
   busy = false;
 }
 
+// ---------- 貴族街の館（4-14G 層4・終盤メタ）：家格が街の地図に出る到達点＝自宅機能の格上げ ----------
+/** 館（自宅機能の格上げ）の解放条件：奉献を成した（クリア）or 高家格（英傑の家系＝tier4+）。
+ *  ※区画の通行（門が開く）はクリア限定＝`nobleQuarterOpen`。tier4 は自宅の蔵の充実のみ。 */
+function manorEligible(): boolean { return (world.ascended ?? 0) >= 1 || houseRank().tier >= 4; }
+/** 条件を満たし未解放なら一度だけ告知（統治者の grant・grantHomeScene パターン・冪等）。
+ *  クリア済み＝貴族街の門が開き館/謁見の間が使える／未クリア(高家格のみ)＝自宅の蔵が充実、と文言を分ける。 */
+async function maybeGrantManor() {
+  if (world.manorUnlocked || !manorEligible()) return;
+  world.manorUnlocked = true;
+  busy = true;
+  sfx("seal"); flashFx("warp");
+  const hr = houseRank();
+  const cleared = nobleQuarterOpen();
+  await sheet({
+    text: cleared
+      ? `街に、統治者の使いが訪れた。\n「奉献を成した《${hr.label}》よ。──貴族街の門は、もうあなたに開かれている。家門の館を構え、いつでも玉座の間へ参られよ」\n\n貴族街が開かれた。北の門をくぐれば、家門の館と謁見の間がある。`
+      : `街に、使いが訪れた。\n「《${hr.label}》の蔵は、いまや一族にふさわしい構えとなった。代々の物入れも、次代へ遺せるものも、広がっていよう」\n\n家の蔵が充実した（保管庫と相続枠が広がった）。`,
+    meta: cleared ? "貴族街の解放 ── 家門の格上げ（4-14G）" : "家の蔵 ── 家門の格上げ（4-14G）", options: ["承る"],
+  });
+  log(cleared ? "貴族街が開かれた。北の門の奥に、家門の館と謁見の間がある。" : "家の蔵が充実した（保管庫・相続枠が広がった）。", "cue");
+  chronicle(world, "legend", `${world.current?.name ?? "当主"}の家門が格上げされた（${hr.label}）。`, world.current ? [world.current.id] : []);
+  busy = false;
+  save();
+}
+/** 貴族街が歩けるか（4-14G 層4b）：奉献クリア後＝門が開き、上辺の貴族街区画（館・謁見の間）へ入れる。
+ *  manorUnlocked（tier4 でも立つ・自宅格上げ）とは別軸＝区画の通行はクリア（ascended≥1）限定。 */
+function nobleQuarterOpen(): boolean { return (world.ascended ?? 0) >= 1; }
+
+/** 解禁時、貴族街の門番を退かせて門を通れるようにする（建物/装飾は town.json 静的データ）。
+ *  townLoop の refresh ブロックで毎来訪呼ぶ＝`refreshAscendMonument` と同パターン・冪等。 */
+function refreshNobleQuarter() {
+  if (!nobleQuarterOpen()) return;
+  // 門番（封鎖の番人）を guardMap から外す＝門が通行可になる（解禁後は招かれた身）。
+  const gx = townGrid.data.nobleGate.x;
+  for (const [k, g] of [...townGrid.guardMap]) {
+    if (g.x === gx && g.y === townGrid.data.nobleGate.y + 1) townGrid.guardMap.delete(k);
+  }
+}
+
+/** 謁見の間：統治者と謁見する（4-14G 層4b）。奉献回数/伝説/家格を織り込んだ戴き＋当主ごと一度きりの客人の礼。 */
+async function audienceScene() {
+  if (busy) return;
+  busy = true;
+  const ch = world.current!;
+  const asc = world.ascended ?? 0;
+  const legends = world.tracked.filter((t) => t.source === "player_legend").length;
+  const hr = houseRank();
+  const first = !ch.traits.includes("統治者の客人"); // 当主ごとに一度きり（heir も改めて謁見できる）
+  const lines = [
+    "玉座の間。統治者が、あなたを見て言った。",
+    `「奉献を${asc}度成した者よ。深淵より聖遺物を持ち帰る者は、幾代に一人だ」`,
+  ];
+  if (legends > 0) lines.push(`「あなたの家が遺した伝説は${legends}柱。英雄譜が、その名で厚くなっていく」`);
+  lines.push(`「《${hr.label}》──その名に恥じぬ働きを、これからも」`);
+  const opts = first ? ["客人として礼を受ける", "辞す"] : ["辞す"];
+  const r = await sheet({ text: lines.join("\n"), meta: "謁見の間 ── 統治者", options: opts });
+  if (first && r.pick === 1) {
+    ch.traits.push("統治者の客人");
+    const before = ch.exposure;
+    ch.exposure = Math.max(0, ch.exposure - 0.3);
+    sfx("seal");
+    log("記憶に『統治者の客人』が刻まれた。", "cue");
+    if (ch.exposure < before) log(`謁見の場の清浄が、深みに削られた芯を人へ還す（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
+    chronicle(world, "legend", `${ch.name}が統治者に謁見し、客人の礼を受けた。`, [ch.id]);
+    save();
+  }
+  busy = false;
+}
+
 // ---------- 運命の弧（4-6D）：retire 終端＝引退した英雄が街の守護者として常駐する（街の差分） ----------
 // terminal に達した retire の tracked を、街角の固定NPC（propMap）として注入。warped 終端（深みに呑まれた）は出さない。
 const guardianKeys = new Map<string, string>(); // propMap key → tracked id
@@ -2802,6 +2891,7 @@ function townLoop(): Promise<void> {
     refreshAscendMonument(); // 奉献の碑をこの来訪の最新状態に（4-13D Phase4）
     refreshRetireGuardians(); // 引退した英雄を街角に常駐（運命の弧 4-6D・retire 終端）
     refreshMemorialSites(); // 慰霊碑を堆積に応じて生きた記念碑に（街の差分 4-6C）
+    refreshNobleQuarter(); // 貴族街解禁（クリア後）＝門番を退かせ門を通行可に（4-14G 層4b）
     sceneActorKeys = new Set(); // 来訪ごとに出会い記録をリセット（同一来訪内での重複だけ防ぐ）
     if (t.scene === "interior" && t.interiorKind && townGrid.data.keepers[t.interiorKind]) {
       townReturn = t.pos ? { x: t.pos.x, y: t.pos.y } : null;
