@@ -6,7 +6,7 @@ import setpiecesJson from "../../content/setpieces.json";
 import { makeContentDb } from "../content.ts";
 import { makeRng, type Rng } from "../rng.ts";
 import {
-  newWorld, createCharacter, fossilizeCurrent, fossilizeCompanion, fossilizeAbandoned, intervene, recordRediscovery,
+  newWorld, createCharacter, fossilizeCurrent, retireCurrent, fossilizeCompanion, fossilizeAbandoned, intervene, recordRediscovery,
   chronicle, poleLabel, finalActLabel, migrateWorld, awardSeal, abyssUnlocked, setArc, getArc,
   grantEchoOnRequiem, consumeEcho, ECHO_DEPLOY_COST,
   BLOOD_SPELLS, PUPIL_SPELLS,
@@ -57,7 +57,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.56.4";
+export const APP_VERSION = "0.57.0";
 export const APP_BUILD = "2026-06-27";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1529,19 +1529,47 @@ async function heroRoll() {
   const comp = hired
     ? `\n雇用中の相棒《${hired.actor.name}》── ${GRADE_LABELS[hired.grade]}（生還${hired.bond}・偉業${hired.feats ?? 0}）。道中の金貨は折半。`
     : "";
-  const opts = hired ? ["相棒と別れる（解散）", "閉じる"] : ["閉じる"];
+  const canRetire = playerGrade() >= 2; // 退隠＝確立した者（銀以上）のみ。ボーナスは更に功績比例（雪だるま防止・4-14G）。
+  const opts: string[] = [];
+  if (hired) opts.push("相棒と別れる（解散）");
+  if (canRetire) opts.push("退いて次代に託す（襲名・この物語を終える）");
+  opts.push("閉じる");
   const r = await sheet({
     text: `ギルド長は台帳を繰る。\n「あなたの等級は ── 《${GRADE_LABELS[playerGrade()]}》。あなたが遺した伝説は ${legends} 柱」。${comp}\n\n〔英雄譜〕\n${roll}`,
     meta: "ギルド ── 等級・英雄譜（4-4）", options: opts,
   });
   busy = false;
-  if (hired && r.pick === 1) { // 解散＝無料。等級/絆/偉業を生者NPCへ残し、相棒は街へ（再雇用可）。
+  const label = opts[r.pick - 1];
+  if (label === "相棒と別れる（解散）") { // 解散＝無料。等級/絆/偉業を生者NPCへ残し、相棒は街へ（再雇用可）。
     const name = companionName();
     persistCompanionRecord();
     world.companion = undefined;
     log(`${name}と別れた。「また入用があれば、声をかけな」。`, "cue");
     save();
+  } else if (label === "退いて次代に託す（襲名・この物語を終える）") {
+    await retireFlow();
   }
+}
+
+/** 退隠＝襲名（4-14G・層2）：街で自ら家督を次代に譲る。死とは別の「物語の終い方」＝
+ *  先代は伝説（守護者NPC）として残り、襲名する後継に術と装備を手厚く遺す（功績比例）。 */
+async function retireFlow() {
+  const ch = world.current!;
+  const r = await sheet({
+    text: `${ch.name}（Lv${ch.level}・《${GRADE_LABELS[playerGrade()]}》）。\n\n剣を置き、次代に家督を譲るか。\n──これは、この物語の“終い方”だ。${ch.name}は伝説として街に残り（街角で後進を見守る守護者となる）、家督を襲名する後継に、覚えた術と身につけた装備を手厚く遺す。\nだが、この者で奉献を目指す道は、ここで閉じる。`,
+    meta: "退隠 ── 次代に託す（4-14G）",
+    options: ["家督を譲る（退隠する）", "まだ退かない"],
+  });
+  if (r.pick !== 1) return;
+  busy = true;
+  sfx("seal");
+  const f = retireCurrent(world);
+  log(`${f.origin.name}は探索者の列を退いた。その名は、伝説として英雄譜に刻まれる。`, "warn");
+  save();
+  await characterCreation();   // 後継を作成（襲名すれば術＋装備を手厚く継ぐ）
+  refreshRetireGuardians();    // 退いた英雄を街角の守護者として常駐させる（再雇用可）
+  busy = false;
+  leaveBuilding();             // 後継として街路へ出る
 }
 /** ギルドで等級を正式認定する（4-4E）。前回認定(recognizedGrade)を超えた分だけ、段ごとに昇格イベントを演出。 */
 async function checkRankUp() {
@@ -2015,23 +2043,39 @@ async function characterCreation() {
     options: ["この名で始める"], input: "名前",
   })).text.trim() || `名無し${world.generation}`;
 
-  const ancestors = world.fossils.filter((f) => f.kind === "character").slice(-3).reverse();
+  const ancestors = world.fossils.filter((f) => f.kind === "character").slice(-4).reverse();
+  const heirs = ancestors.filter((f) => f.retired).slice(0, 2);   // 退隠した先代＝襲名候補（4-14G）
+  const dead = ancestors.filter((f) => !f.retired).slice(0, 3);   // 斃れた先代＝血縁/弟子候補
   let lineage: Character["lineage"] = { relation: "none" };
-  if (ancestors.length > 0) {
+  let heirAnc: Fossil | undefined;
+  if (heirs.length || dead.length) {
     const opts = [
-      ...ancestors.map((f) => `${f.origin.name}の血縁として（術を2つ選び継ぐ・地力が恒久的に高い＝大器晩成）`),
-      ...ancestors.map((f) => `${f.origin.name}の弟子として（術4つを継ぎ・高いレベルから始まる＝先行逃げ切り）`),
+      ...heirs.map((f) => `${f.origin.name}の家督を襲名する（術を手厚く継ぎ・遺された装備を相続＝伝説の家系）`),
+      ...dead.map((f) => `${f.origin.name}の血縁として（術を2つ選び継ぐ・地力が恒久的に高い＝大器晩成）`),
+      ...dead.map((f) => `${f.origin.name}の弟子として（術4つを継ぎ・高いレベルから始まる＝先行逃げ切り）`),
       "誰とも関わりなく（継承なし・しがらみもなし）",
     ];
-    const r = await sheet({ text: "お前は、誰の物語を継ぐ？\n（血縁＝序盤は控えめだが伸びしろが大きい／弟子＝序盤から強いが上限は普通）", options: opts });
-    if (r.pick <= ancestors.length) {
-      const anc = ancestors[r.pick - 1];
+    const r = await sheet({ text: "お前は、誰の物語を継ぐ？\n（襲名＝退いた英雄の家督を継ぐ最も手厚い継承／血縁＝伸びしろ／弟子＝先行逃げ切り）", options: opts });
+    const nH = heirs.length, nD = dead.length;
+    if (r.pick <= nH) {
+      heirAnc = heirs[r.pick - 1];
+      lineage = { relation: "heir", ancestorFossilId: heirAnc.id };
+    } else if (r.pick <= nH + nD) {
+      const anc = dead[r.pick - nH - 1];
       lineage = { relation: "blood", ancestorFossilId: anc.id, chosenSpells: await pickBloodSpells(anc) };
-    } else if (r.pick <= ancestors.length * 2) {
-      lineage = { relation: "pupil", ancestorFossilId: ancestors[r.pick - ancestors.length - 1].id };
+    } else if (r.pick <= nH + nD * 2) {
+      lineage = { relation: "pupil", ancestorFossilId: dead[r.pick - nH - nD - 1].id };
     }
   }
   const ch = createCharacter(world, name, "wanderer", lineage);
+  // 襲名の装備相続（4-14G・層2）：退隠した先代が身につけていた装備を、散逸させず heir が直接継ぐ。
+  if (heirAnc) {
+    for (const gname of heirAnc.origin.gearTags) {
+      const it = itemByName(gname);
+      if (it && !ch.equipment[it.slot]) { it.unidentified = false; ch.equipment[it.slot] = it; }
+    }
+    log(`${heirAnc.origin.name}の遺した装備を受け継いだ。家督とともに。`, "cue");
+  }
   hp = maxHp(ch);
   const intro = lineage.relation === "none"
     ? `${ch.name}は、まっさらな素質で迷宮へ向かう（${statsLine(ch)}）。`

@@ -6,7 +6,7 @@ import type {
 import { SEAL_KEYS, SEAL_LABEL } from "./types.ts";
 import { resolveTonePole } from "./variation.ts";
 import { BASE_STATS, STASH_INHERIT, LOADOUT_CAP } from "./progression.ts";
-import { worldPlayerGrade } from "./companion.ts";
+import { worldPlayerGrade, worldAchievement } from "./companion.ts";
 import { diffMods } from "./difficulty.ts";
 
 let idCounter = 0;
@@ -221,6 +221,18 @@ export function createCharacter(world: World, name: string, archetype: string, l
         for (const key of picks) learn(key);
         // 地力：恒久ベース加算（大器晩成）＝先代の得意ステへ寄せる。
         addLineageStats(ch.stats, clamp(Math.floor(mLv / 10), 1, BLOOD_STAT_CAP), anc.stats);
+      } else if (lineage.relation === "heir") {
+        // 襲名（4-14G・層2）：退隠した先代の家督を継ぐ。死亡継承を上回る待遇＝「平穏な伝授は綺麗に渡せる」。
+        // ★ボーナスは功績比例（雪だるま防止）＝駆け出しを退かせても殆ど継げない／伝説を退かせれば全継承。
+        const ach = anc.achievementAtEnd ?? 0;
+        const known = anc.spells ?? [];
+        const count = clamp(2 + Math.floor(ach / 2), BLOOD_SPELLS, known.length); // 継ぐ術数（功績で増える・最大は全術）
+        for (const key of known.slice(0, count)) learn(key);
+        // 地力＝恒久ベース（血縁＋α）＋ささやかな開始Lv（弟子の弱め）＝両者の良いとこ取り。
+        addLineageStats(ch.stats, clamp(Math.floor(mLv / 8) + 1, 1, BLOOD_STAT_CAP + 1), anc.stats);
+        const p = clamp(Math.floor(mLv / 8), 0, 5);
+        if (p > 0) { addLineageStats(ch.stats, p, anc.stats); ch.level = 1 + p; }
+        // 装備の直接相続（散逸せず heir が継ぐ）は web の characterCreation で実装（itemByName 再構成）。
       } else { // pupil
         for (const key of (anc.spells ?? []).slice(0, PUPIL_SPELLS)) learn(key);  // 術4つ自動（多芸・選べない）
         // スタートダッシュ：開始レベル＝1+P＋Pぶんのステを即付与（先代の得意ステ寄せ）。前借り型＝Lv上限では無系譜と同地力。
@@ -272,6 +284,53 @@ export function fossilizeCurrent(world: World, manner: DeathManner, finalAct: Fi
   if (Array.isArray(world.stash) && world.stash.length > STASH_INHERIT) world.stash = world.stash.slice(0, STASH_INHERIT);
   if (Array.isArray(world.stashGear) && world.stashGear.length > STASH_INHERIT) world.stashGear = world.stashGear.slice(0, STASH_INHERIT);
   // 運命の弧（4-6）：世代がひとつビートを刻む＝目を離した隙に tracked の弧が進む。
+  advanceArcs(world);
+  return fossil;
+}
+
+/** 退隠＝襲名（4-14G・層2）：死でなく、街で自ら家督を次代に譲る。世代を1つ進めるが、
+ *  亡骸は残さず（`retired`＝迷宮遭遇から除外）、先代は「引退した英雄」（retire 弧の守護者NPC）として街に残る。
+ *  系譜記録（level/stats/spells/装備＋功績）を遺し、heir が襲名すると功績比例の手厚い継承を受ける。
+ *  装備名は origin.gearTags に積む（web が itemByName で復元し heir に直接相続）。 */
+export function retireCurrent(world: World): Fossil {
+  const ch = world.current;
+  if (!ch || !ch.alive) throw new Error("no living character");
+  ch.alive = false;
+  const depth = Math.max(ch.depth, ch.level); // 街では ch.depth=0＝Lv を深度プロキシに（Lv≈深度・到達の目安）
+  const eq = ch.equipment ?? ({} as Character["equipment"]);
+  const gearNames = [eq?.weapon?.name, eq?.armor?.name, eq?.relic?.name].filter((n): n is string => !!n);
+  const fossil: Fossil = {
+    id: newId("fossil"),
+    kind: "character",
+    origin: {
+      name: ch.name, archetype: ch.archetype,
+      gearTags: gearNames.length ? gearNames : [defaultGearFor(ch.archetype)], // 退隠＝装備をそのまま heir へ渡す相続目録
+      catchphrase: undefined,
+    },
+    death: { manner: "noble", finalAct: { choice: "guard_relic" }, depth, generationCreated: world.generation },
+    exposureAtDeath: ch.exposure,
+    bondAtDeath: Math.min(5, 1 + ch.bonds.reduce((a, b) => a + b.value, 0)),
+    tonePole: "myth",                 // 退隠＝伝説として退く（legend）
+    interventions: [],
+    lastTouchedGeneration: world.generation,
+    laidDepth: depth,
+    spells: [...ch.spells],
+    level: ch.level,
+    stats: { ...ch.stats },
+    retired: true,
+    achievementAtEnd: worldAchievement(world), // 襲名ボーナスを功績比例にする基準（雪だるま防止）
+  };
+  world.fossils.push(fossil);
+  // 引退した英雄＝retire 弧の終端として記録（refreshRetireGuardians が街角に守護者NPCを置く・再雇用可）。
+  (world.tracked ??= []).push({
+    id: `retire_${fossil.id}`, name: ch.name, source: "player_legend",
+    arcType: "retire", beat: ARC_MAX_BEAT, terminal: true, lastObservedGeneration: world.generation, originRef: fossil.id,
+  });
+  chronicle(world, "legend",
+    `${ch.name}は剣を置き、次代に家督を譲った。その名は伝説として街に残る（Lv${ch.level}まで至った）。`,
+    [fossil.id]);
+  world.generation += 1;
+  world.current = null;
   advanceArcs(world);
   return fossil;
 }
