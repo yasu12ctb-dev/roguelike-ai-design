@@ -20,7 +20,7 @@ import {
   DEPTH_SEAL_AT, ABYSS_DEPTH, RELIC_EXPOSURE_PER_TURN, RELIC_PURSUER_EVERY, RELIC_PURSUER_CAP,
 } from "../progression.ts";
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
-import { rollItem, rollItemOfSlot, itemByName, enchantUp, itemPower, itemLabel, itemValue, SLOT_LABEL, CONSUMABLES, consumableByKey, grantConsumable } from "../items.ts";
+import { rollItem, rollItemOfSlot, itemByName, enchantUp, itemPower, itemLabel, itemValue, SLOT_LABEL, CONSUMABLES, consumableByKey, grantConsumable, type ConsumableDef } from "../items.ts";
 import {
   renderDeathLine, renderRediscovery, renderRumor, renderArcBeat, matchSetPiece, fillStoryletText, fillDungeonText, fillActorText,
   requiemLine, leaveLine, inheritLine, REQUIEM_RELIEF,
@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.64.0";
+export const APP_VERSION = "0.65.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1206,20 +1206,52 @@ function consumeOne(ch: Character, key: string) {
   slot.qty -= 1;
   if (slot.qty <= 0) ch.inventory = (ch.inventory ?? []).filter((s) => s !== slot);
 }
-/** 消耗品の効果を適用（深蝕−／HP回復。hp はモジュール変数＝潜行中の現在HP）。戻り＝表示用。 */
+/** 戦術系の消耗品か（潜行中限定＝街で使うと空振り）。回復/深蝕除去/鑑定は街でも可。 */
+function isCombatConsumable(def: ConsumableDef | undefined): boolean {
+  if (!def) return false;
+  const u = def.use;
+  return !!(u.healFrac || u.curePoison || u.atkBuff || u.armBuff || u.haste || u.burst);
+}
+/** 消耗品の効果を適用（深蝕−／HP回復／戦術系。hp はモジュール変数＝潜行中の現在HP）。戻り＝表示用。 */
 function applyConsumable(ch: Character, key: string): string {
   const def = consumableByKey(key);
   if (!def) return "";
+  const u = def.use;
   const parts: string[] = [];
-  if (def.use.exposure) {
+  if (u.exposure) {
     const before = ch.exposure;
-    ch.exposure = Math.max(0, ch.exposure + def.use.exposure);
+    ch.exposure = Math.max(0, ch.exposure + u.exposure);
     parts.push(`深蝕 -${(before - ch.exposure).toFixed(2)}`);
   }
-  if (def.use.healFrac) {
+  if (u.healFrac) {
     const before = hp;
-    hp = Math.min(maxHp(ch), hp + Math.round(maxHp(ch) * def.use.healFrac));
+    hp = Math.min(maxHp(ch), hp + Math.round(maxHp(ch) * u.healFrac));
     parts.push(`HP +${hp - before}`);
+  }
+  if (u.curePoison) {
+    if (poisonTurns > 0) { poisonTurns = 0; poisonDmg = 0; parts.push("毒を中和"); }
+    else parts.push("毒は巡っていない");
+  }
+  if (u.atkBuff) { attackBuffTurns = Math.max(attackBuffTurns, u.atkBuff); parts.push(`近接強化 ${u.atkBuff}手`); }
+  if (u.armBuff) { armorBuffTurns = Math.max(armorBuffTurns, u.armBuff); parts.push(`防御強化 ${u.armBuff}手`); }
+  if (u.haste)   { hasteTurns = Math.max(hasteTurns, u.haste); parts.push(`疾走 ${u.haste}手`); }
+  if (u.burst && floor) { // 投擲＝周囲（半径1・Chebyshev）の敵に一括ダメージ。撃破は downOrKill（ボスは決着へ）。
+    const dmg = u.burst;
+    let hitN = 0;
+    for (const m of floor.monsters) {
+      if (m.hp <= 0) continue;
+      if (Math.max(Math.abs(m.x - player.x), Math.abs(m.y - player.y)) > 1) continue;
+      m.hp -= dmg; hitN++; flashFx("warp", { x: m.x, y: m.y });
+      if (m.hp <= 0) downOrKill(m, `${def.name}が${m.kind.name}を焼いた。`);
+    }
+    sfx("spell_warp");
+    parts.push(hitN ? `${hitN}体を焼く（各${dmg}）` : "周囲に敵がいない");
+  }
+  if (u.identify) { // 手持ち（装備＋袋）の未鑑定をすべて見極める
+    const gear: Item[] = [...Object.values(ch.equipment).filter((g): g is Item => !!g), ...(ch.gearBag ?? [])];
+    let n = 0;
+    for (const it of gear) if (it.unidentified) { it.unidentified = false; n++; }
+    parts.push(n ? `${n}点を鑑定` : "未鑑定の品はない");
   }
   return parts.join("・");
 }
@@ -1285,7 +1317,7 @@ async function storeManage() {
     const s = inv[i], def = consumableByKey(s.key);
     const a = await sheet({ text: `${def?.name}（${def?.desc}）`, options: ["使う", "捨てる", "戻る"] });
     if (a.pick === 1) {
-      if (def?.use.healFrac && !def.use.exposure) { await sheet({ text: "ここでは傷はない。潜ってから使うものだ。", options: ["わかった"] }); continue; }
+      if (isCombatConsumable(def)) { await sheet({ text: "ここで使うものではない。潜ってから役に立つ。", options: ["わかった"] }); continue; }
       const msg = applyConsumable(ch, s.key); consumeOne(ch, s.key);
       log(`${def?.name} を使った（${msg}）。`, "dim"); updateStatus(); save();
     } else if (a.pick === 2) {
@@ -5336,8 +5368,8 @@ async function useOrDropConsumable(ch: Character, key: string) {
   if (a.pick === 1) {
     if (inDive) {
       await sheet({ text: "潜行中の使用は一手かかる。画面下の『持ち物』ボタンから使うこと。", options: ["わかった"] });
-    } else if (def?.use.healFrac && !def.use.exposure) {
-      await sheet({ text: "ここでは傷はない。潜ってから使うものだ。", options: ["わかった"] });
+    } else if (isCombatConsumable(def)) {
+      await sheet({ text: "ここで使うものではない。潜ってから役に立つ。", options: ["わかった"] });
     } else {
       const msg = applyConsumable(ch, key); consumeOne(ch, key); sfx("consume");
       log(`${def?.name} を使った（${msg}）。`, "dim"); updateStatus(); save();
