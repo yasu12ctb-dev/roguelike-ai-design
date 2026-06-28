@@ -147,6 +147,19 @@ for (const s of storylets) {
   if (SELLER_VOICE.test(quoted)) W(`店主口調なのに speaker:"keeper" 未タグ：${s.id}（${ctxOf(s)}）＝雑踏NPCが店主として喋る辻褄崩れの恐れ`);
 }
 
+// 4d. 宮廷NPC役職ミスラベル（warn）：noble storylet が役職語（家令/廷臣/侍従/名代/客人）を本文に持つのに、
+//   一致する courtRole タグが無い／違う＝courtNpcScene が役職違いのNPCに配信し「家令を客人と呼ぶ」等の辻褄崩れ。
+//   役職固有 storylet は courtRole で該当役職にだけ通すこと（4-14G・辻褄）。第三者の役職言及で誤検出しうるため warn。
+const COURT_ROLE_WORD: [RegExp, string][] = [[/家令/, "steward"], [/廷臣|侍従|名代/, "courtier"], [/客人|客分/, "guest"]];
+for (const s of storylets) {
+  if (ctxOf(s) !== "noble") continue;
+  const t = s.text ?? "";
+  const tag = (s as { courtRole?: string }).courtRole;
+  for (const [re, role] of COURT_ROLE_WORD) {
+    if (re.test(t) && tag !== role) W(`宮廷役職ミスラベルの恐れ：${s.id}（noble）は役職語『${re.source.split("|")[0]}』を含むが courtRole=${tag ?? "未指定"}（期待 "${role}"）＝役職違いNPCに配信されうる`);
+  }
+}
+
 // ============================================================
 console.log("== 5. 断片 tone×stage×slot 網羅（renderRediscovery の throw を静的に防ぐ） ==");
 // 5a. 全 tone×stage に rediscovery_frame が ≥1（render.ts:50-51 の throw 防止）
