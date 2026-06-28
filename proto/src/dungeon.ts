@@ -91,14 +91,20 @@ export const MONSTER_KINDS: MonsterKind[] = [
 // 深いほど堅く痛い。撃破XPは kind.hp 由来なので、スポーン時に深度ぶんを焼き込めば XP も深度連動する（Lv≈深度）。
 export const depthHpBonus = (depth: number) => Math.round(depth * 1.6);
 export const depthDmgBonus = (depth: number) => Math.round(depth * 0.18);
+/** 深淵帯ギア（深度50超の急峻な逓増・4-14G 後続）。深度50以下は厳密に 1.0＝従来不変（golden 安全）。
+ *  深度60→×1.5／70→×2.0／80→×2.5。線形ベース（depthHpBonus 等）に上乗せ＝「50より下は真のエンドゲーム」。
+ *  K は HP/dmg 共通の初期値。数値はテストプレイ調整候補。 */
+const ABYSSAL_K = 0.05;
+export const abyssalScale = (depth: number) => depth <= 50 ? 1 : 1 + (depth - 50) * ABYSSAL_K;
 /** その深度の「標準的な雑魚」HP（6+1.6d）＝ボス/エリート/追手の算出基準。 */
 export const regularHpAt = (depth: number) => 6 + depthHpBonus(depth);
 /** 種＋深度係数の実体（雑魚スポーンに使う。hp/dmg を深度ぶん底上げ＝撃破XP・被ダメも深度連動）。
- *  難易度（4-11H）は mods で乗数＋火力床を焼き込む。既定 easy＝×1.0/+0＝整数のまま＝従来値（golden 不変）。 */
+ *  難易度（4-11H）は mods で乗数＋火力床を焼き込む。既定 easy＝×1.0/+0＝整数のまま＝従来値（golden 不変）。
+ *  深度50超は abyssalScale で更に急峻に逓増（depth≤50 は ×1.0＝不変）。 */
 export const scaleKind = (k: MonsterKind, depth: number, mods: DifficultyMods = EASY_MODS): MonsterKind =>
   ({ ...k,
-     hp: Math.round((k.hp + depthHpBonus(depth)) * mods.enemyHp),
-     dmg: Math.round((k.dmg + depthDmgBonus(depth)) * mods.enemyDmg) + mods.dmgFloor });
+     hp: Math.round((k.hp + depthHpBonus(depth)) * mods.enemyHp * abyssalScale(depth)),
+     dmg: Math.round((k.dmg + depthDmgBonus(depth)) * mods.enemyDmg * abyssalScale(depth)) + mods.dmgFloor });
 
 /** 敵の次手のテレグラフ（4-11A 読める盤面）。move=ここへ動く / attack=このマスを討つ */
 export type MonsterIntent =
@@ -278,7 +284,8 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean }
 
   // ---------- モンスター配置（マップ面積＋深度でスケール。大マップでも密度を確保） ----------
   const pool = MONSTER_KINDS.filter((k) => k.minDepth <= depth && (k.maxDepth === undefined || depth <= k.maxDepth));
-  const count = Math.min(Math.round((W * H) / 120) + Math.floor(depth / 3), 42); // 出現率・上限を拡張面積に追従（20→42）
+  const countCap = depth > 50 ? 42 + Math.min(18, depth - 50) : 42; // 深淵帯ギア：深度50超は包囲も増す（depth≤50＝42＝golden 不変）
+  const count = Math.min(Math.round((W * H) / 120) + Math.floor(depth / 3), countCap); // 出現率・上限を拡張面積に追従（20→42→深部60）
   for (let i = 0; i < count; i++) {
     const kind = scaleKind(pool[rng.int(pool.length)], depth, mods); // 深度係数＋難易度を焼き込む（HP/dmg/XP連動）
     const p = randomFloorAway(floor, rng, stairsUp, 5);
@@ -351,7 +358,7 @@ export function spawnPursuer(f: Floor, rng: Rng, player: Pos, depth: number, n: 
   const dm = f.diff ?? EASY_MODS; // フロアに焼き込まれた難易度（4-11H）
   const kind: MonsterKind = {
     ...base, key: `pursuer${depth}_${n}`, glyph: "W", name: "追い縋る怨霊",
-    hp: Math.round(regularHpAt(depth) * 1.3 * dm.enemyHp), dmg: Math.round((2 + depthDmgBonus(depth)) * dm.enemyDmg) + dm.dmgFloor, erratic: 0.1, tier: 4,
+    hp: Math.round(regularHpAt(depth) * 1.3 * dm.enemyHp * abyssalScale(depth)), dmg: Math.round((2 + depthDmgBonus(depth)) * dm.enemyDmg * abyssalScale(depth)) + dm.dmgFloor, erratic: 0.1, tier: 4,
   };
   const m: Monster = { id: `pursuer_${depth}_${n}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: true, intent: null };
   f.monsters.push(m);
@@ -390,8 +397,8 @@ function makeAreaBoss(world: World, depth: number, rng: Rng): { kind: MonsterKin
   // エリアボス＝雑魚baseline×4+20・dmg＝雑魚+4（硬め維持＝止め/距離/弱体/回復/遠距離の駆け引き前提 4-11F）
   const kind: MonsterKind = {
     key: `boss${depth}`, glyph: "Ω", name,
-    hp: Math.round((regularHpAt(depth) * 4 + 20) * mods.enemyHp),
-    dmg: Math.round((5 + depthDmgBonus(depth)) * mods.enemyDmg) + mods.dmgFloor,
+    hp: Math.round((regularHpAt(depth) * 4 + 20) * mods.enemyHp * abyssalScale(depth)),
+    dmg: Math.round((5 + depthDmgBonus(depth)) * mods.enemyDmg * abyssalScale(depth)) + mods.dmgFloor,
     minDepth: depth, erratic: 0.05, tier: 5,
   };
   return { kind, fossilId: src?.id };

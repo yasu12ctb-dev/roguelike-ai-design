@@ -30,7 +30,7 @@ const STAGES = ["weathered", "twisting", "alien"] as const;
 const FINALACTS = ["guard_relic", "curse_dungeon", "leave_will", "accept"] as const;
 // context ?? "encounter"（storylets.ts）。encounter は既定なので別枠で確認。
 // quest は型/CONTEXTS にあるが storylet 駆動でない（固定報酬）＝意図的に空。
-const REQUIRED_CONTEXTS = ["dungeon", "street", "tavern", "guild", "shop", "chest", "delver"] as const;
+const REQUIRED_CONTEXTS = ["dungeon", "street", "tavern", "guild", "shop", "chest", "delver", "noble"] as const;
 const ALLOW_EMPTY_CONTEXTS = new Set(["quest"]);
 
 // コード初期化弧：main.ts の setArc(...) で step を立てる弧（content に step1 産が無い）。
@@ -175,7 +175,7 @@ for (const fa of FINALACTS) {
 //     （selectStorylet が口癖を持つ化石にだけ選ぶ＝fillStoryletText の throw 回避）。
 //   ・#origin_epithet# は異名。生者アンカー（mintActor＝常に付与／名簿＝全員が持つ・下の 5e で担保）でのみ安全。
 //     encounter の化石は異名を持たぬ個体がある＝encounter/dungeon/chest では禁止（throw する）。
-const TOWN_FAMILY = new Set(["street", "tavern", "guild", "shop", "delver", "quest"]);
+const TOWN_FAMILY = new Set(["street", "tavern", "guild", "shop", "delver", "quest", "noble"]);
 const storyletText = (s: Storylet): string => [
   s.text, (s as any).investigate?.text, (s as any).search?.text, (s as any).result?.text,
   ...(s.choices ?? []).map((c) => c.text),
