@@ -20,7 +20,7 @@ export function grantConsumable(ch: Character, key: string, capacity: number): b
 // ---------- 基(base)＝テンプレ ----------
 interface Template {
   slot: ItemSlot; name: string; minDepth: number;
-  dmg?: number; reduce?: number; relic?: Item["relic"]; capacity?: number; exposurePerTurn?: number;
+  dmg?: number; reduce?: number; relic?: Item["relic"]; proc?: Item["proc"]; capacity?: number; exposurePerTurn?: number;
   oddity?: boolean; // 異物（必ず未鑑定）
 }
 
@@ -36,6 +36,12 @@ const TEMPLATES: Template[] = [
   { slot: "weapon", name: "大剣",     minDepth: 13, dmg: 3 },
   { slot: "weapon", name: "双刃",     minDepth: 18, dmg: 4 },
   { slot: "weapon", name: "深淵の刃", minDepth: 16, dmg: 4, exposurePerTurn: 0.02, oddity: true },
+  // 発動効果つき武器（物量レビュー PR4・2026-06-28）：武器に初の「挙動差」。命中時に proc が発動（web 適用）。
+  { slot: "weapon", name: "鋸刃刀",   minDepth: 7,  dmg: 2, proc: "rend" },   // 裂傷＝継続ダメ
+  { slot: "weapon", name: "戦斧",     minDepth: 9,  dmg: 3, proc: "cleave" }, // 薙ぎ＝隣接にも余波
+  { slot: "weapon", name: "鎖星",     minDepth: 12, dmg: 3, proc: "stun" },   // 当て止め（一定確率）
+  { slot: "weapon", name: "萎えの槍", minDepth: 15, dmg: 3, proc: "sap" },    // 目標の攻撃を弱める
+  { slot: "weapon", name: "断界刃",   minDepth: 22, dmg: 4, proc: "cleave" }, // 深層の薙ぎ（大）
   // 防具（被ダメ-）＝武器と同数9種
   { slot: "armor",  name: "革鎧",     minDepth: 1,  reduce: 1 },
   { slot: "armor",  name: "外套",     minDepth: 2,  reduce: 1 },
@@ -137,6 +143,7 @@ function fromTemplate(t: Template, affix: Affix | null = null, enchant = 0): Ite
   if (dmg) item.dmg = dmg;
   if (reduce) item.reduce = reduce;
   if (t.relic) item.relic = t.relic;
+  if (t.proc) item.proc = t.proc; // 発動効果は基テンプレ由来＝銘/+N と独立（往復で baseName から復元）
   if (cap) item.capacity = cap;
   if (exp) item.exposurePerTurn = exp;
   if (affix) item.affix = affix.key;
@@ -285,10 +292,14 @@ const RELIC_DESC: Record<NonNullable<Item["relic"]>, string> = {
   thorns: "被弾を反射", siphon: "近接で吸命", clarity: "毒・侵蝕を半減", potency: "術ダメージ増", revenant: "一度だけ致死を耐える",
 };
 
+/** 武器の発動効果の説明（PR4）。 */
+const PROC_DESC: Record<NonNullable<Item["proc"]>, string> = {
+  cleave: "薙ぎ（隣接の敵にも余波）", stun: "当て止め", rend: "裂傷（継続ダメ）", sap: "敵の攻撃を弱める",
+};
 /** 効果の説明（鑑定済み前提）。 */
 export function itemPower(it: Item): string {
   let s: string;
-  if (it.slot === "weapon") s = `攻＋${it.dmg}`;
+  if (it.slot === "weapon") s = `攻＋${it.dmg}${it.proc ? `・${PROC_DESC[it.proc]}` : ""}`;
   else if (it.slot === "armor") s = `被ダメ−${it.reduce}`;
   else if (it.slot === "bag") s = `持てる量＋${it.capacity}`;
   else s = it.relic ? RELIC_DESC[it.relic] : "遺物";

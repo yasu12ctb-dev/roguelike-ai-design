@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.67.0";
+export const APP_VERSION = "0.68.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -3432,6 +3432,36 @@ const POTENCY_MUL = 1.25;   // 遺物 potency（術理）：術ダメージ ×1.
 let revenantUsed = false;   // 遺物 revenant（不死鳥の灰）：潜行ごと一度だけ致死を1で耐える。enterFloor 開始で潜行単位にリセット
 /** 術の基礎ダメージ（理由来＋遺物 potency）。castSpell の全術はこれを基準にする。 */
 const spellBase = (ch: Character): number => warpDamage(effectiveReason(ch)) * (ch.equipment.relic?.relic === "potency" ? POTENCY_MUL : 1);
+// 発動効果つき武器（物量レビュー PR4）：命中時に発動。武器に初の「挙動差」を与える（従来は近接+ダメージのみ）。
+const CLEAVE_FRAC = 0.5;    // 薙ぎ：隣接の他の敵へ与ダメの 50%
+const STUN_CHANCE = 0.3;    // 当て止め：命中ごと 30% で目標を1手止める
+const REND_TURNS = 3;       // 裂傷：継続ダメの手数
+const SAP_TURNS = 3;        // 弱体：目標の攻撃減（WEAK_AMT）の手数
+/** 武器の発動効果（proc）を命中時に適用。target=殴った敵・dmg=与えた近接ダメージ。潜行(dive)のみ。 */
+function applyWeaponProc(ch: Character, target: Monster, dmg: number): void {
+  const proc = ch.equipment.weapon?.proc;
+  if (!proc || !floor) return;
+  if (proc === "cleave") { // 隣接の他の敵にも余波（群れに強い）
+    const splash = Math.max(1, Math.round(dmg * CLEAVE_FRAC));
+    for (const m of floor.monsters) {
+      if (m.hp <= 0 || m === target) continue;
+      if (Math.max(Math.abs(m.x - target.x), Math.abs(m.y - target.y)) > 1) continue;
+      m.hp -= splash; flashFx("warp", { x: m.x, y: m.y });
+      if (m.hp <= 0) downOrKill(m, `薙ぎが${m.kind.name}を巻き込んだ。`);
+    }
+    return;
+  }
+  if (target.hp <= 0) return; // 以下は生存している目標に効く状態異常
+  if (proc === "stun" && rng.next() < STUN_CHANCE) {
+    target.stunned = Math.max(target.stunned ?? 0, 1); log(`鎖星が${target.kind.name}を当て止めた。`, "dim");
+  } else if (proc === "rend") {
+    target.poison = Math.max(target.poison ?? 0, REND_TURNS);
+    target.poisonDmg = Math.max(target.poisonDmg ?? 0, Math.max(1, Math.round(dmg * 0.3)));
+    log(`${target.kind.name}が裂傷を負う（継続ダメ）。`, "dim");
+  } else if (proc === "sap") {
+    target.weak = Math.max(target.weak ?? 0, SAP_TURNS); log(`${target.kind.name}の力が萎える。`, "dim");
+  }
+}
 // 召喚＝一時味方（4-11F③・召系）。盤上 ephemeral：数手で霧散。隣接敵を毎手討ち、いなければ最寄りへ寄る。
 // monsters のターゲットには乗らない（簡潔さ優先）＝味方AIは攻撃のみ。echo_summon(4-10I) とは別物（術側は割り切り）。
 interface SummonEntity extends Pos { glyph: string; name: string; dmg: number; turns: number; follow: boolean; }
@@ -4455,6 +4485,7 @@ function moveOrInteract(nx: number, ny: number): boolean {
       const drained = Math.max(1, Math.round(dmg * SIPHON_FRAC));
       hp = Math.min(maxHp(ch), hp + drained);
     }
+    applyWeaponProc(ch, mon, dmg); // 発動効果つき武器（PR4）：薙ぎ/当て止め/裂傷/弱体（cleave は撃破時も余波）
     if (mon.hp <= 0) downOrKill(mon); // 撃破→ボスは討つ/鎮める、他は通常（手番末で処理）
     else {
       log(`${mon.kind.name}に${dmg}の一撃。`);
