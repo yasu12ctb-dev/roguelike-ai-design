@@ -383,6 +383,7 @@ export interface Storylet {
   choices?: StoryletChoice[];    // 環境イベントの選択肢（dungeon）
   result?: StoryletBranch;       // 開封結果（chest。開けると自動適用。空/拾得/異物/罠）
   speaker?: "keeper";            // 話者＝固定NPC本人（店主/受付等）。既定=雑踏(talkCrowd)／"keeper"=店主に話しかけた時 talkKeeper が本人として語る（#origin_name#=店主名）。街 context 限定・#origin_name# 以外のスロット不可（4-4B 辻褄整合）
+  courtRole?: "steward" | "courtier" | "guest"; // noble context 限定：役職固有の本文（家令の蔵管理／客人の回想 等）を、courtNpcScene がその役職のNPCにだけ配信する（未指定=どの宮廷NPCにも可）。役職ミスラベル防止（4-14G）
 }
 
 // ---- 変質計算の結果 ----

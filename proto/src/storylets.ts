@@ -237,10 +237,15 @@ function townMatches(p: Prereq, world: World, ch: Character, la: LivingActor): b
 export function selectTownStorylet(
   db: ContentDb, world: World, ch: Character, la: LivingActor, rng: Rng,
   contexts: readonly TownContext[] = TOWN_CONTEXTS, avoid?: Set<string>,
+  courtRole?: "steward" | "courtier" | "guest",
 ): Storylet | null {
   const allow = new Set<string>(contexts);
   // speaker:"keeper" は固定NPC本人の語り＝雑踏(talkCrowd)には出さない（selectKeeperStorylet が拾う）。
-  const pool = db.storylets.filter((s) => allow.has(s.context ?? "") && s.speaker !== "keeper" && townMatches(s.prerequisites, world, ch, la));
+  // courtRole 指定時（宮廷NPC＝家令/廷臣/客人）は、役職固有 storylet をその役職にだけ通す（未指定の generic はどの役職にも可）＝役職ミスラベル防止（4-14G）。
+  const pool = db.storylets.filter((s) =>
+    allow.has(s.context ?? "") && s.speaker !== "keeper" &&
+    (!courtRole || !s.courtRole || s.courtRole === courtRole) &&
+    townMatches(s.prerequisites, world, ch, la));
   return pickPreferArc(pool, rng, avoid);
 }
 

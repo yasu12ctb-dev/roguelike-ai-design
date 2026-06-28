@@ -156,6 +156,9 @@ async function main() {
     { seed: 303, depth: 33, diff: "normal", loadout: chunks[2], abyss: false },
     { seed: 404, depth: 40, diff: "hard", loadout: chunks[3], abyss: false },
     { seed: 505, depth: 50, diff: "normal", loadout: ALL_SPELLS.slice(0, 10), abyss: true }, // 深淵帯
+    { seed: 560, depth: 56, diff: "hard", loadout: ALL_SPELLS.slice(0, 10), abyss: false },  // 大命 slay@56・深度50超ボス（abyssalScale ×1.3）
+    { seed: 640, depth: 64, diff: "hard", loadout: ALL_SPELLS.slice(10, 20), abyss: false }, // 大命 slay@64・深度50超ボス（abyssalScale ×1.7）
+    { seed: 720, depth: 72, diff: "normal", loadout: ALL_SPELLS.slice(20, 30), abyss: false }, // さらに深部（敵数上限60・ボス階）
   ];
   const all: string[] = [];
   for (const cfg of configs) {
