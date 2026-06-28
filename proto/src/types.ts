@@ -100,11 +100,15 @@ export type RelicKind = "calm" | "reason" | "greed" | "might" | "vigor" | "ward"
   | "potency"   // 術ダメージ増（術理）
   | "revenant"; // 潜行中一度だけ致死を1で耐える（不死鳥の灰）
 // calm=深蝕レート減 / reason=理+1 / greed=撃破XP×1.5 / might=近接+1 / vigor=最大HP+6 / ward=被ダメ-1 / fortune=拾う金貨×1.5 / mending=潜行中ゆっくり回復
+// 武器の発動効果（物量レビュー PR4・2026-06-28）：武器に初の「挙動差」を与える（従来は近接+ダメージのみ）。命中時に発動・web 適用。
+//   cleave=隣接の他の敵にも余波／stun=一定確率で目標を当て止め／rend=裂傷（継続ダメ）／sap=目標の攻撃を弱める。
+export type WeaponProc = "cleave" | "stun" | "rend" | "sap";
 export interface Item {
   id: string; slot: ItemSlot; name: string;
   dmg?: number;             // 武器：近接ダメージ+（銘・+N 込みの最終値）
   reduce?: number;          // 防具：被ダメージ-（銘・+N 込みの最終値）
   relic?: RelicKind;        // 遺物：パッシブ種
+  proc?: WeaponProc;        // 武器：命中時の発動効果（基テンプレ由来＝名前でなく base から導出）
   capacity?: number;        // 鞄：持ち物の枠+（持ち物システム Phase2）
   exposurePerTurn?: number; // 装備中の毎ターン深蝕（蝕=正／浄=負／異物の副作用）
   unidentified?: boolean;   // 未鑑定（装備すると判明）
