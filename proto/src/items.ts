@@ -241,7 +241,17 @@ export const SLOT_LABEL: Record<ItemSlot, string> = { weapon: "武器", armor: "
 export interface ConsumableDef {
   key: string; name: string; desc: string; price: number;
   minLevel?: number; // この等級未満では店頭に並ばない（深部向け上位品を序盤の棚に出さない）
-  use: { exposure?: number; healFrac?: number };
+  // 効果（web の applyConsumable が解釈）。exposure/healFrac＝街でも使える基本品。
+  // curePoison/atkBuff/armBuff/haste/burst＝戦術系（潜行中限定）。identify＝持ち物の未鑑定を見極める。
+  use: {
+    exposure?: number; healFrac?: number;
+    curePoison?: boolean;  // 巡る毒（敵 venom）を中和（poisonTurns→0）
+    atkBuff?: number;      // 近接強化を n 手（深蝕ゼロ＝術の clean 版・量は ATTACK_BUFF）
+    armBuff?: number;      // 被ダメ軽減を n 手（量は ARMOR_BUFF）
+    haste?: number;        // 疾走を n 手（離脱に）
+    burst?: number;        // 投擲＝周囲（半径1）の敵に一括ダメージ
+    identify?: boolean;    // 手持ちの未鑑定の装備をすべて鑑定
+  };
 }
 export const CONSUMABLES: ConsumableDef[] = [
   { key: "soothe", name: "鎮静の薬",   desc: "深蝕を 0.6 退ける（携行できる薬師）", price: 16, use: { exposure: -0.6 } },
@@ -250,6 +260,15 @@ export const CONSUMABLES: ConsumableDef[] = [
   { key: "salve2",  name: "治癒の秘薬", desc: "最大HPの9割を癒す（潜行中に）",   price: 30, minLevel: 14, use: { healFrac: 0.9 } },
   { key: "soothe2", name: "鎮静の劑",   desc: "深蝕を 1.4 退ける（濃い薬）",     price: 44, minLevel: 16, use: { exposure: -1.4 } },
   { key: "soothe3", name: "浄化の聖水", desc: "深蝕を 2.6 退ける（祓いの聖水）", price: 96, minLevel: 30, use: { exposure: -2.6 } },
+  // 戦術系（拡充・PR1）：NetHack 系譜の「アイテム使用の層」を厚く＝回復/除去の2系統だけだった穴を埋める。
+  // すべて深蝕ゼロ＝術（深蝕コスト）に対する「清いが有限」の対。潜行中限定（街では空振り＝使用ガード）。
+  { key: "antidote", name: "解毒の丸薬", desc: "巡る毒を中和する（潜行中）",                price: 14, minLevel: 6,  use: { curePoison: true } },
+  { key: "idscroll", name: "鑑定の巻物", desc: "手持ちの未鑑定の装備をすべて見極める",      price: 24, use: { identify: true } },
+  { key: "firebomb", name: "火炎瓶",     desc: "周囲の敵を炎で焼く（投擲・潜行中）",        price: 28, minLevel: 8,  use: { burst: 8 } },
+  { key: "fury",     name: "戦狂いの薬", desc: "数手のあいだ近接が冴える（潜行中）",        price: 36, minLevel: 12, use: { atkBuff: 5 } },
+  { key: "aegis",    name: "守魂の薬",   desc: "数手のあいだ受ける傷が和らぐ（潜行中）",    price: 36, minLevel: 12, use: { armBuff: 5 } },
+  { key: "swift",    name: "疾風の薬",   desc: "数手のあいだ駆け抜ける（離脱に・潜行中）",  price: 44, minLevel: 16, use: { haste: 3 } },
+  { key: "firebomb2",name: "業火の壺",   desc: "周囲の敵を業火で焼き尽くす（投擲・潜行中）",price: 72, minLevel: 28, use: { burst: 16 } },
 ];
 export const consumableByKey = (key: string): ConsumableDef | undefined => CONSUMABLES.find((c) => c.key === key);
 
