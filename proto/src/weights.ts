@@ -2,6 +2,7 @@
 
 import type { Character, Fossil, World } from "./types.ts";
 import type { Rng } from "./rng.ts";
+import { worldTime } from "./world.ts";
 
 const COOLDOWN_FACTOR = 0.2; // 直近観測した相手の重み減衰
 
@@ -16,9 +17,10 @@ export function encounterWeight(world: World, ch: Character, fossil: Fossil): nu
   if (bond?.unfinished) w += 3.0;                       // 未完の因縁（最重視）
   w += 1.0 * (bond?.value ?? fossil.bondAtDeath * 0.5); // 絆・関与度（系譜で薄く引き継ぐ）
   w += 1.5 * depthProximity(ch.depth, fossil.laidDepth);
-  w += 0.5 * Math.min(4, world.generation - fossil.lastTouchedGeneration); // 不在の長さ
-  // クールダウン：直近世代に触れた相手は出にくい
-  if (world.generation - fossil.lastTouchedGeneration === 0) w *= COOLDOWN_FACTOR;
+  const absence = worldTime(world) - fossil.lastTouchedGeneration; // 不在の長さ（worldTime 基準・4-14G）
+  w += 0.5 * Math.min(4, absence);
+  // クールダウン：直近に触れた相手は出にくい
+  if (absence === 0) w *= COOLDOWN_FACTOR;
   return w;
 }
 

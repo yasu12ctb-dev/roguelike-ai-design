@@ -7,6 +7,7 @@ import { makeContentDb } from "../content.ts";
 import { makeRng, type Rng } from "../rng.ts";
 import {
   newWorld, createCharacter, fossilizeCurrent, retireCurrent, fossilizeCompanion, fossilizeAbandoned, intervene, recordRediscovery,
+  worldTime, accrueWorldClock, stampReached,
   chronicle, poleLabel, finalActLabel, migrateWorld, awardSeal, abyssUnlocked, setArc, getArc,
   grantEchoOnRequiem, consumeEcho, ECHO_DEPLOY_COST,
   BLOOD_SPELLS, PUPIL_SPELLS,
@@ -57,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.57.0";
+export const APP_VERSION = "0.58.0";
 export const APP_BUILD = "2026-06-27";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -2783,6 +2784,10 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
   mendTick = 0; // 遺物 mending の回復タイマーもフロア毎に仕切り直す（前フロアの貯めで降下直後に回復させない）
   const ch = world.current!;
   ch.depth = depth;
+  // 世界クロック（4-14G 層1）：この潜行の最深を更新（生還時に深度積分でクロックを進める）＋
+  // フロンティア相対①：到達した深度までの frontierHeld 化石に reachedAt を刻む（出会う前に歪ませない）。
+  world.diveMaxDepth = Math.max(world.diveMaxDepth ?? 0, depth);
+  stampReached(world, depth);
   // 深蝕リワーク v2：降下・探索・移動では深蝕は増えない（じっくり攻略を罰しない）。
   // 蓄積源は①術使用（castSpell）②異物装備の毎手drip（endTurn）③聖遺物携行の毎手（endTurn）の3つだけ。
   player = { ...(fromAbove ? floor.stairsUp : floor.stairsDown) };
@@ -3147,6 +3152,7 @@ async function startDive() {
   floorCache = new Map(); // 新しい潜行＝階の記憶をリセット（深度1から）
   setPieceCooldown = 0; quietDescents = 0; // 4-10H 第二層：新しい潜行はペーシング調停層もまっさらから
   world.diveCount = (world.diveCount ?? 0) + 1; // 潜行ごとに別ダンジョン＝再潜行farm防止（genFloor のseed nonce）
+  world.diveMaxDepth = 0; // 世界クロック（4-14G 層1）：新しい潜行は最深をリセット（死で帰還しなかった前回の値を持ち越さない）
   if (world.current) hp = townHealHp(); // 街で癒えた状態から潜る（難易度 townHeal<1 なら満タンに戻らない＝消耗）
   // 街/屋内の paintCell が残したインライン背景・文字色・グローを引き継がないよう、
   // ダンジョン用ビュー(VIEW)でグリッドを組み直してから描く（他遷移と同じ規約）。
@@ -4194,9 +4200,20 @@ function useShrine(s: Shrine): void {
 
 /** 地上への生還（フル離脱・v2）：傷は癒え深みは残る。潜行を終え街へ→次は新ダンジョン1階から
  *  （startDive が floorCache/diveCount をリセット＝farm根絶を維持）。上り階段(深度1)・帰還の詠唱から呼ぶ。 */
+/** 世界クロックを進める（4-14G 層1）：生還＝街到着のたび、この潜行の最深を深度積分で eraClock に足す。
+ *  ビート発火で世界が老ける（弧が進む・縁ある生者が深みへ還る）。浅層(≤8)の周回では gain=0＝進まない。
+ *  喪失を可視化＝縁者が還ったら「お前が生き延びる間に…」と即座に告げる（4-14G「喪失を見せる」要件）。 */
+function tickWorldClock() {
+  const { beats, fell } = accrueWorldClock(world, world.diveMaxDepth ?? 0);
+  world.diveMaxDepth = 0;
+  for (const name of fell) log(`お前が生き延びる間に、${name}は深みへと還っていった。縁を結んだ顔が、またひとつ。`, "warn");
+  if (beats > 0) save();
+}
+
 async function surfaceReturn() {
   const ch = world.current!;
   hp = maxHp(ch); ch.depth = 0;
+  tickWorldClock(); // 世界クロック（4-14G 層1）：深部での営みで世界が老ける（死を回避しても進む）
   // 同行（4-14C）：二人で生還＝絆が深まり、相棒は街に残存（次の潜行も隣を歩く）。
   if (companion && world.companion?.alive) {
     world.companion.bond += 1;
@@ -4225,6 +4242,7 @@ async function returnViaDoor() {
   if (r.pick !== 1) { busy = false; draw(); return; }
   hp = maxHp(ch); ch.depth = 0;
   companion = null; // 相棒は world.companion として街へ同道（再降下で再展開）
+  tickWorldClock(); // 世界クロック（4-14G 層1）：扉での一時帰還も「深部から地上へ」＝世界が進む
   save();
   sfx("stairs_up"); flashFx("warp");
   log("帰還の扉をくぐる――束の間の地上。扉は、あのフロアへ繋がったままだ。", "cue");
@@ -4399,7 +4417,7 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   busy = true;
   const fossil = world.fossils.find((f) => f.id === fe.fossilId)!;
   sfx("ui");
-  const v = computeVariation(fossil, world.generation);
+  const v = computeVariation(fossil, worldTime(world));
   // 山場（遭-④）：有効候補から rng で1件選ぶ＝frame文と型を「同じ1件」から導く（二重抽選を避ける）。
   const sp0 = matchSetPiece(db, fossil, v, rng);
   let setPiece = sp0 ? fillStoryletText(fossil, sp0.frame) : null;

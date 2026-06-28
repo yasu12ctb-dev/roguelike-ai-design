@@ -34,6 +34,9 @@ export interface World {
   plagueCooldown?: number;      // 深蝕の瘴気（疫病）の冷却＝街の災厄（4-12 J）。任意＝旧セーブ非破壊。
   omenCooldown?: number;        // 深みの兆し（後期帯 Lv20+ を埋める・監査B4）の冷却。任意＝旧セーブ非破壊。
   diveCount?: number;           // 潜行回数（startDive ごと+1）。genFloor のseedに混ぜて潜行ごとに別ダンジョン＝再潜行farm防止。任意＝旧セーブ非破壊。
+  eraBeats?: number;            // 世界時間の加算分（4-14G・層1）。worldTime = generation + eraBeats＝死だけでなく深部での営み（生還）でも世界が老ける。任意＝旧セーブ非破壊。
+  eraClock?: number;            // 世界クロックの深度積分アキュムレータ（生還ごと加算・1で1ビート発火＝eraBeats++）。浅層(≤8)の周回では進まない。任意＝旧セーブ非破壊。
+  diveMaxDepth?: number;        // 今回の潜行で到達した最深（web が enterFloor で更新）。生還時の世界クロック加算に使う。任意＝旧セーブ非破壊。
   echoes?: EchoAsh[];           // 残響召喚の遺灰（4-10I）：神話極の化石を鎮魂して得る。潜行で1回展開＝強めの一時味方。世代越え。任意＝旧セーブ非破壊。
   keepsakes?: Keepsake[];       // 拾得品の蒐集（読み物コレクション・書記の館で再読）。世代を越えて堆積する好古の棚。任意＝旧セーブ非破壊。
   difficulty?: Difficulty;      // 難易度モード（4-11H）。新規ワールド開始時に固定（途中変更なし）。未設定/旧セーブ＝easy＝現行数値。
@@ -215,6 +218,8 @@ export interface Fossil {
   wasAlly?: boolean;            // 生者→化石ループ（4-14・b）：街/迷宮で縁を結んだ生者NPCが深みで還らず化石化した者。後世の再会で「会った相手だと分かる」一言に使う。任意＝旧セーブ非破壊。
   retired?: boolean;           // 退隠（4-14G・層2）：死でなく自ら退いた先代の系譜記録。亡骸ではない＝迷宮遭遇から除外。襲名(heir)の継承元。任意＝非破壊。
   achievementAtEnd?: number;   // 退隠/死亡時の功績スコア（4-14G）。襲名ボーナス（継ぐ術数・装備相続の可否）を功績比例にするための基準。任意＝非破壊。
+  reachedAt?: number;          // フロンティア相対（4-14G・層1①）：プレイヤーがこの化石の深度帯に初到達した worldTime。変質クロックの起点＝「まず出会わせて、放置すれば歪む」。任意＝非破壊。
+  frontierHeld?: boolean;      // 到達まで変質を凍結する化石（シード/doom終端/縁ループ＝深部に置かれ未到達でありうる）。reachedAt が立つまで weathered のまま。任意＝非破壊。
 }
 
 export interface TrackedEntity {
