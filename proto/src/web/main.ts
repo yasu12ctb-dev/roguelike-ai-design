@@ -15,7 +15,7 @@ import {
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
 import {
   maxHp, meleeDmg, heartFactor, xpToNext, xpForKill, statsLine,
-  STAT_KEYS, STAT_LABEL, HP_PER, carryCapacity, STASH_CAP, STASH_INHERIT, LOADOUT_CAP, BASE_STATS,
+  STAT_KEYS, STAT_LABEL, HP_PER, carryCapacity, STASH_CAP, STASH_CAP_MANOR, STASH_INHERIT, STASH_INHERIT_MANOR, LOADOUT_CAP, BASE_STATS,
   armorReduce, effectiveReason, xpMul, equipExposure, gearCapacity,
   DEPTH_SEAL_AT, ABYSS_DEPTH, RELIC_EXPOSURE_PER_TURN, RELIC_PURSUER_EVERY, RELIC_PURSUER_CAP,
 } from "../progression.ts";
@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.59.0";
+export const APP_VERSION = "0.60.0";
 export const APP_BUILD = "2026-06-27";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -599,7 +599,7 @@ function enterBuilding(kind: string, restore = false) {
   townPlayer = { x: interior.exitPos.x, y: interior.exitPos.y - 1 };
   stopWander();
   buildGridDom(interior.w, interior.h);
-  if (!restore) log(`〈${townGrid.data.keepers[kind].place}〉に入った。`, "dim");
+  if (!restore) log(`〈${kind === "home" && world.manorUnlocked ? "貴族街の館" : townGrid.data.keepers[kind].place}〉に入った。`, "dim");
   drawInterior();
   persistTown();
 }
@@ -1285,7 +1285,9 @@ async function storeManage() {
 // ---------- 自宅の保管庫＝武具庫（持ち物 Phase3）。World.stash(消耗品)/stashGear(装備) に置く＝世代を越えて残る ----------
 // 総容量は消耗品スタック＋装備の合計で STASH_CAP（収集の楽しみ）。世代交代で次代へ残るのは各 STASH_INHERIT 枠（world.ts で切詰め）。
 const homeUsed = () => (world.stash?.length ?? 0) + (world.stashGear?.length ?? 0);
-const homeFull = () => homeUsed() >= STASH_CAP;
+const stashCap = () => (world.manorUnlocked ? STASH_CAP_MANOR : STASH_CAP);           // 貴族街の館で保管庫拡張（4-14G 層4）
+const stashInherit = () => (world.manorUnlocked ? STASH_INHERIT_MANOR : STASH_INHERIT); // 相続枠も拡張
+const homeFull = () => homeUsed() >= stashCap();
 function stashAdd(key: string): boolean {
   world.stash ??= [];
   const s = world.stash.find((x) => x.key === key);
@@ -1314,7 +1316,7 @@ async function homeDeposit() {
     ];
     if (!opts.length) { await sheet({ text: "預けられる持ち物も装備もない。", options: ["閉じる"] }); break; }
     const r = await sheet({
-      text: `わが家の物入れ＝代々の武具庫。保管 ${homeUsed()}/${STASH_CAP} 枠（世代を越えて遺せるのは消耗品${STASH_INHERIT}・装備${STASH_INHERIT}枠まで）。\n何を預ける？`,
+      text: `わが家の物入れ＝代々の武具庫。保管 ${homeUsed()}/${stashCap()} 枠（世代を越えて遺せるのは消耗品${stashInherit()}・装備${stashInherit()}枠まで）。\n何を預ける？`,
       meta: "自宅 ── 預ける",
       options: [...opts, "やめる"],
     });
@@ -1347,7 +1349,7 @@ async function homeWithdraw() {
     ];
     if (!opts.length) { await sheet({ text: "保管庫は空だ。", options: ["閉じる"] }); break; }
     const r = await sheet({
-      text: `保管 ${homeUsed()}/${STASH_CAP} 枠。持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)} 枠。\n何を引き出す？`,
+      text: `保管 ${homeUsed()}/${stashCap()} 枠。持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)} 枠。\n何を引き出す？`,
       meta: "自宅 ── 引き出す",
       options: [...opts, "やめる"],
     });
@@ -1377,8 +1379,8 @@ async function homeView() {
   const cons = st.length ? st.map((s) => `・${consumableByKey(s.key)?.name ?? s.key} ×${s.qty}`).join("\n") : "・（なし）";
   const armory = gear.length ? gear.map((it) => `・${SLOT_LABEL[it.slot]} ${itemLabel(it)}`).join("\n") : "・（なし）";
   await sheet({
-    text: `代々の物入れ。世代を越えて遺せるのは消耗品${STASH_INHERIT}・装備${STASH_INHERIT}枠まで。\n\n〔消耗品〕\n${cons}\n\n〔武具庫〕\n${armory}`,
-    meta: `自宅 ── 保管 ${homeUsed()}/${STASH_CAP}`, options: ["閉じる"],
+    text: `代々の物入れ。世代を越えて遺せるのは消耗品${stashInherit()}・装備${stashInherit()}枠まで。\n\n〔消耗品〕\n${cons}\n\n〔武具庫〕\n${armory}`,
+    meta: `${world.manorUnlocked ? "貴族街の館" : "自宅"} ── 保管 ${homeUsed()}/${stashCap()}`, options: ["閉じる"],
   });
   busy = false;
 }
@@ -1413,9 +1415,12 @@ async function lineageHallScene() {
   const hr = houseRank();
   const more = recent.length < ordered.length ? `\n\n…ほか ${ordered.length - recent.length} 名、古い代の者たち。` : "";
   const boon = hr.tier >= 1 ? `\n\n家格に応じ、次の当主は家の蓄え（治癒の膏薬・餞別）を携えて発つ。` : "";
+  const hall = world.manorUnlocked
+    ? `貴族街の館・大広間。歴代の名は今、貴族の列に連なる肖像として壁を埋めている。`
+    : `世代を継ぐたび、この壁に名が刻まれる。退いた者は伝説に、斃れた者は深みで静かに変わってゆく。`;
   await sheet({
-    text: `〔${hr.label}〕（家格 ${hr.tier}/5・誉れ ${hr.score}）\n世代を継ぐたび、この壁に名が刻まれる。退いた者は伝説に、斃れた者は深みで静かに変わってゆく。${boon}\n\n${body}${more}`,
-    meta: "自宅 ── 系譜の間（家系図）", options: ["閉じる"],
+    text: `〔${hr.label}〕（家格 ${hr.tier}/5・誉れ ${hr.score}）\n${hall}${boon}\n\n${body}${more}`,
+    meta: `${world.manorUnlocked ? "貴族街の館" : "自宅"} ── 系譜の間（家系図）`, options: ["閉じる"],
   });
   busy = false;
 }
@@ -1758,6 +1763,7 @@ async function talkKeeper(asKind?: string) {
   const kind = asKind ?? interior.kind;
   const d = townGrid.data.keepers[kind];
   if (kind === "guild") await checkRankUp(); // 等級の正式認定＝昇格イベント（4-4E）
+  if (kind === "guild" || kind === "home") await maybeGrantManor(); // 貴族街の館の拝領（終盤メタ・4-14G 層4・冪等）
   if (busy || !interior) return; // 昇格イベント中に状況が変わっていないか再確認
   // 店主目線の小イベント（4-4B 辻褄整合）：時々、固定の挨拶＋メニューの前に「店主本人が語る」一幕を挟む。
   // 話者＝その店主＝#origin_name# は店主名で充填（雑踏のランダム冒険者と取り違えない）。商い導線は後続でそのまま到達。
@@ -2118,7 +2124,7 @@ async function characterCreation() {
   // 家格の恩恵（4-14G 層3）：家が栄えるほど、次の当主は家の蓄え（治癒の膏薬・餞別）を携えて発つ＝微小。
   const hr = houseRank();
   if (hr.tier >= 1) {
-    const salves = Math.min(3, hr.tier);
+    const salves = Math.min(world.manorUnlocked ? 4 : 3, hr.tier); // 館は蓄えが手厚い（微小・4-14G 層4）
     for (let i = 0; i < salves; i++) addConsumable(ch, "salve");
     ch.gold += hr.tier * 5;
     log(`《${hr.label}》の蓄えから、治癒の膏薬×${salves}と餞別${hr.tier * 5}金貨を授かった。`, "dim");
@@ -2673,6 +2679,42 @@ async function monumentScene() {
   busy = false;
 }
 
+// ---------- 貴族街の館（4-14G 層4・終盤メタ）：家格が街の地図に出る到達点＝自宅機能の格上げ ----------
+let manorMarkKey: string | null = null;
+/** 館の拝領条件：奉献を成した（クリア）or 高家格（英傑の家系＝tier4+）。終盤メタ。 */
+function manorEligible(): boolean { return (world.ascended ?? 0) >= 1 || houseRank().tier >= 4; }
+/** 条件を満たし未拝領なら、一度だけ館を拝領する（統治者の grant・grantHomeScene パターン）。冪等。 */
+async function maybeGrantManor() {
+  if (world.manorUnlocked || !manorEligible()) return;
+  world.manorUnlocked = true;
+  busy = true;
+  sfx("seal"); flashFx("warp");
+  const hr = houseRank();
+  await sheet({
+    text: `街に、統治者の使いが訪れた。\n「《${hr.label}》の名は、もはや一介の潜り屋のそれではない。──貴族街に、あなたの家門の館を用意した。代々の物入れも、次代へ遺せるものも、館の格にふさわしく広がるだろう」\n\nあなたの家は、貴族街に館を得た。`,
+    meta: "貴族街の館 ── 家門の格上げ（4-14G）", options: ["拝領する"],
+  });
+  log("貴族街に家門の館を得た。保管庫と相続枠が広がり、系譜の間は大広間となった。", "cue");
+  chronicle(world, "legend", `${world.current?.name ?? "当主"}の家門が、貴族街に館を拝領した（${hr.label}）。`, world.current ? [world.current.id] : []);
+  busy = false;
+  refreshManorMark();
+  save();
+}
+/** 拝領後、貴族街（上辺）に「館」を建てる＝家が貴族街に上がった視覚的証（門は別軸アーク noble で解錠・ここは塗らない）。 */
+function refreshManorMark() {
+  if (manorMarkKey) { townGrid.propMap.delete(manorMarkKey); manorMarkKey = null; }
+  if (!world.manorUnlocked) return;
+  const cands: [number, number][] = [[22, 4], [20, 4], [24, 4], [18, 4], [26, 4], [22, 3], [20, 3]];
+  const spot = cands.find(([x, y]) =>
+    townTileAt(townGrid, x, y) === "floor" &&
+    !townGrid.propMap.has(`${x},${y}`) && !townGrid.doorMap.has(`${x},${y}`) && !townGrid.guardMap.has(`${x},${y}`));
+  if (!spot) return;
+  const [x, y] = spot;
+  manorMarkKey = `${x},${y}`;
+  townGrid.propMap.set(manorMarkKey, { x, y, glyph: "館", color: "#d9b65c", glow: true,
+    line: "貴族街に建つ、あなたの家門の館。代々の名が、ここに連なっていく。" });
+}
+
 // ---------- 運命の弧（4-6D）：retire 終端＝引退した英雄が街の守護者として常駐する（街の差分） ----------
 // terminal に達した retire の tracked を、街角の固定NPC（propMap）として注入。warped 終端（深みに呑まれた）は出さない。
 const guardianKeys = new Map<string, string>(); // propMap key → tracked id
@@ -2802,6 +2844,7 @@ function townLoop(): Promise<void> {
     refreshAscendMonument(); // 奉献の碑をこの来訪の最新状態に（4-13D Phase4）
     refreshRetireGuardians(); // 引退した英雄を街角に常駐（運命の弧 4-6D・retire 終端）
     refreshMemorialSites(); // 慰霊碑を堆積に応じて生きた記念碑に（街の差分 4-6C）
+    refreshManorMark(); // 貴族街の館＝拝領済みなら上辺に「館」を建てる（4-14G 層4）
     sceneActorKeys = new Set(); // 来訪ごとに出会い記録をリセット（同一来訪内での重複だけ防ぐ）
     if (t.scene === "interior" && t.interiorKind && townGrid.data.keepers[t.interiorKind]) {
       townReturn = t.pos ? { x: t.pos.x, y: t.pos.y } : null;

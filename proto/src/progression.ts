@@ -27,6 +27,8 @@ export const gearCapacity = (ch: Character) =>
  *  世代交代で次代へ残るのは消耗品・装備それぞれ STASH_INHERIT 枠まで（残りは失われる）。 */
 export const STASH_CAP = 60;
 export const STASH_INHERIT = 4;
+export const STASH_CAP_MANOR = 100;     // 貴族街の館（4-14G 層4）：保管庫拡張
+export const STASH_INHERIT_MANOR = 8;   // 貴族街の館：相続枠も拡張（家が栄えるほど多くを次代へ遺せる）
 /** 構えられる術の数（4-11F③ ロードアウト制）。習得は無制限だが、戦闘で撃てるのはこの数まで。 */
 export const LOADOUT_CAP = 10;
 /** 近接ダメージ＝力＋武器（power2・素手 で 3＝従来値。4-11F④）＋遺物 might */

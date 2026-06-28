@@ -37,6 +37,7 @@ export interface World {
   eraBeats?: number;            // 世界時間の加算分（4-14G・層1）。worldTime = generation + eraBeats＝死だけでなく深部での営み（生還）でも世界が老ける。任意＝旧セーブ非破壊。
   eraClock?: number;            // 世界クロックの深度積分アキュムレータ（生還ごと加算・1で1ビート発火＝eraBeats++）。浅層(≤8)の周回では進まない。任意＝旧セーブ非破壊。
   diveMaxDepth?: number;        // 今回の潜行で到達した最深（web が enterFloor で更新）。生還時の世界クロック加算に使う。任意＝旧セーブ非破壊。
+  manorUnlocked?: boolean;      // 貴族街の館（4-14G 層4・終盤メタ）：奉献 or 高家格で自宅が館へ格上げ（保管庫拡張＋系譜の間荘厳化＋相続枠増）。任意＝旧セーブ非破壊。
   echoes?: EchoAsh[];           // 残響召喚の遺灰（4-10I）：神話極の化石を鎮魂して得る。潜行で1回展開＝強めの一時味方。世代越え。任意＝旧セーブ非破壊。
   keepsakes?: Keepsake[];       // 拾得品の蒐集（読み物コレクション・書記の館で再読）。世代を越えて堆積する好古の棚。任意＝旧セーブ非破壊。
   difficulty?: Difficulty;      // 難易度モード（4-11H）。新規ワールド開始時に固定（途中変更なし）。未設定/旧セーブ＝easy＝現行数値。
