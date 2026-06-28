@@ -2704,9 +2704,10 @@ async function maybeGrantManor() {
 function refreshManorMark() {
   if (manorMarkKey) { townGrid.propMap.delete(manorMarkKey); manorMarkKey = null; }
   if (!world.manorUnlocked) return;
-  const cands: [number, number][] = [[22, 4], [20, 4], [24, 4], [18, 4], [26, 4], [22, 3], [20, 3]];
+  // 貴族街は "noble" タイル（封鎖区画）。props はタイル種別に依らず描画されるので、ここに「館」glyph を置く。
+  const cands: [number, number][] = [[24, 4], [27, 4], [30, 4], [21, 4], [33, 4], [24, 3], [30, 3]];
   const spot = cands.find(([x, y]) =>
-    townTileAt(townGrid, x, y) === "floor" &&
+    townTileAt(townGrid, x, y) === "noble" &&
     !townGrid.propMap.has(`${x},${y}`) && !townGrid.doorMap.has(`${x},${y}`) && !townGrid.guardMap.has(`${x},${y}`));
   if (!spot) return;
   const [x, y] = spot;
