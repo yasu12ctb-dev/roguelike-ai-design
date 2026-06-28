@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.63.2";
+export const APP_VERSION = "0.63.3";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -271,6 +271,10 @@ const clampCam = (v: number, mapSize: number, viewSize: number) => Math.max(0, M
 // ---------- 街シーン（4-4B：歩ける固定マップ） ----------
 const townGrid: TownGrid = buildTownGrid(townJson as unknown as TownData);
 let townPlayer: Pos = { ...townGrid.data.start };
+// QAデバッグフック（read-only・本番無害）：localStorage "sekitsui.dbg"="1" のときだけ window.__dbg を定義し、
+// 街の現在地/タイル格子/貴族街解禁状態を露出する。tools/playtest-noble.ts（クリア後貴族街の BFS ナビ・ファジング）専用。
+// 通常プレイヤーはフラグを立てないので未定義のまま＝副作用ゼロ。
+try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.dbg") === "1") (window as any).__dbg = () => ({ mode, townPlayer: { ...townPlayer }, ascended: world.ascended, nobleOpen: nobleQuarterOpen(), tile: townGrid.tiles[townPlayer.y]?.[townPlayer.x], ngate: townGrid.data.nobleGate, grid: townGrid.tiles, W: townGrid.data.width ?? townGrid.tiles[0].length, H: townGrid.tiles.length }); } catch {}
 let crowd: CrowdActor[] = [];        // 街路の群衆（使い捨て・非永続）
 let interior: Interior | null = null; // 屋内シーン（null=街路）
 let townReturn: Pos | null = null;    // 屋内に入る直前の街路位置（出たら戻る）
