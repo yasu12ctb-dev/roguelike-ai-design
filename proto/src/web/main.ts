@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.58.0";
+export const APP_VERSION = "0.59.0";
 export const APP_BUILD = "2026-06-27";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1383,6 +1383,43 @@ async function homeView() {
   busy = false;
 }
 
+// ---------- 家系図（系譜の間・4-14G 層3：自宅）：多世代の重みを見える化する ----------
+const VARIATION_JP: Record<string, string> = { weathered: "風化", twisting: "歪み", alien: "異形" };
+/** 家格（4-14G 層3）＝家系の誉れ。退隠2＋クリア3＋伝説1 で score、5段に丸める。次代開始の微小な恩恵に効く。 */
+function houseRank(): { tier: number; label: string; score: number } {
+  const retirees = world.fossils.filter((f) => f.retired).length;
+  const legends = world.tracked.filter((t) => t.source === "player_legend").length;
+  const score = retirees * 2 + (world.ascended ?? 0) * 3 + legends;
+  const tier = score >= 12 ? 5 : score >= 8 ? 4 : score >= 5 ? 3 : score >= 3 ? 2 : score >= 1 ? 1 : 0;
+  const label = ["名もなき家", "駆け出しの家", "名の知れた家", "誉れ高き家", "英傑の家系", "大いなる家系"][tier];
+  return { tier, label, score };
+}
+/** 系譜の間（家系図）：歴代当主＝どう終えたか（斃れた／退いた）＋何を遺したか＋今どう変わっているかを連ねる。 */
+async function lineageHallScene() {
+  busy = true;
+  const wt = worldTime(world);
+  const line = world.fossils.filter((f) => f.kind === "character"); // 歴代当主（死者＋退隠した先代）
+  const ordered = [...line].sort((a, b) => a.death.generationCreated - b.death.generationCreated);
+  const recent = ordered.slice(-15);
+  const rows = recent.map((f) => {
+    const g = f.death.generationCreated;
+    const epi = f.origin.epithet ? `〈${f.origin.epithet}〉` : "";
+    const gear = f.origin.gearTags?.[0] ? `／遺品「${f.origin.gearTags[0]}」` : "";
+    if (f.retired) return `第${g}代 ${f.origin.name}${epi}\n   伝説として退いた（街の守護者）${gear}`;
+    const v = computeVariation(f, wt);
+    return `第${g}代 ${f.origin.name}${epi}\n   深度${f.laidDepth}で斃れた（${poleLabel(f.tonePole)}）／今は ${VARIATION_JP[v.stage] ?? v.stage}${gear}`;
+  });
+  const body = rows.length ? rows.join("\n") : "・（まだ歴代の当主はいない。最初の一代として、名を刻め）";
+  const hr = houseRank();
+  const more = recent.length < ordered.length ? `\n\n…ほか ${ordered.length - recent.length} 名、古い代の者たち。` : "";
+  const boon = hr.tier >= 1 ? `\n\n家格に応じ、次の当主は家の蓄え（治癒の膏薬・餞別）を携えて発つ。` : "";
+  await sheet({
+    text: `〔${hr.label}〕（家格 ${hr.tier}/5・誉れ ${hr.score}）\n世代を継ぐたび、この壁に名が刻まれる。退いた者は伝説に、斃れた者は深みで静かに変わってゆく。${boon}\n\n${body}${more}`,
+    meta: "自宅 ── 系譜の間（家系図）", options: ["閉じる"],
+  });
+  busy = false;
+}
+
 // ---------- 書記＝伝説化承認／系譜（4-4）・ギルド＝等級・英雄譜（4-4） ----------
 const TRACK_SOURCE_LABEL: Record<string, string> = { seeded: "街の古い伝説", player_legend: "あなたが遺した伝説", nemesis: "因縁の相手" };
 const ARC_LABEL: Record<string, string> = { retire: "静かなる昇華", doom: "破滅の弧", fall: "堕ちゆく弧", lore_drift: "伝承の漂い" };
@@ -1793,6 +1830,7 @@ async function talkKeeper(asKind?: string) {
   if (kind === "home" && actIdx === 0) return void homeDeposit();       // 保管庫に預ける
   if (kind === "home" && actIdx === 1) return void homeWithdraw();      // 保管庫から引き出す
   if (kind === "home" && actIdx === 2) return void homeView();          // 物入れを検める
+  if (kind === "home" && actIdx === 3) return void lineageHallScene();   // 系譜の間（家系図・4-14G 層3）
   busy = true;
   await sheet({
     text: `${d.name}：「${d.acts[actIdx]}」\n\n……その商いは、まだ整っていない。`,
@@ -2076,6 +2114,14 @@ async function characterCreation() {
       if (it && !ch.equipment[it.slot]) { it.unidentified = false; ch.equipment[it.slot] = it; }
     }
     log(`${heirAnc.origin.name}の遺した装備を受け継いだ。家督とともに。`, "cue");
+  }
+  // 家格の恩恵（4-14G 層3）：家が栄えるほど、次の当主は家の蓄え（治癒の膏薬・餞別）を携えて発つ＝微小。
+  const hr = houseRank();
+  if (hr.tier >= 1) {
+    const salves = Math.min(3, hr.tier);
+    for (let i = 0; i < salves; i++) addConsumable(ch, "salve");
+    ch.gold += hr.tier * 5;
+    log(`《${hr.label}》の蓄えから、治癒の膏薬×${salves}と餞別${hr.tier * 5}金貨を授かった。`, "dim");
   }
   hp = maxHp(ch);
   const intro = lineage.relation === "none"
