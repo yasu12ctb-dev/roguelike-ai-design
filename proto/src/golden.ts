@@ -146,9 +146,10 @@ const SCENARIOS: Record<string, () => string> = {
 // checked-in 期待値（--print で再生成して貼り替え）。Swift 移植はこの値を再現すべき正解データ。
 const EXPECTED: Record<string, string> = {
   rng: "05bda7cc", progression: "cfe0c82f", genFloor: "1857a403",
-  monsterAI: "51d3744d", items: "573b7242", worldLifecycle: "cfa4aa74",
+  monsterAI: "51d3744d", items: "573b7242", worldLifecycle: "741659d6",
   spells: "0e91b2dc", variation: "54d9a151",
 };
+// 注：worldLifecycle は 4-14 初期シード化石 2→12 体で更新（純エンジンの決定論変化＝意図的）。genFloor/monsterAI 等は不変。
 
 const printMode = process.argv.includes("--print");
 let fail = 0;

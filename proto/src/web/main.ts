@@ -3368,7 +3368,8 @@ async function handleBossResolve() {
     const fossil = boss.fossilId ? world.fossils.find((f) => f.id === boss.fossilId) : undefined;
     const bond = boss.fossilId ? ch.bonds.find((b) => b.entityRef === boss.fossilId) : undefined;
     const wasComp = !!fossil?.wasCompanion;
-    const known = wasComp || (!!bond && (bond.value > 0 || bond.unfinished));
+    const wasAlly = !!fossil?.wasAlly;
+    const known = wasComp || wasAlly || (!!bond && (bond.value > 0 || bond.unfinished));
     const isDoom = !!boss.fossilId && (world.tracked ?? []).some(
       (t) => t.originRef === boss.fossilId && (t.arcType === "doom" || t.arcType === "fall"),
     );
@@ -4369,7 +4370,9 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   // 「押しても同じ文面のまま何も起きない」ように見えるため（テストプレイFB 2026-06-22）。
   let text = fossil.wasCompanion
     ? `${fossil.death.manner === "betrayed" ? "――見捨てたあの者が、宿敵となって還った。" : "――かつて共に歩いた相棒の、亡骸だ。"}\n${baseText}`
-    : baseText;
+    : fossil.wasAlly
+      ? `――かつて街で、迷宮で、言葉を交わした者だ。こんな姿で再び巡り合うとは。\n${baseText}`
+      : baseText;
   recordRediscovery(world, fossil.id);
   seenThisDive.push(fossil.id);
   markEventFired(); // 4-10H 第二層：化石遭遇＝イベントが起きた＝凪を解除
