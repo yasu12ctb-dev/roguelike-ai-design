@@ -28082,6 +28082,102 @@
           ]
         }
       ]
-    }
+    },
+    { "id": "nb_court_welcome", "context": "noble", "prerequisites": {}, "weight": 3,
+      "text": "貴族街の回廊で、廷臣の #origin_name# が優雅に一礼した。「奉献を成した御方が、こうして宮廷を歩く――よい時代になったものです」。",
+      "choices": [
+        { "label": "礼を返す", "text": "#origin_name# は満足げに微笑み、あなたを一人前の客人として遇した。", "effects": [{ "bond": 1 }, { "chronicle": "貴族街で廷臣 #origin_name# と言葉を交わした。" }] },
+        { "label": "黙って通り過ぎる", "text": "廷臣は気を悪くする風もなく、深く頭を下げた。", "effects": [] }
+      ] },
+    { "id": "nb_court_gossip_rival", "context": "noble", "prerequisites": {}, "weight": 2,
+      "text": "扇の陰で、#origin_name# が声をひそめた。「東棟の伯爵家が、また借財を重ねたとか。家格というものは、潜るより容易く沈むのですよ」。",
+      "choices": [
+        { "label": "聞き流す", "text": "宮廷の噂は、深みの闇より移ろいやすい。", "effects": [] },
+        { "label": "わが家を省みる", "text": "あなたは、勝ち取った家門の重みを改めて噛みしめた。", "effects": [{ "trait": "宮廷の機微" }] }
+      ] },
+    { "id": "nb_court_steward_report", "context": "noble", "prerequisites": {}, "weight": 3,
+      "text": "家令の #origin_name# が帳簿を抱えて近づいた。「館の蔵は滞りなく。歴代の御当主の遺品も、大広間に然るべく飾ってございます」。",
+      "choices": [
+        { "label": "労う", "text": "#origin_name# は恭しく頭を下げた。家が、静かに続いていく。", "effects": [{ "chronicle": "家令 #origin_name# が館の差配を報じた。" }] }
+      ] },
+    { "id": "nb_court_charity", "context": "noble", "prerequisites": {}, "weight": 2,
+      "text": "#origin_name# が、統治者の名代として歩み寄った。「奉献者への下賜にございます。些少ですが、お納めを」。",
+      "choices": [
+        { "label": "拝領する", "text": "差し出された小袋には、王領の刻印を帯びた金貨が収まっていた。", "effects": [{ "gold": 9 }, { "chronicle": "統治者の名代 #origin_name# から下賜を受けた。" }] }
+      ] },
+    { "id": "nb_court_deep_question", "context": "noble", "prerequisites": {}, "weight": 2,
+      "text": "窓辺の客人 #origin_name# が、遠い目で問うた。「底には、何があったのです。あなたは、見たのでしょう」。",
+      "choices": [
+        { "label": "静かに語る", "text": "言葉にするほどに、深みの記憶が少し遠のく。胸の澱が、わずかに晴れた。", "effects": [{ "exposure": -0.05 }] },
+        { "label": "語らない", "text": "#origin_name# は深く頷いた。「……語れぬものを、見たのですね」。", "effects": [] }
+      ] },
+    { "id": "nb_court_etiquette", "context": "noble", "prerequisites": {}, "weight": 2,
+      "text": "古参の侍従 #origin_name# が、あなたの所作をそっと正した。「宮廷では、刃よりも沈黙が物を言います」。",
+      "choices": [
+        { "label": "学ぶ", "text": "あなたは宮廷の作法をひとつ身につけた。", "effects": [{ "trait": "宮廷作法" }] }
+      ] },
+    { "id": "nb_court_feast", "context": "noble", "prerequisites": {}, "weight": 2,
+      "text": "#origin_name# が、宴席へと手を差し伸べた。「今宵は奉献者を寿ぐ宴。深みの労苦を、しばし忘れられませ」。",
+      "choices": [
+        { "label": "杯を受ける", "text": "温かな灯と、敵意なき笑い。久方ぶりに、人の世の温もりが芯まで届いた。", "effects": [{ "exposure": -0.05 }, { "chronicle": "貴族街の宴で、束の間の安らぎを得た。" }] },
+        { "label": "辞して帰る", "text": "あなたは静かに一礼し、宴を辞した。", "effects": [] }
+      ] },
+    { "id": "nb_court_portrait", "context": "noble", "prerequisites": {}, "weight": 1,
+      "text": "回廊の壁に、新たな肖像が掛けられていた。#origin_name# が言う。「あなたの家門を、宮廷の画家が描き留めました。栄誉にございます」。",
+      "choices": [
+        { "label": "見上げる", "text": "勝ち取った家の名が、宮廷の壁にひとつ加わった。", "effects": [{ "trait": "宮廷に飾られし家門" }, { "chronicle": "あなたの家門の肖像が、貴族街の回廊に掛けられた。" }] }
+      ] },
+    { "id": "nb_court_intrigue", "context": "noble", "prerequisites": { "minLevel": 30 }, "weight": 2,
+      "text": "人気のない柱の陰で、#origin_name# が囁いた。「……いずれ、あなたの力を借りたい儀がございます。今はまだ、申せませぬが」。",
+      "choices": [
+        { "label": "心に留める", "text": "宮廷には、剣の届かぬ戦がある。あなたはそれを覚えておくことにした。", "effects": [{ "plant": "noble_intrigue_hint" }] }
+      ] },
+    { "id": "nb_court_intrigue_follow", "context": "noble", "prerequisites": { "flag": "noble_intrigue_hint", "minLevel": 30 }, "weight": 3,
+      "text": "再び柱の陰で、#origin_name# が囁いた。「先の件、まだ熟しませぬ。ですが、あなたを見込んでのこと――この一封を」。",
+      "choices": [
+        { "label": "受け取る", "text": "小さな封蝋の書状。中身は空白だが、信任の証だった。", "effects": [{ "gold": 6 }, { "trait": "宮廷の盟" }] }
+      ] },
+    { "id": "nb_court_ruler_word", "context": "noble", "prerequisites": {}, "weight": 2,
+      "text": "#origin_name# が、玉座の方を一瞥して言った。「統治者は、あなたの名をしばしば口になさいます。『あの者がいる限り、深みは越えられる』と」。",
+      "choices": [
+        { "label": "頭を垂れる", "text": "重い言葉だ。あなたは、その期待の重さを静かに引き受けた。", "effects": [{ "chronicle": "統治者があなたの働きを讃えていると、廷臣 #origin_name# が伝えた。" }] }
+      ] },
+    { "id": "nb_court_gift", "context": "noble", "prerequisites": {}, "weight": 2,
+      "text": "客人の #origin_name# が、小瓶を差し出した。「宮廷の薬師が調じた膏薬です。深みへ戻られる御方に、せめてもの餞を」。",
+      "choices": [
+        { "label": "受け取る", "text": "上質な膏薬がひとつ、あなたの荷に加わった。", "effects": [{ "item": "salve" }] },
+        { "label": "辞退する", "text": "#origin_name# は微笑み、無理には勧めなかった。", "effects": [] }
+      ] },
+    { "id": "nb_court_legend_talk", "context": "noble", "prerequisites": {}, "weight": 2,
+      "text": "若い客人たちが #origin_name# に促され、あなたを取り囲んだ。「深淵の話を、ぜひ。あなたのお口から」。",
+      "choices": [
+        { "label": "語って聞かせる", "text": "あなたの言葉に、宮廷の子らが目を輝かせた。語ることもまた、家を継ぐことだ。", "effects": [{ "bond": 1 }, { "chronicle": "貴族街で、あなたの武勇伝が語り継がれ始めた。" }] }
+      ] },
+    { "id": "nb_court_garden", "context": "noble", "prerequisites": {}, "weight": 2,
+      "text": "庭園の噴水のほとり、#origin_name# が静かに佇んでいた。「ここは、深みの声が届かぬ数少ない場所。お好きなだけ、お休みを」。",
+      "choices": [
+        { "label": "しばし佇む", "text": "水音と花の香。削られた芯が、ゆっくりと人へ還っていく。", "effects": [{ "exposure": -0.05 }] }
+      ] },
+    { "id": "nb_court_petition", "context": "noble", "prerequisites": { "minLevel": 25 }, "weight": 2,
+      "text": "#origin_name# が、一通の嘆願を携えて来た。「下々の声を、統治者へ取り次いでは下さいませぬか。あなたの名なら、御耳に届く」。",
+      "choices": [
+        { "label": "取り次ぐ", "text": "あなたの口添えで、民の声が玉座へ届いた。家の名が、街でまた少し重くなる。", "effects": [{ "trait": "民の取り次ぎ手" }, { "chronicle": "あなたが民の嘆願を統治者へ取り次いだ。" }] },
+        { "label": "宮廷の事は宮廷でと断る", "text": "#origin_name# は残念そうに、しかし礼儀正しく退いた。", "effects": [] }
+      ] },
+    { "id": "nb_court_old_guest", "context": "noble", "prerequisites": {}, "weight": 1,
+      "text": "暖炉の傍で、老いた客人 #origin_name# が杯を傾けていた。「儂も若い頃は潜ったものさ。……深みは、戻る場所を持つ者にだけ優しい。お前さんには、この館がある」。",
+      "choices": [
+        { "label": "頷く", "text": "戻る家があるという重み。あなたは、それを失わぬよう胸に刻んだ。", "effects": [] }
+      ] },
+    { "id": "nb_court_seal_praise", "context": "noble", "prerequisites": {}, "weight": 2,
+      "text": "#origin_name# が、奉献の印について尋ねてきた。「五つの印を集め、深淵を越える――伝説でしか聞かぬ偉業を、あなたは現になさった」。",
+      "choices": [
+        { "label": "謙遜する", "text": "#origin_name# はかえって深く感じ入り、わずかな心づけを残した。", "effects": [{ "gold": 7 }] }
+      ] },
+    { "id": "nb_court_quiet", "context": "noble", "prerequisites": {}, "weight": 1,
+      "text": "宮廷の昼下がり。#origin_name# が静かに会釈し、それぞれの務めへ戻っていく。喧騒も、深みの呼び声もない、穏やかな一時。",
+      "choices": [
+        { "label": "息をつく", "text": "勝ち取った静けさ。それは、幾代もの犠牲の上にある。", "effects": [] }
+      ] }
   ]
 }

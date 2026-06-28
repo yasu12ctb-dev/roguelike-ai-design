@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.61.0";
+export const APP_VERSION = "0.62.0";
 export const APP_BUILD = "2026-06-27";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1879,9 +1879,12 @@ function townContextsHere(): TownContext[] {
   if (mode === "interior" && interior) {
     if (interior.kind === "tavern") return ["tavern", "street"];
     if (interior.kind === "guild") return ["guild", "street"];
+    if (interior.kind === "manor" || interior.kind === "audience") return ["noble", "street"]; // 貴族街の館/謁見の間（4-14G 後続）
     if (SHOP_INTERIORS.has(interior.kind)) return ["shop", "street"];
     return ["street"]; // 書記/教団/慰霊堂/民家など：街路の一般プールのみ
   }
+  // 貴族街区画（仕切り壁 y8 より上）を歩いている＝宮廷の顔（noble）＋街路の一般プール（4-14G 後続）。
+  if (mode === "town" && nobleQuarterOpen() && townPlayer.y < townGrid.data.partitionWallY) return ["noble", "street"];
   return ["street"];
 }
 async function talkCrowd(a: CrowdActor) {
@@ -2020,6 +2023,7 @@ function townAct(dx: number, dy: number) {
   const p = townGrid.propMap.get(`${nx},${ny}`);
   if (p && monumentKey === `${nx},${ny}`) { void monumentScene(); return; } // 奉献の像＝専用シート（Phase4）
   if (p && guardianKeys.has(`${nx},${ny}`)) { void guardianScene(guardianKeys.get(`${nx},${ny}`)!); return; } // 引退した英雄＝会話（運命の弧 4-6D）
+  if (p && courtKeys.has(`${nx},${ny}`)) { void courtNpcScene(courtKeys.get(`${nx},${ny}`)!); return; } // 宮廷NPC＝家令/廷臣/再会の客人（4-14G 後続）
   if (p && cenotaphKey === `${nx},${ny}`) { void memorialScene(); return; } // 慰霊碑＝歴代の死者を読む（街の差分 4-6C）
   const walkable = t === "floor" || t === "gate" || (nobleOpen && (t === "noble" || t === "ngate")); // 貴族街解禁で noble/ngate も歩行可
   if (!walkable) { if (p?.line) log(p.line, "dim"); return; }
@@ -2730,6 +2734,80 @@ function refreshNobleQuarter() {
   for (const [k, g] of [...townGrid.guardMap]) {
     if (g.x === gx && g.y === townGrid.data.nobleGate.y + 1) townGrid.guardMap.delete(k);
   }
+  // 宮廷の顔（4-14G 後続）：家令・廷臣＋再会の客人（歴代の伝説/退隠者）を区画に常駐させる（guardian 注入パターン）。
+  for (const k of courtKeys.keys()) townGrid.propMap.delete(k);
+  courtKeys.clear();
+  courtSteward ??= mkCourtActor("steward");
+  courtCourtier ??= mkCourtActor("courtier");
+  // 再会の客人＝伝説（player_legend）／退いた英雄（retire 終端）を宮廷に招く＝育てた家系の英雄が宮廷を歩く。
+  const guestTracked = world.tracked.filter((t) =>
+    t.source === "player_legend" || (t.terminal && t.arcType === "retire" && t.pick !== "warped")).slice(0, 2);
+  const placements: Array<{ entry: CourtEntry; glyph: string; color: string }> = [
+    { entry: { role: "steward", la: courtSteward }, glyph: "家", color: "#d9b65c" },
+    { entry: { role: "courtier", la: courtCourtier }, glyph: "臣", color: "#c9a8e0" },
+    ...guestTracked.map((t) => ({ entry: { role: "guest" as const, trackedId: t.id, name: t.name }, glyph: "客", color: "#7fd0e6" })),
+  ];
+  const cands: [number, number][] = [[24, 4], [29, 4], [20, 5], [35, 5], [26, 5], [30, 5], [19, 4], [36, 4]];
+  let ci = 0;
+  for (const pl of placements) {
+    let spot: [number, number] | undefined;
+    while (ci < cands.length) {
+      const [x, y] = cands[ci++];
+      if (townTileAt(townGrid, x, y) === "noble" && !townGrid.propMap.has(`${x},${y}`) &&
+          !townGrid.doorMap.has(`${x},${y}`) && !townGrid.guardMap.has(`${x},${y}`)) { spot = [x, y]; break; }
+    }
+    if (!spot) break;
+    const [x, y] = spot; const k = `${x},${y}`;
+    courtKeys.set(k, pl.entry);
+    const name = pl.entry.role === "guest" ? pl.entry.name! : (pl.entry.la!.actor.name);
+    const label = pl.entry.role === "steward" ? "家令" : pl.entry.role === "courtier" ? "廷臣" : "招かれた客人";
+    townGrid.propMap.set(k, { x, y, glyph: pl.glyph, color: pl.color, glow: pl.entry.role === "guest",
+      line: `${label} ${name}。貴族街の宮廷に在る。` });
+  }
+}
+
+// 宮廷NPC（家令/廷臣/再会の客人）＝propMap key → 素性。guardianKeys と同じ管理（4-14G 後続）。
+type CourtEntry = { role: "steward" | "courtier"; la: LivingActor } | { role: "guest"; trackedId: string; name: string };
+const courtKeys = new Map<string, CourtEntry>();
+let courtSteward: LivingActor | null = null;
+let courtCourtier: LivingActor | null = null;
+/** 家令/廷臣の生者アンカーを生成（名は mintActor／職分だけ宮廷向けに上書き）。一度生成しキャッシュ＝名が安定。 */
+function mkCourtActor(role: "steward" | "courtier"): LivingActor {
+  const a = mintActor(db, rng, {});
+  a.archetype = role === "steward" ? "家令" : "廷臣";
+  return { id: `court_${role}`, actor: a, metGeneration: world.generation };
+}
+/** 宮廷NPCと語る：家令/廷臣は noble storylet を配信、再会の客人は歴代の縁者として固有の一言（4-14G 後続）。 */
+async function courtNpcScene(entry: CourtEntry) {
+  if (busy) return;
+  busy = true;
+  const ch = world.current;
+  if (!ch) { busy = false; return; }
+  // 再会の客人（伝説/退隠者）：まず再会の一言。
+  const reunion: string[] = [];
+  let la: LivingActor;
+  if (entry.role === "guest") {
+    const t = world.tracked.find((x) => x.id === entry.trackedId);
+    const nm = t?.name ?? entry.name;
+    reunion.push(`宮廷の客人として遇されているのは、かつてあなたの家が世に送った ${nm} だった。\n「まさか、ここで再び相見えるとは。あなたの家は、本当に高みへ昇ったのだな」。`);
+    la = { id: `court_guest_${entry.trackedId}`, actor: { name: nm, archetype: "招かれた客人", gearTags: ["宮廷の装い"], epithet: "客人", alive: true }, metGeneration: world.generation };
+  } else {
+    la = entry.la;
+  }
+  const sl = selectTownStorylet(db, world, ch, la, rng, ["noble", "street"], recentSet());
+  if (sl) noteEvent(sl.id);
+  if (sl && sl.choices) {
+    const head = `${la.actor.epithet ?? ""}${la.actor.name}（${la.actor.archetype}）`;
+    const intro = [head, ...reunion, fillActorText(la.actor, sl.text ?? "")].filter(Boolean).join("\n\n");
+    const c = await sheet({ text: intro, options: sl.choices.map((o) => o.label) });
+    const choice = sl.choices[c.pick - 1];
+    const lines = applyActorEffects(world, ch, la, choice.effects);
+    await sheet({ text: [choice.text ? fillActorText(la.actor, choice.text) : "", ...lines].filter(Boolean).join("\n"), options: ["話を切り上げる"] });
+    save();
+  } else {
+    await sheet({ text: [...reunion, "宮廷の顔が、静かに会釈した。"].join("\n\n"), meta: "貴族街 ── 宮廷", options: ["うなずく"] });
+  }
+  busy = false;
 }
 
 /** 謁見の間：統治者と謁見する（4-14G 層4b）。奉献回数/伝説/家格を織り込んだ戴き＋当主ごと一度きりの客人の礼。 */
@@ -2738,27 +2816,40 @@ async function audienceScene() {
   busy = true;
   const ch = world.current!;
   const asc = world.ascended ?? 0;
-  const legends = world.tracked.filter((t) => t.source === "player_legend").length;
+  const legendNames = world.tracked.filter((t) => t.source === "player_legend").map((t) => t.name);
   const hr = houseRank();
-  const first = !ch.traits.includes("統治者の客人"); // 当主ごとに一度きり（heir も改めて謁見できる）
-  const lines = [
-    "玉座の間。統治者が、あなたを見て言った。",
-    `「奉献を${asc}度成した者よ。深淵より聖遺物を持ち帰る者は、幾代に一人だ」`,
-  ];
-  if (legends > 0) lines.push(`「あなたの家が遺した伝説は${legends}柱。英雄譜が、その名で厚くなっていく」`);
-  lines.push(`「《${hr.label}》──その名に恥じぬ働きを、これからも」`);
-  const opts = first ? ["客人として礼を受ける", "辞す"] : ["辞す"];
-  const r = await sheet({ text: lines.join("\n"), meta: "謁見の間 ── 統治者", options: opts });
-  if (first && r.pick === 1) {
-    ch.traits.push("統治者の客人");
-    const before = ch.exposure;
-    ch.exposure = Math.max(0, ch.exposure - 0.3);
-    sfx("seal");
-    log("記憶に『統治者の客人』が刻まれた。", "cue");
-    if (ch.exposure < before) log(`謁見の場の清浄が、深みに削られた芯を人へ還す（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
-    chronicle(world, "legend", `${ch.name}が統治者に謁見し、客人の礼を受けた。`, [ch.id]);
-    save();
+  // 初謁見（当主ごと一度きり）＝称号「統治者の客人」＋客人の礼（深蝕−0.3）。heir も改めて謁見できる。
+  if (!ch.traits.includes("統治者の客人")) {
+    const lines = [
+      "玉座の間。統治者が、あなたを見て言った。",
+      `「奉献を${asc}度成した者よ。深淵より聖遺物を持ち帰る者は、幾代に一人だ」`,
+    ];
+    if (legendNames.length) lines.push(`「あなたの家が遺した伝説は${legendNames.length}柱。英雄譜が、その名で厚くなっていく」`);
+    lines.push(`「《${hr.label}》──その名に恥じぬ働きを、これからも」`);
+    const r = await sheet({ text: lines.join("\n"), meta: "謁見の間 ── 統治者", options: ["客人として礼を受ける", "辞す"] });
+    if (r.pick === 1) {
+      ch.traits.push("統治者の客人");
+      const before = ch.exposure; ch.exposure = Math.max(0, ch.exposure - 0.3); sfx("seal");
+      log("記憶に『統治者の客人』が刻まれた。", "cue");
+      if (ch.exposure < before) log(`謁見の場の清浄が、深みに削られた芯を人へ還す（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
+      chronicle(world, "legend", `${ch.name}が統治者に謁見し、客人の礼を受けた。`, [ch.id]);
+      save();
+    }
+    busy = false; return;
   }
+  // 既に客人＝謁見の話題を回す（深淵の問い／伝説の称賛／大命の前振り／褒賞／結び）。rng で来訪ごとに変化・バランス中立。
+  const topics: Array<{ text: string; opt: string; run?: () => void }> = [
+    { text: "「底には、何があった。あなたは、見たのだろう」と統治者は静かに問うた。", opt: "静かに語る",
+      run: () => { const b = ch.exposure; ch.exposure = Math.max(0, ch.exposure - 0.05); if (ch.exposure < b) log(`語ることで、深みの澱がわずかに晴れた（深蝕 -${(b - ch.exposure).toFixed(2)}）。`, "dim"); } },
+    { text: "「深みは、まだ我らを試している。──大命がある。いつでも、この間で受けるがよい」", opt: "承る" },
+    { text: `「《${hr.label}》の名は、もはや街の柱だ。お前の家が栄える限り、人は深淵を恐れずに済む」`, opt: "頭を垂れる" },
+  ];
+  if (legendNames.length) topics.push({ text: `「${rng.pick(legendNames)}の名を、英雄譜で見た。よき血を、よき教えを遺したな」`, opt: "礼を述べる" });
+  if (asc >= 2) topics.push({ text: "統治者は傍らから金貨を掴ませた。「幾度も深淵を越えた者への、ささやかな証だ」", opt: "拝領する",
+    run: () => { ch.gold += 12; sfx("coin"); log("統治者から12金貨を賜った（所持 " + ch.gold + "）。", "dim"); } });
+  const topic = topics[Math.floor(rng.next() * topics.length)];
+  const r = await sheet({ text: `玉座の間。\n${topic.text}`, meta: "謁見の間 ── 統治者", options: [topic.opt, "辞す"] });
+  if (r.pick === 1 && topic.run) { topic.run(); save(); }
   busy = false;
 }
 

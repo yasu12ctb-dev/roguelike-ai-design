@@ -364,10 +364,11 @@ export type StoryletContext =
   | "shop"       // 店内の生者
   | "quest"      // 依頼
   | "chest"      // 宝箱の中身
-  | "delver";    // 迷宮で同時に潜る生者の冒険者（すれ違いの軽イベント・4-14）
+  | "delver"     // 迷宮で同時に潜る生者の冒険者（すれ違いの軽イベント・4-14）
+  | "noble";     // 貴族街（クリア後解禁）の宮廷の生者＝家令/廷臣/招かれた客人（4-14G 層4b・後続バッチ）
 
-/** 街で生者と会いうる場所（4-14：street を基盤に、tavern/guild/shop が固有の顔を上乗せ）。 */
-export type TownContext = "street" | "tavern" | "guild" | "shop";
+/** 街で生者と会いうる場所（4-14：street を基盤に、tavern/guild/shop/noble が固有の顔を上乗せ）。 */
+export type TownContext = "street" | "tavern" | "guild" | "shop" | "noble";
 
 /** 状況。encounter は investigate/search、dungeon は text+choices、chest は result を使う（4-12 F）。 */
 export interface Storylet {

@@ -59,9 +59,13 @@ export function generateNobleOffers(world: World, ch: Character, rng: Rng, limit
   const offers: Quest[] = [];
   if (rng.next() < 0.5) {
     const dDepth = Math.max(5, ch.level) + 3 + rng.int(4); // 貴族大命＝現レベル(≈深度)よりやや深い（クリア後の高位依頼に整合）
+    const flavor = rng.pick([
+      `統治者の視察：深度${dDepth}の検分`, `王領の威信：深度${dDepth}の制圧`,
+      `封蝕の調べ：深度${dDepth}の異変`, `貴族街からの大命：深度${dDepth}の調べ`,
+    ]);
     offers.push({
       id: qid(), kind: "descend", patron: "noble", targetDepth: dDepth,
-      title: `貴族街からの大命：深度${dDepth}の調べ`,
+      title: flavor,
       desc: `封鎖区の統治者からの密命。深度${dDepth}まで至り、深みの異変を確かめて戻れ。`,
       rewardGold: Math.round(dDepth * 9 * 1.8), status: "active", issuedGeneration: world.generation,
     });
