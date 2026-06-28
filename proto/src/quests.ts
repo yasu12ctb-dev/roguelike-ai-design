@@ -53,9 +53,10 @@ export function generateOffers(world: World, ch: Character, rng: Rng, limit: num
 
 /** 貴族街の統治者からの大命（奉献後・4-14G 高難度版）。奉献済みでのみ供給＝**かなり高難度**。
  *  目標を深層/深度50超に置き（深淵帯ギア `abyssalScale` で激化）、名指しの的（討伐/深層化石回収）で歯応えを出す。
- *  報酬＝大金貨（×2.2・上限）＋実績厚め（claimQuest で questsDone+=2）＋稀に固有報酬（rewardRelic）。
+ *  報酬＝大金貨（**難度順 slay>reclaim>descend**・上限）＋実績厚め（claimQuest で questsDone+=2）＋稀に固有報酬（rewardRelic）。
+ *  ※旧版は全型が上限700に張り付き＝難度差が金貨に出ず、素値では到達のみの descend が最難の slay を上回る逆転だった（v0.63.4 是正）。
  *  ギルド board／謁見の間で配信（claim は claimQuest 共用）。Lv45「原初の証」アークとは別軸。 */
-const NOBLE_REWARD_CAP = 700;
+const NOBLE_REWARD_CAP = 1500;
 export function generateNobleOffers(world: World, ch: Character, rng: Rng, limit: number): Quest[] {
   if (limit <= 0) return [];
   const held = openQuests(world);
@@ -72,7 +73,7 @@ export function generateNobleOffers(world: World, ch: Character, rng: Rng, limit
       id: qid(), kind: "slay", patron: "noble", targetDepth: dDepth, rewardRelic: relic,
       title: `統治者の極命：深度${dDepth}の《成れの果て》討伐`,
       desc: `統治者の極命。深度${dDepth}に巣食うエリアボス「成れの果て」を討ち果たせ。深淵の底は、もはや人の領分ではない。`,
-      rewardGold: cap(dDepth * 14), status: "active", issuedGeneration: world.generation,
+      rewardGold: cap(dDepth * 22), status: "active", issuedGeneration: world.generation, // 最難（ボス撃破）＝最高報酬
     });
   } else if (roll < 0.75) {
     // 回収（reclaim）：最深の化石を名指しで回収＝到達＋遭遇の的。深い者を優先。
@@ -85,7 +86,7 @@ export function generateNobleOffers(world: World, ch: Character, rng: Rng, limit
         id: qid(), kind: "reclaim", patron: "noble", targetFossilId: f.id, targetDepth: f.laidDepth, rewardRelic: relic,
         title: `統治者の極命：${f.origin.name}の遺物回収`,
         desc: `統治者は深度${f.laidDepth}に眠る${f.origin.name}の痕跡を欲している。深みへ下り、必ず持ち帰れ。`,
-        rewardGold: cap((f.laidDepth * 8 + 20) * 2.2), status: "active", issuedGeneration: world.generation,
+        rewardGold: cap((f.laidDepth * 8 + 20) * 2.4), status: "active", issuedGeneration: world.generation, // 中（深層化石回収）
       });
     }
   }
@@ -96,7 +97,7 @@ export function generateNobleOffers(world: World, ch: Character, rng: Rng, limit
       id: qid(), kind: "descend", patron: "noble", targetDepth: dDepth, rewardRelic: relic,
       title: `統治者の極命：深度${dDepth}の踏破`,
       desc: `統治者の極命。深度${dDepth}まで至り、深淵の底の異変をその目で確かめて戻れ。`,
-      rewardGold: cap(dDepth * 9 * 2.2), status: "active", issuedGeneration: world.generation,
+      rewardGold: cap(dDepth * 12), status: "active", issuedGeneration: world.generation, // 保険枠（到達のみ）＝控えめ
     });
   }
   return offers.slice(0, limit);
