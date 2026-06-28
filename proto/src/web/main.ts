@@ -31,7 +31,7 @@ import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffect
 import { meetActor, mintActor, rememberActor, pickRosterActor } from "../actors.ts";
 import {
   generateOffers, generateNobleOffers, acceptQuest, activeQuests, doneQuests, claimQuest,
-  onReachDepth, onRediscoverFossil,
+  onReachDepth, onRediscoverFossil, onSlayBoss,
 } from "../quests.ts";
 import storyletsJson from "../../content/storylets.json";
 import adventurersJson from "../../content/adventurers.json";
@@ -58,8 +58,8 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.62.0";
-export const APP_BUILD = "2026-06-27";
+export const APP_VERSION = "0.63.0";
+export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
 const db = makeContentDb(
@@ -784,10 +784,18 @@ async function questBoard(board: "guild" | "noble" = "guild") {
       const from = q.patron === "noble" ? "貴族の使い" : "ギルド長";
       sfx("coin"); log(`${from}から報酬を受け取った（＋${gross - cut}金貨／所持 ${ch.gold}）。`);
       chronicle(world, "legend", `${ch.name}が${q.patron === "noble" ? "貴族街の大命" : "依頼"}「${q.title}」を果たした。`, [ch.id]);
+      // 高難度大命の固有報酬（4-14G）：ボス級遺物を袋へ＋一度きりの称号。
+      if (q.rewardRelic) {
+        const it = rollItemOfSlot(q.targetDepth ?? ABYSS_DEPTH, rng, "relic");
+        it.unidentified = false; it.enchant = Math.max(it.enchant ?? 0, 3); // 確かな業物
+        ch.gearBag ??= []; ch.gearBag.push(it); dedupeGearBag(ch);
+        sfx("seal"); log(`統治者より固有の遺物「${itemLabel(it)}」を賜った（袋へ）。`, "cue");
+        if (!ch.traits.includes("統治者の覇者")) ch.traits.push("統治者の覇者");
+      }
     },
   });
   for (const q of offers) actions.push({
-    label: `受ける：${q.title}（報酬 ${q.rewardGold}金貨）`,
+    label: `受ける：${q.title}（報酬 ${q.rewardGold}金貨${q.rewardRelic ? "＋固有遺物" : ""}）`,
     run: () => { acceptQuest(world, q); log(`依頼を受けた：「${q.title}」。`, "dim"); },
   });
   const r = await sheet({
@@ -4316,6 +4324,7 @@ function rewardKill(mon: Monster, killLine?: string) {
       sfx("seal"); log("◆ 「成れの果ての討伐」の印を得た。", "warn");
     }
     if (mon.boss === "area") spawnReturnDoor(mon); // 帰還の扉＝往復チェックポイント（v2・深淵帯を除く）
+    if (mon.boss === "area") for (const l of onSlayBoss(world, floor!.depth)) log(l, "cue"); // 討伐系の大命達成（4-14G）
     recordCompanionFeat(); // 相棒と共にボスを討った＝偉業（4-4E 昇格ゲート）
     // ボスは金貨も確定で落とす（rare＝farm無し）。
     const bonus = 5 * mon.kind.tier + floor!.depth * 3; // 深度係数を強化（旧 +depth は深度50で75金＝雑魚以下だった）

@@ -3,6 +3,7 @@
 
 import type { World, Character, Quest } from "./types.ts";
 import type { Rng } from "./rng.ts";
+import { ABYSS_DEPTH } from "./progression.ts";
 
 let qn = 0;
 const qid = (): string => `q_${(++qn).toString(36)}`;
@@ -50,38 +51,53 @@ export function generateOffers(world: World, ch: Character, rng: Rng, limit: num
   return offers.slice(0, limit);
 }
 
-/** 貴族街の統治者からの大命（奉献後・4-13D Phase4）。奉献済みでのみ供給＝高報酬の到達/回収。
- *  ギルド board に相乗りで出す（claim 経路は claimQuest 共用）。Lv45「原初の証」アークとは別軸。 */
+/** 貴族街の統治者からの大命（奉献後・4-14G 高難度版）。奉献済みでのみ供給＝**かなり高難度**。
+ *  目標を深層/深度50超に置き（深淵帯ギア `abyssalScale` で激化）、名指しの的（討伐/深層化石回収）で歯応えを出す。
+ *  報酬＝大金貨（×2.2・上限）＋実績厚め（claimQuest で questsDone+=2）＋稀に固有報酬（rewardRelic）。
+ *  ギルド board／謁見の間で配信（claim は claimQuest 共用）。Lv45「原初の証」アークとは別軸。 */
+const NOBLE_REWARD_CAP = 700;
 export function generateNobleOffers(world: World, ch: Character, rng: Rng, limit: number): Quest[] {
   if (limit <= 0) return [];
   const held = openQuests(world);
-  if (held.some((q) => q.patron === "noble")) return []; // 同時は1件まで（受注/達成待ちがあれば供給しない）
+  if (held.some((q) => q.patron === "noble")) return []; // 同時は1件まで
+  const relic = rng.next() < 0.33; // 稀に固有報酬（遺物＋称号）
+  const cap = (g: number) => Math.min(NOBLE_REWARD_CAP, Math.round(g));
+  const roll = rng.next();
   const offers: Quest[] = [];
-  if (rng.next() < 0.5) {
-    const dDepth = Math.max(5, ch.level) + 3 + rng.int(4); // 貴族大命＝現レベル(≈深度)よりやや深い（クリア後の高位依頼に整合）
-    const flavor = rng.pick([
-      `統治者の視察：深度${dDepth}の検分`, `王領の威信：深度${dDepth}の制圧`,
-      `封蝕の調べ：深度${dDepth}の異変`, `貴族街からの大命：深度${dDepth}の調べ`,
-    ]);
+
+  if (roll < 0.4) {
+    // 討伐（slay）：深層のエリアボス（成れの果て）を討て。深度8の倍数＝56/64 にボスが湧く。
+    const dDepth = rng.next() < 0.5 ? 56 : 64; // 深度50超＝深淵帯ギアで激化（到達は長大ダイブ＝最高難度）
     offers.push({
-      id: qid(), kind: "descend", patron: "noble", targetDepth: dDepth,
-      title: flavor,
-      desc: `封鎖区の統治者からの密命。深度${dDepth}まで至り、深みの異変を確かめて戻れ。`,
-      rewardGold: Math.round(dDepth * 9 * 1.8), status: "active", issuedGeneration: world.generation,
+      id: qid(), kind: "slay", patron: "noble", targetDepth: dDepth, rewardRelic: relic,
+      title: `統治者の極命：深度${dDepth}の《成れの果て》討伐`,
+      desc: `統治者の極命。深度${dDepth}に巣食うエリアボス「成れの果て」を討ち果たせ。深淵の底は、もはや人の領分ではない。`,
+      rewardGold: cap(dDepth * 14), status: "active", issuedGeneration: world.generation,
     });
-  } else {
-    const allReclaim = world.fossils.filter((f) => !held.some((q) => q.targetFossilId === f.id));
-    const nearLevel = allReclaim.filter((f) => f.laidDepth >= ch.level - 6);
-    const reclaimable = nearLevel.length ? nearLevel : allReclaim;
-    if (reclaimable.length) {
-      const f = rng.pick(reclaimable);
+  } else if (roll < 0.75) {
+    // 回収（reclaim）：最深の化石を名指しで回収＝到達＋遭遇の的。深い者を優先。
+    const allReclaim = world.fossils.filter((f) => !held.some((q) => q.targetFossilId === f.id) && !f.retired);
+    const deep = allReclaim.filter((f) => f.laidDepth >= 38); // 深淵帯の化石を優先
+    const pool = deep.length ? deep : allReclaim;
+    if (pool.length) {
+      const f = pool.reduce((a, b) => (b.laidDepth > a.laidDepth ? b : a)); // 最深を名指し
       offers.push({
-        id: qid(), kind: "reclaim", patron: "noble", targetFossilId: f.id, targetDepth: f.laidDepth,
-        title: `貴族街からの大命：${f.origin.name}の遺物`,
-        desc: `統治者は${f.origin.name}の痕跡を欲している。深度${f.laidDepth}付近で見つけ出せ。`,
-        rewardGold: Math.round((f.laidDepth * 6 + 12) * 1.8), status: "active", issuedGeneration: world.generation,
+        id: qid(), kind: "reclaim", patron: "noble", targetFossilId: f.id, targetDepth: f.laidDepth, rewardRelic: relic,
+        title: `統治者の極命：${f.origin.name}の遺物回収`,
+        desc: `統治者は深度${f.laidDepth}に眠る${f.origin.name}の痕跡を欲している。深みへ下り、必ず持ち帰れ。`,
+        rewardGold: cap((f.laidDepth * 8 + 20) * 2.2), status: "active", issuedGeneration: world.generation,
       });
     }
+  }
+  if (!offers.length) {
+    // 到達（descend・保険枠）：深度50超を目標に（深淵帯ギアで激化）。
+    const dDepth = Math.min(58, Math.max(52, ch.level + 2));
+    offers.push({
+      id: qid(), kind: "descend", patron: "noble", targetDepth: dDepth, rewardRelic: relic,
+      title: `統治者の極命：深度${dDepth}の踏破`,
+      desc: `統治者の極命。深度${dDepth}まで至り、深淵の底の異変をその目で確かめて戻れ。`,
+      rewardGold: cap(dDepth * 9 * 2.2), status: "active", issuedGeneration: world.generation,
+    });
   }
   return offers.slice(0, limit);
 }
@@ -98,6 +114,18 @@ export function onReachDepth(world: World, depth: number): string[] {
     if (q.kind === "descend" && q.targetDepth !== undefined && depth >= q.targetDepth) {
       q.status = "done";
       logs.push(`依頼達成：「${q.title}」── ギルドで報酬を受け取れる。`);
+    }
+  }
+  return logs;
+}
+
+/** 討伐系の達成判定（エリアボスを撃破した時に呼ぶ・4-14G）。深度 ≥ 目標の slay 大命を done に。 */
+export function onSlayBoss(world: World, depth: number): string[] {
+  const logs: string[] = [];
+  for (const q of activeQuests(world)) {
+    if (q.kind === "slay" && q.targetDepth !== undefined && depth >= q.targetDepth) {
+      q.status = "done";
+      logs.push(`大命達成：「${q.title}」── 謁見の間で報酬を受け取れる。`);
     }
   }
   return logs;
@@ -121,6 +149,7 @@ export function claimQuest(world: World, ch: Character, questId: string): number
   if (!q || q.status !== "done") return 0;
   ch.gold += q.rewardGold;
   world.quests = openQuests(world).filter((x) => x.id !== questId);
-  world.questsDone = (world.questsDone ?? 0) + 1; // 4-4E 実績スコア：達成依頼の通算
+  // 4-4E 実績スコア：達成依頼の通算。貴族街の極命は厚め（+2＝家格/等級メタを押し上げる・4-14G）。
+  world.questsDone = (world.questsDone ?? 0) + (q.patron === "noble" ? 2 : 1);
   return q.rewardGold;
 }
