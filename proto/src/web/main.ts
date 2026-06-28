@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.63.0";
+export const APP_VERSION = "0.63.1";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -2747,9 +2747,11 @@ function refreshNobleQuarter() {
   courtKeys.clear();
   courtSteward ??= mkCourtActor("steward");
   courtCourtier ??= mkCourtActor("courtier");
-  // 再会の客人＝伝説（player_legend）／退いた英雄（retire 終端）を宮廷に招く＝育てた家系の英雄が宮廷を歩く。
+  // 再会の客人＝退いた英雄（retire 終端＝生者）を宮廷に招く＝育てた家系の英雄が宮廷を歩く。
+  // ※ player_legend（神話極の故人を伝説化）は除外＝死者が生者として宮廷を歩く辻褄崩れを防ぐ（4-14G・辻褄）。
+  //   伝説は謁見の言及（legendNames）と英雄譜で讃える。
   const guestTracked = world.tracked.filter((t) =>
-    t.source === "player_legend" || (t.terminal && t.arcType === "retire" && t.pick !== "warped")).slice(0, 2);
+    t.terminal && t.arcType === "retire" && t.pick !== "warped").slice(0, 2);
   const placements: Array<{ entry: CourtEntry; glyph: string; color: string }> = [
     { entry: { role: "steward", la: courtSteward }, glyph: "家", color: "#d9b65c" },
     { entry: { role: "courtier", la: courtCourtier }, glyph: "臣", color: "#c9a8e0" },
@@ -2797,12 +2799,13 @@ async function courtNpcScene(entry: CourtEntry) {
   if (entry.role === "guest") {
     const t = world.tracked.find((x) => x.id === entry.trackedId);
     const nm = t?.name ?? entry.name;
-    reunion.push(`宮廷の客人として遇されているのは、かつてあなたの家が世に送った ${nm} だった。\n「まさか、ここで再び相見えるとは。あなたの家は、本当に高みへ昇ったのだな」。`);
+    // 客人＝退隠した先達（生者）。過去世代の家門の英雄ゆえ現当主とは未面識＝「再び」を避け、生者の先達として遇する（4-14G・辻褄）。
+    reunion.push(`宮廷の客人として遇されているのは、かつてあなたの家が世に送り出した英雄 ${nm} だった。\n「あなたの家が、これほどの高みへ昇るとはな。よき後継に恵まれた」。`);
     la = { id: `court_guest_${entry.trackedId}`, actor: { name: nm, archetype: "招かれた客人", gearTags: ["宮廷の装い"], epithet: "客人", alive: true }, metGeneration: world.generation };
   } else {
     la = entry.la;
   }
-  const sl = selectTownStorylet(db, world, ch, la, rng, ["noble", "street"], recentSet());
+  const sl = selectTownStorylet(db, world, ch, la, rng, ["noble", "street"], recentSet(), entry.role); // 役職ゲート：役職固有 noble をその役職のNPCにだけ（4-14G・辻褄）
   if (sl) noteEvent(sl.id);
   if (sl && sl.choices) {
     const head = `${la.actor.epithet ?? ""}${la.actor.name}（${la.actor.archetype}）`;
