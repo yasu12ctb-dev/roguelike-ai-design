@@ -92,7 +92,13 @@ export interface Stats { body: number; power: number; reason: number; heart: num
 
 /** 装備（4-11F④・4-11E）。武器=攻撃+ / 防具=被ダメ- / 遺物=パッシブ。異物=未鑑定。 */
 export type ItemSlot = "weapon" | "armor" | "relic" | "bag";
-export type RelicKind = "calm" | "reason" | "greed" | "might" | "vigor" | "ward" | "fortune" | "mending";
+export type RelicKind = "calm" | "reason" | "greed" | "might" | "vigor" | "ward" | "fortune" | "mending"
+  // 拡充（物量レビュー PR3・2026-06-28）：8→13 効果。重複基テンプレ頼みを解消し収集/エンドゲームの幅を広げる。
+  | "thorns"    // 被弾した近接の一部を反射（茨）
+  | "siphon"    // 近接命中ぶんを吸命（渇き）
+  | "clarity"   // 毒・侵蝕(curse)の蓄積を半減（澄心）
+  | "potency"   // 術ダメージ増（術理）
+  | "revenant"; // 潜行中一度だけ致死を1で耐える（不死鳥の灰）
 // calm=深蝕レート減 / reason=理+1 / greed=撃破XP×1.5 / might=近接+1 / vigor=最大HP+6 / ward=被ダメ-1 / fortune=拾う金貨×1.5 / mending=潜行中ゆっくり回復
 export interface Item {
   id: string; slot: ItemSlot; name: string;

@@ -56,10 +56,16 @@ const TEMPLATES: Template[] = [
   { slot: "relic",  name: "黄金の指輪",   minDepth: 8,  relic: "fortune" },  // 拾う金貨×1.5
   { slot: "relic",  name: "再生の雫",     minDepth: 10, relic: "mending" },  // 潜行中ゆっくり回復
   { slot: "relic",  name: "巨人の心臓",   minDepth: 13, relic: "vigor" },    // 最大HP+6（深層版）
-  { slot: "relic",  name: "鉄壁の徽章",   minDepth: 16, relic: "ward" },     // 被ダメ-1（深層版）
+  { slot: "relic",  name: "棘の護符",     minDepth: 16, relic: "thorns" },   // 反射（旧・鉄壁の徽章 ward 重複を解消＝PR3）
   { slot: "relic",  name: "昏き護符",     minDepth: 12, relic: "reason",  exposurePerTurn: 0.03, oddity: true }, // 理+1（異物）
-  { slot: "relic",  name: "餓狼の爪",     minDepth: 15, relic: "might",   exposurePerTurn: 0.02, oddity: true }, // 近接+1（強いが蝕む）
+  { slot: "relic",  name: "餓狼の爪",     minDepth: 15, relic: "siphon",  exposurePerTurn: 0.02, oddity: true }, // 吸命（旧・might 重複を解消＝PR3。強いが蝕む）
   { slot: "relic",  name: "強欲の眼",     minDepth: 16, relic: "greed",   exposurePerTurn: 0.025, oddity: true }, // 撃破XP×1.5（強いが蝕む）
+  // 拡充（物量レビュー PR3・2026-06-28）：新5効果の基テンプレ。重複頼みを解消し収集/エンドゲームの幅を広げる。
+  { slot: "relic",  name: "茨の指輪",     minDepth: 8,  relic: "thorns" },   // 反射（清い版）
+  { slot: "relic",  name: "渇きの杯",     minDepth: 11, relic: "siphon" },   // 吸命（清い版）
+  { slot: "relic",  name: "澄心の数珠",   minDepth: 6,  relic: "clarity" },  // 毒・侵蝕の蓄積を半減
+  { slot: "relic",  name: "術理の宝珠",   minDepth: 10, relic: "potency" },  // 術ダメージ増
+  { slot: "relic",  name: "不死鳥の灰",   minDepth: 18, relic: "revenant" },// 潜行中一度だけ致死を耐える
   // 鞄（持ち物の枠+。持ち物システム Phase2）
   { slot: "bag",    name: "革袋",         minDepth: 1,  capacity: 3 },
   { slot: "bag",    name: "探索者の背嚢", minDepth: 6,  capacity: 5 },
@@ -276,6 +282,7 @@ export const consumableByKey = (key: string): ConsumableDef | undefined => CONSU
 const RELIC_DESC: Record<NonNullable<Item["relic"]>, string> = {
   calm: "深蝕レート減", reason: "理＋1", greed: "撃破XP増", might: "近接＋1",
   vigor: "最大HP＋6", ward: "被ダメ−1", fortune: "拾う金貨増", mending: "潜行中ゆっくり回復",
+  thorns: "被弾を反射", siphon: "近接で吸命", clarity: "毒・侵蝕を半減", potency: "術ダメージ増", revenant: "一度だけ致死を耐える",
 };
 
 /** 効果の説明（鑑定済み前提）。 */
