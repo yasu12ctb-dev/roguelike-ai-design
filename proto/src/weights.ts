@@ -25,7 +25,7 @@ export function encounterWeight(world: World, ch: Character, fossil: Fossil): nu
 /** 現在深度の周辺で、重みに比例して化石を1体抽選（いなければ null）。excludeIds は同一潜行内の再出現防止。 */
 export function rollEncounter(world: World, ch: Character, rng: Rng, excludeIds: Set<string> = new Set()): Fossil | null {
   const candidates = world.fossils.filter(
-    (f) => !excludeIds.has(f.id) && depthProximity(ch.depth, f.laidDepth) > 0,
+    (f) => !excludeIds.has(f.id) && !f.retired && depthProximity(ch.depth, f.laidDepth) > 0, // retired＝退隠した先代（生者・守護者）＝亡骸ではない＝遭遇から除外（4-14G）
   );
   if (candidates.length === 0) return null;
   const weights = candidates.map((f) => encounterWeight(world, ch, f));

@@ -383,7 +383,7 @@ function pickBossSource(world: World, pool: Fossil[], rng: Rng): Fossil {
 
 /** エリアボスの種別＋出自。可能なら過去の探索者化石の名を冠する（敵性化＝⑤鎮め筋の対象）。 */
 function makeAreaBoss(world: World, depth: number, rng: Rng): { kind: MonsterKind; fossilId?: string } {
-  const pool = world.fossils.filter((f) => f.kind === "character" || f.kind === "explorer");
+  const pool = world.fossils.filter((f) => (f.kind === "character" || f.kind === "explorer") && !f.retired); // 退隠した先代は生者＝「成れの果て」ボスにしない（4-14G）
   const src = pool.length ? pickBossSource(world, pool, rng) : null;
   const name = src ? `${src.origin.name}の成れの果て` : "深淵の主";
   const mods = diffMods(world.difficulty); // 難易度（4-11H）：ボスHP/火力にも係数を焼き込む。easy＝従来値。

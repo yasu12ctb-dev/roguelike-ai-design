@@ -135,7 +135,7 @@ export interface Character {
 }
 
 export interface Lineage {
-  relation: "blood" | "pupil" | "none";
+  relation: "blood" | "pupil" | "none" | "heir";   // heir＝退隠した先代を襲名（4-14G・全継承＋装備相続＝功績比例）
   ancestorFossilId?: string;
   chosenSpells?: string[];      // 血縁：継ぐ術を自分で選んだ結果（最大2）。UI で選んで createCharacter に渡す。任意（CLI/旧経路は先頭から自動）。
 }
@@ -213,6 +213,8 @@ export interface Fossil {
   stats?: Stats;                // 死亡時のステ分布（系譜の配分を「先代の得意ステ」に寄せるため）。任意＝旧化石は体寄せで代用。
   wasCompanion?: boolean;       // 同行（相棒）由来の化石（戦死/慈悲/見捨て）。後世の再会で「相棒だと分かる」一言に使う（4-14C）。任意＝旧セーブ非破壊。
   wasAlly?: boolean;            // 生者→化石ループ（4-14・b）：街/迷宮で縁を結んだ生者NPCが深みで還らず化石化した者。後世の再会で「会った相手だと分かる」一言に使う。任意＝旧セーブ非破壊。
+  retired?: boolean;           // 退隠（4-14G・層2）：死でなく自ら退いた先代の系譜記録。亡骸ではない＝迷宮遭遇から除外。襲名(heir)の継承元。任意＝非破壊。
+  achievementAtEnd?: number;   // 退隠/死亡時の功績スコア（4-14G）。襲名ボーナス（継ぐ術数・装備相続の可否）を功績比例にするための基準。任意＝非破壊。
 }
 
 export interface TrackedEntity {
