@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.75.0";
+export const APP_VERSION = "0.76.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -92,7 +92,15 @@ const $ = (id: string) => document.getElementById(id)!;
 $("stVer").textContent = "v" + APP_VERSION; // 画面上部に版数を常時表示（最新かの判定用）
 const gridEl = $("grid"), lightEl = $("light"), logEl = $("log");
 const overlayEl = $("overlay"), sheetText = $("sheetText"), sheetMeta = $("sheetMeta");
-const sheetButtons = $("sheetButtons"), sheetInputRow = $("sheetInputRow");
+const sheetButtons = $("sheetButtons"), sheetInputRow = $("sheetInputRow"), sheetClose = $("sheetClose");
+
+// 上部固定「閉じる」ショートカット：閉じ系の選択肢を、最下部まで探さず手の届く上部からも押せるように。
+// 末尾が閉じ系の語のとき（or 選択肢が1つだけ＝それが唯一の出口）だけ出す。強制選択（討つ/鎮める等）では出さない。
+const CLOSE_RE = /(閉じ|戻る|やめ|立ち去|出る|済ま|後で|いいえ|よす|帰る)/;
+function armSheetClose(handler: (() => void) | null) {
+  sheetClose.classList.toggle("show", !!handler);
+  sheetClose.onclick = handler ? () => handler() : null;
+}
 const sheetInput = $("sheetInput") as HTMLInputElement;
 
 function log(text: string, cls = "") {
@@ -131,17 +139,22 @@ function sheet(o: SheetOpts): Promise<{ pick: number; text: string }> {
     sheetInput.value = ""; sheetInput.placeholder = o.input ?? "";
     sheetButtons.innerHTML = "";
     const shownAt = performance.now();
+    // 直前の操作（敵を倒したタップ等）が出たてのシートを貫通して誤選択するのを防ぐデバウンス。
+    const choose = (pick: number) => {
+      if (performance.now() - shownAt < 300) return;
+      overlayEl.classList.remove("show");
+      resolve({ pick, text: sheetInput.value });
+    };
     o.options.forEach((label, i) => {
       const b = document.createElement("button");
       b.type = "button"; b.textContent = label;
-      // 直前の操作（敵を倒したタップ等）が出たてのシートを貫通して誤選択するのを防ぐデバウンス。
-      b.onclick = () => {
-        if (performance.now() - shownAt < 300) return;
-        overlayEl.classList.remove("show");
-        resolve({ pick: i + 1, text: sheetInput.value });
-      };
+      b.onclick = () => choose(i + 1);
       sheetButtons.appendChild(b);
     });
+    // 上部の閉じるショートカット：単一選択肢＝それ／複数＝末尾が閉じ系の語のときその末尾に対応。
+    const last = o.options.length - 1;
+    const closeIdx = o.options.length === 1 ? 0 : (last >= 0 && CLOSE_RE.test(o.options[last]) ? last : -1);
+    armSheetClose(closeIdx >= 0 ? () => choose(closeIdx + 1) : null);
     overlayEl.classList.add("show");
   });
 }
@@ -168,12 +181,15 @@ function chooseGrid(o: { title: string; lead?: string; cells: { html: string }[]
       grid.appendChild(b);
     });
     sheetButtons.appendChild(grid);
+    const cancel = () => { overlayEl.classList.remove("show"); resolve(-1); };
     if (o.cancel) {
       const cb = document.createElement("button");
       cb.type = "button"; cb.textContent = o.cancel; cb.style.textAlign = "center";
-      cb.onclick = () => { overlayEl.classList.remove("show"); resolve(-1); };
+      cb.onclick = cancel;
       sheetButtons.appendChild(cb);
     }
+    // キャンセル可なら上部の閉じるショートカットも出す（最下部のキャンセルを探さずに済む）。
+    armSheetClose(o.cancel ? cancel : null);
     overlayEl.classList.add("show");
   });
 }

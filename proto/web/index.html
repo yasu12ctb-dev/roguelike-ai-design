@@ -267,6 +267,16 @@
       padding: 16px 16px calc(14px + env(safe-area-inset-bottom));
       font-family: "Hiragino Mincho ProN", serif;
     }
+    /* 上部固定の「閉じる」ショートカット（スクロールしても常に手の届く位置に＝最下部まで探さなくてよい）。
+       sticky で #sheet の最上部に貼り付き、右肩へ float。Swift では sheet のツールバー dismiss にミラー。 */
+    #sheetClose {
+      display: none; float: right; position: sticky; top: 0; z-index: 2;
+      font-family: system-ui, sans-serif; font-size: 13px; color: var(--tx-2);
+      background: var(--bg-btn); border: 1px solid var(--line-2); border-radius: 999px;
+      padding: 9px 16px; margin: -4px -4px 4px 12px; min-height: 38px;
+    }
+    #sheetClose.show { display: block; }
+    #sheetClose:active { background: var(--bg-btn-active); }
     #sheetText { font-size: 14.5px; line-height: 1.95; color: var(--tx-strong); white-space: pre-wrap; }
     #sheetMeta { font-size: 11px; color: var(--tx-meta); margin-top: 8px; font-family: system-ui, sans-serif; }
     #sheetInputRow { display: none; margin-top: 12px; gap: 8px; }
@@ -386,6 +396,7 @@
 
   <div id="overlay">
     <div id="sheet">
+      <button id="sheetClose" type="button" aria-label="閉じる">✕ 閉じる</button>
       <div id="sheetText"></div>
       <div id="sheetMeta"></div>
       <div id="sheetInputRow"><input id="sheetInput" type="text" autocomplete="off" /></div>
