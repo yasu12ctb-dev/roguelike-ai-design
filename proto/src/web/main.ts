@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.70.0";
+export const APP_VERSION = "0.71.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -5191,6 +5191,7 @@ async function settingsSheet() {
     dpadOn ? "🕹 方向パッド：オン → オフ" : "🕹 方向パッド：オフ → オン",
     `🕹 方向パッドの位置：${dpadPos === "right" ? "右下" : dpadPos === "left" ? "左下" : "中央"}（右下→左下→中央）`,
     `🕹 方向パッドの大きさ：${SZJP[dpadSize]}（大→中→小）`,
+    dpadAutorun ? "🕹 長押しで連続移動：オン → オフ" : "🕹 長押しで連続移動：オフ → オン",
     `🔤 文字サイズ：${SZJP[logSize]}（小→中→大）`,
     "💾 セーブを書き出す（バックアップ）",
     "📂 セーブを読み込む（復元）",
@@ -5209,6 +5210,7 @@ async function settingsSheet() {
   else if (c.includes("方向パッド：")) { setDpad(!dpadOn); await settingsSheet(); }
   else if (c.includes("位置")) { setDpadPos(dpadPos === "right" ? "left" : dpadPos === "left" ? "center" : "right"); await settingsSheet(); }
   else if (c.includes("大きさ")) { setDpadSize(dpadSize === "lg" ? "md" : dpadSize === "md" ? "sm" : "lg"); await settingsSheet(); }
+  else if (c.includes("連続移動")) { setDpadAutorun(!dpadAutorun); await settingsSheet(); }
   else if (c.includes("文字サイズ")) { setLogSize(logSize === "sm" ? "md" : logSize === "md" ? "lg" : "sm"); await settingsSheet(); }
   else if (c.includes("書き出す")) { await exportSave(); await settingsSheet(); }
   else if (c.includes("読み込む")) { await importSave(); await settingsSheet(); }
@@ -5627,11 +5629,13 @@ async function manageLoadout(ch: Character) {
 const DPAD_KEY = "sekitsui.dpad";
 const DPAD_POS_KEY = "sekitsui.dpad.pos";
 const DPAD_SIZE_KEY = "sekitsui.dpad.size";
+const DPAD_AUTORUN_KEY = "sekitsui.dpad.autorun";
 const LOG_SIZE_KEY = "sekitsui.logsize";
 type Sz = "lg" | "md" | "sm";
 let dpadOn = true; // 既定オン
 let dpadPos: "right" | "left" | "center" = "right"; // 既定は右下（利き手側）。中央も選べる（メニュー下置きで余裕あり）
 let dpadSize: Sz = "md"; // 既定 中
+let dpadAutorun = true; // 長押しで連続移動（既定オン）。危険・場面で自動停止
 let logSize: Sz = "md"; // 既定 中（ログを読みやすく）
 function loadDpadPref() {
   try {
@@ -5639,9 +5643,11 @@ function loadDpadPref() {
     const dp = localStorage.getItem(DPAD_POS_KEY);
     dpadPos = dp === "left" || dp === "center" ? dp : "right";
     const dz = localStorage.getItem(DPAD_SIZE_KEY); if (dz === "lg" || dz === "md" || dz === "sm") dpadSize = dz;
+    dpadAutorun = localStorage.getItem(DPAD_AUTORUN_KEY) !== "0"; // 未設定＝オン
     const lz = localStorage.getItem(LOG_SIZE_KEY); if (lz === "lg" || lz === "md" || lz === "sm") logSize = lz;
   } catch { /* ignore */ }
 }
+function setDpadAutorun(on: boolean) { dpadAutorun = on; if (!on) dpadHoldEnd(); try { localStorage.setItem(DPAD_AUTORUN_KEY, on ? "1" : "0"); } catch { /* ignore */ } }
 /** 下部の操作系（タブバー・D-pad）を mode と設定に応じて表示更新。updateStatus から毎度呼ぶ。 */
 function applyChrome() {
   const inGame = !!world.current;
@@ -5745,13 +5751,66 @@ function octant(dx: number, dy: number): [number, number] {
   return [sx, sy];
 }
 
-// D-pad のボタン（body 直下＝mapWrap のタッチ判定と干渉しない）。click でタップ／マウス両対応。
-for (const btn of Array.from($("dpad").querySelectorAll("button"))) {
-  (btn as HTMLElement).addEventListener("click", () => {
-    const el = btn as HTMLElement;
-    dirMove(Number(el.dataset.dx), Number(el.dataset.dy));
-  });
+// 長押しで連続移動（D-pad・テストプレイFB「方向キーの連打が面倒」対応）。
+// タップ＝1歩は不変／長押し（DPAD_HOLD_DELAY 超）で連続移動。危険・場面・壁で自動停止（誤爆防止）。
+const DPAD_HOLD_DELAY = 280; // ms：これ以上押し続けたら連続移動を開始（タップとの区別）
+const DPAD_REPEAT_MS = 110;  // ms：連続移動の1歩あたり間隔
+let dpadHoldDir: [number, number] | null = null;
+let dpadHoldTimer: ReturnType<typeof setTimeout> | null = null;
+let dpadRunning = false;
+
+/** 連続移動の1歩。続行可なら true。安全停止（敵が視界／被ダメ／場面/壁/死/モード変化）で false。 */
+async function dpadStep(dx: number, dy: number): Promise<boolean> {
+  if (busy || overlayEl.classList.contains("show") || mapMode) return false;
+  if (mode === "town") { // 街：壁/NPC/景物（動けない）と場面オープンで停止
+    const before = `${townPlayer.x},${townPlayer.y}`;
+    townAct(dx, dy);
+    if (busy || mode !== "town") return false;
+    return `${townPlayer.x},${townPlayer.y}` !== before;
+  }
+  if (mode !== "dive" || !floor || !world.current) return false;
+  const vis = computeFov(floor, player);
+  if (floor.monsters.some((m) => m.hp > 0 && vis.has(mapIdx(floor!, m.x, m.y)))) { log("敵の気配。連続移動を止めた。", "warn"); return false; }
+  const px = player.x, py = player.y, hpBefore = hp;
+  if (!moveOrInteract(player.x + dx, player.y + dy)) return false; // 壁
+  if (busy) { draw(); return false; } // 宝箱/化石/階段/帰還扉の場面が開いた＝そこで止める
+  await endTurn();
+  if (hp <= 0 || hp < hpBefore || (player.x === px && player.y === py)) return false; // 死/被ダメ/進めず
+  return true;
 }
+/** 押しっぱなしの間、同じ方向へ歩き続ける（dpadStep が false を返すまで）。 */
+async function dpadHoldLoop(dx: number, dy: number) {
+  if (dpadRunning) return;
+  dpadRunning = true;
+  while (dpadHoldDir && dpadHoldDir[0] === dx && dpadHoldDir[1] === dy) {
+    if (!(await dpadStep(dx, dy))) break;
+    await sleep(DPAD_REPEAT_MS);
+  }
+  dpadRunning = false;
+}
+function dpadHoldStart(dx: number, dy: number) {
+  if (!dpadAutorun || (dx === 0 && dy === 0)) return; // オフ時・待機(中央)は連続しない
+  dpadHoldDir = [dx, dy];
+  if (dpadHoldTimer) clearTimeout(dpadHoldTimer);
+  dpadHoldTimer = setTimeout(() => { if (dpadHoldDir && dpadHoldDir[0] === dx && dpadHoldDir[1] === dy) void dpadHoldLoop(dx, dy); }, DPAD_HOLD_DELAY);
+}
+function dpadHoldEnd() {
+  dpadHoldDir = null;
+  if (dpadHoldTimer) { clearTimeout(dpadHoldTimer); dpadHoldTimer = null; }
+}
+
+// D-pad のボタン（body 直下＝mapWrap のタッチ判定と干渉しない）。pointer で押下=即1歩＋長押し連続。
+for (const btn of Array.from($("dpad").querySelectorAll("button"))) {
+  const el = btn as HTMLElement;
+  const dx = Number(el.dataset.dx), dy = Number(el.dataset.dy);
+  el.addEventListener("pointerdown", (e) => { e.preventDefault(); dirMove(dx, dy); dpadHoldStart(dx, dy); });
+  el.addEventListener("pointerup", dpadHoldEnd);
+  el.addEventListener("pointercancel", dpadHoldEnd);
+  el.addEventListener("pointerleave", dpadHoldEnd);
+}
+// 指/マウスがボタン外で離れても確実に止める（touch はボタン外 up を拾えないことがある）。
+addEventListener("pointerup", dpadHoldEnd);
+addEventListener("pointercancel", dpadHoldEnd);
 
 // 最初のユーザー操作で音を起動（iOS は AudioContext を gesture 内で resume する必要がある）
 addEventListener("pointerdown", () => ensureAudio());
