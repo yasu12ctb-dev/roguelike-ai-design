@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.71.0";
+export const APP_VERSION = "0.72.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -655,13 +655,13 @@ async function keepsakeShelf() {
   for (;;) {
     const list = world.keepsakes ?? [];
     if (!list.length) {
-      await sheet({ text: `「珍しい拾い物があれば、ここで預かろう。今はまだ、棚は空だ」。\n――迷宮の宝箱で見つけた詩情ある品が、ここに並ぶ（全${total}種を集められる）。`, meta: "書記の館 ── 好古の棚", options: ["わかった"] });
+      await sheet({ text: `「わたしは年代記だけでなく、深みが遺したものも蒐めている――送られなかった手紙、失われた者の玩具、誰も読まぬ書物。みな、弔う者のない記憶だ」。\n老書記イェンは空の棚を撫でた。「君が深みで拾った品も、街へ持ち帰れば、ここへ加えよう。今はまだ、棚は空だが」。\n――迷宮の宝箱で見つけた詩情ある品が、ここに並ぶ（全${total}種を集められる）。`, meta: "書記の館 ── 好古の棚", options: ["わかった"] });
       break;
     }
     // 本文・題はプール（keepsakes.json）から id で解決。旧セーブの未知idは保持した title でフォールバック。
     const resolve = (k: { id: string; title?: string }) => KEEPSAKE_BY_ID.get(k.id) ?? null;
     const r = await sheet({
-      text: `老書記イェンが、集めた品々の棚を示す。\n「君がここまでに見つけたものだ。どれでも、語って聞かせよう」。`,
+      text: `老書記イェンが蒐集の棚を示す。「君が深みから持ち帰り、わたしに託していった品々だ。弔う者なき記憶は、ここで預かる。どれでも、語って聞かせよう」。`,
       meta: `書記の館 ── 好古の棚（${list.length}／${total}種）`,
       options: [...list.map((k) => `${resolve(k)?.title ?? k.title ?? "失われた品"}（第${k.gen}世代・深度${k.depth}）`), "棚を離れる"],
     });
@@ -5002,8 +5002,8 @@ async function chestScene(ce: Chest) {
       log(`深みが、まともに染みた（深蝕 +${dmg.toFixed(2)}）。`, "dim");
     } else if (kept) { // 拾得品＝書記の館で読み返せる収集物（出現頻度は KEEPSAKE_CHANCE が司る）
       sfx("pickup");
-      await sheet({ text: kept.story, meta: `深度${depth} ── 拾得品「${kept.title}」`, options: ["懐に納める"] });
-      log(`心に残る品を見つけた──「${kept.title}」。書記の館で読み返せる。`);
+      await sheet({ text: `${kept.story}\n\n――懐に納めた。街へ持ち帰れば、書記イェンが好古の棚に加えてくれる。`, meta: `深度${depth} ── 拾得品「${kept.title}」`, options: ["懐に納める"] });
+      log(`心に残る品を見つけた──「${kept.title}」。街の書記の館（記）で読み返せる。`);
     } else if (roll < 0.55) { // 装備ドロップ
       const item = rollItem(depth, rng);
       log("宝箱から、何かを手にした。");
