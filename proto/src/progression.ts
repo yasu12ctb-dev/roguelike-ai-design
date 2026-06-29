@@ -14,15 +14,13 @@ export const maxHp = (ch: Character) => {
   return HP_BASE + 3 * Math.min(b, 16) + Math.max(0, b - 16)
     + (ch.equipment?.relic?.relic === "vigor" ? RELIC_VIGOR_HP : 0);
 };
-/** 持ち物の容量（枠数）。レベル（Lv1→6, Lv4→8, Lv10→11）＋鞄（装備）で増える。 */
-export const CARRY_BASE = 6;
-export const carryCapacity = (ch: Character) =>
-  CARRY_BASE + Math.floor(ch.level / 2) + (ch.equipment?.bag?.capacity ?? 0);
-/** 拾った装備の袋（持ち物 Phase4）。未装備のドロップを潜行中に携行＝街/行商人で売る。
- *  容量＝レベル連動＋鞄（道具）で増える（消耗品と同じ鞄を共用＝良い鞄ほど何でも多く持てる）。 */
-export const GEARBAG_BASE = 3;
-export const gearCapacity = (ch: Character) =>
-  GEARBAG_BASE + Math.floor(ch.level / 2) + (ch.equipment?.bag?.capacity ?? 0);
+/** 荷物（統一バッグ）の容量＝枠数。消耗品の枠＋拾った武具の点数を**同じ容量**で数える
+ *  （2026-06-29 統合：消耗品と武具を別袋にしていたのを1つに。武具と薬が同じ枠を奪い合う）。
+ *  H&S 側面を尊重し、戦利品を抱える余地は十分残す（旧「消耗品14＋武具11＝計25」より絞りつつ広め）。
+ *  レベル＋鞄（装備）で増える。Lv1=10／Lv10+革袋=16／Lv30+背嚢=25。数値はテスト調整候補。 */
+export const PACK_BASE = 10;
+export const packCapacity = (ch: Character) =>
+  PACK_BASE + Math.floor(ch.level / 3) + (ch.equipment?.bag?.capacity ?? 0);
 /** 自宅の保管庫（持ち物 Phase3）。総容量＝消耗品スタック＋装備の合計枠（H&Sの収集＝現代H&Sの1タブ相当60）。
  *  世代交代で次代へ残るのは消耗品・装備それぞれ STASH_INHERIT 枠まで（残りは失われる）。 */
 export const STASH_CAP = 60;

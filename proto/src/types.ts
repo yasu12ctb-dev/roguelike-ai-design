@@ -140,8 +140,9 @@ export interface Character {
   loadout?: string[];           // 構えている術（戦闘で撃てるのはここだけ・上限LOADOUT_CAP=10）。安全地帯でのみ入替。任意＝旧セーブ非破壊。
   equipment: Equipment;         // 装備スロット（4-11F④）
   gold: number;                 // 金貨（4-10G 経済。拾得物の売却・依頼報酬で増え、店で減る）
-  inventory?: InventorySlot[];  // 持ち物（消耗品。容量はレベルで増える＝progression.carryCapacity）。任意＝旧セーブ非破壊。
-  gearBag?: Item[];             // 拾った未装備装備の袋（潜行中に携行＝世代内。街/行商人で売る。容量＝gearCapacity）。任意＝旧セーブ非破壊。
+  inventory?: InventorySlot[];  // 荷物の消耗品（薬・巻物）。任意＝旧セーブ非破壊。
+  gearBag?: Item[];             // 荷物の拾った未装備武具（街/行商人で売る・荷物として装備可）。任意＝旧セーブ非破壊。
+  // ↑ inventory と gearBag は同じ「荷物」＝合計が progression.packCapacity（2026-06-29 統合：消耗品と武具で枠を共有）。
   prayedAtShrineGen?: number;   // 慰霊堂「深蝕を清める祈り」を捧げた世代（1世代1回ガード）。任意＝旧セーブ非破壊。
   restedTavernGen?: number;     // 酒場「休む（一杯やる）」で英気を養った世代（1世代1回ガード）。任意＝旧セーブ非破壊。
   cultBoonsThisGen?: number;    // 教団「深蝕を捧げる」を今世代に受けた回数（対価の逓増に使う）。任意＝旧セーブ非破壊。
