@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.73.0";
+export const APP_VERSION = "0.74.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -5307,8 +5307,10 @@ async function charScreen() {
     // 装備＝スロットごとに改行して整列（旧来の「/」区切り1行は折り返して読みづらかった＝テストプレイFB）。
     const eqSlots: ItemSlot[] = ["weapon", "armor", "relic", "bag"];
     const eqBlock = eqSlots.map((sl) => `　${SLOT_LABEL[sl]}　${ch.equipment[sl] ? itemLabel(ch.equipment[sl]!) : "—"}`).join("\n");
-    const inv = (ch.inventory ?? []).length ? (ch.inventory ?? []).map((s) => `${consumableByKey(s.key)?.name ?? s.key}×${s.qty}`).join("、") : "なし";
-    const gearList = (ch.gearBag ?? []).length ? (ch.gearBag ?? []).map((g) => itemLabel(g)).join("、") : "なし";
+    // 主画面は要約のみ（中身の列挙は「装備・荷物を見る」へ）＝情報ダンプを避ける（テストプレイFB）。
+    const consN = (ch.inventory ?? []).reduce((a, s) => a + s.qty, 0); // 薬・巻物の合計個数
+    const gearN = (ch.gearBag ?? []).length;                            // 拾った武具の点数
+    const packSummary = `薬・巻物 ${consN}個／武具 ${gearN}点`;
     const lo = activeLoadout(ch);
     const loNames = lo.map((k) => spellByKey(k)?.name ?? k).join("、");
     const loLine = ch.spells.length ? `【構え ${lo.length}/${LOADOUT_CAP}】${loNames || "なし"}` : "【術】未識得";
@@ -5319,7 +5321,7 @@ async function charScreen() {
       `深蝕 ${ch.exposure.toFixed(2)}${ch.carryingRelic ? "　★聖遺物 携行中" : ""}\n` +
       `\n【装備】\n${eqBlock}\n` +
       `\n${loLine}\n` +
-      `【荷物 ${packUsed(ch)}/${packCapacity(ch)}】（薬と武具で共有）\n　薬・巻物　${inv}\n　武具　${gearList}` +
+      `【荷物 ${packUsed(ch)}/${packCapacity(ch)}】${packSummary}　※中身は「装備・荷物を見る」` +
       `${ch.traits.length ? `\n【記憶】${ch.traits.length}件` : ""}`;
     const opts = ["装備・持ち物を見る", "術（構え・図鑑）", "進行中（依頼・因縁・印）", "人物と年代記", "敵図鑑"];
     if (ch.traits.length) opts.push(`記憶を見る（${ch.traits.length}）`);
