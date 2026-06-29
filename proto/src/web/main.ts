@@ -2214,7 +2214,7 @@ async function characterCreation() {
   }
   hp = maxHp(ch);
   const intro = lineage.relation === "none"
-    ? `${ch.name}は、まっさらな素質で迷宮へ向かう（${statsLine(ch)}）。`
+    ? `${ch.name}は、何も受け継がず、身ひとつで迷宮へ向かう（${statsLine(ch)}）。`
     : `${ch.name}は先代の${lineage.relation === "blood" ? "血" : "教え"}を継いで迷宮へ向かう（Lv${ch.level}・${statsLine(ch)}）。`;
   log(intro, "dim");
   if (ch.bonds.some((b) => b.unfinished)) log("……先代の未完の因縁が、お前に引き継がれた。", "warn");
