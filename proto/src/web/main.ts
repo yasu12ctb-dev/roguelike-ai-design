@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.74.0";
+export const APP_VERSION = "0.75.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -938,7 +938,7 @@ async function smithBuyKind(slot: "weapon" | "armor") {
   const who = slot === "weapon" ? "鍛冶ヴァロ" : "甲冑師ベルガ";
   const what = SLOT_LABEL[slot];
   const r = await sheet({
-    text: `${who}の${what}棚。所持 金${ch.gold}。\n買えば、その場で装備する（今の${what}は置き換え）。`,
+    text: `${who}の${what}棚。所持 金${ch.gold}。\n買うと荷物に入る（装備は「装備・荷物を見る」から）。`,
     meta: `武具屋 ── ${what}を買う`,
     options: [...stock.map((it, i) => `${itemLabel(it)} ${prices[i]}金貨`), "やめる"],
   });
@@ -947,10 +947,11 @@ async function smithBuyKind(slot: "weapon" | "armor") {
   if (i < 0 || i >= stock.length) return;
   const it = stock[i], price = prices[i];
   if (ch.gold < price) { busy = true; await sheet({ text: "金貨が足りない。", options: ["出直す"] }); busy = false; return; }
-  ch.gold -= price; ch.equipment[it.slot] = it;
+  if (packUsed(ch) >= packCapacity(ch)) { busy = true; await sheet({ text: `荷物がいっぱいだ（${packUsed(ch)}/${packCapacity(ch)}）。整理してから出直そう。`, options: ["わかった"] }); busy = false; return; }
+  ch.gold -= price; it.unidentified = false; // 購入＝装備せず荷物へ（旧装備の消失バグ修正・2026-06-29）。鑑定済み。
+  (ch.gearBag ??= []).push(it); dedupeGearBag(ch);
   sfx("buy");
-  log(`${it.name} を買って装備した（−${price}金貨／所持 ${ch.gold}）。`);
-  if (it.exposurePerTurn) log("……身につけた途端、深みがじわりと滲む。", "warn");
+  log(`${it.name} を買って荷物に入れた（−${price}金貨／所持 ${ch.gold}）。装備は「装備・荷物を見る」から。`);
   save();
 }
 // 武具屋 打ち直し（ルートシステム）：今装備中の武器/防具の強化度 +N を金貨で1段上げる（銘・基は不変）。
