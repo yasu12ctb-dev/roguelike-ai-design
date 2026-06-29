@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.69.0";
+export const APP_VERSION = "0.70.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -5490,16 +5490,93 @@ async function eventsScreen() {
   busy = false;
 }
 
+// 能力の説明＋対処のヒント（図鑑の詳細・図鑑拡充）。ラベルは盤面/図鑑共通。
+const ABILITY_LABEL: Record<string, string> = { ranged: "遠隔", venom: "毒", leech: "吸命", breeder: "増殖", reflect: "反射", curse: "侵蝕" };
+const ABILITY_INFO: Record<string, string> = {
+  ranged: "射程の外から狙撃する。接近されると間合いを取り直す＝詰め寄れば弱い。",
+  venom:  "命中で毒を盛り、次手から継続ダメージ。解毒の丸薬・遺物〈澄心〉が効く。",
+  leech:  "与えたぶん自己回復する。火力を集中し、一気に削れ。",
+  breeder:"ときおり眷属を湧かす。数で圧される前に、母体を断て。",
+  reflect:"近接で殴ると一部を返す。術・投擲が安全。遺物〈茨〉で対抗できる。",
+  curse:  "命中で深蝕を上塗りする。深追いは禁物。遺物〈澄心〉で半減。",
+};
+// モンスター寸評（博物誌風・1行・純フレーバー＝ゲーム性ゼロ）。key は MONSTER_KINDS の key。
+const MONSTER_LORE: Record<string, string> = {
+  rat: "迷宮の浅みに棲みつく、ただ大きいだけの鼠。深みの理には、まだ遠い。",
+  beetle: "硬い甲殻にくるまれ、一撃では割れない。火力は無いが、道を塞ぐ壁となる。",
+  bat: "気まぐれに飛び交い、軌道が読めない。脆いが、数で苛立たせる。",
+  snake: "岩肌に擬態して待ち伏せる。噛みつきは、見た目より重い。",
+  ghoul: "死肉に群がる深みの常連。単体は鈍いが、淀みに潜んでいる。",
+  wisp: "ふらりと漂う燐光。触れれば灼ける。実体は薄く、脆い。",
+  wraith: "帰れなかった者の残響。冷たい一撃を放つ。",
+  ogre: "岩のような巨躯。動きは鈍いが、一打は重い。",
+  spitter: "間合いの外から酸を吐く。詰め寄れば、もがいて退く。",
+  viper: "牙に毒を仕込む。傷そのものより、巡る毒が怖い。",
+  leecher: "吸った血で己を癒す。長引くほど、しぶとくなる。",
+  brood: "蠢く卵嚢。放っておけば眷属が湧き、数で圧してくる。",
+  troll: "深層の壁。膨大な体力で、ただ道を阻む。",
+  drake: "深みの竜の成れの果て。一撃が鋭く、重い。",
+  horror: "形を保てぬ顔。動きが読めず、最も底に近い。",
+  imp: "素早く、脆い。深みの最初の洗礼。",
+  crawler: "壁を這い、じわりと間合いを詰める。",
+  hound: "影を駆け、瞬く間に懐へ飛び込む。",
+  brute: "鉄の腕で殴りつける、硬い壁役。",
+  reaver: "鋭い刃をふるう高火力の近接。受ければ深く斬られる。",
+  golem: "石を寄せ集めた鈍重な兵。崩すのに骨が折れる。",
+  gloom: "蠢く闇の塊。深層で群れをなす。",
+  phantom: "実在の定かでない影。不規則に揺らぎ、狙いが定まらない。",
+  colossus: "最深の壁。見上げるほどの巨体が道を埋める。",
+  archer: "朽ちた弓を構える骸。遠間から正確に射る。",
+  seer: "深部に浮かぶ眼。視界の外から、こちらを射抜く。",
+  spore: "弾けて胞子を撒く。漂う毒が、じわりと体を蝕む。",
+  slug: "這った跡が腐り落ちる。毒の継続が、深部では重い。",
+  wailer: "嘆きながら毒を振りまく、深部の哀しき種。",
+  drainer: "命を喰らって傷を埋める。深部の、しぶとい吸血種。",
+  mother: "蠢く母体。絶えず眷属を産み落とし続ける。",
+  voiddrake: "深淵帯の竜。理を失い、ただ巨大で、苛烈。",
+  thornward: "全身を棘で覆う番人。近づいて殴る者を、確かに罰する。",
+  defiler: "触れた者へ深みを上塗りする影。傷より、侵蝕が怖い。",
+  voideye: "深淵に浮かぶ瞳。彼方からこちらを見据え、射抜く。",
+  abyssmaw: "肉の塊が、際限なく仔を吐き出す。深淵の数の暴力。",
+  endbringer: "底に最も近い貌。その一撃は、すべてを終わらせる。",
+};
+const tierStars = (t: number) => "★".repeat(t) + "☆".repeat(Math.max(0, 5 - t));
+const erraticWord = (e: number) => e <= 0.1 ? "規則的" : e < 0.25 ? "やや不規則" : e < 0.45 ? "気まぐれ" : "不規則";
+const depthBandLabel = (k: { minDepth: number }) => k.minDepth > 50 ? "深淵帯" : k.minDepth >= 38 ? "深層の底" : k.minDepth >= 25 ? "深層" : k.minDepth >= 9 ? "中層" : "浅層";
+
+/** モンスター図鑑：遭遇した敵を色付きグリフ＋危険度＋能力タグの一覧で示し、タップで詳細（ステ・攻撃・対処・寸評）。 */
 async function bestiaryScreen() {
   busy = true;
-  const seen = world.bestiary ?? [];
-  const ABILITY_LABEL: Record<string, string> = { ranged: "遠隔", venom: "毒", leech: "吸命", breeder: "増殖", reflect: "反射", curse: "侵蝕" };
-  const tagOf = (name: string) => { // 図鑑に能力タグを併記（4-11G）。ボス/眷属など KINDS 外は無タグ
-    const k = MONSTER_KINDS.find((kk) => kk.name === name);
-    return k?.ability ? `（${ABILITY_LABEL[k.ability]}）` : "";
-  };
-  const text = seen.length ? seen.map((n) => `・${n}${tagOf(n)}`).join("\n") : "まだ何も見ていない。深みで出会った敵が、ここに記される。";
-  await sheet({ text, meta: `敵図鑑 ── 遭遇 ${seen.length}種`, options: ["閉じる"] });
+  // 遭遇名のうち MONSTER_KINDS に在る正規種のみ（ボス/手負い等の一回限りの固有名は除外＝図鑑を整える）。
+  const seenKinds = (world.bestiary ?? [])
+    .map((n) => MONSTER_KINDS.find((k) => k.name === n))
+    .filter((k): k is NonNullable<typeof k> => !!k)
+    .sort((a, b) => a.minDepth - b.minDepth);
+  for (;;) {
+    if (!seenKinds.length) {
+      await sheet({ text: "まだ何も見ていない。深みで出会った敵が、ここに記される。", meta: "モンスター図鑑 ── 遭遇 0種", options: ["閉じる"] });
+      break;
+    }
+    const cells = seenKinds.map((k) => ({
+      html: `<div class="nm"><span class="g-mon-t${k.tier}" style="font-size:1.25em">${k.glyph}</span>　${k.name}`
+        + `${k.ability ? ` <span style="color:#9aa4b0;font-weight:400">〔${ABILITY_LABEL[k.ability]}〕</span>` : ""}</div>`
+        + `<div class="sub"><span class="g-mon-t${k.tier}">${tierStars(k.tier)}</span>　深度${k.minDepth}〜${k.maxDepth ? k.maxDepth : ""}・${depthBandLabel(k)}</div>`,
+    }));
+    const i = await chooseGrid({ title: `モンスター図鑑 ── 遭遇 ${seenKinds.length}／${MONSTER_KINDS.length}種`, cells, cancel: "閉じる", cols: 1 });
+    if (i < 0 || i >= seenKinds.length) break;
+    const k = seenKinds[i];
+    const lines = [
+      `${k.glyph}　${k.name}`,
+      `危険度 ${tierStars(k.tier)}（tier ${k.tier}）`,
+      `出現 深度${k.minDepth}〜${k.maxDepth ? k.maxDepth : "（最深まで）"}・${depthBandLabel(k)}`,
+      `体力 ${k.hp}・攻撃 ${k.dmg}　※基礎値。深く潜るほど増す`,
+      `動き ${erraticWord(k.erratic)}`,
+      k.ability ? `能力〔${ABILITY_LABEL[k.ability]}〕 ${ABILITY_INFO[k.ability] ?? ""}` : "能力 なし（素の近接）",
+      "",
+      MONSTER_LORE[k.key] ?? "",
+    ];
+    await sheet({ text: lines.join("\n"), meta: `図鑑 ── ${k.name}`, options: ["戻る"] });
+  }
   busy = false;
 }
 
@@ -5637,7 +5714,8 @@ function recordBestiary() {
   const vis = computeFov(floor, player);
   const bag = (world.bestiary ??= []);
   for (const m of floor.monsters) {
-    if (m.hp > 0 && vis.has(mapIdx(floor, m.x, m.y)) && !bag.includes(m.kind.name)) bag.push(m.kind.name);
+    // 正規種（MONSTER_KINDS）のみ図鑑に編む＝ボス/手負い/眷属の一回限りの固有名は載せない（図鑑を整える）。
+    if (m.hp > 0 && vis.has(mapIdx(floor, m.x, m.y)) && MONSTER_KINDS.some((k) => k.key === m.kind.key) && !bag.includes(m.kind.name)) bag.push(m.kind.name);
   }
 }
 
