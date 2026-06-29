@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.76.0";
+export const APP_VERSION = "0.77.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -94,9 +94,10 @@ const gridEl = $("grid"), lightEl = $("light"), logEl = $("log");
 const overlayEl = $("overlay"), sheetText = $("sheetText"), sheetMeta = $("sheetMeta");
 const sheetButtons = $("sheetButtons"), sheetInputRow = $("sheetInputRow"), sheetClose = $("sheetClose");
 
-// 上部固定「閉じる」ショートカット：閉じ系の選択肢を、最下部まで探さず手の届く上部からも押せるように。
-// 末尾が閉じ系の語のとき（or 選択肢が1つだけ＝それが唯一の出口）だけ出す。強制選択（討つ/鎮める等）では出さない。
-const CLOSE_RE = /(閉じ|戻る|やめ|立ち去|出る|済ま|後で|いいえ|よす|帰る)/;
+// 上部固定「閉じる」ショートカット：ステータス/設定など"メニュー系"シートでだけ出す（最下部まで探さず上部から閉じられる）。
+// 判別＝末尾の選択肢（or chooseGrid のキャンセル）が厳密に「閉じる」「戻る」のときだけ。物語シーン（拾得品「懐に納める」・
+// 遭遇「立ち去る」等の内容語）や強制選択（討つ/鎮める）、action 選択（「やめる」）には出さない＝余計な所に出さない（テストプレイFB）。
+const isCloseLabel = (s: string) => s === "閉じる" || s === "戻る";
 function armSheetClose(handler: (() => void) | null) {
   sheetClose.classList.toggle("show", !!handler);
   sheetClose.onclick = handler ? () => handler() : null;
@@ -151,9 +152,9 @@ function sheet(o: SheetOpts): Promise<{ pick: number; text: string }> {
       b.onclick = () => choose(i + 1);
       sheetButtons.appendChild(b);
     });
-    // 上部の閉じるショートカット：単一選択肢＝それ／複数＝末尾が閉じ系の語のときその末尾に対応。
+    // 上部の閉じるショートカット：末尾の選択肢が「閉じる」「戻る」のとき（＝メニュー系）だけ、その末尾に対応。
     const last = o.options.length - 1;
-    const closeIdx = o.options.length === 1 ? 0 : (last >= 0 && CLOSE_RE.test(o.options[last]) ? last : -1);
+    const closeIdx = last >= 0 && isCloseLabel(o.options[last]) ? last : -1;
     armSheetClose(closeIdx >= 0 ? () => choose(closeIdx + 1) : null);
     overlayEl.classList.add("show");
   });
@@ -188,8 +189,8 @@ function chooseGrid(o: { title: string; lead?: string; cells: { html: string }[]
       cb.onclick = cancel;
       sheetButtons.appendChild(cb);
     }
-    // キャンセル可なら上部の閉じるショートカットも出す（最下部のキャンセルを探さずに済む）。
-    armSheetClose(o.cancel ? cancel : null);
+    // 上部の閉じるショートカット：キャンセルが「閉じる」「戻る」のとき（＝閲覧メニュー系）だけ。「やめる」(action中断)には出さない。
+    armSheetClose(o.cancel && isCloseLabel(o.cancel) ? cancel : null);
     overlayEl.classList.add("show");
   });
 }
