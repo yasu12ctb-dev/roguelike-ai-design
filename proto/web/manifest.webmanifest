@@ -1,6 +1,6 @@
 {
-  "name": "堆積する世界",
-  "short_name": "堆積する世界",
+  "name": "深蝕 — The Corroding Deep",
+  "short_name": "深蝕",
   "description": "あなたの死が、世界の歴史になる――堆積するローグライク。",
   "lang": "ja",
   "dir": "ltr",
@@ -12,6 +12,7 @@
   "theme_color": "#0c0f14",
   "categories": ["games"],
   "icons": [
-    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ]
 }
