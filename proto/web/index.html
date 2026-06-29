@@ -395,8 +395,36 @@
 
   <script type="module" src="app.js"></script>
   <script>
+    // Service Worker 登録＋自動更新。新版を検知したら一度だけ自動リロードして最新へ差し替える。
+    // ＝ホーム画面アイコンの入れ直し（＝localStorage のセーブ消失）をしなくても更新が届く。
     if ("serviceWorker" in navigator) {
-      addEventListener("load", () => navigator.serviceWorker.register("sw.js"));
+      var hadController = !!navigator.serviceWorker.controller; // 既に旧SWが制御中か（初回インストールと区別）
+      var swReloaded = false;
+      navigator.serviceWorker.addEventListener("controllerchange", function () {
+        if (!hadController || swReloaded) return; // 初回インストール時はリロードしない（更新時のみ）
+        swReloaded = true;
+        location.reload();
+      });
+      addEventListener("load", function () {
+        navigator.serviceWorker.register("sw.js").then(function (reg) {
+          reg.update().catch(function () {});
+          // 待機中の新SWがあれば即時反映
+          if (reg.waiting && navigator.serviceWorker.controller) reg.waiting.postMessage("skipWaiting");
+          reg.addEventListener("updatefound", function () {
+            var nw = reg.installing;
+            if (!nw) return;
+            nw.addEventListener("statechange", function () {
+              if (nw.state === "installed" && navigator.serviceWorker.controller) {
+                (reg.waiting || nw).postMessage("skipWaiting"); // 新版インストール完了＝反映を促す
+              }
+            });
+          });
+          // アプリ復帰（タブ再表示・PWA再前面）ごとに更新チェック＝開きっぱなしでも拾う
+          document.addEventListener("visibilitychange", function () {
+            if (!document.hidden) reg.update().catch(function () {});
+          });
+        }).catch(function () {});
+      });
     }
   </script>
 </body>

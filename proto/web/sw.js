@@ -1,11 +1,14 @@
 // Service Worker：アプリシェルをキャッシュして完全オフラインで遊べるようにする
 // アプリ版数（src/web/main.ts の APP_VERSION と必ず同値に揃える）。版数を上げると旧キャッシュを破棄。
-const CACHE = "sekitsui-0.75.0";
+const CACHE = "sekitsui-0.76.0";
 const ASSETS = ["./", "./index.html", "./app.js", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
 });
+
+// ページからの要求で待機中の新版を即時有効化（index.html の自動更新フローと連携）。
+self.addEventListener("message", (e) => { if (e.data === "skipWaiting") self.skipWaiting(); });
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
