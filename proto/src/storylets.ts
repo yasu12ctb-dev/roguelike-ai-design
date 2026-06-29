@@ -10,7 +10,7 @@ import { fillStoryletText, fillDungeonText, fillActorText } from "./render.ts";
 import { rememberActor } from "./actors.ts";
 import { depthBand } from "./variation.ts";
 import { grantConsumable, consumableByKey } from "./items.ts";
-import { carryCapacity } from "./progression.ts";
+import { packCapacity } from "./progression.ts";
 
 /** 報酬（金貨/消耗品）を適用しログ行を返す。全 context 共通（4-12(I)：イベント＝報酬セット）。 */
 function applyReward(ch: Character, e: Effect, logs: string[]): void {
@@ -20,7 +20,9 @@ function applyReward(ch: Character, e: Effect, logs: string[]): void {
   }
   if (e.item !== undefined) {
     const name = consumableByKey(e.item)?.name ?? e.item;
-    logs.push(grantConsumable(ch, e.item, carryCapacity(ch)) ? `${name} を手に入れた。` : `${name} を受け取ったが、持ちきれず手放した。`);
+    // 統一バッグ：消耗品の新規枠は「荷物の空き＝packCapacity − 武具袋の点数」まで。
+    const slotCap = packCapacity(ch) - (ch.gearBag?.length ?? 0);
+    logs.push(grantConsumable(ch, e.item, slotCap) ? `${name} を手に入れた。` : `${name} を受け取ったが、持ちきれず手放した。`);
   }
 }
 

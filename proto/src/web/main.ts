@@ -15,8 +15,8 @@ import {
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
 import {
   maxHp, meleeDmg, heartFactor, xpToNext, xpForKill, statsLine,
-  STAT_KEYS, STAT_LABEL, HP_PER, carryCapacity, STASH_CAP, STASH_CAP_MANOR, STASH_INHERIT, STASH_INHERIT_MANOR, LOADOUT_CAP, BASE_STATS,
-  armorReduce, effectiveReason, xpMul, equipExposure, gearCapacity,
+  STAT_KEYS, STAT_LABEL, HP_PER, packCapacity, STASH_CAP, STASH_CAP_MANOR, STASH_INHERIT, STASH_INHERIT_MANOR, LOADOUT_CAP, BASE_STATS,
+  armorReduce, effectiveReason, xpMul, equipExposure,
   DEPTH_SEAL_AT, ABYSS_DEPTH, RELIC_EXPOSURE_PER_TURN, RELIC_PURSUER_EVERY, RELIC_PURSUER_CAP,
 } from "../progression.ts";
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.72.0";
+export const APP_VERSION = "0.73.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -748,7 +748,7 @@ async function healerBuy() {
   for (;;) {
     const stock = CONSUMABLES.filter((c) => (c.minLevel ?? 0) <= ch.level); // 上位品は等級で解禁
     const r = await sheet({
-      text: `老薬師トウの調剤棚。所持 金${ch.gold}。\n持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)} 枠。`,
+      text: `老薬師トウの調剤棚。所持 金${ch.gold}。\n持ち物 ${packUsed(ch)}/${packCapacity(ch)} 枠。`,
       meta: "薬師 ── 薬を買う",
       options: [...stock.map((c) => `${c.name}（${c.desc}）${c.price}金貨`), "やめる"],
     });
@@ -858,8 +858,8 @@ async function oddmentsBuy() {
   const stock = [rollItem(tier, rng, { boss: true }), rollItem(tier, rng, { boss: true }), rollItem(tier, rng, { boss: true })];
   for (const it of stock) it.unidentified = true; // 奇物堂の品は必ず未鑑定（賭け）
   const price = 14 + tier * 3; // 一律＝中身（異物か凡品か）を値段から読ませない
-  if ((ch.gearBag?.length ?? 0) >= gearCapacity(ch)) {
-    await sheet({ text: "クオは布を畳む。「袋がいっぱいだろう。先に整理しておいで」。", meta: "奇物堂 ── 異物を買う", options: ["わかった"] });
+  if (packUsed(ch) >= packCapacity(ch)) {
+    await sheet({ text: "クオは布を畳む。「荷物がいっぱいだろう。先に整理しておいで」。", meta: "奇物堂 ── 異物を買う", options: ["わかった"] });
     busy = false; return;
   }
   const r = await sheet({
@@ -1197,11 +1197,14 @@ async function cultLore(which: "gospel" | "rite") {
   busy = false;
 }
 // ---------- 持ち物（4-10G／Phase1：消耗品＋容量＝レベル。道具屋で購入・潜行中に使用） ----------
-/** 使用中の枠数（容量＝carryCapacity と比較）。同種はスタックするので枠は増えない。 */
+/** 消耗品の使用枠数（同種はスタックなので枠は増えない）。 */
 function invSlotsUsed(ch: Character): number { return ch.inventory?.length ?? 0; }
-/** 消耗品を1つ持ち物へ（容量はレベル依存）。同種はスタック、空き枠が無ければ false。 */
+/** 統一バッグ（荷物）の使用量＝消耗品の枠数＋拾った武具の点数。容量は packCapacity と比較。 */
+function packUsed(ch: Character): number { return (ch.inventory?.length ?? 0) + (ch.gearBag?.length ?? 0); }
+/** 消耗品を1つ荷物へ。同種はスタック、荷物に空きが無ければ false（武具と枠を共有）。 */
 function addConsumable(ch: Character, key: string): boolean {
-  return grantConsumable(ch, key, carryCapacity(ch));
+  // 新規枠の上限＝荷物の空き（packCapacity − 武具袋の点数）。既存枠へのスタックは grantConsumable が無条件で許す。
+  return grantConsumable(ch, key, packCapacity(ch) - (ch.gearBag?.length ?? 0));
 }
 /** 1枠から1つ消費（0になった枠は外す）。 */
 function consumeOne(ch: Character, key: string) {
@@ -1268,7 +1271,7 @@ async function storeBuy() {
   for (;;) {
     const stock = CONSUMABLES.filter((c) => (c.minLevel ?? 0) <= ch.level); // 上位品は等級で解禁（深部向けを序盤の棚に出さない）
     const r = await sheet({
-      text: `道具屋ハル。所持 金${ch.gold}。\n持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)} 枠（同じ品は重ねて持てる）。`,
+      text: `道具屋ハル。所持 金${ch.gold}。\n持ち物 ${packUsed(ch)}/${packCapacity(ch)} 枠（同じ品は重ねて持てる）。`,
       meta: "道具屋 ── 消耗品を買う",
       options: [...stock.map((c) => `${c.name}（${c.desc}）${c.price}金貨`), "やめる"],
     });
@@ -1312,7 +1315,7 @@ async function storeManage() {
     const inv = ch.inventory ?? [];
     if (!inv.length) { await sheet({ text: "持ち物は空だ。", options: ["閉じる"] }); break; }
     const r = await sheet({
-      text: `持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)} 枠。\n品を選ぶ。`,
+      text: `持ち物 ${packUsed(ch)}/${packCapacity(ch)} 枠。\n品を選ぶ。`,
       meta: "道具屋 ── 携行品を整える",
       options: [...inv.map((s) => `${consumableByKey(s.key)?.name ?? s.key} ×${s.qty}`), "戻る"],
     });
@@ -1397,7 +1400,7 @@ async function homeWithdraw() {
     ];
     if (!opts.length) { await sheet({ text: "保管庫は空だ。", options: ["閉じる"] }); break; }
     const r = await sheet({
-      text: `保管 ${homeUsed()}/${stashCap()} 枠。持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)} 枠。\n何を引き出す？`,
+      text: `保管 ${homeUsed()}/${stashCap()} 枠。持ち物 ${packUsed(ch)}/${packCapacity(ch)} 枠。\n何を引き出す？`,
       meta: "自宅 ── 引き出す",
       options: [...opts, "やめる"],
     });
@@ -3836,11 +3839,10 @@ async function equipPrompt(item: Item) {
   const head = item.unidentified
     ? `見知らぬ${SLOT_LABEL[item.slot]}を手にした。（未鑑定：装備すれば正体が分かる）`
     : `${item.name} を手にした。（${itemPower(item)}）`;
-  const bagUsed = (ch.gearBag ?? []).length, bagCap = gearCapacity(ch);
   const r = await sheet({
     text: head + (cur ? `\n今の${SLOT_LABEL[item.slot]}：${itemLabel(cur)}` : ""),
-    meta: `${SLOT_LABEL[item.slot]} ── 拾い物（袋 ${bagUsed}/${bagCap}）`,
-    options: [cur ? `装備する（今の${SLOT_LABEL[item.slot]}は袋へ）` : "装備する", "袋にしまう（街/行商人で売る）", "見送る（置いていく）"],
+    meta: `${SLOT_LABEL[item.slot]} ── 拾い物（荷物 ${packUsed(ch)}/${packCapacity(ch)}）`,
+    options: [cur ? `装備する（今の${SLOT_LABEL[item.slot]}は荷物へ）` : "装備する", "荷物にしまう（街/行商人で売る）", "見送る（置いていく）"],
   });
   if (r.pick === 1) {
     item.unidentified = false; // 装備で鑑定
@@ -3870,23 +3872,23 @@ function dedupeGearBag(ch: Character): void {
 async function gearBagPush(item: Item): Promise<void> {
   const ch = world.current!;
   ch.gearBag ??= [];
-  const cap = gearCapacity(ch);
-  if (ch.gearBag.length >= cap) {
+  const cap = packCapacity(ch);
+  if (packUsed(ch) >= cap) { // 荷物（武具＋消耗品）が満杯＝何かを置くか見送る
     const r = await sheet({
-      text: `袋がいっぱいだ（${ch.gearBag.length}/${cap}）。\n何かを置いて、これを入れるか？`,
-      meta: "拾い物の袋 ── 満杯",
+      text: `荷物がいっぱいだ（${packUsed(ch)}/${cap}）。\n武具を置いて、これを入れるか？（薬を減らすなら持ち物から）`,
+      meta: "荷物 ── 満杯",
       options: [...ch.gearBag.map((g) => `「${itemLabel(g)}」を置いて入れ替える`), "これを見送る"],
     });
     const i = r.pick - 1;
     if (i < 0 || i >= ch.gearBag.length) { log(`${item.name} は置いていった。`, "dim"); return; }
     const dropped = ch.gearBag.splice(i, 1)[0];
     ch.gearBag.push(item);
-    log(`「${itemLabel(dropped)}」を置き、${item.name} を袋に入れた。`, "dim");
+    log(`「${itemLabel(dropped)}」を置き、${item.name} を荷物に入れた。`, "dim");
     return;
   }
   ch.gearBag.push(item);
   sfx("pickup");
-  log(`${item.name} を袋にしまった（${ch.gearBag.length}/${cap}）。街の武具屋か、迷宮の行商人に売れる。`, "dim");
+  log(`${item.name} を荷物にしまった（${packUsed(ch)}/${cap}）。街の武具屋か、迷宮の行商人に売れる。`, "dim");
 }
 
 /** 装備の売値（武具屋＝確実・高値／行商人＝便利・安値）。 */
@@ -3949,7 +3951,7 @@ $("bagBtn").onclick = async () => {
     const def = consumableByKey(s.key);
     return { html: `<div class="nm">${def?.name ?? s.key} <span style="color:#9aa4b0;font-weight:400">×${s.qty}</span></div><div class="sub">${def?.desc ?? ""}</div>` };
   });
-  const i = await chooseGrid({ title: `持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)}（使うと一手）`, cells, cancel: "やめる" });
+  const i = await chooseGrid({ title: `持ち物 ${packUsed(ch)}/${packCapacity(ch)}（使うと一手）`, cells, cancel: "やめる" });
   busy = false;
   if (i < 0 || i >= inv.length) return;
   const s = inv[i], def = consumableByKey(s.key);
@@ -4460,13 +4462,13 @@ function rollKillLoot(mon: Monster): void {
     ch.gold += g; sfx("coin", 0.1);
     log(`亡骸から ${g} 金貨を拾った（所持 ${ch.gold}）。`, "dim");
   }
-  if (rng.next() < 0.125 + (tier - 1) * 0.03) { // 武具：既存 rollItem→袋（容量制）
+  if (rng.next() < 0.125 + (tier - 1) * 0.03) { // 武具：既存 rollItem→荷物（消耗品と共有の容量制）
     ch.gearBag ??= [];
-    if (ch.gearBag.length < gearCapacity(ch)) {
+    if (packUsed(ch) < packCapacity(ch)) {
       const it = rollItem(depth, rng);
       ch.gearBag.push(it); sfx("pickup", 0.1);
-      log(`亡骸が ${itemLabel(it)} を遺していた（袋 ${ch.gearBag.length}/${gearCapacity(ch)}）。`, "dim");
-    } else log("めぼしい武具があったが、袋が満杯で見送った。", "dim");
+      log(`亡骸が ${itemLabel(it)} を遺していた（荷物 ${packUsed(ch)}/${packCapacity(ch)}）。`, "dim");
+    } else log("めぼしい武具があったが、荷物が満杯で見送った。", "dim");
   }
   if (rng.next() < 0.06) { // 消耗品：たまに薬の類（上位品は等級で解禁＝浅層で深部品を落とさない）
     const c = rng.pick(CONSUMABLES.filter((x) => (x.minLevel ?? 0) <= ch.level));
@@ -5306,6 +5308,7 @@ async function charScreen() {
     const eqSlots: ItemSlot[] = ["weapon", "armor", "relic", "bag"];
     const eqBlock = eqSlots.map((sl) => `　${SLOT_LABEL[sl]}　${ch.equipment[sl] ? itemLabel(ch.equipment[sl]!) : "—"}`).join("\n");
     const inv = (ch.inventory ?? []).length ? (ch.inventory ?? []).map((s) => `${consumableByKey(s.key)?.name ?? s.key}×${s.qty}`).join("、") : "なし";
+    const gearList = (ch.gearBag ?? []).length ? (ch.gearBag ?? []).map((g) => itemLabel(g)).join("、") : "なし";
     const lo = activeLoadout(ch);
     const loNames = lo.map((k) => spellByKey(k)?.name ?? k).join("、");
     const loLine = ch.spells.length ? `【構え ${lo.length}/${LOADOUT_CAP}】${loNames || "なし"}` : "【術】未識得";
@@ -5316,7 +5319,7 @@ async function charScreen() {
       `深蝕 ${ch.exposure.toFixed(2)}${ch.carryingRelic ? "　★聖遺物 携行中" : ""}\n` +
       `\n【装備】\n${eqBlock}\n` +
       `\n${loLine}\n` +
-      `【持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)}】${inv}` +
+      `【荷物 ${packUsed(ch)}/${packCapacity(ch)}】（薬と武具で共有）\n　薬・巻物　${inv}\n　武具　${gearList}` +
       `${ch.traits.length ? `\n【記憶】${ch.traits.length}件` : ""}`;
     const opts = ["装備・持ち物を見る", "術（構え・図鑑）", "進行中（依頼・因縁・印）", "人物と年代記", "敵図鑑"];
     if (ch.traits.length) opts.push(`記憶を見る（${ch.traits.length}）`);
@@ -5375,23 +5378,57 @@ async function gearSheet(ch: Character) {
         : `<div class="nm" style="color:var(--tx-dim)">（空き）</div><div class="sub">迷宮で拾った${SLOT_LABEL[sl]}を着けられる</div>`;
       cells.push({ html: `<span class="chip ${GEAR_SLOT_CLS[sl]}">${SLOT_LABEL[sl]}</span>${body}` });
     }
-    // 持ち物（消耗品）。同種はまとめて ×N。
+    // 薬・巻物（消耗品）。同種はまとめて ×N。
     for (const s of inv) {
       const def = consumableByKey(s.key);
-      cells.push({ html: `<span class="chip c-mov">持ち物</span><div class="nm">${def?.name ?? s.key}${s.qty > 1 ? `　×${s.qty}` : ""}</div><div class="sub">${def?.desc ?? ""}</div>` });
+      cells.push({ html: `<span class="chip c-mov">薬・巻物</span><div class="nm">${def?.name ?? s.key}${s.qty > 1 ? `　×${s.qty}` : ""}</div><div class="sub">${def?.desc ?? ""}</div>` });
+    }
+    // 拾った武具（荷物の中＝未装備）。タップで装備／捨てる。これまで売却画面でしか見えなかったのを荷物として可視化。
+    const bag = ch.gearBag ?? [];
+    for (const g of bag) {
+      cells.push({ html: `<span class="chip ${GEAR_SLOT_CLS[g.slot]}">武具(${SLOT_LABEL[g.slot]})</span><div class="nm">${g.unidentified ? `見知らぬ${SLOT_LABEL[g.slot]}（未鑑定）` : g.name}</div><div class="sub">${g.unidentified ? "正体不明――装備で分かる" : itemPower(g)}</div>` });
     }
     const lo = activeLoadout(ch);
     const loNames = lo.map((k) => spellByKey(k)?.name ?? k).join("、");
     const lead = (ch.spells.length ? `構え ${lo.length}/${LOADOUT_CAP}：${loNames || "なし"}\n` : "") +
-      "カードを選ぶ。装備＝着け替え／持ち物＝使う・捨てる（街）。";
+      "薬と武具は同じ荷物。装備枠＝着け替え／薬＝使う・捨てる（街）／武具＝装備・置く。";
     const i = await chooseGrid({
-      title: `装備・持ち物 ── 持ち物 ${invSlotsUsed(ch)}/${carryCapacity(ch)} 枠`,
+      title: `装備・荷物 ── 荷物 ${packUsed(ch)}/${packCapacity(ch)} 枠`,
       lead, cells, cancel: "閉じる", cols: 1,
     });
     busy = false;
     if (i < 0) break;
     if (i < eqSlots.length) await swapSlot(ch, eqSlots[i]);
-    else { const s = inv[i - eqSlots.length]; if (s) await useOrDropConsumable(ch, s.key); }
+    else if (i < eqSlots.length + inv.length) { const s = inv[i - eqSlots.length]; if (s) await useOrDropConsumable(ch, s.key); }
+    else { const g = bag[i - eqSlots.length - inv.length]; if (g) await manageBagGear(ch, g); }
+  }
+}
+
+/** 荷物の中の拾った武具を操作（装備する／置いていく）。装備すると今の装備は荷物へ戻る。 */
+async function manageBagGear(ch: Character, item: Item) {
+  busy = true;
+  const label = item.unidentified ? `見知らぬ${SLOT_LABEL[item.slot]}（未鑑定）` : `${item.name}（${itemPower(item)}）`;
+  const r = await sheet({
+    text: `荷物の中の${SLOT_LABEL[item.slot]}：${label}${item.unidentified ? "\n（装備すれば正体が分かる）" : ""}`,
+    meta: "荷物 ── 武具",
+    options: ["装備する", "置いていく（捨てる）", "戻る"],
+  });
+  busy = false;
+  if (r.pick === 1) {
+    const idx = (ch.gearBag ?? []).indexOf(item);
+    if (idx < 0) return;
+    ch.gearBag!.splice(idx, 1); // 先に荷物から取り出す（容量の二重計上を避ける）
+    const cur = ch.equipment[item.slot];
+    item.unidentified = false; // 装備で鑑定
+    ch.equipment[item.slot] = item;
+    sfx("equip");
+    log(`${item.name} を装備した（${itemPower(item)}）。`);
+    if (item.exposurePerTurn) log("……身につけた途端、深みがじわりと滲む。", "warn");
+    if (cur) { (ch.gearBag ??= []).push(cur); log(`外した「${itemLabel(cur)}」は荷物へ。`, "dim"); }
+    save();
+  } else if (r.pick === 2) {
+    const idx = (ch.gearBag ?? []).indexOf(item);
+    if (idx >= 0) { ch.gearBag!.splice(idx, 1); log(`「${itemLabel(item)}」を置いていった。`, "dim"); save(); }
   }
 }
 
