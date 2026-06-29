@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.78.0";
+export const APP_VERSION = "0.79.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -2332,7 +2332,7 @@ async function townRaidScene(): Promise<void> {
   log("警鐘——街が、襲われている。", "warn");
   const r = await sheet({
     text: scale === "large"
-      ? "街へ戻ると、警鐘が半鐘を打ち鳴らしていた。迷宮の口が大きく裂け、深層の獣が街路へ雪崩れ込んでくる。冒険者たちが武器を取り、逃げ遅れた者が悲鳴をあげる。総力戦だ――お前は、どうする？"
+      ? "街へ戻ると、半鐘がけたたましく鳴り渡っていた。迷宮の口が大きく裂け、深層の獣が街路へ雪崩れ込んでくる。冒険者たちが武器を取り、逃げ遅れた者が悲鳴をあげる。総力戦だ――お前は、どうする？"
       : "街へ戻ると、警鐘が鳴っていた。広場に深層の獣が湧き出している。居合わせた冒険者が身構える。お前は、どうする？",
     meta: scale === "large" ? "街の防衛 ── 総力戦" : "街の防衛 ── 襲撃",
     options: ["街で共に迎え撃つ（盤上で戦う）", "采配で手早く捌く（テキスト）"],
@@ -5962,7 +5962,7 @@ function titleGate(sub: string): Promise<void> {
     const menu = $("titleMenu");
     menu.innerHTML = "";
     const b = document.createElement("button");
-    b.type = "button"; b.className = "primary"; b.textContent = "▶ 画面に触れて、はじまり";
+    b.type = "button"; b.className = "primary"; b.textContent = "▶ 画面に触れて、はじめる";
     b.onclick = () => { ensureAudio(); resolve(); }; // この一手で音声解禁＝タイトルBGMが立ち上がる
     menu.appendChild(b);
     $("title").classList.add("show");
