@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.80.0";
+export const APP_VERSION = "0.81.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -91,13 +91,17 @@ function grantKeepsake(depth: number): KeepsakeDef | null {
 const $ = (id: string) => document.getElementById(id)!;
 $("stVer").textContent = "v" + APP_VERSION; // 画面上部に版数を常時表示（最新かの判定用）
 const gridEl = $("grid"), lightEl = $("light"), logEl = $("log");
-const overlayEl = $("overlay"), sheetText = $("sheetText"), sheetMeta = $("sheetMeta");
+const overlayEl = $("overlay"), sheetText = $("sheetText"), sheetMeta = $("sheetMeta"), sheetEl = $("sheet");
 const sheetButtons = $("sheetButtons"), sheetInputRow = $("sheetInputRow"), sheetClose = $("sheetClose");
 
-// 上部固定「閉じる」ショートカット：ステータス/設定など"メニュー系"シートでだけ出す（最下部まで探さず上部から閉じられる）。
-// 判別＝末尾の選択肢（or chooseGrid のキャンセル）が厳密に「閉じる」「戻る」のときだけ。物語シーン（拾得品「懐に納める」・
-// 遭遇「立ち去る」等の内容語）や強制選択（討つ/鎮める）、action 選択（「やめる」）には出さない＝余計な所に出さない（テストプレイFB）。
+// 上部固定「閉じる」ショートカット＝シートが画面からはみ出してスクロールが要るときの保険（最下部の閉じるボタンまで探さず上部から閉じられる）。
+// 出す条件は2つの AND：①末尾の選択肢（or chooseGrid のキャンセル）が厳密に「閉じる」「戻る」（＝メニュー/閲覧系）。
+// ②シート内容が実際にはみ出ている（scrollHeight > clientHeight）＝末尾ボタンが折り返しの下に隠れている。
+// 短いシーン（拾得品の一言＋「戻る」等）は末尾ボタンがそのまま見えるので冗長＝出さない（テストプレイFB＝余計な所に出さない）。
+// 物語の内容語（「懐に納める」「立ち去る」）・強制選択（討つ/鎮める）・action 中断（「やめる」）も対象外（①で除外）。
 const isCloseLabel = (s: string) => s === "閉じる" || s === "戻る";
+// シートがビューポート上限（max-height 86dvh）を超えてスクロール領域を持つか。要 overlay 表示後に測定。
+const sheetOverflows = () => sheetEl.scrollHeight > sheetEl.clientHeight + 4;
 function armSheetClose(handler: (() => void) | null) {
   sheetClose.classList.toggle("show", !!handler);
   sheetClose.onclick = handler ? () => handler() : null;
@@ -152,11 +156,13 @@ function sheet(o: SheetOpts): Promise<{ pick: number; text: string }> {
       b.onclick = () => choose(i + 1);
       sheetButtons.appendChild(b);
     });
-    // 上部の閉じるショートカット：末尾の選択肢が「閉じる」「戻る」のとき（＝メニュー系）だけ、その末尾に対応。
+    sheetEl.scrollTop = 0;
+    overlayEl.classList.add("show");
+    // 上部の閉じるショートカット：末尾の選択肢が「閉じる」「戻る」（＝メニュー系）かつ内容がはみ出ている（＝末尾ボタンが隠れる）ときだけ。
+    // 表示後に測定（scrollHeight は overlay 表示後でないと取れない）。短いシーンは末尾ボタンが見えるので出さない。
     const last = o.options.length - 1;
     const closeIdx = last >= 0 && isCloseLabel(o.options[last]) ? last : -1;
-    armSheetClose(closeIdx >= 0 ? () => choose(closeIdx + 1) : null);
-    overlayEl.classList.add("show");
+    armSheetClose(closeIdx >= 0 && sheetOverflows() ? () => choose(closeIdx + 1) : null);
   });
 }
 
@@ -189,9 +195,10 @@ function chooseGrid(o: { title: string; lead?: string; cells: { html: string }[]
       cb.onclick = cancel;
       sheetButtons.appendChild(cb);
     }
-    // 上部の閉じるショートカット：キャンセルが「閉じる」「戻る」のとき（＝閲覧メニュー系）だけ。「やめる」(action中断)には出さない。
-    armSheetClose(o.cancel && isCloseLabel(o.cancel) ? cancel : null);
+    sheetEl.scrollTop = 0;
     overlayEl.classList.add("show");
+    // 上部の閉じるショートカット：キャンセルが「閉じる」「戻る」（＝閲覧メニュー系）かつ内容がはみ出ているときだけ。「やめる」(action中断)には出さない。
+    armSheetClose(o.cancel && isCloseLabel(o.cancel) && sheetOverflows() ? cancel : null);
   });
 }
 
