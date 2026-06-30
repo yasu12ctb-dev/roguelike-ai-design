@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.82.0";
+export const APP_VERSION = "0.83.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1049,9 +1049,11 @@ async function healerTreat() {
   busy = false;
   if (r.pick !== 1) return;
   if (ch.gold < cost) { busy = true; await sheet({ text: "金貨が足りない。", options: ["出直す"] }); busy = false; return; }
-  ch.gold -= cost; ch.exposure = Math.max(0, ch.exposure - relief);
+  ch.gold -= cost; const b4 = ch.exposure; cleanseExposure(ch, relief); const got = b4 - ch.exposure;
   sfx("heal");
-  log(`薬と祈りで、深蝕が退いた（−${relief.toFixed(2)}／所持 ${ch.gold}）。`, "dim");
+  log(got < relief - 0.001
+    ? `薬と祈りで深蝕が退いた（−${got.toFixed(2)}／所持 ${ch.gold}）。だが芯に烙印が残り、これ以上は退かぬ。`
+    : `薬と祈りで、深蝕が退いた（−${got.toFixed(2)}／所持 ${ch.gold}）。`, "dim");
   save();
 }
 // 慰霊堂〈鎮魂の堂〉：縁ある化石を鎮魂＝変質クロックを巻き戻し因縁を閉じる（4-2）。
@@ -1096,7 +1098,7 @@ async function shrineRequiem() {
   ch.gold -= price;
   intervene(world, f.id, "requiem"); // 変質クロック巻き戻し＋因縁を閉じる（4-2）
   const before = ch.exposure;
-  ch.exposure = Math.max(0, ch.exposure - REQUIEM_RELIEF); // 鎮魂は自分の深蝕も少し浄める
+  cleanseExposure(ch, REQUIEM_RELIEF); // 鎮魂は自分の深蝕も少し浄める（教団の烙印より下へは祓えない）
   sfx("intervene");
   log(`弔いの巫女とともに、${f.origin.name}を鎮めた（−${price}金貨／所持 ${ch.gold}）。`);
   if (ch.exposure < before) log(`祈りのあいだ、胸の澱がわずかに晴れた（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
@@ -1174,7 +1176,7 @@ async function shrinePray() {
   busy = false;
   if (r.pick !== 1) return;
   const before = ch.exposure;
-  ch.exposure = Math.max(0, ch.exposure - PRAY_RELIEF);
+  cleanseExposure(ch, PRAY_RELIEF);
   ch.prayedAtShrineGen = world.generation;
   sfx("intervene");
   log(`祈りのあいだ、胸の澱がわずかに晴れた（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
@@ -1183,37 +1185,55 @@ async function shrinePray() {
 // 教団〈深淵を讃える者たち〉：金貨でなく深蝕で支払う店＝慰霊堂/薬師（深蝕を減らす）の暗い鏡。
 // 恩恵（禁術を識る／理・力+1）と引き換えに深蝕が上がる。深蝕は死亡時に化石へ焼き付き、
 // 高いほど自分の化石が「怨念極」へ寄り・速く変質＝後世で敵性化する（堆積/変質テンソンの核）。
-// バランス（ユーザー承認：「深蝕リスクを上げて回数無制限＝より深く」）：金貨不要・対価は深蝕で、
-// 捧げるほど重くなる（base + step×今世代の回数）・回数無制限。雪だるま式の代償が自然な歯止めになる。
+// ★リスク強化（2026-06-30 ユーザー承認・①②③）：かつては「深蝕だけ・レベル不問・回数無制限」で
+// リスクが低すぎた（駆け出しが終盤術を即取り／深蝕は薬師で買い戻せる）。3つのレバーで歯止め：
+//  ① レベル連動ゲート＝出る術は minLevel ≤ Lv+CULT_REACH（器に応じた術しか授からぬ＝終盤術の早取りを封じる）。
+//  ② 治りにくい烙印＝捧げた深蝕は exposureBrand に刻まれ、薬師/安息所/解呪でこの値より下に祓えない
+//     （潜行1階ごとに BRAND_DECAY 薄れる＝対価が「一時的」から「しばらく続く実リスク」へ）。
+//  ③ 金貨も要求＝術の minLevel に比例した喜捨（深蝕＋金貨の二重 sink）。
 const CULT_COST_BASE = 0.6, CULT_COST_STEP = 0.2;
+const CULT_REACH = 6;            // ① 教団が授ける術の minLevel 上限＝Lv+この余裕（少し先の禁術まで・終盤術の早取りは不可）
+const CULT_GOLD_BASE = 10, CULT_GOLD_PER_LV = 4; // ③ 喜捨＝base + 術 minLevel×係数
+const CULT_STAT_GOLD = 60;       // ③ 理/力+1 の喜捨（術と独立の固定）
+const BRAND_DECAY = 0.1;         // ② 烙印は潜行で新フロアに入るごとにこれだけ薄れる（+0.6 なら約6階で祓えるように戻る）
 function cultCost(ch: Character): number {
   return CULT_COST_BASE + CULT_COST_STEP * (ch.cultBoonsThisGen ?? 0);
 }
 async function cultOffering() {
   busy = true;
   const ch = world.current!;
-  const cost = cultCost(ch);
-  type Boon = { label: string; run: () => void };
+  const expCost = cultCost(ch);
+  type Boon = { label: string; gold: number; run: () => void };
   const boons: Boon[] = [];
-  for (const s of SPELLS.filter((s) => !ch.spells.includes(s.key))) boons.push({
-    label: `禁術を識る：${s.name}（${s.desc}）`,
-    run: () => { learnSpell(ch, s.key); log(`深淵が囁く──《${s.name}》を識った。`, "warn"); },
-  });
-  boons.push({ label: "深淵の力：理 ＋1（深蝕魔法が伸びる）", run: () => { ch.stats.reason += 1; log("深みが理を押し上げた（理 ＋1）。", "warn"); } });
-  boons.push({ label: "深淵の力：力 ＋1（攻撃が伸びる）", run: () => { ch.stats.power += 1; log("深みが膂力を押し上げた（力 ＋1）。", "warn"); } });
+  // ① レベル連動：器（Lv+CULT_REACH）に届く未習得術だけを授ける。
+  for (const s of SPELLS.filter((s) => !ch.spells.includes(s.key) && (s.minLevel ?? 1) <= ch.level + CULT_REACH)) {
+    const g = CULT_GOLD_BASE + (s.minLevel ?? 1) * CULT_GOLD_PER_LV; // ③ 強い術ほど高い喜捨
+    boons.push({
+      label: `禁術を識る：${s.name}（${s.desc}）／喜捨${g}金`,
+      gold: g,
+      run: () => { learnSpell(ch, s.key); log(`深淵が囁く──《${s.name}》を識った。`, "warn"); },
+    });
+  }
+  boons.push({ label: `深淵の力：理 ＋1（深蝕魔法が伸びる）／喜捨${CULT_STAT_GOLD}金`, gold: CULT_STAT_GOLD, run: () => { ch.stats.reason += 1; log("深みが理を押し上げた（理 ＋1）。", "warn"); } });
+  boons.push({ label: `深淵の力：力 ＋1（攻撃が伸びる）／喜捨${CULT_STAT_GOLD}金`, gold: CULT_STAT_GOLD, run: () => { ch.stats.power += 1; log("深みが膂力を押し上げた（力 ＋1）。", "warn"); } });
   const r = await sheet({
-    text: `仮面の教主。深蝕は呪いではなく祝福だ。\n捧げれば与えよう──対価は深蝕＋${cost.toFixed(2)}（捧げるほど深くなる）。\n今の深蝕 ${ch.exposure.toFixed(2)}（変質閾値 0.5／1.2／2.5）。`,
-    meta: "教団 ── 深蝕を捧げる（危険な恩恵）",
+    text: `仮面の教主。深蝕は呪いではなく祝福だ。\n対価は深蝕＋${expCost.toFixed(2)}（捧げるほど深くなる・薬では祓えぬ"烙印"として残り、潜るほどに薄れる）と、喜捨の金貨。\n──お前の器（Lv${ch.level}）に応じた術しか、いまは授けられぬ。\n今の深蝕 ${ch.exposure.toFixed(2)}（変質閾値 0.5／1.2／2.5）／所持 金${ch.gold}。`,
+    meta: "教団 ── 深蝕と喜捨を捧げる（危険な恩恵）",
     options: [...boons.map((b) => b.label), "立ち去る"],
   });
   busy = false;
   const i = r.pick - 1;
   if (i < 0 || i >= boons.length) return;
-  boons[i].run();
-  addExp(cost);
+  const b = boons[i];
+  if (ch.gold < b.gold) { busy = true; await sheet({ text: `喜捨が足りない（${b.gold}金が要る）。`, meta: "教団", options: ["出直す"] }); busy = false; return; }
+  ch.gold -= b.gold; // ③ 金貨を捧げる
+  b.run();
+  const before = ch.exposure;
+  addExp(expCost);
+  ch.exposureBrand = Math.min(ch.exposure, (ch.exposureBrand ?? 0) + (ch.exposure - before)); // ② 実際に上がったぶんを祓えぬ烙印に
   ch.cultBoonsThisGen = (ch.cultBoonsThisGen ?? 0) + 1;
   sfx("intervene");
-  log(`深淵に深蝕を捧げた（深蝕 ＋${cost.toFixed(2)} → ${ch.exposure.toFixed(2)}）。`, "warn");
+  log(`深淵に深蝕(＋${expCost.toFixed(2)})と喜捨(−${b.gold}金)を捧げた → 深蝕 ${ch.exposure.toFixed(2)}・烙印 ${(ch.exposureBrand ?? 0).toFixed(2)}。`, "warn");
   if (ch.exposure >= 1.2) log("……お前の末路は、もう怨念の側へ傾いている。", "warn");
   save();
 }
@@ -1289,7 +1309,7 @@ function applyConsumable(ch: Character, key: string): string {
   const parts: string[] = [];
   if (u.exposure) {
     const before = ch.exposure;
-    ch.exposure = Math.max(0, ch.exposure + u.exposure);
+    cleanseExposure(ch, -u.exposure); // 鎮静/浄化の薬も教団の烙印より下へは祓えない（②）
     parts.push(`深蝕 -${(before - ch.exposure).toFixed(2)}`);
   }
   if (u.healFrac) {
@@ -2187,6 +2207,11 @@ async function pickBloodSpells(anc: Fossil): Promise<string[]> {
 // プレイヤーの深蝕加点はすべてここを通す（減算/清めは別経路＝据え置き）。
 function addExp(amount: number): void {
   if (world.current) world.current.exposure += amount * diffMods(world.difficulty).exposure;
+}
+// 深蝕を祓う（正の量）。教団の烙印（exposureBrand）より下には祓えない＝買い戻し不能の実リスク（②）。
+// 反復・購入で祓える各所（薬師/慰霊堂の祈り/安息所/解呪術/鎮静薬）はこれを通す。烙印は enterFloor で薄れる。
+function cleanseExposure(ch: Character, amount: number): void {
+  ch.exposure = Math.max(ch.exposureBrand ?? 0, ch.exposure - amount);
 }
 
 // 潜行開始時の回復量（4-11H）。難易度 townHeal が <1 なら満タンに戻らない＝消耗（attrition）が生まれる。
@@ -3145,6 +3170,7 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
   mendTick = 0; // 遺物 mending の回復タイマーもフロア毎に仕切り直す（前フロアの貯めで降下直後に回復させない）
   const ch = world.current!;
   ch.depth = depth;
+  if (!cached && ch.exposureBrand) ch.exposureBrand = Math.max(0, ch.exposureBrand - BRAND_DECAY); // ② 教団の烙印は潜るほど薄れる（新フロア初訪のみ＝後戻りで稼げない）
   // 世界クロック（4-14G 層1）：この潜行の最深を更新（生還時に深度積分でクロックを進める）＋
   // フロンティア相対①：到達した深度までの frontierHeld 化石に reachedAt を刻む（出会う前に歪ませない）。
   world.diveMaxDepth = Math.max(world.diveMaxDepth ?? 0, depth);
@@ -4279,7 +4305,7 @@ async function castSpell(key: string) {
       : `帰還の詠唱を始める（${HOMEWARD_CHANT}手・詠唱中は無防備・動くと中断）。`, "cue");
   } else if (key === "cleanse") { // 解呪＝今この場で深蝕をいくらか祓う（潜行中の浄化弁）
     const before = ch.exposure;
-    ch.exposure = Math.max(0, ch.exposure - 0.6);
+    cleanseExposure(ch, 0.6); // 教団の烙印より下へは祓えない（②）
     sfx("spell_heal"); flashFx("still");
     log(`解呪。胸の澱が祓われる（深蝕 -${(before - ch.exposure).toFixed(2)}）。`);
   } else if (key === "survey") { // 地相＝フロアの地形を感知（地図が開く）
@@ -4622,7 +4648,7 @@ function useShrine(s: Shrine): void {
     log(`回復の泉。澄んだ水を含むと、傷が塞がってゆく（HP＋${hp - before}）。泉は涸れた。`, "cue");
   } else {
     if (ch.exposure <= 0.05) return; // 浄める澱が無ければ温存
-    const before = ch.exposure; ch.exposure = Math.max(0, ch.exposure - REST_CLEANSE);
+    const before = ch.exposure; cleanseExposure(ch, REST_CLEANSE); // 教団の烙印より下へは祓えない（②）
     sfx("heal");
     log(`安息所。息を整えると、胸の澱がほどけてゆく（深蝕 -${(before - ch.exposure).toFixed(2)}）。安息所は鎮まった。`, "cue");
   }
