@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.81.0";
+export const APP_VERSION = "0.82.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1236,6 +1236,38 @@ function addConsumable(ch: Character, key: string): boolean {
   // 新規枠の上限＝荷物の空き（packCapacity − 武具袋の点数）。既存枠へのスタックは grantConsumable が無条件で許す。
   return grantConsumable(ch, key, packCapacity(ch) - (ch.gearBag?.length ?? 0));
 }
+/** 報酬の消耗品が荷物満杯で入らなかったとき、「何かを捨てて入れ替える／諦める」を出す（テストプレイFB＝諦めるだけにしない）。
+ *  荷物枠は消耗品スタック（同種は1枠）＋拾った武具（1点1枠）の共有。新規消耗品の枠を空けるには、いずれか1つを手放す。 */
+async function swapForReward(ch: Character, key: string): Promise<void> {
+  const def = consumableByKey(key);
+  if (!def) return;
+  if (addConsumable(ch, key)) { sfx("pickup", 0.1); log(`${def.name} を持ち物に入れた。`, "dim"); return; } // 既存スタックがあれば素直に入る（保険）
+  const drops: { name: string; drop: () => void }[] = [];
+  for (const s of ch.inventory ?? []) drops.push({
+    name: `${consumableByKey(s.key)?.name ?? s.key}（×${s.qty}）`,
+    drop: () => { ch.inventory = (ch.inventory ?? []).filter((x) => x !== s); },
+  });
+  for (const it of ch.gearBag ?? []) drops.push({
+    name: itemLabel(it),
+    drop: () => { ch.gearBag = (ch.gearBag ?? []).filter((x) => x !== it); },
+  });
+  const r = await sheet({
+    text: `${def.name}（${def.desc}）を手にした。だが荷物が一杯だ（${packUsed(ch)}/${packCapacity(ch)}）。\n何かを手放して入れ替えるか、諦めるか。`,
+    meta: "荷物が一杯 ── 入れ替え",
+    options: [...drops.map((d) => `「${d.name}」を手放す`), "諦める（受け取らない）"],
+  });
+  const i = r.pick - 1;
+  if (i < 0 || i >= drops.length) { log(`${def.name} を手放した。`, "dim"); return; } // 諦める
+  drops[i].drop();
+  addConsumable(ch, key); // 1枠空いたので必ず入る
+  sfx("pickup", 0.1);
+  log(`「${drops[i].name}」を手放し、${def.name} を持ち物に入れた。`, "dim");
+  save();
+}
+/** 報酬適用で溢れた消耗品（applyEffects 等の overflow）を順に交換 UI へ。 */
+async function resolveOverflow(ch: Character, overflow: string[]): Promise<void> {
+  for (const key of overflow) await swapForReward(ch, key);
+}
 /** 1枠から1つ消費（0になった枠は外す）。 */
 function consumeOne(ch: Character, key: string) {
   const slot = ch.inventory?.find((s) => s.key === key);
@@ -1862,13 +1894,15 @@ async function talkKeeper(asKind?: string) {
         meta: "固定NPC（第2層）", options: sl.choices.map((o) => o.label),
       });
       const choice = sl.choices[c.pick - 1];
-      const lines = choice ? applyActorEffects(world, ch, keeperLa, choice.effects) : [];
+      const ov: string[] = [];
+      const lines = choice ? applyActorEffects(world, ch, keeperLa, choice.effects, ov) : [];
       // 店主は店に常駐する固定NPC＝雑踏/常連/名簿に漏らさない。applyActorEffects は bond/plant 等で
       //  rememberActor(world, la) を呼び world.actors に積むため、店主idは取り除く（meetActor/townRegularsFor/
       //  pickRaidAlly が店主を「通行人」「常連」「共闘者」として拾う事故を防ぐ）。bond/flag は ch.bonds/world.flags 側に残る。
       if (world.actors) world.actors = world.actors.filter((a) => a.id !== keeperLa.id);
       const body = [choice?.text ? fillActorText(keeperActor, choice.text) : "", ...lines].filter(Boolean).join("\n");
       if (body) await sheet({ text: body, meta: `${d.name} ── ${d.title}`, options: ["戻る"] });
+      await resolveOverflow(ch, ov);
       busy = false; save();
       if (!interior) return; // vignette 中に状況が変わっていないか
     }
@@ -1999,13 +2033,15 @@ async function talkCrowd(a: CrowdActor) {
       const intro = [head, ...reunion, fillActorText(la.actor, sl.text ?? "")].filter(Boolean).join("\n\n");
       const c = await sheet({ text: intro, options: sl.choices.map((o) => o.label) });
       const choice = sl.choices[c.pick - 1];
-      const lines = applyActorEffects(world, ch, la, choice.effects);
+      const ov: string[] = [];
+      const lines = applyActorEffects(world, ch, la, choice.effects, ov);
       // 閉じる語は場面に合わせる（酒場の屋内なら「席を立つ」、それ以外＝立ち話なら「話を切り上げる」）。
       const leave = mode === "interior" && interior?.kind === "tavern" ? "席を立つ" : "話を切り上げる";
       const r = await sheet({
         text: [choice.text ? fillActorText(la.actor, choice.text) : "", ...lines].filter(Boolean).join("\n"),
         options: canRecruit ? [leave, recruitOpt] : [leave],
       });
+      await resolveOverflow(ch, ov);
       if (canRecruit && r.pick === 2) await offerCompanion(la);
       save();
     } else {
@@ -2897,8 +2933,10 @@ async function courtNpcScene(entry: CourtEntry) {
     const intro = [head, ...reunion, fillActorText(la.actor, sl.text ?? "")].filter(Boolean).join("\n\n");
     const c = await sheet({ text: intro, options: sl.choices.map((o) => o.label) });
     const choice = sl.choices[c.pick - 1];
-    const lines = applyActorEffects(world, ch, la, choice.effects);
+    const ov: string[] = [];
+    const lines = applyActorEffects(world, ch, la, choice.effects, ov);
     await sheet({ text: [choice.text ? fillActorText(la.actor, choice.text) : "", ...lines].filter(Boolean).join("\n"), options: ["話を切り上げる"] });
+    await resolveOverflow(ch, ov);
     save();
   } else {
     await sheet({ text: [...reunion, "宮廷の顔が、静かに会釈した。"].join("\n\n"), meta: "貴族街 ── 宮廷", options: ["うなずく"] });
@@ -3408,9 +3446,11 @@ async function delverScene(d: DelverActor): Promise<void> {
       meta: `深度${floor?.depth ?? 1} ── すれ違う冒険者`, options: sl.choices.map((o) => o.label),
     });
     const choice = sl.choices[c.pick - 1];
-    const lines = applyActorEffects(world, ch, la, choice.effects);
+    const ov: string[] = [];
+    const lines = applyActorEffects(world, ch, la, choice.effects, ov);
     const body = [choice.text ? fillActorText(la.actor, choice.text) : "", ...lines].filter(Boolean).join("\n");
     if (body) log(body);
+    await resolveOverflow(ch, ov);
   } else {
     // 候補が無ければ素っ気ない会釈で別れる（破綻させない）。
     await sheet({
@@ -4756,7 +4796,9 @@ async function maybeDungeonEvent(depth: number): Promise<boolean> {
   });
   const choice = ev.choices[r.pick - 1];
   if (choice.text) log(fillDungeonText(depth, choice.text));
-  for (const line of applyDungeonEffects(world, world.current!, depth, choice.effects)) log(line, "dim");
+  const ov: string[] = [];
+  for (const line of applyDungeonEffects(world, world.current!, depth, choice.effects, ov)) log(line, "dim");
+  await resolveOverflow(world.current!, ov);
   save();
   busy = wasBusy;
   if (!wasBusy) draw();
@@ -4865,9 +4907,11 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       done.add("investigate");
       const t = fillStoryletText(fossil, storylet.investigate.text);
       log(t);
-      const fx = applyEffects(world, ch, fossil, storylet.investigate.effects);
+      const ov: string[] = [];
+      const fx = applyEffects(world, ch, fossil, storylet.investigate.effects, ov);
       for (const line of fx) log(line, "dim");
       text = t + (fx.length ? `\n\n${fx.join("\n")}` : ""); // シートに反映＝掘り下げが見える
+      await resolveOverflow(ch, ov);
       save();
       continue;
     }
@@ -4875,9 +4919,11 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       done.add("search");
       const t = fillStoryletText(fossil, storylet.search.text);
       log(t);
-      const fx = applyEffects(world, ch, fossil, storylet.search.effects);
+      const ov: string[] = [];
+      const fx = applyEffects(world, ch, fossil, storylet.search.effects, ov);
       for (const line of fx) log(line, "dim");
       text = t + (fx.length ? `\n\n${fx.join("\n")}` : ""); // シートに反映＝掘り下げが見える
+      await resolveOverflow(ch, ov);
       save();
       continue;
     }
@@ -5045,7 +5091,9 @@ async function chestScene(ce: Chest) {
       if (out?.result) {
         noteEvent(out.id);
         log(fillDungeonText(depth, out.result.text));
-        for (const line of applyDungeonEffects(world, ch, depth, out.result.effects)) log(line, "dim");
+        const ov: string[] = [];
+        for (const line of applyDungeonEffects(world, ch, depth, out.result.effects, ov)) log(line, "dim");
+        await resolveOverflow(ch, ov);
       } else { // フォールバック：所見が無ければ従来どおり装備
         const item = rollItem(depth, rng);
         log("宝箱から、何かを手にした。");
