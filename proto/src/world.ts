@@ -30,6 +30,67 @@ const LEGACY_KEEPSAKE_ID: Record<string, string> = {
   "笑みの形の面": "ks_mask", "削られた名札": "ks_nameplate",
 };
 
+/** 既にID衝突したセーブの自己修復（重大バグの遡及対応・migrateWorld から呼ぶ）。
+ *  再読込で idCounter が 0 に戻ると、新規化石 id がシード化石(fossil_1..)と衝突しうる。衝突したセーブでは
+ *  world.fossils.find(id) が誤った化石（術なしのシード）を返し、系譜の術継承・絆・依頼参照がずれたまま固着する。
+ *  → 重複 id を持つプレイヤー化石(kind:"character")を未使用 id へ振り直し、参照を追従張替し、
+ *    継承が衝突で壊れていた fresh な現キャラだけ createCharacter と同一ロジックで継ぎ直す。
+ *  重複が無ければ最初の検出で即 return＝健全セーブに完全 no-op。
+ *  ※前提：呼び出し前に idCounter を既存 id の最大値までバンプ済み（newId が未使用 id を返す）。 */
+function selfHealDuplicateIds(w: World): void {
+  if (!Array.isArray(w.fossils) || w.fossils.length === 0) return;
+  // ① 重複 id 検出（無ければ即 return）。
+  const counts = new Map<string, number>();
+  for (const f of w.fossils) { const id = (f as { id?: unknown })?.id; if (typeof id === "string") counts.set(id, (counts.get(id) ?? 0) + 1); }
+  let hasDup = false;
+  for (const c of counts.values()) if (c >= 2) { hasDup = true; break; }
+  if (!hasDup) return;
+  // ② 重複 id を持つプレイヤー化石(kind:"character")のみ新 id に振り直す（explorer シードは固定 id ゆえ温存）。
+  //    配列順に依らず必ずシードの id を残すため、先に全 explorer の id を seen に積む。
+  const seen = new Set<string>();
+  for (const f of w.fossils) if (typeof f.id === "string" && f.kind === "explorer") seen.add(f.id);
+  const remap = new Map<string, string>(); // 旧 id → 新 id
+  for (const f of w.fossils) {
+    const id = f.id;
+    if (typeof id !== "string") continue;
+    if (seen.has(id)) { if (f.kind === "character") { const nid = newId("fossil"); remap.set(id, nid); f.id = nid; } }
+    else seen.add(id);
+  }
+  if (remap.size === 0) return; // 衝突はあるが character 側でない（理論上稀）＝触らない
+  const repoint = (id: string | undefined): string | undefined => (id && remap.has(id) ? remap.get(id) : id);
+  // ③ 「キャラ化石を指す参照」だけ追従張替（シード参照は触らない）。
+  const ch = w.current;
+  let ancestorRemapped = false;
+  if (ch) {
+    if (ch.lineage && ch.lineage.ancestorFossilId && remap.has(ch.lineage.ancestorFossilId)) {
+      ch.lineage.ancestorFossilId = remap.get(ch.lineage.ancestorFossilId)!;
+      ancestorRemapped = true;
+    }
+    if (Array.isArray(ch.bonds)) for (const b of ch.bonds) if (b && remap.has(b.entityRef)) b.entityRef = remap.get(b.entityRef)!;
+  }
+  if (Array.isArray(w.tracked)) for (const t of w.tracked) {
+    if (t.originRef && remap.has(t.originRef)) t.originRef = remap.get(t.originRef)!;
+    // 派生 id（retire_/nemesis_/loredrift_<fossil>）も揃える（機能上は originRef 張替で足りるが整合のため）。
+    const dm = /^(retire|nemesis|loredrift)_(.+)$/.exec(t.id);
+    if (dm && remap.has(dm[2])) t.id = `${dm[1]}_${remap.get(dm[2])!}`;
+  }
+  if (Array.isArray(w.quests)) for (const q of w.quests) if (q && q.targetFossilId && remap.has(q.targetFossilId)) q.targetFossilId = remap.get(q.targetFossilId)!;
+  if (Array.isArray(w.chronicle)) for (const e of w.chronicle) {
+    if ((e.kind === "death" || e.kind === "legend") && Array.isArray(e.refs)) e.refs = e.refs.map((r) => repoint(r) ?? r);
+  }
+  // ④ 当該キャラの継承が衝突で壊れていた場合のみ継ぎ直す（先代が振り直され、未進行＝xp0/depth0）。進行済みは触らない。
+  if (ch && ancestorRemapped && ch.lineage && ch.lineage.relation !== "none" && (ch.xp ?? 0) === 0 && (ch.depth ?? 0) === 0) {
+    ch.stats = { ...BASE_STATS };
+    ch.level = 1;
+    ch.spells = [];
+    ch.loadout = [];
+    ch.traits = (ch.traits ?? []).filter((t) => !/の(教え|血)$/.test(t)); // 系譜 trait を除去（applyLineage が付け直す）
+    const ancId = ch.lineage.ancestorFossilId;
+    ch.bonds = (ch.bonds ?? []).filter((b) => !(b.entityRef === ancId && b.unfinished)); // 系譜 bond を除去（同上）
+    applyLineage(w, ch, ch.lineage); // createCharacter と同一ロジックで継ぎ直す（術/level/stats/trait/bond）
+  }
+}
+
 /** 旧セーブを現行スキーマへ補完（破壊しない）。
  *  欠落フィールドは版数に関わらず常に補う（版数判定だけに頼ると、追加フィールドの
  *  取りこぼしが起きる＝v2セーブに spells が無くフリーズした不具合の再発防止）。 */
@@ -94,6 +155,9 @@ export function migrateWorld(w: World): World {
     scan(w.current?.id);
     idCounter = maxN;
   }
+  // 既に二重id化したセーブの自己修復（idCounter バンプの「直後」＝newId が未使用idを生む状態が必須）。
+  // バンプは「これから生む id」の衝突しか防げず、再読込で既にシード化石とID衝突したセーブは別途 dedup が要る。
+  selfHealDuplicateIds(w);
   if (typeof w.raidCooldown !== "number") w.raidCooldown = 0; // 街襲撃の冷却：欠落は0で補完
   if (typeof w.memorialCooldown !== "number") w.memorialCooldown = 0; // 追悼の日の冷却：欠落は0で補完
   if (typeof w.plagueCooldown !== "number") w.plagueCooldown = 0; // 疫病の冷却：欠落は0で補完
@@ -230,6 +294,46 @@ function addLineageStats(into: Stats, points: number, ancStats?: Stats): void {
   for (let i = 0; i < points; i++) into[ranked[i % ranked.length]] += 1;
 }
 
+/** 系譜の継承（4-10D／4-11F②）を ch に適用する＝先代から因縁・術・地力を継ぐ。
+ *  血縁＝大器晩成（恒久ベース＋選んだ術2）／弟子＝スタートダッシュ（開始Lv＋術4自動）／襲名＝功績比例。
+ *  createCharacter（新規）と migrateWorld の自己修復（ID衝突で継承が壊れたセーブの継ぎ直し）から共用する。
+ *  ★前提：ch は spells=[]/loadout=[]/stats={...BASE_STATS}/level=1・系譜 trait/bond 無しの初期状態で渡すこと
+ *   （learn/push が破壊的に積むため）。relation="none" や先代不在は no-op。挙動は createCharacter から純粋移設。 */
+function applyLineage(world: World, ch: Character, lineage: Lineage): void {
+  if (lineage.relation === "none" || !lineage.ancestorFossilId) return;
+  const anc = world.fossils.find((f) => f.id === lineage.ancestorFossilId);
+  if (!anc) return;
+  ch.bonds.push({ entityRef: anc.id, value: 2, unfinished: true }); // 先代の未完を継ぐ（因縁は難易度に依らず継ぐ＝物語の連続性）
+  ch.traits.push(`${anc.origin.name}の${lineage.relation === "blood" ? "血" : "教え"}`);
+  const learn = (key: string) => { if (!ch.spells.includes(key)) { ch.spells.push(key); if (ch.loadout!.length < LOADOUT_CAP) ch.loadout!.push(key); } };
+  const mLv = anc.level ?? anc.laidDepth ?? 1;        // 先代Lv（旧化石は深度を代用＝Lv≈深度）
+  if (!diffMods(world.difficulty).lineage) { /* 難易度（death 等）が系譜ボーナス無効＝術/地力は継がない（因縁のみ） */ }
+  else if (lineage.relation === "blood") {
+    // 術：自分で選んだ2つ（UI 未指定＝CLI/旧経路は先頭2つ）。回復/帰還を最初から持てる質の継承。
+    const picks = (lineage.chosenSpells && lineage.chosenSpells.length ? lineage.chosenSpells : (anc.spells ?? [])).slice(0, BLOOD_SPELLS);
+    for (const key of picks) learn(key);
+    // 地力：恒久ベース加算（大器晩成）＝先代の得意ステへ寄せる。
+    addLineageStats(ch.stats, clamp(Math.floor(mLv / 10), 1, BLOOD_STAT_CAP), anc.stats);
+  } else if (lineage.relation === "heir") {
+    // 襲名（4-14G・層2）：退隠した先代の家督を継ぐ。死亡継承を上回る待遇＝「平穏な伝授は綺麗に渡せる」。
+    // ★ボーナスは功績比例（雪だるま防止）＝駆け出しを退かせても殆ど継げない／伝説を退かせれば全継承。
+    const ach = anc.achievementAtEnd ?? 0;
+    const known = anc.spells ?? [];
+    const count = clamp(2 + Math.floor(ach / 2), BLOOD_SPELLS, known.length); // 継ぐ術数（功績で増える・最大は全術）
+    for (const key of known.slice(0, count)) learn(key);
+    // 地力＝恒久ベース（血縁＋α）＋ささやかな開始Lv（弟子の弱め）＝両者の良いとこ取り。
+    addLineageStats(ch.stats, clamp(Math.floor(mLv / 8) + 1, 1, BLOOD_STAT_CAP + 1), anc.stats);
+    const p = clamp(Math.floor(mLv / 8), 0, 5);
+    if (p > 0) { addLineageStats(ch.stats, p, anc.stats); ch.level = 1 + p; }
+    // 装備の直接相続（散逸せず heir が継ぐ）は web の characterCreation で実装（itemByName 再構成）。
+  } else { // pupil
+    for (const key of (anc.spells ?? []).slice(0, PUPIL_SPELLS)) learn(key);  // 術4つ自動（多芸・選べない）
+    // スタートダッシュ：開始レベル＝1+P＋Pぶんのステを即付与（先代の得意ステ寄せ）。前借り型＝Lv上限では無系譜と同地力。
+    const p = clamp(Math.floor(mLv / 6), 0, PUPIL_LEVEL_CAP);
+    if (p > 0) { addLineageStats(ch.stats, p, anc.stats); ch.level = 1 + p; }
+  }
+}
+
 export function createCharacter(world: World, name: string, archetype: string, lineage: Lineage): Character {
   const ch: Character = {
     id: newId("ch"), name, archetype, lineage,
@@ -240,41 +344,7 @@ export function createCharacter(world: World, name: string, archetype: string, l
     inventory: [],
     gearBag: [],
   };
-  // 系譜（4-10D／4-11F②）：先代から因縁・術・地力を継ぐ。血縁＝大器晩成（恒久ベース＋選んだ術2）／弟子＝スタートダッシュ（開始Lv＋術4自動）。
-  if (lineage.relation !== "none" && lineage.ancestorFossilId) {
-    const anc = world.fossils.find((f) => f.id === lineage.ancestorFossilId);
-    if (anc) {
-      ch.bonds.push({ entityRef: anc.id, value: 2, unfinished: true }); // 先代の未完を継ぐ（因縁は難易度に依らず継ぐ＝物語の連続性）
-      ch.traits.push(`${anc.origin.name}の${lineage.relation === "blood" ? "血" : "教え"}`);
-      const learn = (key: string) => { if (!ch.spells.includes(key)) { ch.spells.push(key); if (ch.loadout!.length < LOADOUT_CAP) ch.loadout!.push(key); } };
-      const mLv = anc.level ?? anc.laidDepth ?? 1;        // 先代Lv（旧化石は深度を代用＝Lv≈深度）
-      if (!diffMods(world.difficulty).lineage) { /* 難易度（death 等）が系譜ボーナス無効＝術/地力は継がない（因縁のみ） */ }
-      else if (lineage.relation === "blood") {
-        // 術：自分で選んだ2つ（UI 未指定＝CLI/旧経路は先頭2つ）。回復/帰還を最初から持てる質の継承。
-        const picks = (lineage.chosenSpells && lineage.chosenSpells.length ? lineage.chosenSpells : (anc.spells ?? [])).slice(0, BLOOD_SPELLS);
-        for (const key of picks) learn(key);
-        // 地力：恒久ベース加算（大器晩成）＝先代の得意ステへ寄せる。
-        addLineageStats(ch.stats, clamp(Math.floor(mLv / 10), 1, BLOOD_STAT_CAP), anc.stats);
-      } else if (lineage.relation === "heir") {
-        // 襲名（4-14G・層2）：退隠した先代の家督を継ぐ。死亡継承を上回る待遇＝「平穏な伝授は綺麗に渡せる」。
-        // ★ボーナスは功績比例（雪だるま防止）＝駆け出しを退かせても殆ど継げない／伝説を退かせれば全継承。
-        const ach = anc.achievementAtEnd ?? 0;
-        const known = anc.spells ?? [];
-        const count = clamp(2 + Math.floor(ach / 2), BLOOD_SPELLS, known.length); // 継ぐ術数（功績で増える・最大は全術）
-        for (const key of known.slice(0, count)) learn(key);
-        // 地力＝恒久ベース（血縁＋α）＋ささやかな開始Lv（弟子の弱め）＝両者の良いとこ取り。
-        addLineageStats(ch.stats, clamp(Math.floor(mLv / 8) + 1, 1, BLOOD_STAT_CAP + 1), anc.stats);
-        const p = clamp(Math.floor(mLv / 8), 0, 5);
-        if (p > 0) { addLineageStats(ch.stats, p, anc.stats); ch.level = 1 + p; }
-        // 装備の直接相続（散逸せず heir が継ぐ）は web の characterCreation で実装（itemByName 再構成）。
-      } else { // pupil
-        for (const key of (anc.spells ?? []).slice(0, PUPIL_SPELLS)) learn(key);  // 術4つ自動（多芸・選べない）
-        // スタートダッシュ：開始レベル＝1+P＋Pぶんのステを即付与（先代の得意ステ寄せ）。前借り型＝Lv上限では無系譜と同地力。
-        const p = clamp(Math.floor(mLv / 6), 0, PUPIL_LEVEL_CAP);
-        if (p > 0) { addLineageStats(ch.stats, p, anc.stats); ch.level = 1 + p; }
-      }
-    }
-  }
+  applyLineage(world, ch, lineage); // 系譜（4-10D／4-11F②）：先代から因縁・術・地力を継ぐ（純粋移設・挙動不変）
   world.current = ch;
   chronicle(world, "birth", `${ch.name}（第${world.generation}世代）、迷宮へ降りた。`, [ch.id]);
   return ch;
