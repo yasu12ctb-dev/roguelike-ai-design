@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.83.0";
+export const APP_VERSION = "0.84.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1185,40 +1185,58 @@ async function shrinePray() {
 // 教団〈深淵を讃える者たち〉：金貨でなく深蝕で支払う店＝慰霊堂/薬師（深蝕を減らす）の暗い鏡。
 // 恩恵（禁術を識る／理・力+1）と引き換えに深蝕が上がる。深蝕は死亡時に化石へ焼き付き、
 // 高いほど自分の化石が「怨念極」へ寄り・速く変質＝後世で敵性化する（堆積/変質テンソンの核）。
-// ★リスク強化（2026-06-30 ユーザー承認・①②③）：かつては「深蝕だけ・レベル不問・回数無制限」で
-// リスクが低すぎた（駆け出しが終盤術を即取り／深蝕は薬師で買い戻せる）。3つのレバーで歯止め：
-//  ① レベル連動ゲート＝出る術は minLevel ≤ Lv+CULT_REACH（器に応じた術しか授からぬ＝終盤術の早取りを封じる）。
-//  ② 治りにくい烙印＝捧げた深蝕は exposureBrand に刻まれ、薬師/安息所/解呪でこの値より下に祓えない
-//     （潜行1階ごとに BRAND_DECAY 薄れる＝対価が「一時的」から「しばらく続く実リスク」へ）。
-//  ③ 金貨も要求＝術の minLevel に比例した喜捨（深蝕＋金貨の二重 sink）。
-const CULT_COST_BASE = 0.6, CULT_COST_STEP = 0.2;
-const CULT_REACH = 6;            // ① 教団が授ける術の minLevel 上限＝Lv+この余裕（少し先の禁術まで・終盤術の早取りは不可）
-const CULT_GOLD_BASE = 10, CULT_GOLD_PER_LV = 4; // ③ 喜捨＝base + 術 minLevel×係数
-const CULT_STAT_GOLD = 60;       // ③ 理/力+1 の喜捨（術と独立の固定）
-const BRAND_DECAY = 0.1;         // ② 烙印は潜行で新フロアに入るごとにこれだけ薄れる（+0.6 なら約6階で祓えるように戻る）
+// ★リスク再設計 v2（2026-06-30 ユーザーFB「Lv12 でもかなりの数を簡単に取れる」）：
+// v1（①レベルゲート＋②治りにくい烙印＋③金貨）でも、対価が"訪問ごとにリセット"される（深蝕は癒え・烙印は潜行で薄れる）
+// ため総取得数を縛れていなかった。総数を縛るには対価を【累積し永続】させる必要がある。4つのレバーで再設計：
+//  A. 生涯の取引回数に上限（CULT_BOON_CAP）＝深淵がひとつの魂と交わす取引は限りがある（死で次代はリセット）。
+//  B. 永続汚染（exposureTaint）＝1取引ごとに"二度と祓えぬ深蝕の下限"が上がる。集めるほど死亡時の怨念化が不可避＝真の代償。
+//  C. 急峻な逆増（乗算）＝深蝕コスト CULT_COST_BASE×GROWTH^回数（上限内でも3つ目は破滅的賭け）。
+//  D. レベルゲート厳格化（CULT_REACH 6→3）＝Lv12 が near-終盤術を選べない。
+//  E. 金貨も逆増（取引回数で増える）。
+const CULT_COST_BASE = 0.6, CULT_COST_GROWTH = 1.8; // C：深蝕コストは 0.6→1.08→1.94…と急峻に
+const CULT_BOON_CAP = 3;         // A：1キャラ（世代）が教団から得られる恩恵の生涯上限
+const CULT_PERMA = 0.2;          // B：1取引ごとに永続的に上がる「祓えぬ深蝕の下限」
+const CULT_REACH = 3;            // D：教団が授ける術の minLevel 上限＝Lv+この余裕（near-終盤術の早取りを封じる）
+const CULT_GOLD_BASE = 10, CULT_GOLD_PER_LV = 4; // E：喜捨＝(base + 術 minLevel×係数)×回数逆増
+const CULT_STAT_GOLD = 60;       // E：理/力+1 の喜捨（術と独立の基準）
+const BRAND_DECAY = 0.1;         // 烙印（一時分）は潜行で新フロアに入るごとにこれだけ薄れる（永続下限 exposureTaint までで止まる）
 function cultCost(ch: Character): number {
-  return CULT_COST_BASE + CULT_COST_STEP * (ch.cultBoonsThisGen ?? 0);
+  return CULT_COST_BASE * Math.pow(CULT_COST_GROWTH, ch.cultBoonsThisGen ?? 0); // C：乗算で急峻に
+}
+function cultGoldMul(ch: Character): number {
+  return 1 + (ch.cultBoonsThisGen ?? 0) * 0.5; // E：回数で金貨も逆増
 }
 async function cultOffering() {
   busy = true;
   const ch = world.current!;
+  const used = ch.cultBoonsThisGen ?? 0;
+  // A：生涯上限に達したら、もう取引しない（フレーバーのみ）。
+  if (used >= CULT_BOON_CAP) {
+    await sheet({
+      text: `仮面の教主は、もうお前を見ない。\n「深淵がひとつの魂と交わす取引は、${CULT_BOON_CAP}度まで。お前はもう、与えられるだけ与えられた。\n……あとは、その身に刻んだものと往け。」`,
+      meta: "教団 ── これ以上の取引はない", options: ["立ち去る"],
+    });
+    busy = false; return;
+  }
   const expCost = cultCost(ch);
+  const goldMul = cultGoldMul(ch);
   type Boon = { label: string; gold: number; run: () => void };
   const boons: Boon[] = [];
-  // ① レベル連動：器（Lv+CULT_REACH）に届く未習得術だけを授ける。
+  // D：レベル連動（厳格）。器（Lv+CULT_REACH）に届く未習得術だけを授ける。
   for (const s of SPELLS.filter((s) => !ch.spells.includes(s.key) && (s.minLevel ?? 1) <= ch.level + CULT_REACH)) {
-    const g = CULT_GOLD_BASE + (s.minLevel ?? 1) * CULT_GOLD_PER_LV; // ③ 強い術ほど高い喜捨
+    const g = Math.round((CULT_GOLD_BASE + (s.minLevel ?? 1) * CULT_GOLD_PER_LV) * goldMul); // E：強い術ほど・回数ほど高い喜捨
     boons.push({
       label: `禁術を識る：${s.name}（${s.desc}）／喜捨${g}金`,
       gold: g,
       run: () => { learnSpell(ch, s.key); log(`深淵が囁く──《${s.name}》を識った。`, "warn"); },
     });
   }
-  boons.push({ label: `深淵の力：理 ＋1（深蝕魔法が伸びる）／喜捨${CULT_STAT_GOLD}金`, gold: CULT_STAT_GOLD, run: () => { ch.stats.reason += 1; log("深みが理を押し上げた（理 ＋1）。", "warn"); } });
-  boons.push({ label: `深淵の力：力 ＋1（攻撃が伸びる）／喜捨${CULT_STAT_GOLD}金`, gold: CULT_STAT_GOLD, run: () => { ch.stats.power += 1; log("深みが膂力を押し上げた（力 ＋1）。", "warn"); } });
+  const statGold = Math.round(CULT_STAT_GOLD * goldMul);
+  boons.push({ label: `深淵の力：理 ＋1（深蝕魔法が伸びる）／喜捨${statGold}金`, gold: statGold, run: () => { ch.stats.reason += 1; log("深みが理を押し上げた（理 ＋1）。", "warn"); } });
+  boons.push({ label: `深淵の力：力 ＋1（攻撃が伸びる）／喜捨${statGold}金`, gold: statGold, run: () => { ch.stats.power += 1; log("深みが膂力を押し上げた（力 ＋1）。", "warn"); } });
   const r = await sheet({
-    text: `仮面の教主。深蝕は呪いではなく祝福だ。\n対価は深蝕＋${expCost.toFixed(2)}（捧げるほど深くなる・薬では祓えぬ"烙印"として残り、潜るほどに薄れる）と、喜捨の金貨。\n──お前の器（Lv${ch.level}）に応じた術しか、いまは授けられぬ。\n今の深蝕 ${ch.exposure.toFixed(2)}（変質閾値 0.5／1.2／2.5）／所持 金${ch.gold}。`,
-    meta: "教団 ── 深蝕と喜捨を捧げる（危険な恩恵）",
+    text: `仮面の教主。深蝕は呪いではなく祝福だ。\n対価は深蝕＋${expCost.toFixed(2)}（捧げるほど急に深くなる）と喜捨の金貨。\n──そのうち ＋${CULT_PERMA.toFixed(2)} は"二度と祓えぬ烙印"として永久に残る。\nこの身が深淵と交わせる取引は、あと ${CULT_BOON_CAP - used} 度（生涯 ${CULT_BOON_CAP} 度まで）。\nお前の器（Lv${ch.level}）に届く術しか授けられぬ。\n今の深蝕 ${ch.exposure.toFixed(2)}（祓えぬ下限 ${(ch.exposureTaint ?? 0).toFixed(2)}／変質閾値 0.5・1.2・2.5）／所持 金${ch.gold}。`,
+    meta: `教団 ── 深淵と取引する（あと${CULT_BOON_CAP - used}度）`,
     options: [...boons.map((b) => b.label), "立ち去る"],
   });
   busy = false;
@@ -1226,14 +1244,15 @@ async function cultOffering() {
   if (i < 0 || i >= boons.length) return;
   const b = boons[i];
   if (ch.gold < b.gold) { busy = true; await sheet({ text: `喜捨が足りない（${b.gold}金が要る）。`, meta: "教団", options: ["出直す"] }); busy = false; return; }
-  ch.gold -= b.gold; // ③ 金貨を捧げる
+  ch.gold -= b.gold; // E：金貨を捧げる
   b.run();
   const before = ch.exposure;
-  addExp(expCost);
-  ch.exposureBrand = Math.min(ch.exposure, (ch.exposureBrand ?? 0) + (ch.exposure - before)); // ② 実際に上がったぶんを祓えぬ烙印に
-  ch.cultBoonsThisGen = (ch.cultBoonsThisGen ?? 0) + 1;
+  addExp(expCost); // C：急峻な深蝕
+  ch.exposureTaint = (ch.exposureTaint ?? 0) + CULT_PERMA; // B：永続的に上がる「祓えぬ下限」
+  ch.exposureBrand = Math.max((ch.exposureBrand ?? 0) + (ch.exposure - before), ch.exposureTaint); // 一時の烙印＝今上がったぶん（永続下限を下回らない）
+  ch.cultBoonsThisGen = used + 1;
   sfx("intervene");
-  log(`深淵に深蝕(＋${expCost.toFixed(2)})と喜捨(−${b.gold}金)を捧げた → 深蝕 ${ch.exposure.toFixed(2)}・烙印 ${(ch.exposureBrand ?? 0).toFixed(2)}。`, "warn");
+  log(`深淵に深蝕(＋${(ch.exposure - before).toFixed(2)})と喜捨(−${b.gold}金)を捧げた → 深蝕 ${ch.exposure.toFixed(2)}・祓えぬ下限 ${(ch.exposureTaint ?? 0).toFixed(2)}。`, "warn");
   if (ch.exposure >= 1.2) log("……お前の末路は、もう怨念の側へ傾いている。", "warn");
   save();
 }
@@ -2208,10 +2227,11 @@ async function pickBloodSpells(anc: Fossil): Promise<string[]> {
 function addExp(amount: number): void {
   if (world.current) world.current.exposure += amount * diffMods(world.difficulty).exposure;
 }
-// 深蝕を祓う（正の量）。教団の烙印（exposureBrand）より下には祓えない＝買い戻し不能の実リスク（②）。
-// 反復・購入で祓える各所（薬師/慰霊堂の祈り/安息所/解呪術/鎮静薬）はこれを通す。烙印は enterFloor で薄れる。
+// 深蝕を祓う（正の量）。教団の烙印（exposureBrand・一時）／永続汚染（exposureTaint）より下には祓えない＝買い戻し不能の実リスク。
+// 反復・購入で祓える各所（薬師/慰霊堂の祈り/安息所/解呪術/鎮静薬）はこれを通す。烙印は enterFloor で taint まで薄れる。
 function cleanseExposure(ch: Character, amount: number): void {
-  ch.exposure = Math.max(ch.exposureBrand ?? 0, ch.exposure - amount);
+  const floor = Math.max(ch.exposureBrand ?? 0, ch.exposureTaint ?? 0);
+  ch.exposure = Math.max(floor, ch.exposure - amount);
 }
 
 // 潜行開始時の回復量（4-11H）。難易度 townHeal が <1 なら満タンに戻らない＝消耗（attrition）が生まれる。
@@ -3170,7 +3190,7 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
   mendTick = 0; // 遺物 mending の回復タイマーもフロア毎に仕切り直す（前フロアの貯めで降下直後に回復させない）
   const ch = world.current!;
   ch.depth = depth;
-  if (!cached && ch.exposureBrand) ch.exposureBrand = Math.max(0, ch.exposureBrand - BRAND_DECAY); // ② 教団の烙印は潜るほど薄れる（新フロア初訪のみ＝後戻りで稼げない）
+  if (!cached && ch.exposureBrand) ch.exposureBrand = Math.max(ch.exposureTaint ?? 0, ch.exposureBrand - BRAND_DECAY); // 教団の烙印（一時分）は潜るほど薄れる＝ただし永続汚染 exposureTaint までで止まる（新フロア初訪のみ）
   // 世界クロック（4-14G 層1）：この潜行の最深を更新（生還時に深度積分でクロックを進める）＋
   // フロンティア相対①：到達した深度までの frontierHeld 化石に reachedAt を刻む（出会う前に歪ませない）。
   world.diveMaxDepth = Math.max(world.diveMaxDepth ?? 0, depth);

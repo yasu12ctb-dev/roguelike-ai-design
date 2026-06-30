@@ -146,7 +146,8 @@ export interface Character {
   prayedAtShrineGen?: number;   // 慰霊堂「深蝕を清める祈り」を捧げた世代（1世代1回ガード）。任意＝旧セーブ非破壊。
   restedTavernGen?: number;     // 酒場「休む（一杯やる）」で英気を養った世代（1世代1回ガード）。任意＝旧セーブ非破壊。
   cultBoonsThisGen?: number;    // 教団「深蝕を捧げる」を今世代に受けた回数（対価の逓増に使う）。任意＝旧セーブ非破壊。
-  exposureBrand?: number;       // 教団の烙印＝薬師/安息所/解呪でこの値より下に祓えない深蝕の下限。潜行1階ごとに薄れる（web限定・任意＝旧セーブ非破壊）。
+  exposureBrand?: number;       // 教団の烙印（一時分）＝薬師/安息所/解呪でこの値より下に祓えない深蝕の下限。潜行1階ごとに薄れる（exposureTaint までで止まる）。web限定・任意＝旧セーブ非破壊。
+  exposureTaint?: number;       // 教団の永続汚染＝二度と祓えない深蝕の下限（1取引ごとに CULT_PERMA 増・潜行でも薄れない）。集めるほど死亡時の怨念化が不可避。web限定・任意＝旧セーブ非破壊。
   carryingRelic?: string;       // 奉献の試練：携行中の聖遺物の名（4-13C）。設定中は深蝕急騰＋追手。生還でクリア。任意＝旧セーブ非破壊。
 }
 
