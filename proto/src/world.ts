@@ -73,6 +73,24 @@ export function migrateWorld(w: World): World {
     if (typeof t.lastObservedGeneration !== "number") t.lastObservedGeneration = w.generation ?? 1;
     if (typeof t.drift !== "number") t.drift = 0;
   }
+  // ★ID採番の衝突を根治（重大バグ）：newId は永続化されないプロセスグローバル idCounter 由来ゆえ、
+  // 再読込でカウンタが0に戻り、以後 newId が生む fossil/ch/tracked id が既存（シード化石 fossil_1.. 等）と衝突する。
+  // → find(id) が誤った同 id 化石を返し、系譜の術継承・絆・依頼参照が壊れる（実例：弟子が別人の術なし化石を継いで術0）。
+  // 対策：ロード時に既存 id の最大採番値までカウンタを進め、以後の newId を必ず未使用 id にする（単一プロセスの新規生成では no-op）。
+  {
+    let maxN = idCounter;
+    const scan = (id: unknown) => {
+      if (typeof id !== "string") return;
+      const m = /^(?:fossil|ch|tracked)_([0-9a-z]+)$/.exec(id);
+      if (!m) return;
+      const n = parseInt(m[1], 36);
+      if (Number.isFinite(n) && n > maxN) maxN = n;
+    };
+    for (const f of w.fossils) scan((f as { id?: unknown })?.id);
+    for (const t of w.tracked) scan((t as { id?: unknown })?.id);
+    scan(w.current?.id);
+    idCounter = maxN;
+  }
   if (typeof w.raidCooldown !== "number") w.raidCooldown = 0; // 街襲撃の冷却：欠落は0で補完
   if (typeof w.memorialCooldown !== "number") w.memorialCooldown = 0; // 追悼の日の冷却：欠落は0で補完
   if (typeof w.plagueCooldown !== "number") w.plagueCooldown = 0; // 疫病の冷却：欠落は0で補完
