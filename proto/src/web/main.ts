@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.84.0";
+export const APP_VERSION = "0.85.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1196,7 +1196,7 @@ async function shrinePray() {
 const CULT_COST_BASE = 0.6, CULT_COST_GROWTH = 1.8; // C：深蝕コストは 0.6→1.08→1.94…と急峻に
 const CULT_BOON_CAP = 3;         // A：1キャラ（世代）が教団から得られる恩恵の生涯上限
 const CULT_PERMA = 0.2;          // B：1取引ごとに永続的に上がる「祓えぬ深蝕の下限」
-const CULT_REACH = 3;            // D：教団が授ける術の minLevel 上限＝Lv+この余裕（near-終盤術の早取りを封じる）
+const CULT_REACH = 8;            // D：教団が授ける術の minLevel 上限＝Lv+この余裕。上限3回＝1枠の価値を高めるため上位も「ある程度」届く（FB 2026-06-30）。帰還(minLv9)が Lv1 から狙え、Lv12 で minLv≤20 まで。真の終盤術(omni22/wither24/orbblade26/echo32/死戸36/断罪44)は引き続きレベル相応にゲート＝cap3+急峻深蝕+永続汚染が歯止め。
 const CULT_GOLD_BASE = 10, CULT_GOLD_PER_LV = 4; // E：喜捨＝(base + 術 minLevel×係数)×回数逆増
 const CULT_STAT_GOLD = 60;       // E：理/力+1 の喜捨（術と独立の基準）
 const BRAND_DECAY = 0.1;         // 烙印（一時分）は潜行で新フロアに入るごとにこれだけ薄れる（永続下限 exposureTaint までで止まる）
