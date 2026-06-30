@@ -8,6 +8,8 @@
 import {
   newWorld, createCharacter, fossilizeCurrent, migrateWorld,
 } from "../src/world.ts";
+import { generateOffers } from "../src/quests.ts";
+import { makeRng } from "../src/rng.ts";
 import type { World, Character, Fossil, Lineage, Quest } from "../src/types.ts";
 
 let FAIL = 0, CHECKS = 0;
@@ -129,6 +131,34 @@ for (let seed = 1; seed <= 30; seed++) {
     const ancNow = healed.fossils.find((f) => f.id === healed.current!.lineage.ancestorFossilId);
     ok(ancNow?.kind === "character", `seed${seed}: (d) 進行済みでも ancestorFossilId は character へ張替される`);
   }
+}
+
+// ───────── ③ クエストID衝突の根治（再読込で qn が 0 に戻る相当） ─────────
+// 現世代の受注中クエストを低採番 id（q_1..）で仕込み、migrateWorld 後に新規発行する id が
+// 既存と衝突しないことを確認＝claimQuest の `filter(id !== questId)` 巻き添え削除（報酬なしで消える）を根治。
+for (let seed = 1; seed <= 30; seed++) {
+  const w = newWorld(seed);
+  const ch = createCharacter(w, "受注者", "wanderer", { relation: "none" });
+  ch.level = 12;
+  const target = w.fossils.find((f) => f.kind === "explorer");
+  // 再読込で qn=0 から採番し直された相当の低 id を持つ受注中クエスト（セーブに残る現世代分）。
+  w.quests = [
+    { id: "q_1", kind: "descend", title: "到達", desc: "", targetDepth: 14, rewardGold: 90, status: "active", issuedGeneration: w.generation },
+    { id: "q_2", kind: "reclaim", title: "回収", desc: "", targetFossilId: target?.id, targetDepth: 8, rewardGold: 60, status: "done", issuedGeneration: w.generation },
+    { id: "q_3", kind: "descend", title: "到達2", desc: "", targetDepth: 20, rewardGold: 120, status: "active", issuedGeneration: w.generation },
+  ];
+  const healed = migrateWorld(clone(w));
+  const held = new Set((healed.quests ?? []).map((q) => q.id));
+  ok(held.size === (healed.quests ?? []).length, `seed${seed}: ③ 既存 quest id に重複`);
+  // 新規受注を複数回発行し、既存 id と衝突しないこと（syncQuestCounter のバンプ効果）。
+  const rng = makeRng(seed + 777);
+  const newIds: string[] = [];
+  for (let r = 0; r < 4; r++) {
+    const offers = generateOffers(healed, healed.current!, rng, 2);
+    for (const o of offers) { newIds.push(o.id); (healed.quests ??= []).push(o); }
+  }
+  for (const id of newIds) ok(!held.has(id), `seed${seed}: ③ 新規 quest id ${id} が既存（再読込前の受注）と衝突`);
+  ok(new Set(newIds).size === newIds.length || newIds.length === 0, `seed${seed}: ③ 新規発行どうしで id 重複`);
 }
 
 // ───────── (f) 未破損 world で dedup は完全 no-op（健全セーブを壊さない・冪等） ─────────

@@ -8,6 +8,7 @@ import { resolveTonePole } from "./variation.ts";
 import { BASE_STATS, STASH_INHERIT, STASH_INHERIT_MANOR, LOADOUT_CAP } from "./progression.ts";
 import { worldPlayerGrade, worldAchievement } from "./companion.ts";
 import { diffMods } from "./difficulty.ts";
+import { syncQuestCounter } from "./quests.ts";
 
 let idCounter = 0;
 const newId = (prefix: string) => `${prefix}_${(++idCounter).toString(36)}`;
@@ -127,6 +128,7 @@ export function migrateWorld(w: World): World {
   // 旧世代の受注（issuedGeneration < 現世代）を除去＝先代が受注した依頼が次代のギルドに「受注中」で残る不具合の自己修復。
   // issuedGeneration 欠落の旧依頼は現世代扱いで温存（保守的）。
   else w.quests = w.quests.filter((q) => ((q && q.issuedGeneration) ?? w.generation) >= w.generation);
+  syncQuestCounter(w); // クエストID採番を既存 q_N の最大値までバンプ＝再読込での id 衝突を根治（化石 idCounter と同型）
   if (!Array.isArray(w.stash)) w.stash = [];       // 自宅の保管庫・消耗品（持ち物 Phase3）：欠落は空で補完
   if (!Array.isArray(w.stashGear)) w.stashGear = []; // 自宅の保管庫・装備：欠落は空で補完
   if (w.homeUnlocked === undefined) w.homeUnlocked = true; // 旧セーブは自宅所持済み＝grandfather（新規 world は newWorld で false 明示ゆえ undefined にならず未解禁を保つ）
