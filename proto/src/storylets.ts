@@ -12,8 +12,10 @@ import { depthBand } from "./variation.ts";
 import { grantConsumable, consumableByKey } from "./items.ts";
 import { packCapacity } from "./progression.ts";
 
-/** 報酬（金貨/消耗品）を適用しログ行を返す。全 context 共通（4-12(I)：イベント＝報酬セット）。 */
-function applyReward(ch: Character, e: Effect, logs: string[]): void {
+/** 報酬（金貨/消耗品）を適用しログ行を返す。全 context 共通（4-12(I)：イベント＝報酬セット）。
+ *  overflow を渡すと、荷物が一杯で入らなかった消耗品キーをそこへ積むだけにして「持ちきれず破棄」のログは出さない
+ *  （＝呼び出し側＝web が「交換／諦める」UI を出す）。overflow 未指定（CLI/demo）は従来どおり破棄＋ログ。 */
+function applyReward(ch: Character, e: Effect, logs: string[], overflow?: string[]): void {
   if (e.gold !== undefined && e.gold !== 0) {
     ch.gold = Math.max(0, (ch.gold ?? 0) + e.gold);
     logs.push(e.gold > 0 ? `礼金を受け取った（＋${e.gold}金貨／所持 ${ch.gold}）。` : `金貨を手放した（${e.gold}）。`);
@@ -22,7 +24,9 @@ function applyReward(ch: Character, e: Effect, logs: string[]): void {
     const name = consumableByKey(e.item)?.name ?? e.item;
     // 統一バッグ：消耗品の新規枠は「荷物の空き＝packCapacity − 武具袋の点数」まで。
     const slotCap = packCapacity(ch) - (ch.gearBag?.length ?? 0);
-    logs.push(grantConsumable(ch, e.item, slotCap) ? `${name} を手に入れた。` : `${name} を受け取ったが、持ちきれず手放した。`);
+    if (grantConsumable(ch, e.item, slotCap)) logs.push(`${name} を手に入れた。`);
+    else if (overflow) overflow.push(e.item); // web が交換 UI を出す（ここでは破棄しない）
+    else logs.push(`${name} を受け取ったが、持ちきれず手放した。`); // CLI フォールバック
   }
 }
 
@@ -111,7 +115,7 @@ export function selectStorylet(
 
 /** effects を世界状態へ還流させ、プレイヤーへ見せるログ行を返す（4-12 (A)-3）。 */
 export function applyEffects(
-  world: World, ch: Character, fossil: Fossil, effects: Effect[],
+  world: World, ch: Character, fossil: Fossil, effects: Effect[], overflow?: string[],
 ): string[] {
   const logs: string[] = [];
   for (const e of effects) {
@@ -142,7 +146,7 @@ export function applyEffects(
       if (!world.flags.includes(key)) { world.flags.push(key); logs.push("……これは、伏線になる。"); }
     }
     if (e.arc !== undefined) setArc(world, e.arc); // 長尺アーク（4-12(I)）
-    applyReward(ch, e, logs); // 報酬（金貨/消耗品）
+    applyReward(ch, e, logs, overflow); // 報酬（金貨/消耗品）
     applyKeepsake(world, e, fossil.laidDepth ?? fossil.death?.depth ?? 0, logs); // 拾得品の蒐集
   }
   return logs;
@@ -186,7 +190,7 @@ export function rollChestOutcome(
 }
 
 /** ダンジョン環境イベントの選択結果を還流させる（アクター無しなので exposure/trait/chronicle のみ）。 */
-export function applyDungeonEffects(world: World, ch: Character, depth: number, effects: Effect[]): string[] {
+export function applyDungeonEffects(world: World, ch: Character, depth: number, effects: Effect[], overflow?: string[]): string[] {
   const logs: string[] = [];
   for (const e of effects) {
     if (e.exposure !== undefined) {
@@ -202,7 +206,7 @@ export function applyDungeonEffects(world: World, ch: Character, depth: number, 
       chronicle(world, "rediscovery", fillDungeonText(depth, e.chronicle), []);
     }
     if (e.arc !== undefined) setArc(world, e.arc); // 長尺アークの開始/前進/分岐/完了（4-12(I)）
-    applyReward(ch, e, logs); // 報酬（金貨/消耗品）
+    applyReward(ch, e, logs, overflow); // 報酬（金貨/消耗品）
     applyKeepsake(world, e, depth, logs); // 拾得品の蒐集（読み物コレクション）
   }
   return logs;
@@ -283,7 +287,7 @@ export function selectDelverStorylet(
 }
 
 /** 街イベントの選択結果を還流（生者アクターにアンカー）。bond/plant が立つと lazy に永続化する。 */
-export function applyActorEffects(world: World, ch: Character, la: LivingActor, effects: Effect[]): string[] {
+export function applyActorEffects(world: World, ch: Character, la: LivingActor, effects: Effect[], overflow?: string[]): string[] {
   const logs: string[] = [];
   let referenced = false; // この生者が世界に痕跡を残したか＝永続化する根拠（4-12C）
   for (const e of effects) {
@@ -320,7 +324,7 @@ export function applyActorEffects(world: World, ch: Character, la: LivingActor, 
       setArc(world, e.arc.anchor ? { ...e.arc, actorRef: la.id } : e.arc);
       if (e.arc.anchor) referenced = true;
     }
-    applyReward(ch, e, logs); // 報酬（金貨/消耗品）
+    applyReward(ch, e, logs, overflow); // 報酬（金貨/消耗品）
     applyKeepsake(world, e, 0, logs); // 拾得品の蒐集（街の生者から貰う品も棚へ）
   }
   if (referenced) rememberActor(world, la); // 参照された生者だけ永続（lazy：4-12C/4-6）

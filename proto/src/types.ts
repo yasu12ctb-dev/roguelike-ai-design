@@ -343,7 +343,7 @@ export interface Effect {
   plant?: string;          // 伏線フラグを立てる（この化石にスコープ。後続の prereq.flag が拾う）
   arc?: ArcEffect;         // 長尺アークを開始/前進/分岐記録/完了（4-12(I)）
   gold?: number;           // 報酬：金貨の増減（4-10G 経済）
-  item?: string;           // 報酬：消耗品キーを1つ持ち物へ（容量超過なら持ちきれず破棄）
+  item?: string;           // 報酬：消耗品キーを1つ持ち物へ（容量超過時：web は「交換／諦める」UI／CLI は持ちきれず破棄）
   keepsake?: string;       // 拾得品（蒐集）：keepsakes.json の id を1つ収集記録へ（書記の館で再読）。純フレーバー・効果なし。
 }
 
