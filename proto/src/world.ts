@@ -63,6 +63,9 @@ export function migrateWorld(w: World): World {
   }
   if (!Array.isArray(w.flags)) w.flags = [];
   if (!Array.isArray(w.quests)) w.quests = []; // v8：依頼（回収業 4-10G）
+  // 旧世代の受注（issuedGeneration < 現世代）を除去＝先代が受注した依頼が次代のギルドに「受注中」で残る不具合の自己修復。
+  // issuedGeneration 欠落の旧依頼は現世代扱いで温存（保守的）。
+  else w.quests = w.quests.filter((q) => ((q && q.issuedGeneration) ?? w.generation) >= w.generation);
   if (!Array.isArray(w.stash)) w.stash = [];       // 自宅の保管庫・消耗品（持ち物 Phase3）：欠落は空で補完
   if (!Array.isArray(w.stashGear)) w.stashGear = []; // 自宅の保管庫・装備：欠落は空で補完
   if (w.homeUnlocked === undefined) w.homeUnlocked = true; // 旧セーブは自宅所持済み＝grandfather（新規 world は newWorld で false 明示ゆえ undefined にならず未解禁を保つ）
@@ -312,6 +315,9 @@ export function fossilizeCurrent(world: World, manner: DeathManner, finalAct: Fi
   maybeFossilizeBondedActor(world, ch);
   world.generation += 1;
   world.current = null;
+  // 依頼（回収業 4-10G）は受注したキャラ個人の契約＝死とともに失効。次代は引き継がない
+  // （旧世代の受注が world.quests に残り、次代のギルドで「受注中」と表示される不具合の修正）。
+  if (Array.isArray(world.quests)) world.quests = world.quests.filter((q) => (q.issuedGeneration ?? 0) >= world.generation);
   // 自宅の保管庫は世代を越えて残るが、遺せるのは各 STASH_INHERIT 枠まで（残りは歳月とともに失われる）。
   // 貴族街の館（4-14G 層4）に格上げ済みなら相続枠が広がる（家が栄えるほど多くを次代へ遺せる）。
   const inheritCap = world.manorUnlocked ? STASH_INHERIT_MANOR : STASH_INHERIT;
@@ -366,6 +372,8 @@ export function retireCurrent(world: World): Fossil {
     [fossil.id]);
   world.generation += 1;
   world.current = null;
+  // 退隠でも受注中の依頼は失効（先代個人の契約。襲名する次代は引き継がない）。
+  if (Array.isArray(world.quests)) world.quests = world.quests.filter((q) => (q.issuedGeneration ?? 0) >= world.generation);
   advanceArcs(world);
   return fossil;
 }
