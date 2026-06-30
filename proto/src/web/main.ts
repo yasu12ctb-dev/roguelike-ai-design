@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.79.0";
+export const APP_VERSION = "0.80.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1024,22 +1024,27 @@ async function smithLore() {
   busy = false;
 }
 // 薬師：金貨で深蝕の進行を和らげる（exposure を一段戻す）。
+const TREAT_RATE = 18; // 薬師の深蝕治療＝1単位あたりの金貨（携行薬 ≈27金/単位 より割安＝据え置きサービスの値打ち）
 async function healerTreat() {
   busy = true;
   const ch = world.current!;
   if (ch.exposure <= 0.05) { await sheet({ text: "深蝕は、今は薄い。施療の要はない。", options: ["わかった"] }); busy = false; return; }
-  const cost = 12 + ch.level * 3 + Math.round(ch.exposure * 10); // レベル(≈到達深度)連動＝深部で「深蝕＝代価」を保つ（旧 12+exp×10 は実質無料化）
+  // 街の据え置き施療＝深蝕浄めの「割安な基準値」。携行薬（鎮静の薬＝0.6/16金≈27金/単位）より単価を低く保つ
+  // ＝薬は“持ち運べるプレミアム”、薬師の通院は“安いが街でしか受けられない”という住み分け。
+  // 旧式（12+level*3+exp*10）は携行薬より高くつき逆転していた（Lv10で 52金 vs 薬16金）＝是正。
+  const relief = Math.min(ch.exposure, 0.6 + ch.level * 0.05); // 深部ほど一度に多く浄める＝通院回数を増やさない
+  const cost = Math.max(5, Math.round(relief * TREAT_RATE)); // ≈18金/単位＝携行薬より割安
   const r = await sheet({
-    text: `老薬師トウ。お前の深蝕は ${ch.exposure.toFixed(2)}。\n薬と祈りで少し退かせる（−0.6・${cost}金貨）。所持 金${ch.gold}。`,
+    text: `老薬師トウ。お前の深蝕は ${ch.exposure.toFixed(2)}。\n薬と祈りで退かせる（−${relief.toFixed(2)}・${cost}金貨）。所持 金${ch.gold}。`,
     meta: "薬師 ── 深蝕治療",
     options: [`施療を受ける（${cost}金貨）`, "やめる"],
   });
   busy = false;
   if (r.pick !== 1) return;
   if (ch.gold < cost) { busy = true; await sheet({ text: "金貨が足りない。", options: ["出直す"] }); busy = false; return; }
-  ch.gold -= cost; ch.exposure = Math.max(0, ch.exposure - 0.6);
+  ch.gold -= cost; ch.exposure = Math.max(0, ch.exposure - relief);
   sfx("heal");
-  log(`薬と祈りで、深蝕がわずかに退いた（−0.6／所持 ${ch.gold}）。`, "dim");
+  log(`薬と祈りで、深蝕が退いた（−${relief.toFixed(2)}／所持 ${ch.gold}）。`, "dim");
   save();
 }
 // 慰霊堂〈鎮魂の堂〉：縁ある化石を鎮魂＝変質クロックを巻き戻し因縁を閉じる（4-2）。
