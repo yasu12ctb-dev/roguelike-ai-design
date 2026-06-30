@@ -26,6 +26,21 @@ function dupIds(w: World): boolean {
   const ids = w.fossils.map((f) => f.id);
   return new Set(ids).size !== ids.length;
 }
+// 化石を指す参照が必ず実在化石へ解決すること（宙ぶらりん参照＝find→undefined の静かな失敗を検出）。
+// ★bonds.entityRef は生者アクター/tracked も指しうる（main.ts）ので対象外。化石必須の3種だけ検査。
+function assertRefsResolve(w: World, tag: string): void {
+  const ids = new Set(w.fossils.map((f) => f.id));
+  const ch = w.current;
+  if (ch?.lineage && ch.lineage.relation !== "none" && ch.lineage.ancestorFossilId) {
+    ok(ids.has(ch.lineage.ancestorFossilId), `${tag}: lineage.ancestorFossilId が宙ぶらりん (${ch.lineage.ancestorFossilId})`);
+  }
+  for (const t of w.tracked ?? []) {
+    if (t.originRef) ok(ids.has(t.originRef), `${tag}: tracked.originRef が宙ぶらりん (${t.id}→${t.originRef})`);
+  }
+  for (const q of w.quests ?? []) {
+    if (q.kind === "reclaim" && q.targetFossilId) ok(ids.has(q.targetFossilId), `${tag}: quest.targetFossilId が宙ぶらりん (${q.id}→${q.targetFossilId})`);
+  }
+}
 // 1世代ぶんの実遷移：継承キャラを作り、術/依頼/絆を持たせ、化石化（世代交代）。
 function liveOneGen(w: World, gen: number): void {
   const anc = lastCharFossil(w);
@@ -54,6 +69,7 @@ function liveOneGen(w: World, gen: number): void {
   // 各世代後の不変条件。
   ok(w.quests.every((q) => q.issuedGeneration >= w.generation), `gen${gen}: 旧世代クエストが持ち越されている`); // ①
   ok(!dupIds(w), `gen${gen}: 化石 id に重複`); // ②
+  assertRefsResolve(w, `gen${gen}`); // ③ 化石参照の宙ぶらりん検出
 }
 
 // ───────── ① N世代の実遷移＋各世代後の不変条件（多 seed） ─────────
@@ -64,6 +80,7 @@ for (let seed = 1; seed <= 30; seed++) {
   const w2 = migrateWorld(clone(w));
   ok(!dupIds(w2), `seed${seed}: 移行後に化石 id 重複`);
   ok((w2.quests ?? []).every((q) => q.issuedGeneration >= w2.generation), `seed${seed}: 移行後にクエスト持ち越し`);
+  assertRefsResolve(w2, `seed${seed} 移行後`);
 }
 
 // ───────── ② 意図的二重id化 → migrateWorld 自己修復の検証（多 seed） ─────────
@@ -97,6 +114,7 @@ for (let seed = 1; seed <= 30; seed++) {
 
     const healed = migrateWorld(clone(w));
     ok(!dupIds(healed), `seed${seed}: (a) 修復後も id 重複`);
+    assertRefsResolve(healed, `seed${seed} 修復後`); // dedup が全 fossil-ref を張替＝宙ぶらりんを残さない
     ok(healed.fossils.filter((f) => f.id === collideId).length === 1 && healed.fossils.find((f) => f.id === collideId)?.kind === "explorer", `seed${seed}: (a) シード fossil_1 が温存されていない`);
     const hc = healed.current!;
     const ancNow = healed.fossils.find((f) => f.id === hc.lineage.ancestorFossilId);
@@ -126,6 +144,7 @@ for (let seed = 1; seed <= 30; seed++) {
     w.current = progressed;
     const healed = migrateWorld(clone(w));
     ok(!dupIds(healed), `seed${seed}: (d) 進行済みでも id 重複は解消する`);
+    assertRefsResolve(healed, `seed${seed} (d) 進行済み修復後`);
     ok(JSON.stringify(healed.current!.spells) === JSON.stringify(["ember"]), `seed${seed}: (d) 進行済みキャラの術が再導出で書き換わった`);
     // 参照追従は進行済みでも行われる（ancestorFossilId はシードでなく character を指す）。
     const ancNow = healed.fossils.find((f) => f.id === healed.current!.lineage.ancestorFossilId);
@@ -181,4 +200,4 @@ if (FAIL > 0) {
   for (const p of problems) console.error("  - " + p);
   process.exit(1);
 }
-console.log("✅ 多世代の不変条件（クエスト非持ち越し・ID衝突 dedup・継承再導出）すべて満たす");
+console.log("✅ 多世代の不変条件（クエスト非持ち越し・ID衝突 dedup・継承再導出・化石参照の整合）すべて満たす");
