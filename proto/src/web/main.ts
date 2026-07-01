@@ -58,8 +58,8 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.93.0";
-export const APP_BUILD = "2026-06-28";
+export const APP_VERSION = "0.94.0";
+export const APP_BUILD = "2026-07-01";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
 const db = makeContentDb(
@@ -362,6 +362,7 @@ function buildGridDom(cols = VIEW_W, rows = VIEW_H) {
 function draw() {
   if (!floor) return;
   if (mapMode) { drawMapMode(); return; }
+  if (cells.length !== VIEW_W * VIEW_H) buildGridDom(VIEW_W, VIEW_H); // 防御：グリッドが VIEW 寸法と食い違うなら組み直す（範囲外セル参照を封じる）
   lightEl.style.display = "";
   const vis = computeFov(floor, player);
   // カメラ：@ を中心に、マップ端ではクランプ（マップは常にビューより大きい）
@@ -454,6 +455,7 @@ function drawMapMode() {
   if (!floor) return;
   lightEl.style.display = "none"; // 松明の減光を外す
   const W = floor.w, H = floor.h;
+  if (cells.length !== W * H) buildGridDom(W, H); // 防御：グリッドが地図寸法と食い違うなら組み直す（範囲外セルの firstChild 参照＝クラッシュを封じる）
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = y * W + x; // = mapIdx(floor, x, y)
     const c = cells[i], span = c.firstChild as HTMLElement;
@@ -482,6 +484,14 @@ function drawMapMode() {
   updateStatus();
 }
 
+/** 地図/照準の持ち越しを断つ（描画はしない＝呼び出し側が buildGridDom＋draw を担う）。
+ *  地図モードのグリッドは floor.w×floor.h で組まれるため、フロア遷移や街復帰で mapMode を残したまま
+ *  VIEW サイズのグリッドに描くと drawMapMode が範囲外セルの firstChild を読んでクラッシュする（enterRaid と同じ規約）。 */
+function resetMapView(): void {
+  mapMode = false;
+  aim = null;
+  $("aimBar").hidden = true;
+}
 function setMapMode(v: boolean) {
   mapMode = v;
   if (!v && aim) { aim = null; $("aimBar").hidden = true; } // 地図を閉じたら照準も解除
@@ -3172,7 +3182,7 @@ async function memorialScene() {
 function townLoop(): Promise<void> {
   return new Promise((resolve) => {
     townDescendResolve = resolve;
-    mode = "town"; floor = null; setAmbient(false); setBgm("town"); clearDive(); // 街に戻った＝潜行スナップショット破棄
+    mode = "town"; floor = null; resetMapView(); setAmbient(false); setBgm("town"); clearDive(); // 街に戻った＝潜行スナップショット破棄（地図/照準の持ち越しも断つ）
     const t = world.town;
     crowd = spawnCrowd(townGrid, rng, t.pos ?? townGrid.data.start);
     refreshAscendMonument(); // 奉献の碑をこの来訪の最新状態に（4-13D Phase4）
@@ -3196,6 +3206,7 @@ function townLoop(): Promise<void> {
 
 // ---------- 潜行 ----------
 function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
+  resetMapView(); // フロアが変わる＝古いフロアの地図/照準は無効（残すと VIEW/旧フロア寸法のグリッドで drawMapMode がクラッシュ）
   const cached = abyss ? undefined : floorCache.get(depth); // 深淵帯は毎回新規（試練）。通常階は再訪で同じ盤面を復元。
   inAbyss = abyss;
   floor = cached ?? genFloor(world, depth, abyss ? { abyss: true } : undefined);
@@ -3669,7 +3680,7 @@ async function startDive() {
 
 /** 保存した潜行を再開（boot 時）：街に戻さず、同じ深度・盤面・HP から続ける。 */
 function resumeDive(snap: DiveSnapshot): void {
-  mode = "dive"; seenThisDive = [];
+  mode = "dive"; seenThisDive = []; resetMapView(); // 再開はプレイ視点から（地図/照準を持ち越さない＝グリッド寸法の齟齬を防ぐ）
   floorCache = new Map(snap.cache);
   floor = snap.floor;
   player = snap.player;
