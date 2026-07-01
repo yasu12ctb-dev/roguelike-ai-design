@@ -76,6 +76,7 @@ function selfHealDuplicateIds(w: World): void {
     if (dm && remap.has(dm[2])) t.id = `${dm[1]}_${remap.get(dm[2])!}`;
   }
   if (Array.isArray(w.quests)) for (const q of w.quests) if (q && q.targetFossilId && remap.has(q.targetFossilId)) q.targetFossilId = remap.get(q.targetFossilId)!;
+  if (Array.isArray(w.echoes)) for (const e of w.echoes) if (e && e.fossilId && remap.has(e.fossilId)) e.fossilId = remap.get(e.fossilId)!; // 残響の遺灰＝由来化石（神話極）への逆参照も追従（表示整合・宙ぶらりん防止）
   if (Array.isArray(w.chronicle)) for (const e of w.chronicle) {
     if ((e.kind === "death" || e.kind === "legend") && Array.isArray(e.refs)) e.refs = e.refs.map((r) => repoint(r) ?? r);
   }

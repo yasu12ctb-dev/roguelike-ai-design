@@ -40,6 +40,9 @@ function assertRefsResolve(w: World, tag: string): void {
   for (const q of w.quests ?? []) {
     if (q.kind === "reclaim" && q.targetFossilId) ok(ids.has(q.targetFossilId), `${tag}: quest.targetFossilId が宙ぶらりん (${q.id}→${q.targetFossilId})`);
   }
+  for (const e of w.echoes ?? []) {
+    if (e.fossilId) ok(ids.has(e.fossilId), `${tag}: echo.fossilId が宙ぶらりん (${e.fossilId})`); // 残響の遺灰＝由来化石への逆参照（self-heal 追従の裏取り）
+  }
 }
 // 1世代ぶんの実遷移：継承キャラを作り、術/依頼/絆を持たせ、化石化（世代交代）。
 function liveOneGen(w: World, gen: number): void {
@@ -110,9 +113,14 @@ for (let seed = 1; seed <= 30; seed++) {
       equipment: { weapon: null, armor: null, relic: null, bag: null }, gold: 0, inventory: [], gearBag: [],
     };
     w.current = fresh;
+    // 残響の遺灰が collided な先代（＝キャラ化石）を指す状態を仕込む：self-heal 後は
+    // シード化石にすり替わらず、張替後の character 化石を指し続けねばならない（逆参照の整合）。
+    w.echoes = [{ fossilId: collideId, name: "在りし残響", dmg: 12 }];
     ok(w.fossils.find((f) => f.id === collideId)?.kind === "explorer", `seed${seed}: 修復前は find が先頭=シードを返す（前提）`);
 
     const healed = migrateWorld(clone(w));
+    const healedEcho = healed.fossils.find((f) => f.id === healed.echoes![0].fossilId);
+    ok(healedEcho?.kind === "character", `seed${seed}: (echo) 残響の fossilId が張替後の character 化石を指していない（シードにすり替わった）`);
     ok(!dupIds(healed), `seed${seed}: (a) 修復後も id 重複`);
     assertRefsResolve(healed, `seed${seed} 修復後`); // dedup が全 fossil-ref を張替＝宙ぶらりんを残さない
     ok(healed.fossils.filter((f) => f.id === collideId).length === 1 && healed.fossils.find((f) => f.id === collideId)?.kind === "explorer", `seed${seed}: (a) シード fossil_1 が温存されていない`);
