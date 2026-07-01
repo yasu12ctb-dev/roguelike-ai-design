@@ -52,13 +52,13 @@ import {
   bfsPath, reachableSet, nearestReachable,
   VIEW_W, VIEW_H, MONSTER_KINDS, type Floor, type Pos, type Chest, type Monster, type CompanionEntity, type DownedActor, type DelverActor, type Shrine,
 } from "../dungeon.ts";
-import type { Actor, Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, LivingActor, RosterActor, SetPiece, Storylet, TownContext, World } from "../types.ts";
+import type { Actor, Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, LivingActor, Quest, RosterActor, SetPiece, Storylet, TownContext, World } from "../types.ts";
 import { diffMods, SELECTABLE_DIFFICULTIES, DIFFICULTY_LABEL, DIFFICULTY_BLURB, type Difficulty } from "../difficulty.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.89.0";
+export const APP_VERSION = "0.90.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -800,7 +800,7 @@ async function questBoard(board: "guild" | "noble" = "guild") {
         if (getArc(world, "noble_ack")) o.push(...generateNobleOffers(world, ch, rng, 1)); return o; })();
   const lines: string[] = [];
   if (done.length) lines.push("【達成済】" + done.map((q) => q.title).join("／"));
-  if (act.length) lines.push("【受注中】" + act.map((q) => `${q.title}`).join("／"));
+  if (act.length) lines.push("【受注中】\n" + act.map((q) => `　${q.title}\n　　条件：${questConditionLine(q)}／報酬 金${q.rewardGold}`).join("\n"));
   type Action = { label: string; run: () => void };
   const actions: Action[] = [];
   for (const q of done) actions.push({
@@ -5643,11 +5643,32 @@ async function spellCodex(ch: Character) {
   busy = false;
 }
 
+// 依頼の達成条件を一行で明示する（ステータス画面／ギルド board 共用）。目標深度・回収対象を data から導出。
+function questConditionLine(q: Quest): string {
+  switch (q.kind) {
+    case "descend":
+      return `深度${q.targetDepth}まで到達し、街へ生還する`;
+    case "slay":
+      return `深度${q.targetDepth}の《成れの果て》（エリアボス）を撃破する`;
+    case "reclaim": {
+      const f = q.targetFossilId ? world.fossils.find((x) => x.id === q.targetFossilId) : undefined;
+      const who = f?.origin.name ?? "対象";
+      return `深度${q.targetDepth ?? "?"}付近で「${who}」の痕跡を再発見する`;
+    }
+    default:
+      return q.desc || "（条件不明）";
+  }
+}
+
 async function eventsScreen() {
   busy = true;
   const act = activeQuests(world), done = doneQuests(world);
+  const claimAt = (q: Quest) => (q.patron === "noble" ? "謁見の間" : "ギルド");
   const ql = (act.length || done.length)
-    ? [...act.map((q) => `・受注中：${q.title}（報酬${q.rewardGold}金）`), ...done.map((q) => `・達成：${q.title}（ギルドで受領）`)].join("\n")
+    ? [
+        ...act.map((q) => `・${q.patron === "noble" ? "【大命】" : ""}${q.title}\n　　条件：${questConditionLine(q)}\n　　報酬：金${q.rewardGold}${q.rewardRelic ? "＋固有遺物" : ""}`),
+        ...done.map((q) => `・【達成】${q.title} → ${claimAt(q)}で報酬 金${q.rewardGold} を受領`),
+      ].join("\n")
     : "・依頼はない";
   const arcs = (world.arcs ?? []).filter((a) => !a.done).map((a) => `・${ARC_KEY_LABEL[a.key] ?? a.key}（第${a.step}段）`).join("\n") || "・進行中の因縁はない";
   const relic = world.current?.carryingRelic ? "\n★聖遺物を携行中（地上へ生還せよ）" : "";
