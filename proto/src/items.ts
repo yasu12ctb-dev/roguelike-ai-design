@@ -52,6 +52,12 @@ const TEMPLATES: Template[] = [
   { slot: "armor",  name: "重鎧",     minDepth: 14, reduce: 3 },
   { slot: "armor",  name: "板金鎧",   minDepth: 17, reduce: 3 },
   { slot: "armor",  name: "全身鎧",   minDepth: 20, reduce: 4 },
+  // 発動効果つき防具（2026-07-01）：防具に初の「挙動差」。被弾時に proc が発動（web 適用）。武器14種と対称に 9→14。
+  { slot: "armor",  name: "受けの鎧", minDepth: 5,  reduce: 1, proc: "block" },   // 受け＝一定確率で一撃を軽減
+  { slot: "armor",  name: "棘鎧",     minDepth: 8,  reduce: 2, proc: "barbs" },   // 棘＝近接被弾の一部を反射
+  { slot: "armor",  name: "清めの鎧", minDepth: 10, reduce: 2, proc: "cleanse" }, // 清め＝被弾ごとに深蝕を薄める
+  { slot: "armor",  name: "威圧の鎧", minDepth: 11, reduce: 2, proc: "daunt" },   // 威圧＝殴った敵を恐慌させる
+  { slot: "armor",  name: "怯ませの鎧", minDepth: 13, reduce: 3, proc: "stagger" }, // 怯み＝殴った敵を鈍化させる
   // 遺物（パッシブ：8効果＝calm/reason/greed/might/vigor/ward/fortune/mending）
   { slot: "relic",  name: "静心の護符",   minDepth: 2,  relic: "calm" },     // 深蝕レート減
   { slot: "relic",  name: "理脈の指輪",   minDepth: 4,  relic: "reason" },   // 理+1
@@ -309,15 +315,16 @@ const RELIC_DESC: Record<NonNullable<Item["relic"]>, string> = {
   thorns: "被弾を反射", siphon: "近接で吸命", clarity: "毒・侵蝕を半減", potency: "術ダメージ増", revenant: "一度だけ致死を耐える",
 };
 
-/** 武器の発動効果の説明（PR4）。 */
+/** 発動効果の説明（武器 PR4／防具 2026-07-01）。 */
 const PROC_DESC: Record<NonNullable<Item["proc"]>, string> = {
   cleave: "薙ぎ（隣接の敵にも余波）", stun: "当て止め", rend: "裂傷（継続ダメ）", sap: "敵の攻撃を弱める",
+  block: "受け（被害を軽減）", barbs: "棘（被弾を反射）", cleanse: "清め（被弾で深蝕減）", daunt: "威圧（敵を恐慌）", stagger: "怯み（敵を鈍化）",
 };
 /** 効果の説明（鑑定済み前提）。 */
 export function itemPower(it: Item): string {
   let s: string;
   if (it.slot === "weapon") s = `攻＋${it.dmg}${it.proc ? `・${PROC_DESC[it.proc]}` : ""}`;
-  else if (it.slot === "armor") s = `被ダメ−${it.reduce}`;
+  else if (it.slot === "armor") s = `被ダメ−${it.reduce}${it.proc ? `・${PROC_DESC[it.proc]}` : ""}`;
   else if (it.slot === "bag") s = `持てる量＋${it.capacity}`;
   else s = it.relic ? RELIC_DESC[it.relic] : "遺物";
   if (it.exposurePerTurn) s += it.exposurePerTurn > 0 ? "・装備中わずかに深蝕＋" : "・装備中わずかに深蝕−";

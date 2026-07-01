@@ -103,12 +103,16 @@ export type RelicKind = "calm" | "reason" | "greed" | "might" | "vigor" | "ward"
 // 武器の発動効果（物量レビュー PR4・2026-06-28）：武器に初の「挙動差」を与える（従来は近接+ダメージのみ）。命中時に発動・web 適用。
 //   cleave=隣接の他の敵にも余波／stun=一定確率で目標を当て止め／rend=裂傷（継続ダメ）／sap=目標の攻撃を弱める。
 export type WeaponProc = "cleave" | "stun" | "rend" | "sap";
+// 防具の発動効果（2026-07-01・武器 proc と対称に「被弾時」発動＝防具の機械的多様性を補う）。web 適用。
+//   barbs=近接被弾の一部を反射／block=一定確率でその一撃を軽減／cleanse=被弾ごとに自分の深蝕を薄める／
+//   stagger=一定確率で殴った敵を鈍化／daunt=一定確率で殴った敵を恐慌。
+export type ArmorProc = "barbs" | "block" | "cleanse" | "stagger" | "daunt";
 export interface Item {
   id: string; slot: ItemSlot; name: string;
   dmg?: number;             // 武器：近接ダメージ+（銘・+N 込みの最終値）
   reduce?: number;          // 防具：被ダメージ-（銘・+N 込みの最終値）
   relic?: RelicKind;        // 遺物：パッシブ種
-  proc?: WeaponProc;        // 武器：命中時の発動効果（基テンプレ由来＝名前でなく base から導出）
+  proc?: WeaponProc | ArmorProc; // 発動効果（武器=命中時／防具=被弾時。基テンプレ由来＝名前でなく base から導出）
   capacity?: number;        // 鞄：持ち物の枠+（持ち物システム Phase2）
   exposurePerTurn?: number; // 装備中の毎ターン深蝕（蝕=正／浄=負／異物の副作用）
   unidentified?: boolean;   // 未鑑定（装備すると判明）
