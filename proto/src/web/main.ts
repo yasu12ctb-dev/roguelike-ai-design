@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.92.0";
+export const APP_VERSION = "0.93.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -3602,6 +3602,40 @@ function applyWeaponProc(ch: Character, target: Monster, dmg: number): void {
     target.weak = Math.max(target.weak ?? 0, SAP_TURNS); log(`${target.kind.name}の力が萎える。`, "dim");
   }
 }
+// 発動効果つき防具（2026-07-01）：被弾時に発動。武器 proc と対称に防具へ「挙動差」を与える。web 適用＝純エンジン不変。
+const ARMOR_BLOCK_CHANCE = 0.3;   // 受け：被弾ごと 30% でその一撃を軽減
+const ARMOR_BLOCK_KEEP = 0.5;     // 受け：軽減後に残る割合（＝半減）
+const ARMOR_BARBS_FRAC = 0.4;     // 棘：近接被弾の 40% を反射で相手へ（遺物 thorns と別枠・重複可）
+const ARMOR_CLEANSE = 0.06;       // 清め：被弾ごとに深蝕を薄める量（heartFactor は掛けない＝清め側の恩恵は素で効かせる）
+const ARMOR_STAGGER_CHANCE = 0.35; // 怯み：殴った敵を鈍化させる確率
+const ARMOR_STAGGER_TURNS = 2;
+const ARMOR_DAUNT_CHANCE = 0.25;  // 威圧：殴った敵を恐慌させる確率
+const ARMOR_DAUNT_TURNS = 2;
+/** 防具 proc のうち「受け（被害軽減）」を被ダメ確定前に適用＝軽減後の dmg を返す。潜行(dive)のみ。 */
+function armorBlock(ch: Character, dmg: number): number {
+  if (ch.equipment.armor?.proc !== "block" || dmg <= 0) return dmg;
+  if (rng.next() >= ARMOR_BLOCK_CHANCE) return dmg;
+  const kept = Math.max(1, Math.round(dmg * ARMOR_BLOCK_KEEP));
+  if (kept < dmg) log("受けの鎧が一撃を受け流した。", "dim");
+  return kept;
+}
+/** 防具 proc（受け以外）を被弾後に適用。m=殴ってきた敵・dmg=実際に受けた傷（>0 の時のみ効く）。潜行(dive)のみ。 */
+function applyArmorProc(ch: Character, m: Monster, dmg: number): void {
+  const proc = ch.equipment.armor?.proc;
+  if (!proc || dmg <= 0) return;
+  if (proc === "barbs" && m.hp > 0) { // 棘＝近接被弾を反射
+    const recoil = Math.max(1, Math.round(dmg * ARMOR_BARBS_FRAC));
+    m.hp -= recoil;
+    if (m.hp <= 0) downOrKill(m, `${m.kind.name}は棘鎧に貫かれて斃れた。`);
+    else log(`棘鎧が${m.kind.name}へ${recoil}を返す。`, "dim");
+  } else if (proc === "stagger" && m.hp > 0 && rng.next() < ARMOR_STAGGER_CHANCE) {
+    m.slowed = Math.max(m.slowed ?? 0, ARMOR_STAGGER_TURNS); log(`怯ませの鎧が${m.kind.name}を鈍らせた。`, "dim");
+  } else if (proc === "daunt" && m.hp > 0 && rng.next() < ARMOR_DAUNT_CHANCE) {
+    m.fear = Math.max(m.fear ?? 0, ARMOR_DAUNT_TURNS); log(`威圧の鎧が${m.kind.name}を怯えさせた。`, "dim");
+  } else if (proc === "cleanse") { // 清め＝被弾で深蝕を薄める（深蝕テーマの防御。烙印/永続汚染より下へは祓えない＝既存ルール尊重）
+    cleanseExposure(ch, ARMOR_CLEANSE);
+  }
+}
 // 召喚＝一時味方（4-11F③・召系）。盤上 ephemeral：数手で霧散。隣接敵を毎手討ち、いなければ最寄りへ寄る。
 // monsters のターゲットには乗らない（簡潔さ優先）＝味方AIは攻撃のみ。echo_summon(4-10I) とは別物（術側は割り切り）。
 interface SummonEntity extends Pos { glyph: string; name: string; dmg: number; turns: number; follow: boolean; }
@@ -3785,6 +3819,7 @@ async function endTurn() {
       log(`${h.monster.kind.name}の一撃が${companionName()}を襲う！ ${h.dmg}の傷。`, "warn");
     } else {
       let dmg = Math.max(1, h.dmg - armorReduce(ch) - (armorBuffTurns > 0 ? ARMOR_BUFF : 0)); // 防具＋硬鱗で軽減（下限1）
+      dmg = armorBlock(ch, dmg); // 防具 proc「受け」：一定確率でその一撃を軽減（被ダメ確定前）
       if (deathDoorTurns > 0) dmg = 0; // 死戸＝無敵
       if (dmg > 0 && shadowGuard > 0) { shadowGuard--; dmg = 0; log(`${h.monster.kind.name}の一撃を、影が引き受けた。`, "dim"); } // 影分け
       else if (deathDoorTurns > 0) log(`${h.monster.kind.name}の一撃を、死戸が弾く。`, "warn");
@@ -3811,6 +3846,8 @@ async function endTurn() {
         if (h.monster.hp <= 0) downOrKill(h.monster, `${h.monster.kind.name}は茨に貫かれて斃れた。`);
         else log(`茨が${h.monster.kind.name}へ${recoil}を返す。`, "dim");
       }
+      // 防具 proc（棘/怯み/威圧/清め）：実際に傷を負った時のみ発動（受けは上で dmg に適用済み）
+      applyArmorProc(ch, h.monster, dmg);
     }
   }
   for (const m of res.dodges) log(`${m.kind.name}の一撃を見切った。`, "dim");
