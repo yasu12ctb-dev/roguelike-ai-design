@@ -8,6 +8,23 @@ import { ABYSS_DEPTH } from "./progression.ts";
 let qn = 0;
 const qid = (): string => `q_${(++qn).toString(36)}`;
 
+/** クエストID採番カウンタを、セーブ内の既存 `q_N` の最大値まで進める（migrateWorld から呼ぶ）。
+ *  ★化石 id（newId）と同じ再読込衝突を防ぐ：qn はプロセスグローバルゆえ再読込で0に戻り、
+ *  以後 qid() が生む `q_1..` が、セーブに残る現世代の受注中クエストと id 衝突する。
+ *  すると claimQuest の `filter(x => x.id !== questId)` が同 id を巻き添え削除し、
+ *  もう一方のクエストが報酬なしで消える／find が誤ったクエストの報酬を払う。
+ *  ロード時に未使用 id を保証して衝突を根治（単一プロセスの新規生成では no-op）。 */
+export function syncQuestCounter(world: World): void {
+  let maxN = qn;
+  for (const q of world.quests ?? []) {
+    const m = /^q_([0-9a-z]+)$/.exec((q as { id?: unknown })?.id as string);
+    if (!m) continue;
+    const n = parseInt(m[1], 36);
+    if (Number.isFinite(n) && n > maxN) maxN = n;
+  }
+  qn = maxN;
+}
+
 export function openQuests(world: World): Quest[] {
   return (world.quests ??= []);
 }
