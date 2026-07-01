@@ -215,6 +215,23 @@ function rollEnchant(slot: ItemSlot, depth: number, rng: Rng, opts: { boss?: boo
   return 1 + rng.int(1 + Math.floor(depth / 12) + (opts.boss ? 1 : 0)); // 深いほど高+N
 }
 
+// 基抽選の深度加重（H&S＝深いほど上位基が出やすい／浅い基もゼロにはせず変異は残す）。
+// minDepth が現在深度に近い基ほど重い。0=従来の均等、大きいほど深度相応へ尖る。深淵帯では
+// 基の寄与より銘/+N が支配的ゆえ中庸で足りる（テストプレイ調整候補）。
+const BASE_DEPTH_FALLOFF = 0.2;
+/** 解禁済み候補 src から、minDepth が現在深度に近い基ほど重く1つ引く（乱数は next() 1回＝均等版と同数）。 */
+function pickBaseByDepth(src: Template[], depth: number, rng: Rng): Template {
+  let total = 0;
+  const w: number[] = new Array(src.length);
+  for (let i = 0; i < src.length; i++) {
+    const x = 1 / (1 + Math.max(0, depth - src[i].minDepth) * BASE_DEPTH_FALLOFF);
+    w[i] = x; total += x;
+  }
+  let r = rng.next() * total;
+  for (let i = 0; i < src.length; i++) { r -= w[i]; if (r <= 0) return src[i]; }
+  return src[src.length - 1];
+}
+
 /** 深度に応じた装備を1つ抽選（銘・+N 込み）。ボスは上位寄り。蝕や一定確率で異物（未鑑定）。 */
 export function rollItem(depth: number, rng: Rng, opts: { boss?: boolean } = {}): Item {
   const avail = TEMPLATES.filter((t) => t.minDepth <= depth + (opts.boss ? 5 : 0));
@@ -224,7 +241,7 @@ export function rollItem(depth: number, rng: Rng, opts: { boss?: boolean } = {})
     const sorted = [...src].sort((a, b) => b.minDepth - a.minDepth);
     t = sorted[rng.int(Math.min(3, sorted.length))]; // 上位3種から
   } else {
-    t = src[rng.int(src.length)];
+    t = pickBaseByDepth(src, depth, rng); // 深度加重（深いほど上位基が出やすい）
   }
   const affix = rollAffix(t.slot, depth, rng, opts);
   const enchant = rollEnchant(t.slot, depth, rng, opts);
@@ -240,7 +257,7 @@ export function rollItemOfSlot(depth: number, rng: Rng, slot: ItemSlot): Item {
   const ofSlot = TEMPLATES.filter((t) => t.slot === slot);
   const avail = ofSlot.filter((t) => t.minDepth <= depth);
   const src = avail.length ? avail : [[...ofSlot].sort((a, b) => a.minDepth - b.minDepth)[0]];
-  const t = src[rng.int(src.length)];
+  const t = pickBaseByDepth(src, depth, rng); // 深度加重（深い街ほど上位基が並ぶ）
   // 店頭は恵/浄の銘まで（蝕は異物堂の領分）。低確率で銘・+N が付く。
   let affix = rollAffix(slot, depth, rng);
   if (affix?.klass === "corrupt") affix = null;
