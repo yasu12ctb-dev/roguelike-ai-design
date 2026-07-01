@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.90.0";
+export const APP_VERSION = "0.91.0";
 export const APP_BUILD = "2026-06-28";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1647,20 +1647,37 @@ function splitGold(amount: number): number {
 }
 // 書記 act1「旧キャラを伝説として承認する」：神話極の旧キャラを player_legend へ昇格（4-4）。
 // 昇格すると後世で legend_return（祝福の山場）として戻れ、英雄譜に名が刻まれる。無料・各化石1回。
+// 伝説化の資格（4-4）：かつては「神話の極で逝った旧キャラ」だけ＝死に方（最後の一手）次第で深度8でも
+// 伝説になれ、クリア用の印①がタダ同然だった（テストプレイFB 2026-06-30）。このゲームの Lv≈深度・終始シビアに
+// 合わせ、【深く潜った証（深度）＋実力（レベル）＋育ち（ステ/術＝到達実績）】の複合ゲートに引き上げる。
+// 「神話の極」＝立派な死に方は化石の味付けとして残す（resolveTonePole は不変）が、"街の伝説（秘銀・英雄譜・
+// クリア印）"に祀るには深潜＋実力＋実績を要求＝奉献の印①を「深く潜り抜いた英雄的な生涯」の到達点にする。
+const LEGEND_MIN_DEPTH = 25;   // 到達の証（ハード下限）＝深く潜って逝った者だけ（ユーザー指定）。
+const LEGEND_MERIT_MIN = 30;   // 偉功＝レベル＋育ち（ステ総量/6＋修めた術数）の複合下限。深いが未熟な階段潜り(stair-dive)を除外。
+function legendMerit(f: Fossil): number {
+  const lvl = f.level ?? f.laidDepth ?? f.death.depth; // 旧化石は level 欠落→深度で代用（Lv≈深度）
+  const st = f.stats ? (f.stats.body + f.stats.power + f.stats.reason + f.stats.heart) : lvl; // 育ちの総量（到達実績）
+  const spellN = f.spells?.length ?? 0; // 修めた術の広さ（到達実績）
+  return lvl + Math.floor(st / 6) + spellN;
+}
+function legendEligible(f: Fossil): boolean {
+  return f.tonePole === "myth"                                     // 神話の極で逝った
+    && f.death.generationCreated >= 1                              // 自分の過去世代（シード化石=gen0 は対象外）
+    && (f.death.depth ?? f.laidDepth ?? 0) >= LEGEND_MIN_DEPTH     // 深く潜った証（深度25+）
+    && legendMerit(f) >= LEGEND_MERIT_MIN                          // 実力＋到達実績（レベル・育ち）
+    && !world.tracked.some((t) => t.originRef === f.id);           // 未登録
+}
 async function legendApprove() {
   busy = true;
-  const elig = world.fossils.filter(
-    (f) => f.tonePole === "myth" && f.death.generationCreated >= 1 &&
-      !world.tracked.some((t) => t.originRef === f.id),
-  );
+  const elig = world.fossils.filter(legendEligible);
   if (!elig.length) {
-    await sheet({ text: "老書記イェンは目を伏せた。\n「まだ、伝説に値する旧き者はいない。神話の極で逝った者だけが、ここに名を刻める」。", meta: "書記 ── 伝説化の承認", options: ["引き下がる"] });
+    await sheet({ text: `老書記イェンは目を伏せた。\n「伝説に名を刻めるのは、深く潜り（深度${LEGEND_MIN_DEPTH}以上）、相応の実力を備え、神話の極で逝った旧き者だけだ。まだ、その名は無い」。`, meta: "書記 ── 伝説化の承認", options: ["引き下がる"] });
     busy = false; return;
   }
   const r = await sheet({
-    text: "「誰の名を、街の伝説として刻もうか」。\n神話の極で逝った旧き者だけが、秘銀（ミスリル）の名と共に英雄譜に昇る。",
+    text: `「誰の名を、街の伝説として刻もうか」。\n深く潜り（深度${LEGEND_MIN_DEPTH}以上）、実力を備え、神話の極で逝った旧き者だけが、秘銀（ミスリル）の名と共に英雄譜に昇る。`,
     meta: "書記 ── 伝説化の承認（4-4）",
-    options: [...elig.map((f) => `${f.origin.name}（深度${f.death.depth}・${poleLabel(f.tonePole)}の極）`), "やめる"],
+    options: [...elig.map((f) => `${f.origin.name}（深度${f.death.depth}・Lv${f.level ?? "?"}・${poleLabel(f.tonePole)}の極）`), "やめる"],
   });
   busy = false;
   const i = r.pick - 1;
