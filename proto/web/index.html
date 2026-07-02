@@ -105,28 +105,88 @@
     #stBuff .bf { display: inline-block; border: 1px solid rgba(143,208,192,.4); border-radius: 2px; padding: 1px 7px; margin-right: 6px; }
 
     /* ---- マップ（方向A：発光グリフ） ---- */
-    #mapWrap { position: relative; flex: 1; overflow: hidden; background: var(--bg-void); touch-action: none; }
+    /* 松明の色調＝深度帯で変わる（v0.99.0・§10.3b）：--torch-rgb を band クラスで切替。減光カーブは不変。 */
+    #mapWrap { position: relative; flex: 1; overflow: hidden; background: var(--bg-void); touch-action: none;
+      --torch-rgb: 255,190,110; }
+    #mapWrap.band-mid  { --torch-rgb: 224,200,150; }
+    #mapWrap.band-deep { --torch-rgb: 168,182,204; }
+    #mapWrap.band-abyss { --torch-rgb: 178,150,222; }
+    /* 深淵帯の空気＝縁がゆっくり脈動する菫のヴィネット（見づらくならない極薄）。 */
+    #mapWrap.band-abyss::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 5;
+      box-shadow: inset 0 0 60px rgba(150,100,220,.16); animation: abyssair 6s ease-in-out infinite; }
+    @keyframes abyssair { 50% { box-shadow: inset 0 0 90px rgba(150,100,220,.26); } }
+    /* 照準バー（①静謐な写本・v0.99.0 でテーマ移行） */
     #aimBar { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 15;
-      display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 10px;
-      background: rgba(12,15,20,.92); border: 1px solid #2a3340; box-shadow: 0 2px 10px rgba(0,0,0,.5);
-      font-size: 12px; color: #cfe3d6; max-width: 94%; }
+      display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: var(--r-card);
+      background: rgba(20,17,12,.94); border: 1px solid var(--line-2); box-shadow: 0 2px 10px rgba(0,0,0,.5);
+      font-size: 12px; color: var(--tx); max-width: 94%; }
     #aimBar[hidden] { display: none; }
-    #aimBar button { font-size: 12px; padding: 5px 10px; border-radius: 8px; border: 1px solid #38506a;
-      background: #16202c; color: #dCEFe0; }
-    #aimBar #aimGo { background: #1d3a2a; border-color: #2f7a52; color: #c8f3d6; }
-    #aimBar.unreach #aimGo { background: #3a1d1d; border-color: #7a2f2f; color: #f3c8c8; opacity: .6; }
-    .g-aim { color: #eafff4; font-weight: 700; text-shadow: 0 0 6px #6cffb0; }
+    #aimBar button { font-size: 12px; padding: 5px 10px; border-radius: var(--r-btn); border: 1px solid var(--line-2);
+      background: transparent; color: var(--tx-2); font-family: inherit; }
+    #aimBar #aimGo { border-color: var(--acc); color: #f0d9c8; box-shadow: 0 0 8px rgba(194,69,47,.25); }
+    #aimBar.unreach #aimGo { border-color: #7a3a2c; color: var(--c-warn); box-shadow: none; opacity: .6; }
+    .g-aim { color: #f6efe0; font-weight: 700; text-shadow: 0 0 6px rgba(201,167,90,.9); }
+    /* 地図の経路プレビュー（照準までの bfsPath＝金泥の点）。 */
+    .g-aimpath { color: var(--gold-leaf); text-shadow: 0 0 5px rgba(201,167,90,.6); }
+    /* 地図の凡例（地図モード中のみ・下端の1行） */
+    #mapLegend { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 14;
+      padding: 4px 10px; border-radius: var(--r-card); background: rgba(20,17,12,.92); border: 1px solid var(--line);
+      font-size: 10.5px; color: var(--tx-dim); white-space: nowrap; pointer-events: none;
+      font-family: "Menlo", "Consolas", monospace; }
+    #mapLegend[hidden] { display: none; }
+    #mapLegend .lg { margin-right: 8px; }
+    #mapLegend .lg:last-child { margin-right: 0; }
+    /* 調べる（タップ＝NetHack「;」の現代化・v0.99.0）：HUD直下の帯ポップ。手番非消費・入力非ブロック。 */
+    #peek { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 14;
+      max-width: 94%; padding: 8px 12px; border-radius: var(--r-card);
+      background: rgba(20,17,12,.94); border: 1px solid var(--line-2); box-shadow: 0 2px 10px rgba(0,0,0,.5);
+      pointer-events: none; animation: peekin .16s ease-out; }
+    #peek[hidden] { display: none; }
+    #peek .pk-name { font-size: 13.5px; font-weight: 700; color: var(--tx-strong);
+      border-left: 3px solid var(--acc); padding-left: 8px;
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK JP", serif; }
+    #peek .pk-sub { font-size: 11px; color: var(--tx-dim); margin-top: 3px; line-height: 1.55; white-space: pre-wrap;
+      font-family: "Hiragino Sans", system-ui, sans-serif; }
+    @keyframes peekin { 0% { opacity: 0; transform: translateX(-50%) translateY(-4px); } 100% { opacity: 1; transform: translateX(-50%); } }
+    /* 深度バナー（フロア進入時に一瞬・§10.3b） */
+    #floorBanner { position: absolute; left: 0; right: 0; top: 34%; z-index: 13; text-align: center;
+      pointer-events: none; opacity: 0;
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK JP", serif;
+      font-size: 19px; letter-spacing: .3em; color: var(--tx-strong);
+      text-shadow: 0 0 14px rgba(0,0,0,.9), 0 0 6px rgba(0,0,0,.9); }
+    #floorBanner.show { animation: bannerfade 1.5s ease-out; }
+    #floorBanner.abyss { color: #cdb2ee; }
+    @keyframes bannerfade { 0% { opacity: 0; } 18% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
+    /* FloatFx（盤上のダメージ数字ポップ・シレン6流・v0.99.0）：純表示・上限つき・自己掃除。 */
+    #floats { position: absolute; inset: 0; pointer-events: none; z-index: 7; overflow: hidden; }
+    #floats .fl { position: absolute; transform: translate(-50%, -50%); font-weight: 700; font-size: 15px;
+      font-family: "Menlo", "Consolas", monospace; animation: floatup .7s ease-out forwards;
+      text-shadow: 0 0 6px rgba(0,0,0,.9), 0 1px 2px rgba(0,0,0,.9); }
+    @keyframes floatup { 0% { opacity: 0; margin-top: 2px; } 15% { opacity: 1; } 100% { opacity: 0; margin-top: -22px; } }
+    .fl-dmg  { color: var(--gold-leaf); }
+    .fl-hurt { color: var(--c-hp); font-size: 16px; }
+    .fl-heal { color: var(--g-rest); }
+    .fl-miss { color: var(--tx-faint); font-size: 12px; }
+    .fl-kill { color: #fff; text-shadow: 0 0 10px rgba(201,167,90,.9), 0 0 20px rgba(201,167,90,.5); animation: floatup .55s ease-out forwards; }
+    /* 命中フラッシュ＝命中マスに白いグリフを一瞬重ねる（draw() の className と競合しないオーバーレイ方式）。 */
+    .fl-flash { color: #fff; text-shadow: 0 0 10px rgba(255,255,255,.9); animation: flflash .18s ease-out forwards; }
+    @keyframes flflash { 0% { opacity: .95; } 100% { opacity: 0; } }
     #grid { display: grid; width: 100%; }
     .cell {
       position: relative; display: flex; align-items: center; justify-content: center;
       background: var(--bg-void); overflow: hidden;
       font-family: "Menlo", "Consolas", monospace; font-weight: 700;
     }
-    .cell.wall { background: var(--bg-wall); }
+    /* 壁＝彫られた石の立体（上に淡いハイライト・下に影。glyph ▒ は不変・§10.3）。 */
+    .cell.wall { background: var(--bg-wall);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.045), inset 0 -2px 3px rgba(0,0,0,.4); }
     .cell span { display: block; }
     /* グリフ色（発光） */
     .g-wall   { color: var(--g-wall); }
     .g-floor  { color: var(--g-floor); }
+    /* 床むら＝「·」の濃淡3段（座標決定論＝(x*7+y*13)%3・rng非使用）。石畳の風合い。 */
+    .g-floor.v0 { opacity: .55; }
+    .g-floor.v1 { opacity: .78; }
     .g-down, .g-up { color: var(--g-stairs); text-shadow: 0 0 9px rgba(111,179,200,.6); }
     .g-player { color: var(--g-player); text-shadow: 0 0 12px rgba(255,216,122,.9), 0 0 26px rgba(255,160,60,.45); }
     .g-player-danger { color: var(--g-danger); text-shadow: 0 0 14px rgba(255,79,60,1), 0 0 30px rgba(255,50,30,.7); animation: danger .55s ease-in-out infinite; }
@@ -182,10 +242,19 @@
     #fx.still { animation: fxflash .55s ease-out; background: radial-gradient(circle at 50% 45%, rgba(120,210,255,.5), rgba(80,150,230,.16) 50%, transparent 75%); }
     #fx.blink { animation: fxflash .4s ease-out; background: radial-gradient(circle at var(--fxx,50%) var(--fxy,50%), rgba(150,120,255,.5), rgba(90,70,200,.15) 45%, transparent 70%); }
     @keyframes fxflash { 0% { opacity: 0; } 18% { opacity: 1; } 100% { opacity: 0; } }
+    /* 松明＝色は帯（--torch-rgb）で変わり、炎らしくごく僅かに揺らぐ（torchflick）。減光カーブは従来どおり。 */
     #light {
       position: absolute; inset: 0; pointer-events: none;
       background: radial-gradient(circle at var(--px, 50%) var(--py, 50%),
-        rgba(255,190,110,.15), rgba(255,190,110,.05) 30%, rgba(0,0,0,.5) 78%);
+        rgba(var(--torch-rgb), .15), rgba(var(--torch-rgb), .05) 30%, rgba(0,0,0,.5) 78%);
+      animation: torchflick 4.2s ease-in-out infinite;
+    }
+    @keyframes torchflick { 0%, 100% { opacity: 1; } 42% { opacity: .94; } 68% { opacity: .98; } }
+    /* 街のヴィネット＝安全な街は暗くしない。中央がほんのり明るく縁が沈む、柔らかい暖光のみ（§10.4）。 */
+    #light.town {
+      background: radial-gradient(circle at var(--px, 50%) var(--py, 46%),
+        rgba(255,205,140,.10), rgba(255,205,140,.03) 36%, rgba(0,0,0,.16) 82%);
+      animation: none;
     }
 
 
@@ -405,6 +474,19 @@
     <div id="grid"></div>
     <div id="light"></div>
     <div id="fx"></div>
+    <!-- 盤上オーバーレイ（v0.99.0）：すべて #grid の兄弟＝グリッド再構築で消えない -->
+    <div id="floats"></div>
+    <div id="floorBanner"></div>
+    <div id="peek" hidden><div class="pk-name"></div><div class="pk-sub"></div></div>
+    <div id="mapLegend" hidden>
+      <span class="lg"><span class="g-down">›</span>階段</span>
+      <span class="lg"><span class="g-chest">▭</span>宝</span>
+      <span class="lg"><span class="g-fossil">†</span>化石</span>
+      <span class="lg"><span class="g-spring">泉</span></span>
+      <span class="lg"><span class="g-rest">安</span></span>
+      <span class="lg"><span class="g-door">扉</span></span>
+      <span class="lg"><span class="g-aim">⊕</span>照準</span>
+    </div>
     <div id="aimBar" hidden>
       <span id="aimMsg">目標を方向パッドで調整</span>
       <button id="aimGo" type="button">移動</button>

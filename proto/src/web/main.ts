@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.98.0";
+export const APP_VERSION = "0.99.0";
 export const APP_BUILD = "2026-07-02";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -185,6 +185,7 @@ function renderSheetSections(sections?: SheetSection[]) {
 
 function sheet(o: SheetOpts): Promise<{ pick: number; text: string }> {
   return new Promise((resolve) => {
+    hidePeek(); // 場面が開いたら「調べる」ポップは畳む（v0.99.0）
     sheetText.textContent = o.text ?? "";
     setSheetHead(o.meta);
     renderSheetSections(o.sections);
@@ -283,6 +284,136 @@ function flashFx(kind: "warp" | "still" | "blink", at?: Pos) {
   fxClearTimer = setTimeout(() => fxEl.classList.remove(kind), 650);
 }
 
+// ---------- 盤上フロート（FloatFx・v0.99.0・§10.3）＝ダメージ/回復/撃破を盤上にポップ（シレン6流） ----------
+// 純表示（rng 非使用・engine 非依存）。#floats は #grid の兄弟＝グリッド再構築で消えない。
+// 与ダメ=fl-dmg(金泥)／被ダメ=fl-hurt(赤)／回復=fl-heal(緑)／見切り=fl-miss／撃破=fl-kill「＊」／命中フラッシュ=fl-flash。
+const FLOAT_MAX = 8; // DOM 増殖の上限（超過は最古を除去）
+let floatSeq = 0;    // 同一マス多重時の横ずらし用（表示のみ）
+function floatFx(x: number, y: number, text: string, cls: string): void {
+  if ((mode !== "dive" && mode !== "raid") || mapMode) return;
+  const vx = x - cam.x, vy = y - cam.y;
+  if (vx < 0 || vy < 0 || vx >= VIEW_W || vy >= VIEW_H) return; // ビュー外は出さない
+  const box = $("floats");
+  while (box.childElementCount >= FLOAT_MAX) box.removeChild(box.firstChild!);
+  const el = document.createElement("span");
+  el.className = `fl ${cls}`;
+  el.textContent = text;
+  el.style.left = ((vx + 0.5) / VIEW_W * 100) + "%";
+  el.style.top = ((vy + 0.5) / VIEW_H * 100) + "%";
+  el.style.marginLeft = `${((floatSeq++ % 3) - 1) * 10}px`; // 同時多発の重なりをずらす
+  box.appendChild(el);
+  el.addEventListener("animationend", () => el.remove());
+  setTimeout(() => { if (el.isConnected) el.remove(); }, 900); // 保険（バックグラウンド時など）
+}
+/** 命中フラッシュ＝命中マスに白グリフを一瞬重ねる（draw() の className 再書換えと競合しないオーバーレイ方式）。 */
+function hitFlash(x: number, y: number, glyph: string): void { floatFx(x, y, glyph, "fl-flash"); }
+
+// ---------- 調べる（タップ＝NetHack「;」の現代化・v0.99.0・§10.3/§10.6） ----------
+// 盤面タップでそのマスの情報を上帯にポップ。手番非消費・busy 非使用・入力非ブロック（pointer-events:none）。
+// 敵の傷は数値を伏せた「傷語」で語る（NetHack 流の距離感）：無傷/浅手/手負い/深手/瀕死。
+let peekTimer: ReturnType<typeof setTimeout> | null = null;
+const WOUND_WORDS: [number, string][] = [[1, "無傷"], [0.75, "浅手"], [0.5, "手負い"], [0.25, "深手"], [0, "瀕死"]];
+function woundWord(m: Monster): string {
+  const r = m.hp / Math.max(1, m.kind.hp);
+  for (const [t, w] of WOUND_WORDS) if (r >= t) return w;
+  return "瀕死";
+}
+function monsterStatusWords(m: Monster): string[] {
+  const s: string[] = [];
+  if (m.stunned) s.push("静止");
+  if (m.slowed) s.push("鈍り");
+  if (m.fear) s.push("畏れ");
+  if (m.confused) s.push("惑乱");
+  if (m.rooted) s.push("縛鎖");
+  if (m.weak) s.push("衰弱");
+  if (m.poison) s.push("腐喰");
+  return s;
+}
+function hidePeek(): void {
+  if (peekTimer) { clearTimeout(peekTimer); peekTimer = null; }
+  ($("peek") as HTMLElement).hidden = true;
+}
+function setPeek(name: string, sub: string): void {
+  const el = $("peek") as HTMLElement;
+  el.hidden = true; // 一度隠す＝再タップでもフェードインを頭から
+  (el.querySelector(".pk-name") as HTMLElement).textContent = name;
+  const subEl = el.querySelector(".pk-sub") as HTMLElement;
+  subEl.textContent = sub;
+  subEl.style.display = sub ? "" : "none";
+  void el.offsetWidth;
+  el.hidden = false;
+  if (peekTimer) clearTimeout(peekTimer);
+  peekTimer = setTimeout(hidePeek, 4000);
+}
+/** マップ座標 (x,y) のマスを調べる。優先順は draw() の描画優先と同じ（上にあるもの＝知りたいもの）。 */
+function showPeek(x: number, y: number): void {
+  const f = floor;
+  if (!f || x < 0 || y < 0 || x >= f.w || y >= f.h) return;
+  const i = mapIdx(f, x, y);
+  if (!f.explored[i]) { setPeek("未踏の闇", "まだ足を踏み入れていない。"); return; }
+  const vis = computeFov(f, player).has(i);
+  // 自分・味方
+  if (player.x === x && player.y === y) { setPeek(`@　${world.current?.name ?? "自分"}`, "自分。ここに立っている。"); return; }
+  if (companion && companion.hp > 0 && companion.x === x && companion.y === y) {
+    setPeek(`@　${companionName()}（相棒）`, "共に潜る相棒。隣の敵を討ち、背を守る。"); return;
+  }
+  if (mode === "raid") {
+    const a = allies.find((al) => al.hp > 0 && al.x === x && al.y === y);
+    if (a) { setPeek(`@　${a.name}（共闘）`, "共に街を守る冒険者。"); return; }
+    const cv = civics.find((c) => c.hp > 0 && c.x === x && c.y === y);
+    if (cv) { setPeek("民　逃げ遅れた者", "踏み込めば安全な路地へ逃がせる。獣が隣接すると呑まれる。"); return; }
+  }
+  // 敵（見えている時のみ＝視界外の敵情報は漏らさない）
+  const mon = vis ? f.monsters.find((m) => m.hp > 0 && m.x === x && m.y === y) : undefined;
+  if (mon) {
+    const k = mon.kind;
+    const name = `${k.glyph}　${k.name}${mon.boss === "area" ? "（主）" : mon.boss === "elite" ? "（強）" : ""}`;
+    const bits: string[] = [tierStars(k.tier), woundWord(mon)];
+    if (mon.enraged) bits.push("覚醒");
+    bits.push(...monsterStatusWords(mon));
+    let sub = bits.join("　");
+    if (k.ability) sub += `\n〔${ABILITY_LABEL[k.ability] ?? k.ability}〕${ABILITY_INFO[k.ability] ?? ""}`;
+    setPeek(name, sub); return;
+  }
+  const sm = summons.find((s) => s.x === x && s.y === y);
+  if (sm) { setPeek(`${sm.glyph}　${sm.name}（召喚）`, "術で編んだ一時の味方。数手で霧散する。"); return; }
+  if (f.downed && f.downed.x === x && f.downed.y === y) { setPeek("&　手負いの冒険者", "倒れている。踏み込めば助け起こせる――見捨てることもできる。"); return; }
+  if (f.delver && f.delver.x === x && f.delver.y === y) { setPeek("@　見知らぬ冒険者", "同じ深みを行く生者。すれ違いに言葉を交わせる。"); return; }
+  // 物・ノード（記憶していれば視界外でも答える＝地形は既に記憶描画されている）
+  const fe = f.fossils.find((e) => e.x === x && e.y === y);
+  if (fe) { setPeek("†　化石", fe.resolved ? "鎮まった亡骸。もう語らない。" : "何者かの亡骸が層に眠る。踏み込めば対面する。"); return; }
+  const ce = f.chests.find((c) => c.x === x && c.y === y);
+  if (ce) { setPeek("▭　宝箱", ce.opened ? "開け放たれている。中は空だ。" : "閉じたままの箱。罠のこともある。"); return; }
+  const shr = f.shrines.find((s) => !s.used && s.x === x && s.y === y);
+  if (shr) { setPeek(shr.kind === "spring" ? "泉　回復の泉" : "安　安息所", shr.kind === "spring" ? "澄んだ水が傷を癒す（一度きり）。" : "腰を下ろせば深蝕が薄らぐ（一度きり）。"); return; }
+  if (f.returnDoor && f.returnDoor.x === x && f.returnDoor.y === y) { setPeek("扉　帰還の扉", "街とこの階を結ぶ。何度でも往復できる。"); return; }
+  if (f.stairsDown.x === x && f.stairsDown.y === y) { setPeek("›　降り階段", "さらに深くへ。"); return; }
+  if (f.stairsUp.x === x && f.stairsUp.y === y) { setPeek("‹　上り階段", mode === "dive" && f.depth === 1 ? "地上へ。ここから生還できる。" : "ひとつ浅い層へ。"); return; }
+  if (tileAt(f, x, y) === 1) setPeek("·　石畳", "何もない床。");
+  else setPeek("▒　石壁", "崩れる気配はない。");
+}
+
+// ---------- 雰囲気（松明の色調・フロア進入バナー・v0.99.0・§10.3b） ----------
+// 深度帯で松明の色が変わる（浅=暖 → 深=冷 → 深淵=菫）。#light の --torch-rgb を band クラスで切替。
+function applyDepthBand(depth: number, abyss = false): void {
+  const mw = $("mapWrap");
+  mw.classList.remove("band-mid", "band-deep", "band-abyss");
+  if (abyss) mw.classList.add("band-abyss");
+  else if (depth >= 25) mw.classList.add("band-deep");
+  else if (depth >= 9) mw.classList.add("band-mid");
+  // <9 は無印（既定の暖色）
+}
+let bannerTimer: ReturnType<typeof setTimeout> | null = null;
+/** フロア進入の一瞬のバナー（例「深度 12 ─ 中層」）。純表示・pointer-events なし。 */
+function showFloorBanner(text: string, abyss = false): void {
+  const el = $("floorBanner") as HTMLElement;
+  el.textContent = text;
+  el.classList.toggle("abyss", abyss);
+  el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
+  if (bannerTimer) clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => el.classList.remove("show"), 1600);
+}
+
 // ---------- 世界の永続化 ----------
 const SAVE_BAK_KEY = SAVE_KEY + ".bak"; // 壊れて読めなかったセーブの退避先（黙って消さない＝復元の余地を残す）
 function loadOrCreateWorld(): World {
@@ -352,6 +483,7 @@ let busy = false; // シート表示中の入力ロック
 let mapMode = false; // 地図表示（踏破範囲の俯瞰）
 let aim: Pos | null = null;   // 照準モード（地図でタップ→マーカー→D-padで微調整→確定で自動移動）
 let aimReachable = false;     // 現在のマーカーへ到達経路があるか（確定可否・色分け）
+let aimPath: Pos[] | null = null; // 照準までの経路（地図に点で描く・v0.99.0）
 let cellSize = 0;
 let cam: Pos = { x: 0, y: 0 }; // ビューポートの左上（@ を追うカメラ）
 const clampCam = (v: number, mapSize: number, viewSize: number) => Math.max(0, Math.min(v, mapSize - viewSize));
@@ -430,6 +562,7 @@ async function buffSheet() {
 
 // ---------- マップ描画（方向A） ----------
 let cells: HTMLElement[] = [];
+let gridCols = VIEW_W, gridRows = VIEW_H; // 現在のグリッド寸法（hitCell の座標補正用）
 // 既定はプレイ用ビュー(VIEW)。地図モードでは実マップ寸法(floor.w×floor.h)で組み直し、1セル=1タイルで忠実描画する。
 function buildGridDom(cols = VIEW_W, rows = VIEW_H) {
   gridEl.innerHTML = "";
@@ -438,6 +571,7 @@ function buildGridDom(cols = VIEW_W, rows = VIEW_H) {
   const csH = ($("mapWrap").clientHeight - 4) / rows;
   const cs = Math.min(csW, csH);
   cellSize = cs;
+  gridCols = cols; gridRows = rows;
   (gridEl as HTMLElement).style.gridTemplateColumns = `repeat(${cols}, ${cs}px)`;
   (gridEl as HTMLElement).style.justifyContent = "center";
   for (let i = 0; i < cols * rows; i++) {
@@ -451,11 +585,24 @@ function buildGridDom(cols = VIEW_W, rows = VIEW_H) {
   }
 }
 
+/** クライアント座標→グリッドのマス（v0.99.0）。justify-content:center の左オフセット＋非整数 cellSize を補正。
+ *  返り値はグリッド内座標（プレイビューなら cam を足してマップ座標へ）。範囲外は null。 */
+function hitCell(clientX: number, clientY: number): Pos | null {
+  if (cellSize <= 0) return null;
+  const r = gridEl.getBoundingClientRect();
+  const offX = (r.width - gridCols * cellSize) / 2; // 中央寄せぶんの左マージン
+  const cx = Math.floor((clientX - r.left - offX) / cellSize);
+  const cy = Math.floor((clientY - r.top) / cellSize);
+  if (cx < 0 || cy < 0 || cx >= gridCols || cy >= gridRows) return null;
+  return { x: cx, y: cy };
+}
+
 function draw() {
   if (!floor) return;
   if (mapMode) { drawMapMode(); return; }
   if (cells.length !== VIEW_W * VIEW_H) buildGridDom(VIEW_W, VIEW_H); // 防御：グリッドが VIEW 寸法と食い違うなら組み直す（範囲外セル参照を封じる）
   lightEl.style.display = "";
+  lightEl.classList.remove("town"); // 迷宮＝松明の減光（街ヴィネットを外す）
   const vis = computeFov(floor, player);
   // カメラ：@ を中心に、マップ端ではクランプ（マップは常にビューより大きい）
   const camX = clampCam(player.x - (VIEW_W >> 1), floor.w, VIEW_W);
@@ -530,7 +677,9 @@ function draw() {
     if (isPlayer) { glyph = "@"; cls = playerThreatened ? (playerHeavy ? "g-player-heavy" : "g-player-danger") : "g-player"; }
     c.classList.toggle("tele-atk", (isPlayer && playerThreatened) || (isCompanion && companionThreatened) || allyThreatened); // 攻撃予告の赤枠
     span.textContent = glyph;
-    span.className = cls;
+    // 床むら（v0.99.0）：素の床「·」だけ座標決定論で濃淡3段（rng 非使用・石畳の風合い）。
+    if (cls === "g-floor") { const v = (x * 7 + y * 13) % 3; span.className = v === 2 ? "g-floor" : `g-floor v${v}`; }
+    else span.className = cls;
     const d = Math.hypot(x - player.x, y - player.y);
     const b = visible ? Math.max(0.35, 1 - d / 11) : 0.16; // 記憶は薄暗く
     c.style.filter = `brightness(${b.toFixed(2)})`;
@@ -543,31 +692,44 @@ function draw() {
 
 /** 地図モード：実マップを 1セル=1タイルでそのまま忠実描画（プレイ画面と完全一致）。
  *  グリッドは buildGridDom(floor.w, floor.h) で組み直し済み。小さいので主に背景色で読ませる。 */
+// 地図モードのタイル配色（v0.99.0・①「静謐な写本」の暖墨へ調整）。
+// 機能色相は据え置き＝階段:teal／泉:青緑／安:緑／扉・宝:金／照準:緑・赤（読み方は変えない）。
+const MAP_BG = {
+  unexplored: "#080604", floor: "#332b1e", wall: "#161310",
+  stairs: "#173b40", spring: "#134044", rest: "#173f2e", door: "#4a4118",
+  fossil: "#26534c", fossilQuiet: "#1f433d", chest: "#54431a",
+  player: "#5a4a1a", path: "#3d3423", aimOk: "#1f7a4a", aimNg: "#7a2f2f",
+} as const;
 function drawMapMode() {
   if (!floor) return;
   lightEl.style.display = "none"; // 松明の減光を外す
+  hidePeek();
   const W = floor.w, H = floor.h;
   if (cells.length !== W * H) buildGridDom(W, H); // 防御：グリッドが地図寸法と食い違うなら組み直す（範囲外セルの firstChild 参照＝クラッシュを封じる）
+  // 経路プレビュー（v0.99.0）：照準までの bfsPath を金泥の点で描く（照準・自分のマスは除く）
+  const pathIdx = new Set<number>();
+  if (aim && aimPath) for (const p of aimPath) pathIdx.add(p.y * W + p.x);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = y * W + x; // = mapIdx(floor, x, y)
     const c = cells[i], span = c.firstChild as HTMLElement;
     c.classList.remove("tele-atk", "tele-move", "wall");
     c.style.filter = "brightness(1)";
-    if (!floor.explored[i]) { span.textContent = ""; c.style.background = "#05070a"; continue; }
+    if (!floor.explored[i]) { span.textContent = ""; c.style.background = MAP_BG.unexplored; continue; }
     const isFloor = floor.tiles[i] === 1;
-    let bg = isFloor ? "#2b3442" : "#141a23"; // 床=明るい / 壁=暗い
+    let bg: string = isFloor ? MAP_BG.floor : MAP_BG.wall; // 床=明るい / 壁=暗い
     let glyph = "", cls = "";
-    if (x === floor.stairsDown.x && y === floor.stairsDown.y) { bg = "#173b44"; glyph = "›"; cls = "g-down"; }
-    else if (x === floor.stairsUp.x && y === floor.stairsUp.y) { bg = "#173b44"; glyph = "‹"; cls = "g-up"; }
+    if (pathIdx.has(i)) { bg = MAP_BG.path; glyph = "·"; cls = "g-aimpath"; } // 経路の点（地物があれば下で上書き）
+    if (x === floor.stairsDown.x && y === floor.stairsDown.y) { bg = MAP_BG.stairs; glyph = "›"; cls = "g-down"; }
+    else if (x === floor.stairsUp.x && y === floor.stairsUp.y) { bg = MAP_BG.stairs; glyph = "‹"; cls = "g-up"; }
     const shrM = floor.shrines.find((s) => s.x === x && s.y === y);
-    if (shrM) { bg = shrM.kind === "spring" ? "#13404a" : "#173f2e"; glyph = shrM.kind === "spring" ? "泉" : "安"; cls = shrM.kind === "spring" ? "g-spring" : "g-rest"; }
-    if (floor.returnDoor && floor.returnDoor.x === x && floor.returnDoor.y === y) { bg = "#3a3417"; glyph = "扉"; cls = "g-door"; }
+    if (shrM) { bg = shrM.kind === "spring" ? MAP_BG.spring : MAP_BG.rest; glyph = shrM.kind === "spring" ? "泉" : "安"; cls = shrM.kind === "spring" ? "g-spring" : "g-rest"; }
+    if (floor.returnDoor && floor.returnDoor.x === x && floor.returnDoor.y === y) { bg = MAP_BG.door; glyph = "扉"; cls = "g-door"; }
     const fe = floor.fossils.find((e) => e.x === x && e.y === y);
-    if (fe) { bg = "#1f433d"; glyph = "†"; cls = fe.resolved ? "g-fossil-quiet" : "g-fossil"; }
-    if (floor.chests.some((cc) => cc.x === x && cc.y === y && !cc.opened)) { bg = "#473916"; glyph = "▭"; cls = "g-chest"; }
-    if (x === player.x && y === player.y) { bg = "#5a4a1a"; glyph = "@"; cls = "g-player"; }
+    if (fe) { bg = fe.resolved ? MAP_BG.fossilQuiet : MAP_BG.fossil; glyph = "†"; cls = fe.resolved ? "g-fossil-quiet" : "g-fossil"; } // 未対面は一段明るく
+    if (floor.chests.some((cc) => cc.x === x && cc.y === y && !cc.opened)) { bg = MAP_BG.chest; glyph = "▭"; cls = "g-chest"; }
+    if (x === player.x && y === player.y) { bg = MAP_BG.player; glyph = "@"; cls = "g-player"; }
     if (aim && x === aim.x && y === aim.y) { // 照準マーカー（到達可=緑／不可=赤）。タイルより前面に上書き
-      bg = aimReachable ? "#1f7a4a" : "#7a2f2f"; glyph = "⊕"; cls = "g-aim";
+      bg = aimReachable ? MAP_BG.aimOk : MAP_BG.aimNg; glyph = "⊕"; cls = "g-aim";
     }
     c.style.background = bg;
     span.textContent = glyph;
@@ -581,12 +743,15 @@ function drawMapMode() {
  *  VIEW サイズのグリッドに描くと drawMapMode が範囲外セルの firstChild を読んでクラッシュする（enterRaid と同じ規約）。 */
 function resetMapView(): void {
   mapMode = false;
-  aim = null;
+  aim = null; aimPath = null;
   $("aimBar").hidden = true;
+  $("mapLegend").hidden = true;
 }
 function setMapMode(v: boolean) {
   mapMode = v;
-  if (!v && aim) { aim = null; $("aimBar").hidden = true; } // 地図を閉じたら照準も解除
+  if (!v && aim) { aim = null; aimPath = null; $("aimBar").hidden = true; } // 地図を閉じたら照準も解除
+  $("mapLegend").hidden = !v; // 凡例は地図モード中のみ（v0.99.0）
+  hidePeek();
   // 地図↔プレイでグリッド寸法が変わるので組み直す（実マップ忠実 vs カメラ窓）
   if (v && floor) { buildGridDom(floor.w, floor.h); drawMapMode(); }
   else { buildGridDom(VIEW_W, VIEW_H); draw(); }
@@ -612,7 +777,10 @@ function drawTown() {
   const camX = clampCam(townPlayer.x - (VW >> 1), data.width, VW);
   const camY = clampCam(townPlayer.y - (VH >> 1), data.height, VH);
   cam = { x: camX, y: camY };
-  lightEl.style.display = "none"; // 街は安全・既知＝松明なし（全面可視）
+  // 街ヴィネット（v0.99.0・§10.4）：全面可視は保ちつつ、柔らかい暖光で「灯る街」の空気を出す（何も隠さない）。
+  lightEl.style.display = ""; lightEl.classList.add("town");
+  lightEl.style.setProperty("--px", ((townPlayer.x - camX + 0.5) / VW * 100) + "%");
+  lightEl.style.setProperty("--py", ((townPlayer.y - camY + 0.5) / VH * 100) + "%");
   for (let vy = 0; vy < VH; vy++) for (let vx = 0; vx < VW; vx++) {
     const c = cells[vy * VW + vx]; if (!c) continue;
     const x = camX + vx, y = camY + vy;
@@ -1436,6 +1604,7 @@ function applyConsumable(ch: Character, key: string): string {
   if (u.healFrac) {
     const before = hp;
     hp = Math.min(maxHp(ch), hp + Math.round(maxHp(ch) * u.healFrac));
+    if (hp > before) floatFx(player.x, player.y, `+${hp - before}`, "fl-heal");
     parts.push(`HP +${hp - before}`);
   }
   if (u.curePoison) {
@@ -2684,6 +2853,7 @@ function enterRaid(scale: "small" | "medium" | "large", tier: number): Promise<v
   civics = scale === "large" ? field.civicSpots.map((p) => ({ ...p, hp: 1 })) : [];
   raid = { scale, tier, pseudoDepth, wave: 1, totalWaves: scale === "large" ? 3 : 2, bossSpawned: false, spawnZone: field.spawnZone, killed: 0, civicsSaved: 0, civicsLost: 0, fallen: [] };
   buildGridDom(VIEW_W, VIEW_H);
+  applyDepthBand(pseudoDepth); // 街防衛戦も擬似深度で松明の色調を合わせる（v0.99.0）
   setAmbient(true, pseudoDepth);
   setBgm(scale === "large" ? "abyss" : "dungeon", pseudoDepth);
   applyChrome();
@@ -2702,6 +2872,7 @@ function enterRaid(scale: "small" | "medium" | "large", tier: number): Promise<v
 async function raidAct(dx: number, dy: number): Promise<void> {
   if (busy || overlayEl.classList.contains("show") || mode !== "raid" || !floor || !world.current) return;
   ensureAudio();
+  hidePeek();
   if (!(dx === 0 && dy === 0)) {
     if (!raidMoveOrAttack(player.x + dx, player.y + dy)) return; // 壁/不可＝手番を消費しない
   }
@@ -2717,6 +2888,7 @@ function raidMoveOrAttack(nx: number, ny: number): boolean {
     const ch = world.current!;
     const dmg = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
     mon.hp -= dmg; sfx(mon.boss ? "crit" : "hit");
+    floatFx(nx, ny, String(dmg), "fl-dmg"); hitFlash(nx, ny, mon.kind.glyph);
     if (mon.hp <= 0) raidKill(mon); else log(`${mon.kind.name}に${dmg}の一撃。`);
     return true;
   }
@@ -2728,6 +2900,7 @@ function raidMoveOrAttack(nx: number, ny: number): boolean {
 }
 /** 街防衛戦の撃破処理（XP・撃破数・ボス処遇）。dive の rewardKill とは別＝迷宮の年代記/扉を出さない。 */
 function raidKill(mon: Monster): void {
+  floatFx(mon.x, mon.y, "＊", "fl-kill");
   const ch = world.current!;
   ch.xp += Math.round(xpForKill(mon.kind.hp) * xpMul(ch) * diffMods(world.difficulty).xp);
   if (raid) raid.killed++;
@@ -2763,13 +2936,13 @@ async function raidEndTurn(): Promise<void> {
     for (const h of res.hits) {
       if (h.target === "companion") {
         const a = allies.find((x) => x.hp > 0 && x.x === h.tx && x.y === h.ty);
-        if (a) { a.hp -= h.dmg; log(`${h.monster.kind.name}の一撃が${a.name}を襲う！ ${h.dmg}の傷。`, "warn"); if (a.hp <= 0) log(`${a.name}が斃れた……。`, "warn"); }
+        if (a) { a.hp -= h.dmg; floatFx(a.x, a.y, String(h.dmg), "fl-hurt"); log(`${h.monster.kind.name}の一撃が${a.name}を襲う！ ${h.dmg}の傷。`, "warn"); if (a.hp <= 0) log(`${a.name}が斃れた……。`, "warn"); }
       } else {
         let dmg = Math.max(1, h.dmg - armorReduce(ch) - (armorBuffTurns > 0 ? ARMOR_BUFF : 0));
         if (deathDoorTurns > 0) dmg = 0;
         if (dmg > 0 && shadowGuard > 0) { shadowGuard--; dmg = 0; log(`${h.monster.kind.name}の一撃を、影が引き受けた。`, "dim"); }
-        else if (h.effect === "heavy") { hp -= dmg; sfx("boss", 0.16); flashFx("warp"); log(`${h.monster.kind.name}の渾身の一撃！ ${dmg}の大ダメージ。`, "warn"); }
-        else { hp -= dmg; log(`${h.monster.kind.name}の一撃！ ${dmg}の傷。`, "warn"); if (h.effect === "poison") { poisonTurns = Math.max(poisonTurns, VENOM_TURNS); poisonDmg = Math.max(poisonDmg, venomDmgAt(raid.pseudoDepth)); log("牙に毒が仕込まれていた。", "warn"); } }
+        else if (h.effect === "heavy") { hp -= dmg; sfx("boss", 0.16); flashFx("warp"); floatFx(player.x, player.y, String(dmg), "fl-hurt"); log(`${h.monster.kind.name}の渾身の一撃！ ${dmg}の大ダメージ。`, "warn"); }
+        else { hp -= dmg; floatFx(player.x, player.y, String(dmg), "fl-hurt"); log(`${h.monster.kind.name}の一撃！ ${dmg}の傷。`, "warn"); if (h.effect === "poison") { poisonTurns = Math.max(poisonTurns, VENOM_TURNS); poisonDmg = Math.max(poisonDmg, venomDmgAt(raid.pseudoDepth)); log("牙に毒が仕込まれていた。", "warn"); } }
       }
     }
     for (const m of res.dodges) log(`${m.kind.name}の一撃を見切った。`, "dim");
@@ -3369,7 +3542,10 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
   setAmbient(true, depth); // 環境ドローン（深いほど低い）
   // 場面 BGM：深淵帯=③沈淵／通常迷宮=②冷たい石の広間（深度連動で暗く低くなる）
   if (abyss) setBgm("abyss", depth); else { setBgm("dungeon", depth); setBgmDepth(depth); }
+  hidePeek();
+  applyDepthBand(depth, abyss); // 松明の色調＝深度帯（v0.99.0）
   draw();
+  showFloorBanner(abyss ? "深淵 ─ 試練" : `深度 ${depth} ─ ${depthBandLabel({ minDepth: depth })}`, abyss);
   log(`── 深度${depth} ──`, "dim");
   for (const l of onReachDepth(world, depth)) { log(l, "cue"); save(); } // 到達系の依頼達成
   // 奉献の試練・印⑤：深淵手前の高深度に到達（4-13A）
@@ -3800,6 +3976,7 @@ function resumeDive(snap: DiveSnapshot): void {
 // ---------- 1ターンの処理 ----------
 async function playerAct(dx: number, dy: number) {
   if (busy || overlayEl.classList.contains("show") || mode !== "dive" || !floor || !world.current) return; // シート表示中は盤面を動かさない（入れ子シート裏での再入防止）
+  hidePeek(); // 行動したら「調べる」ポップは畳む
 
   if (!(dx === 0 && dy === 0)) {
     if (chantTurns > 0) { chantTurns = 0; log("帰還の詠唱が、途切れた。", "warn"); } // 動くと中断（v2）
@@ -3920,6 +4097,7 @@ async function endTurn() {
   for (const h of res.hits) {
     if (h.target === "companion" && companion) {
       companion.hp -= h.dmg; // 相棒は防具軽減なし（v1）
+      floatFx(companion.x, companion.y, String(h.dmg), "fl-hurt");
       log(`${h.monster.kind.name}の一撃が${companionName()}を襲う！ ${h.dmg}の傷。`, "warn");
     } else {
       let dmg = Math.max(1, h.dmg - armorReduce(ch) - (armorBuffTurns > 0 ? ARMOR_BUFF : 0)); // 防具＋硬鱗で軽減（下限1）
@@ -3929,10 +4107,12 @@ async function endTurn() {
       else if (deathDoorTurns > 0) log(`${h.monster.kind.name}の一撃を、死戸が弾く。`, "warn");
       else if (h.effect === "heavy") { // ①溜め大技（B）：渾身の一撃を受けた＝重い被弾の演出
         hp -= dmg; sfx("boss", 0.16); flashFx("warp");
+        floatFx(player.x, player.y, String(dmg), "fl-hurt");
         log(`${h.monster.kind.name}の渾身の一撃が炸裂した！ ${dmg}の大ダメージ。`, "warn");
       }
       else {
         hp -= dmg; log(`${h.monster.kind.name}の一撃！ ${dmg}の傷。`, "warn");
+        floatFx(player.x, player.y, String(dmg), "fl-hurt");
         const clarity = ch.equipment.relic?.relic === "clarity"; // 遺物 clarity（澄心）：毒・侵蝕の蓄積を半減
         if (h.effect === "poison") { // venom（4-11G）：傷が通ると毒が回り始める（次手から継続ダメ）
           poisonTurns = Math.max(poisonTurns, clarity ? Math.ceil(VENOM_TURNS / 2) : VENOM_TURNS);
@@ -3954,7 +4134,7 @@ async function endTurn() {
       applyArmorProc(ch, h.monster, dmg);
     }
   }
-  for (const m of res.dodges) log(`${m.kind.name}の一撃を見切った。`, "dim");
+  for (const m of res.dodges) { floatFx(player.x, player.y, "見切", "fl-miss"); log(`${m.kind.name}の一撃を見切った。`, "dim"); }
   if (companion && companion.hp <= 0) companionDies(); // 相棒の戦死＝化石化
   } // end if(!hasted)
   // 敵図鑑：視界内の生存敵を記録（遭遇＝図鑑に編む。web限定・決定論）。
@@ -4023,6 +4203,7 @@ function announceBossCues() {
 
 /** 撃破処理の入口。敵性化探索者ボス（出自=化石）は「討つ/鎮める」へ。それ以外は通常撃破。 */
 function downOrKill(mon: Monster, killLine?: string) {
+  floatFx(mon.x, mon.y, "＊", "fl-kill"); // 撃破の燐光（v0.99.0・純表示）
   if (mon.boss === "area" && mon.fossilId) {
     pendingBossResolve.push(mon);
     log(`${mon.kind.name}は膝をついた……。`, "warn");
@@ -4423,6 +4604,7 @@ async function castSpell(key: string) {
     const amt = effectiveReason(ch) + ch.stats.body;
     const before = hp; hp = Math.min(maxHp(ch), hp + amt);
     sfx("spell_heal"); flashFx("still");
+    if (hp > before) floatFx(player.x, player.y, `+${hp - before}`, "fl-heal");
     log(`癒しが巡る（HP＋${hp - before}）。`);
   } else if (key === "enfeeble") { // 蝕み＝最寄りの攻撃を数手削ぐ
     if (!visMon.length) { log("蝕む敵が見えない。", "dim"); draw(); return; }
@@ -4670,12 +4852,13 @@ function setAim(x: number, y: number): void {
   if (!floor) return;
   const nx = Math.max(0, Math.min(floor.w - 1, x)), ny = Math.max(0, Math.min(floor.h - 1, y));
   aim = { x: nx, y: ny };
-  aimReachable = !!bfsPath(floor, player, aim);
+  aimPath = bfsPath(floor, player, aim); // 経路を保持＝地図に点で描く（v0.99.0）
+  aimReachable = !!aimPath;
   updateAimBar();
   drawMapMode();
 }
 /** 照準を解除（地図モードは維持＝再タップで置き直せる）。 */
-function cancelAim(): void { aim = null; updateAimBar(); if (mapMode) drawMapMode(); }
+function cancelAim(): void { aim = null; aimPath = null; updateAimBar(); if (mapMode) drawMapMode(); }
 /** 確定＝マーカーまで自動移動（到達可のときだけ）。 */
 function confirmAim(): void {
   if (!aim || !floor) return;
@@ -4764,6 +4947,7 @@ function moveOrInteract(nx: number, ny: number): boolean {
     const dmg = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
     mon.hp -= dmg;
     sfx(mon.boss ? "crit" : "hit");
+    floatFx(nx, ny, String(dmg), "fl-dmg"); hitFlash(nx, ny, mon.kind.glyph); // 盤上ポップ＋命中フラッシュ（v0.99.0）
     if (ch.equipment.relic?.relic === "siphon" && deathDoorTurns === 0 && hp < maxHp(ch)) { // 遺物 siphon（渇き）：与ダメぶん吸命
       const drained = Math.max(1, Math.round(dmg * SIPHON_FRAC));
       hp = Math.min(maxHp(ch), hp + drained);
@@ -4775,6 +4959,7 @@ function moveOrInteract(nx: number, ny: number): boolean {
       if (mon.kind.ability === "reflect" && deathDoorTurns === 0) { // 棘＝近接を罰する（術/投擲が安全策）。死戸中は無効
         const recoil = Math.max(1, Math.round(dmg * REFLECT_FRAC));
         hp -= recoil; sfx("hurt"); flashFx("warp", { x: player.x, y: player.y });
+        floatFx(player.x, player.y, String(recoil), "fl-hurt");
         log(`${mon.kind.name}の棘が反射する――${recoil}の傷。`, "warn");
       }
     }
@@ -4826,6 +5011,7 @@ function useShrine(s: Shrine): void {
     if (hp >= maxHp(ch)) return; // 満タンなら温存
     const before = hp; hp = Math.min(maxHp(ch), hp + Math.max(1, Math.round(maxHp(ch) * SPRING_HEAL_FRAC)));
     sfx("heal");
+    floatFx(player.x, player.y, `+${hp - before}`, "fl-heal");
     log(`回復の泉。澄んだ水を含むと、傷が塞がってゆく（HP＋${hp - before}）。泉は涸れた。`, "cue");
   } else {
     if (ch.exposure <= 0.05) return; // 浄める澱が無ければ温存
@@ -5383,6 +5569,7 @@ const HELP_FLOW =
   "・スワイプ（8方向）／方向パッド（設定でオン・位置と大きさを調整）\n" +
   "・キー：矢印・WASD・viキー(y u b n)・テンキー(1〜9)\n" +
   "・「.」またはパッド中央＝その場で待機（1手）\n" +
+  "・盤面をタップ＝そのマスを調べる（敵の強さ・傷・能力が分かる。手番は使わない）\n" +
   "・敵は次の一手を予告する（テレグラフ）。退いて空振りさせるのが「見切り」。\n\n" +
   "▍地図とねらい\n" +
   "地図ボタンでフロア全体を表示。地図をタップ→最寄りの床にマーカー→パッドで微調整→「移動」で自動で歩く。";
@@ -6229,23 +6416,22 @@ $("mapWrap").addEventListener("touchend", (e) => {
   if (mode === "town" || mode === "interior") {
     if (!tap) { // スワイプ＝8方向移動
       const [sx, sy] = octant(dx, dy); townAct(sx, sy);
-    } else if (cellSize > 0) { // タップ＝隣接マスへ一歩（斜め含む）
-      const r = gridEl.getBoundingClientRect();
-      const gx = cam.x + Math.floor((tx - r.left) / cellSize);
-      const gy = cam.y + Math.floor((ty - r.top) / cellSize);
-      const ddx = gx - townPlayer.x, ddy = gy - townPlayer.y;
-      if (Math.max(Math.abs(ddx), Math.abs(ddy)) === 1) townAct(Math.sign(ddx), Math.sign(ddy));
+    } else { // タップ＝隣接マスへ一歩（斜め含む）。hitCell＝中央寄せ補正込み（v0.99.0）
+      const h = hitCell(tx, ty);
+      if (h) {
+        const ddx = cam.x + h.x - townPlayer.x, ddy = cam.y + h.y - townPlayer.y;
+        if (Math.max(Math.abs(ddx), Math.abs(ddy)) === 1) townAct(Math.sign(ddx), Math.sign(ddy));
+      }
     }
     return;
   }
 
   if (mapMode) {
     // 図：タップ→最寄りの到達マスにマーカー（照準モード）。D-padで微調整→確定で自動移動（FB 2026-06-23）。
-    if (tap && floor && cellSize > 0) {
-      const r = gridEl.getBoundingClientRect();
-      const cx = Math.floor((tx - r.left) / cellSize), cy = Math.floor((ty - r.top) / cellSize);
-      if (cx >= 0 && cy >= 0 && cx < floor.w && cy < floor.h) {
-        const snap = nearestReachable(floor, player, cx, cy); // 指のズレを吸収＝最寄りの到達床へ
+    if (tap && floor) {
+      const h = hitCell(tx, ty); // 地図はグリッド＝実マップ寸法（cam 不要）
+      if (h) {
+        const snap = nearestReachable(floor, player, h.x, h.y); // 指のズレを吸収＝最寄りの到達床へ
         if (snap) { setAim(snap.x, snap.y); return; }
       }
     }
@@ -6259,8 +6445,10 @@ $("mapWrap").addEventListener("touchend", (e) => {
     const [sx, sy] = octant(dx, dy); void act(sx, sy);
     return;
   }
-  // タップ（ボタン以外の任意位置）＝待機。移動はスワイプ／D-pad で行う。
-  void act(0, 0);
+  // タップ＝そのマスを調べる（v0.99.0・NetHack「;」の現代化。手番は消費しない）。
+  // 旧仕様「タップ＝待機」は廃止＝誤タップの1手消費事故も解消。待機は D-pad 中央「待」／「.」キー。
+  const h = hitCell(tx, ty);
+  if (h) showPeek(cam.x + h.x, cam.y + h.y);
 }, { passive: true });
 
 addEventListener("resize", () => {
