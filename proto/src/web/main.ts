@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.97.0";
+export const APP_VERSION = "0.98.0";
 export const APP_BUILD = "2026-07-02";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -4738,11 +4738,14 @@ function rollKillLoot(mon: Monster): void {
   }
   if (rng.next() < 0.125 + (tier - 1) * 0.03) { // 武具：既存 rollItem→荷物（消耗品と共有の容量制）
     ch.gearBag ??= [];
-    if (packUsed(ch) < packCapacity(ch)) {
-      const it = rollItem(depth, rng);
+    const it = rollItem(depth, rng);
+    if (packUsed(ch) < packCapacity(ch)) { // 空きがあれば低摩擦の自動収納（従来どおり）
       ch.gearBag.push(it); sfx("pickup", 0.1);
       log(`亡骸が ${itemLabel(it)} を遺していた（荷物 ${packUsed(ch)}/${packCapacity(ch)}）。`, "dim");
-    } else log("めぼしい武具があったが、荷物が満杯で見送った。", "dim");
+    } else { // 満杯でも捨てない＝手番のあとに装備/入替/見送りを選ぶ（宝箱/ボスと同じ pendingDrops→handleDrops 経路）
+      pendingDrops.push(it); sfx("pickup", 0.1);
+      log(`亡骸が ${itemLabel(it)} を遺した——荷物は満杯。取捨はこの手番のあとで選ぶ。`, "dim");
+    }
   }
   if (rng.next() < 0.06) { // 消耗品：たまに薬の類（上位品は等級で解禁＝浅層で深部品を落とさない）
     const c = rng.pick(CONSUMABLES.filter((x) => (x.minLevel ?? 0) <= ch.level));
