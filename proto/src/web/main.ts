@@ -28,7 +28,7 @@ import {
 import { rollEncounter } from "../weights.ts";
 import { filterByTags } from "../content.ts";
 import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffects, selectTownStorylet, selectKeeperStorylet, selectDelverStorylet, applyActorEffects, rollChestOutcome } from "../storylets.ts";
-import { meetActor, mintActor, rememberActor, pickRosterActor } from "../actors.ts";
+import { meetActor, mintActor, rememberActor, pickRosterActor, fossilNames } from "../actors.ts";
 import {
   generateOffers, generateNobleOffers, acceptQuest, activeQuests, doneQuests, claimQuest,
   onReachDepth, onRediscoverFossil, onSlayBoss,
@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.96.0";
+export const APP_VERSION = "0.97.0";
 export const APP_BUILD = "2026-07-02";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -2630,7 +2630,7 @@ function pickRaidAlly(): { name: string; actor: Actor; actorId?: string; grade: 
   }
   const roster = pickRosterActor(world, db, rng);
   if (roster) return { name: roster.actor.name, actor: roster.actor, actorId: roster.id, grade: Math.min(4, roster.actor.grade ?? 1) };
-  const a = mintActor(db, rng);
+  const a = mintActor(db, rng, {}, fossilNames(world));
   return { name: a.name, actor: a, grade: 1 + rng.int(3) };
 }
 
@@ -3070,7 +3070,7 @@ let courtSteward: LivingActor | null = null;
 let courtCourtier: LivingActor | null = null;
 /** 家令/廷臣の生者アンカーを生成（名は mintActor／職分だけ宮廷向けに上書き）。一度生成しキャッシュ＝名が安定。 */
 function mkCourtActor(role: "steward" | "courtier"): LivingActor {
-  const a = mintActor(db, rng, {});
+  const a = mintActor(db, rng, {}, fossilNames(world));
   a.archetype = role === "steward" ? "家令" : "廷臣";
   return { id: `court_${role}`, actor: a, metGeneration: world.generation };
 }
@@ -3342,7 +3342,7 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
         const rosterLa = rng.next() < ROSTER_DOWNED_CHANCE ? pickRosterActor(world, db, rng) : null;
         floor.downed = rosterLa
           ? { id: rosterLa.id, actor: rosterLa.actor, x: at.x, y: at.y }
-          : { id: `downed_${depth}_${world.generation}`, actor: mintActor(db, rng), x: at.x, y: at.y };
+          : { id: `downed_${depth}_${world.generation}`, actor: mintActor(db, rng, {}, fossilNames(world)), x: at.x, y: at.y };
       }
     }
     // 入口C：同時に潜る生者の冒険者（4-14・すれ違いの軽イベント）。相棒の有無に関わらず時々／深度2以降／初訪のみ。
@@ -3355,7 +3355,7 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
         const rosterLa = rng.next() < ROSTER_DELVER_CHANCE ? pickRosterActor(world, db, rng) : null;
         floor.delver = rosterLa
           ? { id: rosterLa.id, actor: rosterLa.actor, x: at.x, y: at.y }
-          : { id: `delver_${depth}_${world.generation}_${world.diveCount ?? 0}`, actor: mintActor(db, rng), x: at.x, y: at.y };
+          : { id: `delver_${depth}_${world.generation}_${world.diveCount ?? 0}`, actor: mintActor(db, rng, {}, fossilNames(world)), x: at.x, y: at.y };
       }
     }
   }
@@ -5544,7 +5544,7 @@ function testGiveResources(): void {
   const grade = 2;
   world.companion = {
     actorRef: `test_comp_${world.generation}_${Math.floor(rng.next() * 1e6)}`,
-    actor: mintActor(db, rng),
+    actor: mintActor(db, rng, {}, fossilNames(world)),
     bond: 1, exposure: 0, alive: true,
     maxHp: companionMaxHp(grade), recruitedGeneration: world.generation,
     grade, feats: 0, traits: [],
