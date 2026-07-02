@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
   <!-- iOS standalone はホームインジケータ帯（Webビュー外）を theme-color で塗る。
-       タブバーと同色(#0c0f14)にして帯とバーを連続させ「最下端まで」見せる（2026-06-20）。 -->
-  <meta name="theme-color" content="#0c0f14" />
+       タブバーと同色(--bg-panel #14110c)にして帯とバーを連続させ「最下端まで」見せる（2026-06-20／横断F ①静謐な写本 2026-07-02）。 -->
+  <meta name="theme-color" content="#14110c" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="深蝕" />
   <meta name="mobile-web-app-capable" content="yes" />
@@ -15,31 +15,39 @@
   <link rel="icon" href="icon-192.png" type="image/png" />
   <link rel="apple-touch-icon" href="icon-180.png" />
   <style>
-    /* 色トークン（意味づけした単一情報源＝design-spec.md の§2 と同期。Swift は同名 Color へ）。
-       発光(text-shadow)の rgba は役割色からの装飾派生ゆえ各 .g-* にインライン保持（spec §2 末尾）。 */
+    /* 色トークン（意味づけした単一情報源＝prototype-spec.md §10.2 と同期。Swift は同名 Color へ）。
+       ★横断F 方向①「静謐な写本」（墨と朱・2026-07-02 ユーザー確定・PR #282/#283 のモックで選定）。
+       ・surfaces/lines/text は暖かい墨紙系へ差替。アクセント＝朱(--acc)＋金泥(--gold-leaf)。角は立てる(2-3px)。
+       ・盤面（下記 .g-* / --bg-void / --bg-wall）と状態色（--c-hp/--c-exp/--c-gold/--c-buff/--c-warn・敵tier・学派色）は
+         正典＝全テーマ不変。発光(text-shadow)の rgba は役割色からの装飾派生ゆえ各 .g-* にインライン保持。
+       ・様式（罫・角飾り・ボタン役割・ゲージ・kv 行）は §10.2b「様式（静謐な写本）」を参照。 */
     :root {
       color-scheme: dark;
-      /* surfaces */
-      --bg-app:#0c0f14; --bg-panel:#10141a; --bg-void:#07090c; --bg-wall:#11151c;
-      --bg-sheet:#14181f; --bg-input:#1a1f27; --bg-btn:#1c232d; --bg-btn-active:#28303d;
-      /* lines */
-      --line:#1c222b; --line-2:#2e3946; --line-3:#2c3440;
-      /* text */
-      --tx:#cfd6dd; --tx-strong:#e8e2d4; --tx-2:#d8dee6; --tx-dim:#9aa4b0;
-      --tx-meta:#7d8794; --tx-faint:#5b6673; --tx-status:#aab4c0; --tx-log:#d6cfc0; --tx-log-dim:#aab3bd;
-      /* status / state accents */
+      /* surfaces（① 墨紙） */
+      --bg-app:#0e0c09; --bg-panel:#14110c; --bg-void:#07090c; --bg-wall:#11151c;
+      --bg-sheet:#17130e; --bg-input:#201a12; --bg-btn:#1d1812; --bg-btn-active:#2a2318;
+      /* lines（①） */
+      --line:#372f23; --line-2:#4a3f2e; --line-3:#4a3f2e;
+      /* text（①） */
+      --tx:#d8d0c0; --tx-strong:#efe6d3; --tx-2:#ddd3c2; --tx-dim:#a1957f;
+      --tx-meta:#857a66; --tx-faint:#6b6250; --tx-status:#b0a48c; --tx-log:#d8cfba; --tx-log-dim:#a99d85;
+      /* accent（① 朱・金泥） */
+      --acc:#c2452f; --acc-2:#d9573c; --gold-leaf:#c9a75a;
+      /* 様式トークン（① 角は立てる／ゲージは薄い墨線） */
+      --r-btn:3px; --r-card:3px; --r-chip:2px; --gauge-h:5px; --gauge-r:0px;
+      /* status / state accents（正典＝不変） */
       --c-hp:#e06c5a; --c-exp:#9d8fd8; --c-gold:#d9b34a; --c-buff:#8fd0c0; --c-warn:#d98c7a;
-      /* glyph roles */
+      /* glyph roles（正典＝不変） */
       --g-player:#ffd87a; --g-danger:#ff4f3c; --g-companion:#6fc7ff; --g-companion-erratic:#b58bff;
       --g-delver:#79d39b; --g-downed:#d8a24a; --g-summon:#c79bff; --g-stairs:#6fb3c8;
       --g-wall:#39434f; --g-floor:#2c333d;
-      /* enemy tiers */
+      /* enemy tiers（正典＝不変） */
       --g-mon-t1:#c4ccd4; --g-mon-t2:#e0c46a; --g-mon-t3:#e58a45; --g-mon-t4:#e0564a; --g-mon-t5:#c071ff;
       --g-elite:#ffcf4a; --g-boss:#ff5cf0;
-      /* objects / nodes */
+      /* objects / nodes（正典＝不変） */
       --g-fossil:#9fd8cf; --g-fossil-quiet:#6f9a93; --g-chest:#e8c06a; --g-chest-open:#7a6a44;
       --g-spring:#5fd2d8; --g-rest:#8fdf9a; --g-door:#ffd24a;
-      /* spell schools */
+      /* spell schools（正典＝不変） */
       --c-atk:#e0756a; --c-ctl:#6fa8d8; --c-mov:#6fc7c0; --c-sup:#7fcf97; --c-lore:#c4abe6; --c-sum:#e0c46a;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -72,24 +80,29 @@
     }
     #stTop { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
     /* 名前は主・末尾…で省略（レイアウト非破壊）。版数は右端に必ず残す（最新判定用）。 */
-    #stName { color: var(--tx-strong); font-weight: 700; max-width: 116px; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
+    #stName { color: var(--tx-strong); font-weight: 700; font-size: 13.5px; max-width: 116px; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
     #stTop .lv, #stTop .dep { color: var(--tx-dim); flex: none; }
     #stTop .lv b, #stTop .dep b { color: var(--tx-strong); font-variant-numeric: tabular-nums; }
     #stTop .sp { flex: 1; }
     #stGold { color: var(--c-gold); flex: none; font-variant-numeric: tabular-nums; }
     #stVer { color: var(--tx-faint); font-size: 10px; font-weight: 600; letter-spacing: .03em; flex: none; }
-    /* HP/深蝕の細ゲージ。色は既存トークン。fill 幅は updateStatus が設定。 */
+    /* HP/深蝕の細ゲージ。色は既存トークン。fill 幅は updateStatus が設定。
+       ①静謐な写本＝発光/グラデを捨てた静かな墨線（角0・薄い墨地）。 */
     #stBars { display: flex; gap: 10px; margin-top: 6px; }
     #stBars .gauge { flex: 1; min-width: 0; }
     #stBars .gauge .lab { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px; font-variant-numeric: tabular-nums; }
-    #stBars .gauge .track { height: 6px; border-radius: 4px; background: #0a0d12; overflow: hidden; box-shadow: 0 0 0 1px var(--line) inset; }
-    #stBars .gauge .fill { height: 100%; border-radius: 4px; transition: width .18s ease; }
+    #stBars .gauge .track { position: relative; height: var(--gauge-h); border-radius: var(--gauge-r); background: #0b0906; overflow: hidden; box-shadow: 0 0 0 1px var(--line) inset; }
+    #stBars .gauge .fill { height: 100%; border-radius: inherit; transition: width .18s ease; }
     #stBars .hp .lab { color: var(--c-hp); }
-    #stBars .hp .fill { background: linear-gradient(90deg, #b8453a, var(--c-hp)); box-shadow: 0 0 8px rgba(224,108,90,.5); }
+    #stBars .hp .fill { background: var(--c-hp); }
     #stBars .ex .lab { color: var(--c-exp); }
-    #stBars .ex .fill { background: linear-gradient(90deg, #6a5bb0, var(--c-exp)); box-shadow: 0 0 8px rgba(157,143,216,.5); }
+    #stBars .ex .fill { background: var(--c-exp); }
+    /* 牙の閾（深蝕1.5／満点3.0＝50%）の目盛＝「牙＝HPドレインが始まる前に読める」（横断F ①）。 */
+    #stBars .ex .track::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(194,69,47,.6); }
+    /* バフ＝ピルチップ（タップで説明＝buffSheet）。空なら非表示。 */
     #stBuff { color: var(--c-buff); font-size: 11px; margin-top: 5px; }
     #stBuff:empty { display: none; }
+    #stBuff .bf { display: inline-block; border: 1px solid rgba(143,208,192,.4); border-radius: 2px; padding: 1px 7px; margin-right: 6px; }
 
     /* ---- マップ（方向A：発光グリフ） ---- */
     #mapWrap { position: relative; flex: 1; overflow: hidden; background: var(--bg-void); touch-action: none; }
@@ -180,7 +193,7 @@
     #log {
       flex: none; padding: 9px 14px; font-size: 15px; line-height: 1.8; height: 122px; overflow-y: auto;
       border-top: 1px solid var(--line); background: var(--bg-panel);
-      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; color: var(--tx-log);
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK JP", serif; color: var(--tx-log);
     }
     #log.s-sm { font-size: 13px; height: 100px; line-height: 1.7; }
     #log.s-lg { font-size: 17px; height: 150px; line-height: 1.85; }
@@ -194,7 +207,8 @@
     #tabbar {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
       display: none; align-items: stretch;
-      background: var(--bg-app); border-top: 1px solid var(--line);
+      /* ①静謐な写本＝子持罫（2px）＋パネル地で「帳の縁」の趣。 */
+      background: var(--bg-panel); border-top: 2px solid var(--line);
       /* アイコンを下端に寄せる：セーフエリアから 12px 引いてインジケータ上に詰める（最低 8px は確保）。 */
       padding-bottom: max(8px, calc(env(safe-area-inset-bottom, 0px) - 12px));
     }
@@ -208,7 +222,7 @@
     }
     #tabbar .tab svg { width: 27px; height: 27px; filter: drop-shadow(0 0 4px currentColor); opacity: .92; }
     #tabbar .tab:active { color: var(--tx-strong); }
-    #tabbar #spellBtn { color: var(--c-lore); }
+    #tabbar #spellBtn { color: #b9a8d8; }
     #tabbar #mapBtn { color: #8fb7d8; }
     #tabbar .tab.dis { opacity: .28; pointer-events: none; }
 
@@ -229,22 +243,26 @@
     #dpad.sz-md { grid-template-columns: repeat(3,46px); grid-template-rows: repeat(3,42px); }
     #dpad.sz-sm { grid-template-columns: repeat(3,38px); grid-template-rows: repeat(3,36px); }
     #dpad button {
-      font-size: 18px; color: #cdd6e0; background: rgba(22,27,34,.95);
-      border: 1px solid var(--line-2); border-radius: 10px; line-height: 1;
+      font-size: 18px; color: #d8d0c0; background: rgba(29,24,18,.95);
+      border: 1px solid var(--line-2); border-radius: 3px; line-height: 1;
       display: flex; align-items: center; justify-content: center; padding: 0;
     }
-    #dpad button:active { background: rgba(44,52,66,.95); color: #fff; }
-    #dpad button.center { color: #8b94a0; font-size: 13px; }
+    #dpad button:active { background: rgba(42,35,24,.95); color: #efe6d3; }
+    #dpad button.center { color: #a1957f; font-size: 13px; }
 
     /* ---- 選択グリッド（術/品・冒険ハブの2列ボタン） ---- */
     .selgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
     .selgrid.one { grid-template-columns: 1fr; }
     .selgrid button {
-      display: block; width: 100%; text-align: left; background: var(--bg-btn); border: 1px solid var(--line-2); border-radius: 12px;
+      display: block; width: 100%; text-align: left; background: transparent; border: 1px solid var(--line-2); border-radius: var(--r-card);
       padding: 11px 12px 12px; min-height: 62px; font-family: inherit; color: var(--tx-2);
     }
     .selgrid button:active { background: var(--bg-btn-active); }
-    .selgrid .chip { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 7px; margin-bottom: 5px; border: 1px solid currentColor; }
+    .selgrid .chip { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: var(--r-chip); margin-bottom: 5px; border: 1px solid currentColor; }
+    /* 拾得物のシジル（★装備中／？未鑑定／〔…〕発動効果＝Wizardry/シレン流の1字圧縮・横断F ①）。 */
+    .selgrid .nm .sig  { color: var(--gold-leaf); margin-right: 2px; }
+    .selgrid .nm .sigq { color: var(--tx-dim); margin-right: 2px; }
+    .selgrid .nm .mark { color: var(--acc-2); font-size: 12px; margin-left: 4px; }
     .selgrid .nm { font-size: 14.5px; color: var(--tx-strong); font-weight: 700; line-height: 1.2; }
     .selgrid .sub { font-size: 11.5px; color: var(--tx-dim); margin-top: 4px; line-height: 1.4; }
     .selgrid .cost { color: #b79be0; }
@@ -255,67 +273,112 @@
     .selgrid .mc .icn svg { width: 28px; height: 28px; filter: drop-shadow(0 0 5px currentColor); opacity: .92; }
     .selgrid .mc .nm { text-align: center; }
 
-    /* ---- シート（場面・選択） ---- */
+    /* ---- シート（場面・選択）＝全対話の基本単位（横断F ①三層化：ヘッダ帯／本文・構造化行／ボタン列） ---- */
     #overlay {
       position: fixed; inset: 0; display: none; align-items: flex-end; z-index: 20;
-      background: rgba(5,6,8,.62); backdrop-filter: blur(1.5px);
+      background: rgba(6,5,3,.62); backdrop-filter: blur(1.5px);
     }
     #overlay.show { display: flex; }
     #sheet {
-      width: 100%; max-height: 86dvh; overflow-y: auto;
-      background: var(--bg-sheet); border-top: 1px solid var(--line-3);
+      position: relative; width: 100%; max-height: 86dvh; overflow-y: auto;
+      background: var(--bg-sheet); border-top: 3px double var(--line-2);
       padding: 16px 16px calc(14px + env(safe-area-inset-bottom));
-      font-family: "Hiragino Mincho ProN", serif;
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK JP", serif;
     }
-    /* 上部固定の「閉じる」ショートカット（スクロールしても常に手の届く位置に＝最下部まで探さなくてよい）。
-       sticky で #sheet の最上部に貼り付き、右肩へ float。Swift では sheet のツールバー dismiss にミラー。 */
+    /* 金泥のL字角飾り（写本の縁飾り）。Swift では小さな Path overlay でミラー。 */
+    #sheet::before, #sheet::after { content: ""; position: absolute; top: 7px; width: 13px; height: 13px; pointer-events: none; z-index: 3; }
+    #sheet::before { left: 7px; border-left: 1px solid rgba(201,167,90,.45); border-top: 1px solid rgba(201,167,90,.45); }
+    #sheet::after { right: 7px; border-right: 1px solid rgba(201,167,90,.45); border-top: 1px solid rgba(201,167,90,.45); }
+    /* ヘッダ帯（sticky）＝題（朱の左罫）＋副題＋✕。meta を持つシートでだけ表示（setSheetHead）。
+       ✕をここへ統合＝スクロールしても手の届く位置（旧 float の代替）。Swift ＝ navigation title ＋ .topBarTrailing dismiss。 */
+    #sheetHead {
+      display: none; position: sticky; top: -16px; z-index: 2; margin: -16px -16px 12px;
+      padding: 10px 16px 9px; background: var(--bg-sheet); border-bottom: 1px solid var(--line);
+      align-items: center; gap: 10px;
+    }
+    #sheetHead.show { display: flex; }
+    #sheetHeadTitle { flex: none; font-size: 15px; font-weight: 700; color: var(--tx-strong);
+      border-left: 3px solid var(--acc); padding-left: 9px; letter-spacing: .04em; }
+    #sheetHeadTitle:empty { display: none; }
+    /* 副題＝空でも flex:1 の余白として残し、✕を右端へ押しやる。 */
+    #sheetHeadSub { flex: 1; min-width: 0; text-align: right; font-size: 10.5px; color: var(--tx-meta);
+      font-family: system-ui, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #sheetClose {
-      display: none; float: right; position: sticky; top: 0; z-index: 2;
-      font-family: system-ui, sans-serif; font-size: 13px; color: var(--tx-2);
-      background: var(--bg-btn); border: 1px solid var(--line-2); border-radius: 999px;
-      padding: 9px 16px; margin: -4px -4px 4px 12px; min-height: 38px;
+      display: none; flex: none; font-family: system-ui, sans-serif; font-size: 12px; color: var(--tx-2);
+      background: transparent; border: 1px solid var(--line-2); border-radius: 3px; padding: 7px 12px; min-height: 34px;
     }
     #sheetClose.show { display: block; }
     #sheetClose:active { background: var(--bg-btn-active); }
     #sheetText { font-size: 14.5px; line-height: 1.95; color: var(--tx-strong); white-space: pre-wrap; }
-    #sheetMeta { font-size: 11px; color: var(--tx-meta); margin-top: 8px; font-family: system-ui, sans-serif; }
+    #sheetText:empty { display: none; }
+    /* 構造化リスト（Wizardry 流の整列＝ラベル淡／値強・右寄せ tabular-nums・セクション朱罫）。
+       Swift ＝ Section(header:) ＋ LabeledContent。sheet({sections}) が createElement で組む。 */
+    #sheetList:empty { display: none; }
+    #sheetList .sec-h { margin: 16px 0 2px; font-family: inherit; font-size: 12px; color: var(--tx-dim);
+      border-left: 3px solid var(--acc); padding-left: 8px; letter-spacing: .08em; }
+    #sheetList .kvrow { display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+      padding: 7px 2px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.6; min-height: 34px; }
+    #sheetList .kvrow.first { border-top: none; }
+    #sheetList .kvlab { flex: none; font-size: 13px; color: var(--tx-dim); }
+    #sheetList .kvval { color: var(--tx-strong); text-align: right; font-variant-numeric: tabular-nums; min-width: 0; }
+    #sheetList .kvval .note { color: var(--tx-meta); font-size: 11px; margin-left: 6px; }
+    #sheetList .kvtext { font-size: 13px; line-height: 1.8; padding: 6px 2px; color: var(--tx-strong); }
+    #sheetList .kvtext.dim { color: var(--tx-dim); font-size: 12px; }
+    #sheetList .kvtext.warn { color: var(--c-warn); }
+    #sheetList .kvtext.lead { font-size: 15px; }
+    #sheetList .exp { color: var(--c-exp); }
     #sheetInputRow { display: none; margin-top: 12px; gap: 8px; }
     #sheetInputRow.show { display: flex; }
     #sheetInput {
-      flex: 1; font-family: inherit; font-size: 16px; color: #e6ebf0;
-      background: var(--bg-input); border: 1px solid var(--line-3); border-radius: 10px; padding: 11px 13px;
+      flex: 1; font-family: inherit; font-size: 16px; color: var(--tx-strong);
+      background: var(--bg-input); border: 1px solid var(--line-2); border-radius: 3px; padding: 11px 13px;
     }
+    /* ボタン列＝塗りなし1px罫（写本）。役割クラス＝b-primary（朱罫＋微光）/b-cancel（罫なし中央）/b-danger（warn罫）。
+       grp＝動詞グループ間の間隔。min-height 48px＝タッチ最小。 */
     #sheetButtons { margin-top: 12px; }
     #sheetButtons button {
       display: block; width: 100%; text-align: left; font-family: inherit; font-size: 14.5px;
-      color: var(--tx-2); background: var(--bg-btn); border: 1px solid var(--line-2); border-radius: 10px;
-      padding: 12px 14px; margin-top: 8px; line-height: 1.5;
+      color: var(--tx-2); background: transparent; border: 1px solid var(--line-2); border-radius: var(--r-btn);
+      padding: 12px 14px; margin-top: 8px; line-height: 1.5; min-height: 48px;
     }
     #sheetButtons button:active { background: var(--bg-btn-active); }
+    #sheetButtons button.grp { margin-top: 14px; }
+    #sheetButtons button.b-primary { border-color: var(--acc); color: #f0d9c8; box-shadow: 0 0 10px rgba(194,69,47,.22); }
+    #sheetButtons button.b-cancel { border: none; background: none; text-align: center; color: var(--tx-dim); margin-top: 14px; }
+    #sheetButtons button.b-danger { border-color: #7a3a2c; color: var(--c-warn); }
+    /* 設定グループの見出し（sheet options の header で挿入）。 */
+    #sheetButtons .sg { margin: 16px 0 2px; font-family: inherit; font-size: 12px; color: var(--tx-dim);
+      border-left: 3px solid var(--acc); padding-left: 8px; letter-spacing: .08em; }
+    #sheetButtons .sg:first-child { margin-top: 4px; }
 
-    /* ---- タイトル画面（横断F 段階1・変種A「灯火」＝自分=金の光・暗闇に灯る暖色） ---- */
+    /* ---- タイトル画面（横断F ①静謐な写本＝墨黒・最小限の光・朱の落款） ---- */
     #title {
       position: fixed; inset: 0; z-index: 30; display: none; flex-direction: column; align-items: center;
       padding: 0 26px calc(24px + env(safe-area-inset-bottom)); background: var(--bg-app); overflow: hidden;
-      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK JP", serif;
     }
     #title.show { display: flex; }
     #title .vignette { position: absolute; inset: 0; pointer-events: none;
-      background: radial-gradient(120% 80% at 50% 30%, rgba(255,190,110,.10), rgba(255,170,80,.03) 34%, rgba(0,0,0,.62) 82%); }
-    #title .embers { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+      background: radial-gradient(120% 80% at 50% 28%, rgba(255,240,210,.05), rgba(0,0,0,.55) 80%); }
+    /* 残り火は①では出さない（DOM は残し CSS で隠す＝将来の別テーマで復帰可）。 */
+    #title .embers { display: none; }
     #title .embers span { position: absolute; font-family: "Menlo", monospace; font-weight: 700; color: #ffcf7a; }
-    #title .crest { margin-top: 17vh; text-align: center; z-index: 2; }
-    #title .name { font-size: 52px; font-weight: 700; letter-spacing: .14em; line-height: 1.2;
-      color: #ffe6ad; text-shadow: 0 0 18px rgba(255,216,122,.55), 0 0 44px rgba(255,160,60,.30); }
-    #title .entitle { margin-top: 12px; font-family: "Hiragino Mincho ProN", serif; font-size: 15px; font-style: italic;
-      letter-spacing: .12em; color: var(--tx-dim); text-shadow: 0 0 12px rgba(159,143,216,.25); z-index: 2; }
-    #title .tagline { margin-top: 22px; font-size: 13px; line-height: 1.95; color: var(--tx-dim); letter-spacing: .04em; z-index: 2; text-align: center; }
+    #title .crest { margin-top: 16vh; text-align: center; z-index: 2; }
+    #title .name { font-size: 50px; font-weight: 700; letter-spacing: .2em; line-height: 1.2;
+      color: #efe6d3; text-shadow: 0 0 10px rgba(239,230,211,.14); }
+    #title .entitle { margin-top: 12px; font-family: inherit; font-size: 15px; font-style: italic;
+      letter-spacing: .12em; color: var(--tx-dim); z-index: 2; }
+    #title .tagline { margin-top: 20px; font-size: 13px; line-height: 1.95; color: var(--tx-dim); letter-spacing: .04em; z-index: 2; text-align: center; }
+    /* 朱の落款（写本の印）。 */
+    #title .seal { display: flex; width: 30px; height: 30px; background: var(--acc); color: #f6e8dc;
+      align-items: center; justify-content: center; font-size: 16px; font-weight: 700; border-radius: 2px;
+      margin: 16px auto 0; box-shadow: 0 0 12px rgba(194,69,47,.35); z-index: 2; }
     #title .menu { margin-top: auto; width: 100%; max-width: 340px; z-index: 2; }
-    #title .menu button { display: block; width: 100%; text-align: center; font-family: "Hiragino Mincho ProN", serif;
-      font-size: 15px; color: var(--tx-strong); background: rgba(28,35,45,.66); border: 1px solid var(--line-2);
-      border-radius: 12px; padding: 14px; margin-top: 9px; letter-spacing: .08em; backdrop-filter: blur(2px); }
-    #title .menu button.primary { color: #1a1206; font-weight: 700;
-      background: linear-gradient(180deg, #ffdc8a, #e8b24a); border-color: #ffcf6a; box-shadow: 0 0 16px rgba(255,200,90,.35); }
+    #title .menu button { display: block; width: 100%; text-align: center; font-family: inherit;
+      font-size: 15px; color: var(--tx-strong); background: transparent; border: 1px solid var(--line-2);
+      border-radius: 3px; padding: 14px; margin-top: 9px; letter-spacing: .08em; min-height: 48px; }
+    #title .menu button.primary { color: #f6e8dc; font-weight: 700;
+      background: linear-gradient(180deg, #c2452f, #9c3423); border-color: #d9573c; box-shadow: 0 0 14px rgba(194,69,47,.3); }
     #title .sub { font-size: 11px; color: var(--tx-dim); text-align: center; margin-top: 8px; letter-spacing: .04em; min-height: 14px; z-index: 2; }
     #title .ver { margin-top: 13px; text-align: center; font-size: 10px; color: var(--tx-faint);
       font-family: system-ui, sans-serif; letter-spacing: .05em; z-index: 2; }
@@ -389,6 +452,7 @@
     </div>
     <div class="crest"><div class="name">深蝕</div><div class="entitle">The Corroding Deep</div></div>
     <div class="tagline">あなたの死が、<br>世界の歴史になる。</div>
+    <div class="seal" aria-hidden="true">蝕</div>
     <div class="menu" id="titleMenu"></div>
     <div class="sub" id="titleSub"></div>
     <div class="ver" id="titleVer"></div>
@@ -396,9 +460,13 @@
 
   <div id="overlay">
     <div id="sheet">
-      <button id="sheetClose" type="button" aria-label="閉じる">✕ 閉じる</button>
+      <div id="sheetHead">
+        <div id="sheetHeadTitle"></div>
+        <div id="sheetHeadSub"></div>
+        <button id="sheetClose" type="button" aria-label="閉じる">✕ 閉じる</button>
+      </div>
       <div id="sheetText"></div>
-      <div id="sheetMeta"></div>
+      <div id="sheetList"></div>
       <div id="sheetInputRow"><input id="sheetInput" type="text" autocomplete="off" /></div>
       <div id="sheetButtons"></div>
     </div>

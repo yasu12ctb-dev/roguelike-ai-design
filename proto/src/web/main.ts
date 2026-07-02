@@ -58,8 +58,8 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.95.0";
-export const APP_BUILD = "2026-07-01";
+export const APP_VERSION = "0.96.0";
+export const APP_BUILD = "2026-07-02";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
 const db = makeContentDb(
@@ -91,7 +91,8 @@ function grantKeepsake(depth: number): KeepsakeDef | null {
 const $ = (id: string) => document.getElementById(id)!;
 $("stVer").textContent = "v" + APP_VERSION; // 画面上部に版数を常時表示（最新かの判定用）
 const gridEl = $("grid"), lightEl = $("light"), logEl = $("log");
-const overlayEl = $("overlay"), sheetText = $("sheetText"), sheetMeta = $("sheetMeta"), sheetEl = $("sheet");
+const overlayEl = $("overlay"), sheetText = $("sheetText"), sheetEl = $("sheet");
+const sheetHead = $("sheetHead"), sheetHeadTitle = $("sheetHeadTitle"), sheetHeadSub = $("sheetHeadSub"), sheetList = $("sheetList");
 const sheetButtons = $("sheetButtons"), sheetInputRow = $("sheetInputRow"), sheetClose = $("sheetClose");
 
 // 上部固定「閉じる」ショートカット＝シートが画面からはみ出してスクロールが要るときの保険（最下部の閉じるボタンまで探さず上部から閉じられる）。
@@ -102,9 +103,21 @@ const sheetButtons = $("sheetButtons"), sheetInputRow = $("sheetInputRow"), shee
 const isCloseLabel = (s: string) => s === "閉じる" || s === "戻る";
 // シートがビューポート上限（max-height 86dvh）を超えてスクロール領域を持つか。要 overlay 表示後に測定。
 const sheetOverflows = () => sheetEl.scrollHeight > sheetEl.clientHeight + 4;
+// 上部ヘッダ帯（横断F ①）：題（朱の左罫）＋副題。meta を最初の " ── " で題／副題に分割。
+// Swift ＝ navigation title ＋ trailing の副題ラベル。帯は「題がある」or「✕が出ている」ときだけ表示。
+function setSheetHead(meta?: string) {
+  const i = meta ? meta.indexOf(" ── ") : -1;
+  sheetHeadTitle.textContent = meta ? (i >= 0 ? meta.slice(0, i) : meta) : "";
+  sheetHeadSub.textContent = meta && i >= 0 ? meta.slice(i + 4) : "";
+  refreshSheetHead();
+}
+function refreshSheetHead() {
+  sheetHead.classList.toggle("show", !!sheetHeadTitle.textContent || sheetClose.classList.contains("show"));
+}
 function armSheetClose(handler: (() => void) | null) {
   sheetClose.classList.toggle("show", !!handler);
   sheetClose.onclick = handler ? () => handler() : null;
+  refreshSheetHead(); // ✕は帯内に置くため、arm したら帯も表示する
 }
 const sheetInput = $("sheetInput") as HTMLInputElement;
 
@@ -135,11 +148,46 @@ addEventListener("unhandledrejection", (e) => {
 });
 
 // ---------- シート（場面＋選択肢。promise を返す） ----------
-interface SheetOpts { text: string; meta?: string; options: string[]; input?: string; }
+// 構造化行（横断F ①＝Wizardry 流の整列）。kv 行＝ラベル/値、text 行＝自由文。Swift ＝ LabeledContent / Text。
+type SheetRow = { label: string; value: string; note?: string; cls?: string } | { text: string; dim?: boolean; cls?: string };
+interface SheetSection { header?: string; rows: SheetRow[] } // Swift ＝ Section(header:)
+// 選択肢＝文字列（従来どおり）／役割つきオブジェクト（opt-in）。既存 string[] 呼び出しはそのまま有効。
+type SheetOption = string | { label: string; role?: "primary" | "cancel" | "danger"; header?: string; gap?: boolean };
+interface SheetOpts { text?: string; sections?: SheetSection[]; meta?: string; options: SheetOption[]; input?: string; }
+const optLabel = (o: SheetOption) => typeof o === "string" ? o : o.label;
+
+/** 構造化セクションを #sheetList に描画（createElement + textContent のみ＝注入面ゼロ）。sections 無しなら空にする（残留リーク防止）。 */
+function renderSheetSections(sections?: SheetSection[]) {
+  sheetList.textContent = "";
+  if (!sections) return;
+  for (const sec of sections) {
+    if (sec.header) {
+      const h = document.createElement("div");
+      h.className = "sec-h"; h.textContent = sec.header;
+      sheetList.appendChild(h);
+    }
+    sec.rows.forEach((row, i) => {
+      if ("label" in row) {
+        const r = document.createElement("div");
+        r.className = "kvrow" + (i === 0 ? " first" : "");
+        const lab = document.createElement("span"); lab.className = "kvlab"; lab.textContent = row.label;
+        const val = document.createElement("span"); val.className = "kvval" + (row.cls ? " " + row.cls : ""); val.textContent = row.value;
+        if (row.note) { const n = document.createElement("span"); n.className = "note"; n.textContent = row.note; val.appendChild(n); }
+        r.appendChild(lab); r.appendChild(val); sheetList.appendChild(r);
+      } else {
+        const t = document.createElement("div");
+        t.className = "kvtext" + (row.dim ? " dim" : "") + (row.cls ? " " + row.cls : "");
+        t.textContent = row.text; sheetList.appendChild(t);
+      }
+    });
+  }
+}
+
 function sheet(o: SheetOpts): Promise<{ pick: number; text: string }> {
   return new Promise((resolve) => {
-    sheetText.textContent = o.text;
-    sheetMeta.textContent = o.meta ?? "";
+    sheetText.textContent = o.text ?? "";
+    setSheetHead(o.meta);
+    renderSheetSections(o.sections);
     sheetInputRow.classList.toggle("show", o.input !== undefined);
     sheetInput.value = ""; sheetInput.placeholder = o.input ?? "";
     sheetButtons.innerHTML = "";
@@ -150,9 +198,25 @@ function sheet(o: SheetOpts): Promise<{ pick: number; text: string }> {
       overlayEl.classList.remove("show");
       resolve({ pick, text: sheetInput.value });
     };
-    o.options.forEach((label, i) => {
+    const last = o.options.length - 1;
+    o.options.forEach((opt, i) => {
+      const cfg: { label?: string; role?: "primary" | "cancel" | "danger"; header?: string; gap?: boolean } =
+        typeof opt === "object" ? opt : {};
+      if (cfg.header) { // グループ見出し（設定など）
+        const h = document.createElement("div"); h.className = "sg"; h.textContent = cfg.header;
+        sheetButtons.appendChild(h);
+      }
+      const label = optLabel(opt);
       const b = document.createElement("button");
       b.type = "button"; b.textContent = label;
+      // 役割：明示 role が優先。無ければ自動＝末尾の「閉じる/戻る」＝cancel／「やり直す」を含む＝danger。
+      const role = cfg.role
+        ?? ((i === last && isCloseLabel(label)) ? "cancel"
+          : label.includes("やり直す") ? "danger" : undefined);
+      if (role === "primary") b.classList.add("b-primary");
+      else if (role === "cancel") b.classList.add("b-cancel");
+      else if (role === "danger") b.classList.add("b-danger");
+      if (cfg.gap) b.classList.add("grp");
       b.onclick = () => choose(i + 1);
       sheetButtons.appendChild(b);
     });
@@ -160,8 +224,7 @@ function sheet(o: SheetOpts): Promise<{ pick: number; text: string }> {
     overlayEl.classList.add("show");
     // 上部の閉じるショートカット：末尾の選択肢が「閉じる」「戻る」（＝メニュー系）かつ内容がはみ出ている（＝末尾ボタンが隠れる）ときだけ。
     // 表示後に測定（scrollHeight は overlay 表示後でないと取れない）。短いシーンは末尾ボタンが見えるので出さない。
-    const last = o.options.length - 1;
-    const closeIdx = last >= 0 && isCloseLabel(o.options[last]) ? last : -1;
+    const closeIdx = last >= 0 && isCloseLabel(optLabel(o.options[last])) ? last : -1;
     armSheetClose(closeIdx >= 0 && sheetOverflows() ? () => choose(closeIdx + 1) : null);
   });
 }
@@ -175,7 +238,8 @@ function schoolCls(school: string): string {
 function chooseGrid(o: { title: string; lead?: string; cells: { html: string }[]; cancel?: string; cols?: number }): Promise<number> {
   return new Promise((resolve) => {
     sheetText.textContent = o.lead ?? "";
-    sheetMeta.textContent = o.title;
+    setSheetHead(o.title);
+    renderSheetSections(undefined); // 構造化リストを空に（前回シートの残留を防ぐ）
     sheetInputRow.classList.remove("show");
     sheetButtons.innerHTML = "";
     const grid = document.createElement("div");
@@ -191,7 +255,7 @@ function chooseGrid(o: { title: string; lead?: string; cells: { html: string }[]
     const cancel = () => { overlayEl.classList.remove("show"); resolve(-1); };
     if (o.cancel) {
       const cb = document.createElement("button");
-      cb.type = "button"; cb.textContent = o.cancel; cb.style.textAlign = "center";
+      cb.type = "button"; cb.textContent = o.cancel; cb.className = "b-cancel"; // キャンセル役割（中央・罫なし）
       cb.onclick = cancel;
       sheetButtons.appendChild(cb);
     }
@@ -321,19 +385,47 @@ function updateStatus() {
   $("stExVal").textContent = `${exPct}%`;
   $("stExFill").style.width = `${exPct}%`;
   $("stGold").textContent = ch ? `◇ ${ch.gold}` : "◇ 0";
-  // 術バフ/召喚の残量を一目に（潜行中のみ。4-11F③ ロードアウト魔法の体感補助）
-  const buffs: string[] = [];
-  if (armorBuffTurns > 0) buffs.push(`硬鱗${armorBuffTurns}`);
-  if (attackBuffTurns > 0) buffs.push(`焦躁${attackBuffTurns}`);
-  if (hasteTurns > 0) buffs.push(`疾走${hasteTurns}`);
-  if (deathDoorTurns > 0) buffs.push(`死戸${deathDoorTurns}`);
-  if (shadowGuard > 0) buffs.push(`影${shadowGuard}`);
-  if (chantTurns > 0) buffs.push(`帰還詠唱${chantTurns}`);
-  if (poisonTurns > 0) buffs.push(`毒${poisonTurns}`); // 敵 venom の被毒（4-11G・デバフ）
-  if (summons.length) buffs.push(`召${summons.length}`);
-  if (world.echoes?.length) buffs.push(`遺灰${world.echoes.length}`); // 残響召喚の遺灰（4-10I）：保有数＝「術」ボタンから展開可
-  $("stBuff").textContent = ((mode === "dive" || mode === "raid") && buffs.length) ? buffs.map((b) => `⟡${b}`).join("  ") : "";
+  // 術バフ/召喚の残量を一目に（潜行中のみ・ピルチップ。タップで説明＝buffSheet。4-11F③ ロードアウト魔法の体感補助）
+  const stBuff = $("stBuff");
+  stBuff.textContent = "";
+  if (mode === "dive" || mode === "raid") {
+    for (const b of currentBuffs()) {
+      const span = document.createElement("span");
+      span.className = "bf"; span.textContent = `⟡${b.label}${b.turns}`;
+      stBuff.appendChild(span);
+    }
+  }
   applyChrome(); // 下部の操作系（タブバー・D-pad）を mode に応じて表示更新
+}
+
+// 今かかっている加護・状態（HUD ピル＋buffSheet で共用）。label＝表示名／turns＝残数／unit＝手・体・個／desc＝1行説明。
+interface BuffInfo { label: string; turns: number; unit: string; desc: string; count?: boolean }
+function currentBuffs(): BuffInfo[] {
+  const b: BuffInfo[] = [];
+  if (armorBuffTurns > 0) b.push({ label: "硬鱗", turns: armorBuffTurns, unit: "手", desc: `被ダメージ −${ARMOR_BUFF}` });
+  if (attackBuffTurns > 0) b.push({ label: "焦躁", turns: attackBuffTurns, unit: "手", desc: `近接攻撃 +${ATTACK_BUFF}` });
+  if (hasteTurns > 0) b.push({ label: "疾走", turns: hasteTurns, unit: "手", desc: "続けて動ける（離脱・追撃）" });
+  if (deathDoorTurns > 0) b.push({ label: "死戸", turns: deathDoorTurns, unit: "手", desc: "この間は致死の一撃を耐える" });
+  if (shadowGuard > 0) b.push({ label: "影", turns: shadowGuard, unit: "手", desc: "影の守り手が身を守る" });
+  if (chantTurns > 0) b.push({ label: "帰還詠唱", turns: chantTurns, unit: "手", desc: "詠唱中。動くか撃たれると中断" });
+  if (poisonTurns > 0) b.push({ label: "毒", turns: poisonTurns, unit: "手", desc: "毎手ダメージを受ける（被毒）" });
+  if (summons.length) b.push({ label: "召", turns: summons.length, unit: "体", desc: "一時の眷属が味方する", count: true });
+  if (world.echoes?.length) b.push({ label: "遺灰", turns: world.echoes.length, unit: "個", desc: "「術」から残響を展開できる", count: true });
+  return b;
+}
+
+/** HUD のバフ帯タップ＝今かかっている加護・状態の説明（SPD 流・詳細は1タップ先）。 */
+async function buffSheet() {
+  const list = currentBuffs();
+  if (!list.length) return;
+  busy = true;
+  const rows: SheetRow[] = list.map((b) => ({
+    label: `⟡ ${b.label}`,
+    value: b.count ? `${b.turns}${b.unit}` : `残り ${b.turns}${b.unit}`,
+    note: b.desc,
+  }));
+  await sheet({ meta: "いまの加護・状態", sections: [{ rows }], options: ["閉じる"] });
+  busy = false;
 }
 
 // ---------- マップ描画（方向A） ----------
@@ -5372,28 +5464,28 @@ async function settingsSheet() {
   busy = true;
   const bgmVolJp = bgmVolume() < 0.45 ? "小" : bgmVolume() < 0.72 ? "中" : "大";
   const sfxVolJp = sfxVolume() < 0.45 ? "小" : sfxVolume() < 0.72 ? "中" : "大";
-  // ラベル先頭の識別子でディスパッチ（並び替えに強い）。グループ＝ヘルプ／音／操作・表示／詳細。
+  // ラベル先頭の識別子でディスパッチ（並び替えに強い）。グループ見出し＝あそびかた／音／操作・表示／データ（横断F ①・Swift の Section にミラー）。
   const HELP = "❓ あそびかた・記号の凡例";
-  const opts = [
-    HELP,
-    isMuted() ? "♪ 音を出す" : "🔇 すべての音を消す",
+  const opts: SheetOption[] = [
+    { label: HELP, header: "あそびかた" },
+    { label: isMuted() ? "♪ 音を出す" : "🔇 すべての音を消す", header: "音" },
     isBgmOn() ? "🎵 BGM：オン → オフ" : "🎵 BGM：オフ → オン",
     `🎵 BGM音量：${bgmVolJp}（小→中→大）`,
     `🔊 効果音音量：${sfxVolJp}（小→中→大）`,
-    dpadOn ? "🕹 方向パッド：オン → オフ" : "🕹 方向パッド：オフ → オン",
+    { label: dpadOn ? "🕹 方向パッド：オン → オフ" : "🕹 方向パッド：オフ → オン", header: "操作・表示" },
     `🕹 方向パッドの位置：${dpadPos === "right" ? "右下" : dpadPos === "left" ? "左下" : "中央"}（右下→左下→中央）`,
     `🕹 方向パッドの大きさ：${SZJP[dpadSize]}（大→中→小）`,
     dpadAutorun ? "🕹 長押しで連続移動：オン → オフ" : "🕹 長押しで連続移動：オフ → オン",
     `🔤 文字サイズ：${SZJP[logSize]}（小→中→大）`,
-    "💾 セーブを書き出す（バックアップ）",
+    { label: "💾 セーブを書き出す（バックアップ）", header: "データ" },
     "📂 セーブを読み込む（復元）",
     "🔧 テスト",
-    "⟲ 世界を最初からやり直す",
-    "閉じる",
+    "⟲ 世界を最初からやり直す", // ← 自動で danger 役割（"やり直す" を含む）
+    "閉じる",                    // ← 自動で cancel 役割
   ];
-  const r = await sheet({ text: `音・操作・表示を整える。困ったら「あそびかた」へ。\n\nバージョン ${APP_VERSION}（build ${APP_BUILD}）`, meta: "設定", options: opts });
+  const r = await sheet({ text: "音・操作・表示を整える。困ったら「あそびかた」へ。", meta: `設定 ── v${APP_VERSION}（build ${APP_BUILD}）`, options: opts });
   busy = false;
-  const c = opts[r.pick - 1] ?? "";
+  const c = optLabel(opts[r.pick - 1] ?? "");
   if (c === HELP) { await helpSheet(); await settingsSheet(); }
   else if (c.includes("音を消す") || c.includes("音を出す")) { ensureAudio(); setMuted(!isMuted()); await settingsSheet(); }
   else if (c.includes("BGM：")) { ensureAudio(); setBgmEnabled(!isBgmOn()); await settingsSheet(); }
@@ -5494,31 +5586,54 @@ async function charScreen() {
   const ch = world.current; if (!ch) return;
   busy = true;
   for (;;) {
-    // 装備＝スロットごとに改行して整列（旧来の「/」区切り1行は折り返して読みづらかった＝テストプレイFB）。
+    // 主画面は要約のみ（中身の列挙は「装備・持ち物を見る」へ）＝情報ダンプを避ける（テストプレイFB）。
+    // 横断F ①＝Wizardry 流の整列（ラベル淡／値強・右寄せ・セクション朱罫。Swift ＝ Section/LabeledContent）。
     const eqSlots: ItemSlot[] = ["weapon", "armor", "relic", "bag"];
-    const eqBlock = eqSlots.map((sl) => `　${SLOT_LABEL[sl]}　${ch.equipment[sl] ? itemLabel(ch.equipment[sl]!) : "—"}`).join("\n");
-    // 主画面は要約のみ（中身の列挙は「装備・荷物を見る」へ）＝情報ダンプを避ける（テストプレイFB）。
     const consN = (ch.inventory ?? []).reduce((a, s) => a + s.qty, 0); // 薬・巻物の合計個数
     const gearN = (ch.gearBag ?? []).length;                            // 拾った武具の点数
-    const packSummary = `薬・巻物 ${consN}個／武具 ${gearN}点`;
     const lo = activeLoadout(ch);
     const loNames = lo.map((k) => spellByKey(k)?.name ?? k).join("、");
-    const loLine = ch.spells.length ? `【構え ${lo.length}/${LOADOUT_CAP}】${loNames || "なし"}` : "【術】未識得";
-    const text =
-      `《${ch.name}》（第${world.generation}世代）　Lv${ch.level}　難易度：${DIFFICULTY_LABEL[world.difficulty ?? "easy"]}\n` +
-      `${statsLine(ch)}\n` +
-      `最大HP ${maxHp(ch)}　攻撃 ${meleeDmg(ch)}　次のLvまで ${Math.max(0, xpToNext(ch.level) - ch.xp)}\n` +
-      `深蝕 ${ch.exposure.toFixed(2)}${ch.carryingRelic ? "　★聖遺物 携行中" : ""}\n` +
-      `\n【装備】\n${eqBlock}\n` +
-      `\n${loLine}\n` +
-      `【荷物 ${packUsed(ch)}/${packCapacity(ch)}】${packSummary}　※中身は「装備・荷物を見る」` +
-      `${ch.traits.length ? `\n【記憶】${ch.traits.length}件` : ""}`;
-    const opts = ["装備・持ち物を見る", "術（構え・図鑑）", "進行中（依頼・因縁・印）", "人物と年代記", "敵図鑑"];
+
+    const selfRows: SheetRow[] = [
+      { label: "能力", value: statsLine(ch) },
+      { label: "最大HP", value: String(maxHp(ch)) },
+      { label: "攻撃", value: String(meleeDmg(ch)) },
+      { label: "次のLvまで", value: String(Math.max(0, xpToNext(ch.level) - ch.xp)) },
+      { label: "深蝕", value: ch.exposure.toFixed(2), cls: "exp", note: "牙の閾 1.5" },
+    ];
+    if (ch.carryingRelic) selfRows.push({ text: "★聖遺物 携行中", cls: "warn" });
+    const gearRows: SheetRow[] = eqSlots.map((sl) => ({
+      label: SLOT_LABEL[sl], value: ch.equipment[sl] ? itemLabel(ch.equipment[sl]!) : "—",
+    }));
+    const spellRows: SheetRow[] = ch.spells.length
+      ? [{ label: "構え", value: `${lo.length}/${LOADOUT_CAP}` }, { text: loNames || "なし", dim: true }]
+      : [{ text: "未識得", dim: true }];
+    const packRows: SheetRow[] = [
+      { label: "薬・巻物", value: `${consN}個` },
+      { label: "武具", value: `${gearN}点` },
+      { text: "※中身は「装備・持ち物を見る」", dim: true },
+    ];
+    const sections: SheetSection[] = [
+      { rows: selfRows },
+      { header: "装備", rows: gearRows },
+      { header: "術", rows: spellRows },
+      { header: `荷物　${packUsed(ch)}/${packCapacity(ch)} 枠`, rows: packRows },
+    ];
+    if (ch.traits.length) sections.push({ header: "記憶", rows: [{ label: "記憶", value: `${ch.traits.length}件` }] });
+
+    const opts: SheetOption[] = [
+      "装備・持ち物を見る", "術（構え・図鑑）", "進行中（依頼・因縁・印）",
+      { label: "人物と年代記", gap: true }, "敵図鑑",
+    ];
     if (ch.traits.length) opts.push(`記憶を見る（${ch.traits.length}）`);
     opts.push("閉じる");
-    const r = await sheet({ text, meta: "ステータス", options: opts });
+    const r = await sheet({
+      text: `《${ch.name}》　Lv ${ch.level}`,
+      meta: `ステータス ── 第${world.generation}世代・${DIFFICULTY_LABEL[world.difficulty ?? "easy"]}`,
+      sections, options: opts,
+    });
     busy = false;
-    const label = opts[r.pick - 1];
+    const label = optLabel(opts[r.pick - 1] ?? "");
     if (label === "装備・持ち物を見る") await gearSheet(ch);
     else if (label === "術（構え・図鑑）") await spellMenu(ch);
     else if (label === "進行中（依頼・因縁・印）") await eventsScreen();
@@ -5555,6 +5670,17 @@ async function memoriesSheet(ch: Character) {
 /** 装備・持ち物のカード一覧（読みやすさ最優先＝テストプレイFB「装備・持ち物が見づらい」対応）。
  *  装備カードをタップ＝そのスロットを換装／消耗品カードをタップ＝使う・捨てる（街のみ）。 */
 const GEAR_SLOT_CLS: Record<ItemSlot, string> = { weapon: "c-atk", armor: "c-ctl", relic: "c-lore", bag: "c-sup" };
+// 拾得物のシジル（横断F ①・Wizardry/シレン流の1字圧縮）：装備中=★（金泥）／未鑑定=？（淡）／発動効果=〔…〕（朱）。
+const PROC_MARK: Record<NonNullable<Item["proc"]>, string> = {
+  cleave: "薙", stun: "止", rend: "裂", sap: "萎",
+  block: "受", barbs: "棘", cleanse: "清", daunt: "威", stagger: "怯",
+};
+function nameWithSigils(it: Item, equipped: boolean): string {
+  const pre = it.unidentified ? `<span class="sigq">？</span>` : equipped ? `<span class="sig">★</span>` : "";
+  const name = it.unidentified ? `見知らぬ${SLOT_LABEL[it.slot]}（未鑑定）` : it.name;
+  const mark = (!it.unidentified && it.proc) ? `<span class="mark">〔${PROC_MARK[it.proc]}〕</span>` : "";
+  return `${pre}${name}${mark}`;
+}
 async function gearSheet(ch: Character) {
   dedupeGearBag(ch); // 防御：袋の参照重複を除いてから表示
   const eqSlots: ItemSlot[] = ["weapon", "armor", "relic", "bag"];
@@ -5566,7 +5692,7 @@ async function gearSheet(ch: Character) {
     for (const sl of eqSlots) {
       const it = ch.equipment[sl];
       const body = it
-        ? `<div class="nm">${it.unidentified ? `見知らぬ${SLOT_LABEL[sl]}（未鑑定）` : it.name}</div><div class="sub">${it.unidentified ? "正体不明――装備中" : itemPower(it)}</div>`
+        ? `<div class="nm">${nameWithSigils(it, true)}</div><div class="sub">${it.unidentified ? "正体不明――装備中" : itemPower(it)}</div>`
         : `<div class="nm" style="color:var(--tx-dim)">（空き）</div><div class="sub">迷宮で拾った${SLOT_LABEL[sl]}を着けられる</div>`;
       cells.push({ html: `<span class="chip ${GEAR_SLOT_CLS[sl]}">${SLOT_LABEL[sl]}</span>${body}` });
     }
@@ -5578,12 +5704,12 @@ async function gearSheet(ch: Character) {
     // 拾った武具（荷物の中＝未装備）。タップで装備／捨てる。これまで売却画面でしか見えなかったのを荷物として可視化。
     const bag = ch.gearBag ?? [];
     for (const g of bag) {
-      cells.push({ html: `<span class="chip ${GEAR_SLOT_CLS[g.slot]}">武具(${SLOT_LABEL[g.slot]})</span><div class="nm">${g.unidentified ? `見知らぬ${SLOT_LABEL[g.slot]}（未鑑定）` : g.name}</div><div class="sub">${g.unidentified ? "正体不明――装備で分かる" : itemPower(g)}</div>` });
+      cells.push({ html: `<span class="chip ${GEAR_SLOT_CLS[g.slot]}">武具(${SLOT_LABEL[g.slot]})</span><div class="nm">${nameWithSigils(g, false)}</div><div class="sub">${g.unidentified ? "正体不明――装備で分かる" : itemPower(g)}</div>` });
     }
     const lo = activeLoadout(ch);
     const loNames = lo.map((k) => spellByKey(k)?.name ?? k).join("、");
     const lead = (ch.spells.length ? `構え ${lo.length}/${LOADOUT_CAP}：${loNames || "なし"}\n` : "") +
-      "薬と武具は同じ荷物。装備枠＝着け替え／薬＝使う・捨てる（街）／武具＝装備・置く。";
+      "★=装備中／？=未鑑定／〔…〕=発動効果。装備枠＝着け替え／薬＝使う・捨てる（街）／武具＝装備・置く。";
     const i = await chooseGrid({
       title: `装備・荷物 ── 荷物 ${packUsed(ch)}/${packCapacity(ch)} 枠`,
       lead, cells, cancel: "閉じる", cols: 1,
@@ -5955,6 +6081,8 @@ for (const ev of ["touchstart", "touchend", "pointerdown"]) {
 $("statBtn").onclick = () => { if (!busy) void charScreen(); };
 // 設定タブ＝音・操作・表示。
 $("cogBtn").onclick = () => { if (!busy) void settingsSheet(); };
+// HUD のバフ帯タップ＝今かかっている加護・状態の説明（SPD 流）。
+$("stBuff").onclick = () => { if (!busy && (mode === "dive" || mode === "raid")) void buffSheet(); };
 
 /** 視界内に生存敵がいる＝戦闘中（既存の自動移動中断と同じ判定）。 */
 function inSight(): boolean {
