@@ -264,12 +264,18 @@ export interface ChronicleEntry {
 // 依頼（回収業 4-10G／4-12F quest）。ギルドで受注→ダンジョンで達成→街で金貨報酬。
 export interface Quest {
   id: string;
-  kind: "descend" | "reclaim" | "slay"; // 到達／回収／討伐（slay＝深層のエリアボス撃破・4-14G 高難度大命）
+  // 到達／回収／討伐（slay＝深層エリアボス）／bounty＝特定種を N 体討伐／rescue＝手負いを救助生還／
+  // fetch＝指定品を持ち帰り納品（2026-07-02 依頼多様化）。escort は後続スライス。
+  kind: "descend" | "reclaim" | "slay" | "bounty" | "rescue" | "fetch";
   patron?: "noble";              // 発注元＝貴族街の統治者（奉献後の大命・4-13D Phase4）。任意＝旧セーブ非破壊。
+  source?: "guild" | "tavern";   // 掲示元ボード（受取場所の分岐）。未指定＝guild（旧セーブ非破壊）。
   title: string;
   desc: string;
-  targetDepth?: number;          // descend/slay: 到達/撃破すべき深度 / reclaim: 対象化石の眠る深度
+  targetDepth?: number;          // descend/slay: 到達/撃破すべき深度 / reclaim: 対象化石の眠る深度 / bounty/fetch: 帯の目安
   targetFossilId?: string;       // reclaim: 再発見すべき化石
+  targetKind?: string;           // bounty: MONSTER_KINDS の key ／ fetch: 品目タグ（gear スロット等）
+  need?: number;                 // bounty: 必要撃破数 ／ fetch: 必要点数
+  have?: number;                 // bounty: 現在撃破数（rescue は救助で done）
   rewardGold: number;
   rewardRelic?: boolean;         // 高難度大命の固有報酬（claim 時にボス級遺物＋称号を授与・4-14G）。任意＝非破壊。
   status: "active" | "done" | "claimed";

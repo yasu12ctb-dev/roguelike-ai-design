@@ -31,12 +31,14 @@ import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffect
 import { meetActor, mintActor, rememberActor, pickRosterActor, fossilNames } from "../actors.ts";
 import {
   generateOffers, generateNobleOffers, acceptQuest, activeQuests, doneQuests, claimQuest,
-  onReachDepth, onRediscoverFossil, onSlayBoss,
+  onReachDepth, onRediscoverFossil, onSlayBoss, onKillMonster, onRescueDelver,
+  type QuestTemplates, type MonsterLite, type OfferOpts,
 } from "../quests.ts";
 import storyletsJson from "../../content/storylets.json";
 import adventurersJson from "../../content/adventurers.json";
 import townJson from "../../content/town.json";
 import keepsakesJson from "../../content/keepsakes.json";
+import questsJson from "../../content/quests.json";
 import type { KeepsakeDef } from "../types.ts";
 import {
   buildTownGrid, buildInterior, spawnCrowd, wanderCrowd, crowdAt, townTileAt, interiorActorAt,
@@ -58,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.99.0";
+export const APP_VERSION = "0.100.0";
 export const APP_BUILD = "2026-07-02";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -68,6 +70,22 @@ const db = makeContentDb(
   storyletsJson as { storylets: Storylet[] },
   adventurersJson as { adventurers: RosterActor[] },
 );
+
+// 依頼テキストのテンプレ（データ駆動・2026-07-02）。generateOffers に opts で渡す。
+const QUEST_TEMPLATES = (questsJson as { templates: QuestTemplates }).templates;
+// 依頼盤面（供給増・多様化）：常に size まで多様な依頼を掲示し、同時受注は cap まで。
+const GUILD_BOARD_SIZE = 5;   // ギルドの掲示枠（受注中を差し引いて補充）
+const GUILD_ACTIVE_CAP = 4;   // 同時受注できるギルド依頼（noble 除く）
+/** bounty 用：現レベルで狩れる（＝出現する）モンスター種を quests.ts へ渡す軽量記述子に詰める。 */
+function bountyMonstersFor(level: number): MonsterLite[] {
+  return MONSTER_KINDS
+    .filter((k) => k.minDepth <= level + 4 && k.tier >= 1) // 少し上まで（歯応え）／ボス/眷属の一回種は MONSTER_KINDS 外
+    .map((k) => ({ key: k.key, name: k.name, tier: k.tier, minDepth: k.minDepth, maxDepth: k.maxDepth }));
+}
+/** ギルド board 用の生成 opts（テンプレ＋討伐対象モンスター）。 */
+function guildOfferOpts(): OfferOpts {
+  return { source: "guild", templates: QUEST_TEMPLATES, monsters: bountyMonstersFor(curLevel()) };
+}
 
 // 拾得品プール（読み物コレクション）：id→定義の索引。本文はここから引く＝セーブに複製しない。
 const KEEPSAKES = (keepsakesJson as { keepsakes: KeepsakeDef[] }).keepsakes;
@@ -1061,12 +1079,17 @@ async function healerBuy() {
 async function questBoard(board: "guild" | "noble" = "guild") {
   busy = true;
   const ch = world.current!;
+  // fetch（納品）：袋に必要点数が揃った active を done に昇格（受取時に消費）。開板ごとに判定。
+  for (const q of activeQuests(world)) {
+    if (q.kind === "fetch" && (ch.gearBag ?? []).filter((it) => it.slot === q.targetKind).length >= (q.need ?? 1)) q.status = "done";
+  }
   const done = doneQuests(world);
   const act = activeQuests(world);
-  // 謁見の間（noble）＝統治者の大命のみ。ギルド（guild）＝通常依頼＋（noble_ack 後は）大命も相乗り。
+  const activeGuild = act.filter((q) => q.patron !== "noble").length; // noble 除く同時受注数（上限ゲート用）
+  // 謁見の間（noble）＝統治者の大命のみ。ギルド（guild）＝多様な依頼を盤面 size まで掲示＋（noble_ack 後は）大命も相乗り。
   const offers = board === "noble"
     ? generateNobleOffers(world, ch, rng, 1)
-    : (() => { const o = generateOffers(world, ch, rng, Math.max(0, 2 - (done.length + act.length)));
+    : (() => { const o = generateOffers(world, ch, rng, GUILD_BOARD_SIZE, guildOfferOpts());
         if (getArc(world, "noble_ack")) o.push(...generateNobleOffers(world, ch, rng, 1)); return o; })();
   const lines: string[] = [];
   if (done.length) lines.push("【達成済】" + done.map((q) => q.title).join("／"));
@@ -1076,10 +1099,17 @@ async function questBoard(board: "guild" | "noble" = "guild") {
   for (const q of done) actions.push({
     label: `報酬を受け取る：${q.title}（＋${q.rewardGold}金貨）`,
     run: () => {
+      if (q.kind === "fetch") { // 納品：受取時に袋から need 点（安い順）を渡す。売却済み等で足りなければ差し戻す。
+        const bag = ch.gearBag ?? [];
+        const matches = bag.filter((it) => it.slot === q.targetKind).sort((a, b) => itemValue(a) - itemValue(b));
+        if (matches.length < (q.need ?? 1)) { q.status = "active"; log("納品する品が足りない。もう一度深みで見つけてこよう。", "warn"); return; }
+        for (let n = 0; n < (q.need ?? 1); n++) { const it = matches.shift()!; const idx = bag.indexOf(it); if (idx >= 0) bag.splice(idx, 1); }
+        dedupeGearBag(ch);
+      }
       const gross = claimQuest(world, ch, q.id); // claimQuest が満額を加算済み
       const cut = world.companion?.alive ? companionCut(gross) : 0; // 同行中は依頼報酬も折半（4-14C）
       if (cut > 0) { ch.gold -= cut; log(`${companionName()}が取り分として ${cut}金貨を受け取った（折半）。`, "dim"); }
-      const from = q.patron === "noble" ? "貴族の使い" : "ギルド長";
+      const from = q.source === "tavern" ? "酒場の店主" : q.patron === "noble" ? "貴族の使い" : "ギルド長";
       sfx("coin"); log(`${from}から報酬を受け取った（＋${gross - cut}金貨／所持 ${ch.gold}）。`);
       chronicle(world, "legend", `${ch.name}が${q.patron === "noble" ? "貴族街の大命" : "依頼"}「${q.title}」を果たした。`, [ch.id]);
       // 高難度大命の固有報酬（4-14G）：ボス級遺物を袋へ＋一度きりの称号。
@@ -1094,7 +1124,12 @@ async function questBoard(board: "guild" | "noble" = "guild") {
   });
   for (const q of offers) actions.push({
     label: `受ける：${q.title}（報酬 ${q.rewardGold}金貨${q.rewardRelic ? "＋固有遺物" : ""}）`,
-    run: () => { acceptQuest(world, q); log(`依頼を受けた：「${q.title}」。`, "dim"); },
+    run: () => {
+      if (q.patron !== "noble" && activeGuild >= GUILD_ACTIVE_CAP) { // 大命は別枠。通常依頼は同時受注上限まで
+        log(`受注が一杯だ（${activeGuild}/${GUILD_ACTIVE_CAP}）。ひとつ果たしてから受けよう。`, "warn"); return;
+      }
+      acceptQuest(world, q); log(`依頼を受けた：「${q.title}」。`, "dim");
+    },
   });
   const r = await sheet({
     text: board === "noble"
@@ -3745,6 +3780,7 @@ async function rescueScene(d: DownedActor): Promise<void> {
   if (floor) floor.downed = null;
   if (r.pick === 1 && downed) {
     sfx("intervene");
+    for (const l of onRescueDelver(world)) log(l, "cue"); // 救助依頼（rescue）の達成
     // 名簿員（adv_*）なら安定idのまま＝再会/永続/setpiece が本人に紐づく。無名は従来どおり世代付きid。
     const laId = downed.id.startsWith("adv_") ? downed.id : `npc_${world.generation}_${downed.id}`;
     const la: LivingActor = { id: laId, actor: downed.actor, metGeneration: world.generation };
@@ -4906,6 +4942,8 @@ function rewardKill(mon: Monster, killLine?: string) {
     log(killLine ?? `${mon.kind.name}を倒した。`);
     rollKillLoot(mon); // 雑魚の討伐報酬（控えめ・深度スケール・farm根絶下なので安全：NetHack流のたまドロップ）
   }
+  // 討伐依頼（bounty）：対象種の撃破を数える（純ヘルパを web からのみ呼ぶ＝golden 安全）。
+  for (const l of onKillMonster(world, mon.kind.key, floor?.depth ?? 1)) log(l, "cue");
 }
 
 /** 雑魚討伐のドロップ（4-10G 拡張・NetHack の death drop 流＝たまに・深度依存）。
@@ -6036,6 +6074,17 @@ function questConditionLine(q: Quest): string {
       const f = q.targetFossilId ? world.fossils.find((x) => x.id === q.targetFossilId) : undefined;
       const who = f?.origin.name ?? "対象";
       return `深度${q.targetDepth ?? "?"}付近で「${who}」の痕跡を再発見する`;
+    }
+    case "bounty": {
+      const name = MONSTER_KINDS.find((k) => k.key === q.targetKind)?.name ?? "対象の魔物";
+      return `〔${q.have ?? 0}/${q.need ?? 1}〕「${name}」を討伐する`;
+    }
+    case "rescue":
+      return `深みで手負いの冒険者を救い出す`;
+    case "fetch": {
+      const label: Record<string, string> = { weapon: "武具（武器）", armor: "武具（防具）", relic: "遺物", bag: "鞄" };
+      const have = (world.current?.gearBag ?? []).filter((it) => it.slot === q.targetKind).length;
+      return `〔${Math.min(have, q.need ?? 1)}/${q.need ?? 1}〕${label[q.targetKind ?? ""] ?? "指定の品"}を持ち帰り納品する`;
     }
     default:
       return q.desc || "（条件不明）";
