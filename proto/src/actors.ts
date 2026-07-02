@@ -18,10 +18,25 @@ function pickGrade(db: ContentDb, rng: Rng, tags: FragmentTags): number {
   return GRADE_INDEX[rng.pick(pool).text] ?? 0;
 }
 
-/** 鋳造所断片からアクター記述子を生成（化石に origin を与えるのと同じ機構の procedural 版）。 */
-export function mintActor(db: ContentDb, rng: Rng, tags: FragmentTags = {}): Actor {
+/** 既に化石になっている名前の集合＝生者の鋳造で避けるべき名前（「死者は生者として出さない」）。 */
+export function fossilNames(world: World): Set<string> {
+  return new Set((world.fossils ?? []).map((f) => f.origin.name));
+}
+
+/** 鋳造所断片からアクター記述子を生成（化石に origin を与えるのと同じ機構の procedural 版）。
+ *  avoidNames＝避けるべき名前（既存の化石名）。名簿（pickRosterActor）と同じ「死者は生者として出さない」を
+ *  無名NPCにも適用する（死んだセナが delver として再登場する辻褄崩れの防止・2026-07-02）。
+ *  プールが全滅していたら再利用を許す（クラッシュしない保険＝多世代で名前を使い切った極端ケース）。
+ *  未指定なら従来と完全一致（CLI/demo 後方互換・rng 消費数も同一）。 */
+export function mintActor(db: ContentDb, rng: Rng, tags: FragmentTags = {}, avoidNames?: Set<string>): Actor {
   const archetype = pickByTags(db, rng, "actor_role", tags).text;   // 職分（表示用ラベル）
-  const name = pickByTags(db, rng, "actor_name", tags).text;
+  let namePool = filterByTags(db, "actor_name", tags);
+  if (avoidNames && avoidNames.size) {
+    const alive = namePool.filter((f) => !avoidNames.has(f.text));
+    if (alive.length) namePool = alive;
+  }
+  if (namePool.length === 0) throw new Error(`no fragment for actor_name ${JSON.stringify(tags)}`);
+  const name = rng.pick(namePool).text;
   const gear = pickByTags(db, rng, "actor_gear", tags).text;
   const epithet = pickByTags(db, rng, "actor_epithet", tags).text;
   const grade = pickGrade(db, rng, tags);                           // 金属等級（4-4E）＝設定ファイル由来
@@ -61,7 +76,7 @@ export function meetActor(world: World, db: ContentDb, rng: Rng): LivingActor {
     if (r) return r;
   }
   const id = `npc_${world.generation}_${Math.floor(rng.next() * 1e9).toString(36)}`;
-  return { id, actor: mintActor(db, rng), metGeneration: world.generation };
+  return { id, actor: mintActor(db, rng, {}, fossilNames(world)), metGeneration: world.generation };
 }
 
 /** 生者を永続化（lazy：effects が参照した時だけ呼ぶ。重複は無視）。 */

@@ -1127,6 +1127,270 @@
       "text": "隻眼のゴル"
     },
     {
+      "id": "aname_37",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "アロン"
+    },
+    {
+      "id": "aname_38",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "イサ"
+    },
+    {
+      "id": "aname_39",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ウェス"
+    },
+    {
+      "id": "aname_40",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "オリガ"
+    },
+    {
+      "id": "aname_41",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "カヤ"
+    },
+    {
+      "id": "aname_42",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "キリ"
+    },
+    {
+      "id": "aname_43",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "クルス"
+    },
+    {
+      "id": "aname_44",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ケイル"
+    },
+    {
+      "id": "aname_45",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "コウ"
+    },
+    {
+      "id": "aname_46",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "サリ"
+    },
+    {
+      "id": "aname_47",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "シェン"
+    },
+    {
+      "id": "aname_48",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "スズ"
+    },
+    {
+      "id": "aname_49",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "セロ"
+    },
+    {
+      "id": "aname_50",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "タオ"
+    },
+    {
+      "id": "aname_51",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ダリオ"
+    },
+    {
+      "id": "aname_52",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "チコ"
+    },
+    {
+      "id": "aname_53",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ツバキ"
+    },
+    {
+      "id": "aname_54",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "テオ"
+    },
+    {
+      "id": "aname_55",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ドリク"
+    },
+    {
+      "id": "aname_56",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ナジ"
+    },
+    {
+      "id": "aname_57",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ニコ"
+    },
+    {
+      "id": "aname_58",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ノラ"
+    },
+    {
+      "id": "aname_59",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ハイネ"
+    },
+    {
+      "id": "aname_60",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ビト"
+    },
+    {
+      "id": "aname_61",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "フリン"
+    },
+    {
+      "id": "aname_62",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ヘム"
+    },
+    {
+      "id": "aname_63",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ホロ"
+    },
+    {
+      "id": "aname_64",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "マチ"
+    },
+    {
+      "id": "aname_65",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ミゲル"
+    },
+    {
+      "id": "aname_66",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ムサ"
+    },
+    {
+      "id": "aname_67",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "メイ"
+    },
+    {
+      "id": "aname_68",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "モス"
+    },
+    {
+      "id": "aname_69",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ヤズ"
+    },
+    {
+      "id": "aname_70",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ユノ"
+    },
+    {
+      "id": "aname_71",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ヨル"
+    },
+    {
+      "id": "aname_72",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ラド"
+    },
+    {
+      "id": "aname_73",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "リヴ"
+    },
+    {
+      "id": "aname_74",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ルカ"
+    },
+    {
+      "id": "aname_75",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "レド"
+    },
+    {
+      "id": "aname_76",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ロミ"
+    },
+    {
+      "id": "aname_77",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "ワジ"
+    },
+    {
+      "id": "aname_78",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "灰かぶりのモト"
+    },
+    {
+      "id": "aname_79",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "六指のイェフ"
+    },
+    {
+      "id": "aname_80",
+      "slotType": "actor_name",
+      "tags": {},
+      "text": "片脚のブド"
+    },
+    {
       "id": "arole_7",
       "slotType": "actor_role",
       "tags": {},
@@ -1305,6 +1569,120 @@
       "slotType": "actor_epithet",
       "tags": {},
       "text": "人見知りの"
+    },
+    {
+      "id": "aepi_22",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "早足の"
+    },
+    {
+      "id": "aepi_23",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "借金持ちの"
+    },
+    {
+      "id": "aepi_24",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "歌うたいの"
+    },
+    {
+      "id": "aepi_25",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "手先の器用な"
+    },
+    {
+      "id": "aepi_26",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "眠たげな"
+    },
+    {
+      "id": "aepi_27",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "疑り深い"
+    },
+    {
+      "id": "aepi_28",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "義理堅い"
+    },
+    {
+      "id": "aepi_29",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "灰まみれの"
+    },
+    {
+      "id": "aepi_30",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "験担ぎの"
+    },
+    {
+      "id": "aepi_31",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "地図読みの"
+    },
+    {
+      "id": "aepi_32",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "惚れっぽい"
+    },
+    {
+      "id": "aepi_33",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "笑わない"
+    },
+    {
+      "id": "aepi_34",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "手癖の悪い"
+    },
+    {
+      "id": "aepi_35",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "貧乏くじの"
+    },
+    {
+      "id": "aepi_36",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "几帳面な"
+    },
+    {
+      "id": "aepi_37",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "大飯食らいの"
+    },
+    {
+      "id": "aepi_38",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "涙もろい"
+    },
+    {
+      "id": "aepi_39",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "蒼白い"
+    },
+    {
+      "id": "aepi_40",
+      "slotType": "actor_epithet",
+      "tags": {},
+      "text": "古株の"
     },
     {
       "id": "agear_7",
