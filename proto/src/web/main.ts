@@ -58,7 +58,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.94.0";
+export const APP_VERSION = "0.95.0";
 export const APP_BUILD = "2026-07-01";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -944,7 +944,7 @@ async function smithSell() {
     if (!bag.length) { busy = true; await sheet({ text: "袋に売れる拾い物がない。迷宮で集めておいで。", options: ["わかった"] }); busy = false; break; }
     busy = true;
     const r = await sheet({
-      text: `鍛冶ヴァロは目利きする。所持 金${ch.gold}。\n袋 ${bag.length} 点。何を売る？`,
+      text: `武具屋の主が目利きする。所持 金${ch.gold}。\n袋 ${bag.length} 点。何を売る？（武器・防具どちらも引き取る）`,
       meta: "武具屋 ── 売る（高値）",
       options: [...bag.map((it) => `${itemLabel(it)}／${SLOT_LABEL[it.slot]}（＋${sellGear(it, SMITH_SELL_MUL)}金貨）`), "やめる"],
     });
@@ -1995,7 +1995,8 @@ async function talkKeeper(asKind?: string) {
   if (kind === "smith" && actIdx === 2) return void smithLore();         // 先代の刻印武器について訊く（4-11E）
   if (kind === "smith" && actIdx === 3) return void smithReforge();      // 打ち直し（+N を上げる・ルートシステム）
   if (kind === "smith_armor" && actIdx === 0) return void smithBuyKind("armor"); // 防具を買う
-  if (kind === "smith_armor" && actIdx === 1) return void smithReforge(); // 打ち直し（防具担当でも可）
+  if (kind === "smith_armor" && actIdx === 1) return void smithSell();    // 拾い物を売る（防具担当でも武器/防具とも買い取る＝武具屋は同じ店）
+  if (kind === "smith_armor" && actIdx === 2) return void smithReforge(); // 打ち直し（防具担当でも可）
   if (kind === "healer" && actIdx === 0) return void healerHeal();      // 傷を癒す（街は基本全快＝flavor）
   if (kind === "healer" && actIdx === 1) return void healerTreat();     // 深蝕の進行を診てもらう
   if (kind === "healer" && actIdx === 2) return void healerBuy();       // 薬を買う（医薬は薬師の本領）
