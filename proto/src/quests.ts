@@ -8,6 +8,26 @@ import { ABYSS_DEPTH } from "./progression.ts";
 let qn = 0;
 const qid = (): string => `q_${(++qn).toString(36)}`;
 
+// 依頼テキストのデータ駆動化（2026-07-02）：content/quests.json の型別テンプレをスロット埋めで採用。
+// web から opts.templates 経由で渡す（quests.ts は fs 非依存＝ブラウザセーフ維持）。未指定＝内蔵の既定文。
+export interface QuestTemplate { title: string; desc: string; }
+export type QuestTemplates = Record<string, QuestTemplate[]>;
+// bounty 用の軽量モンスター記述子（dungeon.ts と疎結合＝web が MONSTER_KINDS から詰めて渡す）。
+export interface MonsterLite { key: string; name: string; tier: number; minDepth: number; maxDepth?: number; }
+export interface OfferOpts { source?: "guild" | "tavern"; templates?: QuestTemplates; monsters?: MonsterLite[]; }
+
+const ITEM_LABELS: Record<string, string> = { weapon: "武具（武器）", armor: "武具（防具）", relic: "遺物", bag: "鞄" };
+
+function fillQuest(tmpl: QuestTemplate | undefined, fallback: QuestTemplate, slots: Record<string, string | number>): QuestTemplate {
+  const src = tmpl ?? fallback;
+  const sub = (s: string) => s.replace(/#(\w+)#/g, (_, k) => String(slots[k] ?? `#${k}#`));
+  return { title: sub(src.title), desc: sub(src.desc) };
+}
+function pickTmpl(templates: QuestTemplates | undefined, kind: string, rng: Rng): QuestTemplate | undefined {
+  const pool = templates?.[kind];
+  return pool && pool.length ? rng.pick(pool) : undefined;
+}
+
 /** クエストID採番カウンタを、セーブ内の既存 `q_N` の最大値まで進める（migrateWorld から呼ぶ）。
  *  ★化石 id（newId）と同じ再読込衝突を防ぐ：qn はプロセスグローバルゆえ再読込で0に戻り、
  *  以後 qid() が生む `q_1..` が、セーブに残る現世代の受注中クエストと id 衝突する。
@@ -35,20 +55,24 @@ export function doneQuests(world: World): Quest[] {
   return openQuests(world).filter((q) => q.status === "done");
 }
 
-/** ギルドの受注候補（未受注）。最大 limit 件。到達＋回収を混ぜる。 */
-export function generateOffers(world: World, ch: Character, rng: Rng, limit: number): Quest[] {
+/** ギルドの受注候補（未受注）。最大 limit 件。到達／回収に加え、opts 指定時は討伐/救助/納品も混ぜて多様化。
+ *  ★opts 未指定（CLI/stress-multigens）＝従来と完全一致（到達＋回収のみ・同じ rng 消費）。新型は opts 有り時だけ。 */
+export function generateOffers(world: World, ch: Character, rng: Rng, limit: number, opts?: OfferOpts): Quest[] {
   if (limit <= 0) return [];
   const offers: Quest[] = [];
   const held = openQuests(world);
+  const src = opts?.source ?? "guild";
+  const tmpl = opts?.templates;
   // 到達：今のレベル(≈深度)より少し深い目標（4-4E スケール整合。街では ch.depth=0 になるため level 基準）。
   // すでにギルドの到達依頼を抱えていれば重ねて出さない（同じ/類似の到達依頼を二重受注できる不具合の修正）。
   const hasGuildDescend = held.some((q) => q.kind === "descend" && !q.patron);
   if (!hasGuildDescend) {
     const dDepth = Math.max(3, ch.level) + 2 + rng.int(3); // +2..+4
+    const t = fillQuest(pickTmpl(tmpl, "descend", rng),
+      { title: `深度${dDepth}へ到達`, desc: `回収業ギルドの調査依頼。深度${dDepth}まで潜って戻れ。` }, { depth: dDepth });
     offers.push({
-      id: qid(), kind: "descend", targetDepth: dDepth,
-      title: `深度${dDepth}へ到達`,
-      desc: `回収業ギルドの調査依頼。深度${dDepth}まで潜って戻れ。`,
+      id: qid(), kind: "descend", source: src, targetDepth: dDepth,
+      title: t.title, desc: t.desc,
       rewardGold: dDepth * 9, status: "active", issuedGeneration: world.generation,
     });
   }
@@ -58,12 +82,58 @@ export function generateOffers(world: World, ch: Character, rng: Rng, limit: num
   const reclaimable = nearLevel.length ? nearLevel : allReclaim;
   if (reclaimable.length) {
     const f = rng.pick(reclaimable);
+    const t = fillQuest(pickTmpl(tmpl, "reclaim", rng),
+      { title: `${f.origin.name}の痕跡を回収`, desc: `深度${f.laidDepth}付近に眠る${f.origin.name}を見つけ出せ。` },
+      { fossil: f.origin.name, depth: f.laidDepth });
     offers.push({
-      id: qid(), kind: "reclaim", targetFossilId: f.id, targetDepth: f.laidDepth,
-      title: `${f.origin.name}の痕跡を回収`,
-      desc: `深度${f.laidDepth}付近に眠る${f.origin.name}を見つけ出せ。`,
+      id: qid(), kind: "reclaim", source: src, targetFossilId: f.id, targetDepth: f.laidDepth,
+      title: t.title, desc: t.desc,
       rewardGold: f.laidDepth * 6 + 12, status: "active", issuedGeneration: world.generation,
     });
+  }
+  // ── 新型（討伐/納品/救助）は opts 有り時のみ＝web 専用。CLI/決定論テストは上の2型で完全一致 ──
+  if (opts) {
+    // 討伐（bounty）：異なるモンスター種を最大2件。既に抱えている種は除く。
+    const heldBounty = new Set(held.filter((q) => q.kind === "bounty").map((q) => q.targetKind));
+    const monPool = (opts.monsters ?? []).filter((m) => !heldBounty.has(m.key));
+    for (let n = 0; n < 2 && monPool.length && offers.length < limit; n++) {
+      const m = monPool.splice(rng.int(monPool.length), 1)[0];
+      const need = 3 + rng.int(Math.max(1, Math.min(4, m.tier))); // 3..6（tier 比例）
+      const t = fillQuest(pickTmpl(tmpl, "bounty", rng),
+        { title: `${m.name}を${need}体討て`, desc: `深みに巣食う${m.name}を${need}体、討ち減らしてほしい。` },
+        { monster: m.name, count: need, depth: m.minDepth });
+      offers.push({
+        id: qid(), kind: "bounty", source: src, targetKind: m.key, need, have: 0, targetDepth: m.minDepth,
+        title: t.title, desc: t.desc,
+        rewardGold: need * (m.tier * 3 + 4), status: "active", issuedGeneration: world.generation,
+      });
+    }
+    // 納品（fetch）：指定スロットの武具/遺物を持ち帰る。1件まで。
+    if (offers.length < limit && !held.some((q) => q.kind === "fetch") && !offers.some((q) => q.kind === "fetch")) {
+      const slot = (["relic", "weapon", "armor"] as const)[rng.int(3)];
+      const need = slot === "relic" ? 1 : 1 + rng.int(2); // 遺物1／武具1..2
+      const label = ITEM_LABELS[slot];
+      const reward = slot === "relic" ? ch.level * 3 + 30 : (ch.level * 2 + 12) * need;
+      const t = fillQuest(pickTmpl(tmpl, "fetch", rng),
+        { title: `${label}を納めよ`, desc: `深みで${label}を${need}点 見つけ、持ち帰って納品してくれ。` },
+        { item: label, count: need, depth: Math.max(3, ch.level) });
+      offers.push({
+        id: qid(), kind: "fetch", source: src, targetKind: slot, need,
+        title: t.title, desc: t.desc,
+        rewardGold: reward, status: "active", issuedGeneration: world.generation,
+      });
+    }
+    // 救助（rescue）：手負いの探索者を救い生還。1件まで（対象なし＝どのダイブでも達成しうる）。
+    if (offers.length < limit && !held.some((q) => q.kind === "rescue") && !offers.some((q) => q.kind === "rescue")) {
+      const t = fillQuest(pickTmpl(tmpl, "rescue", rng),
+        { title: `手負いを連れ帰れ`, desc: `深みで動けずにいる冒険者がいる。救い出し、生きて連れ帰ってくれ。` },
+        { depth: Math.max(3, ch.level) });
+      offers.push({
+        id: qid(), kind: "rescue", source: src,
+        title: t.title, desc: t.desc,
+        rewardGold: (ch.level + 6) * 8, status: "active", issuedGeneration: world.generation,
+      });
+    }
   }
   return offers.slice(0, limit);
 }
@@ -157,6 +227,31 @@ export function onRediscoverFossil(world: World, fossilId: string): string[] {
       q.status = "done";
       logs.push(`依頼達成：「${q.title}」── ギルドで報酬を受け取れる。`);
     }
+  }
+  return logs;
+}
+
+/** 討伐（bounty）の進捗判定（対象種を撃破した時に web の rewardKill から呼ぶ）。need 到達で done。 */
+export function onKillMonster(world: World, kindKey: string, _depth: number): string[] {
+  const logs: string[] = [];
+  for (const q of activeQuests(world)) {
+    if (q.kind !== "bounty" || q.targetKind !== kindKey) continue;
+    q.have = (q.have ?? 0) + 1;
+    if (q.have >= (q.need ?? 1)) {
+      q.status = "done";
+      logs.push(`依頼達成：「${q.title}」── ${q.source === "tavern" ? "酒場" : "ギルド"}で報酬を受け取れる。`);
+    }
+  }
+  return logs;
+}
+
+/** 救助（rescue）の達成判定（手負いを救い出した時に web の rescueScene から呼ぶ）。active な rescue を done に。 */
+export function onRescueDelver(world: World): string[] {
+  const logs: string[] = [];
+  for (const q of activeQuests(world)) {
+    if (q.kind !== "rescue") continue;
+    q.status = "done";
+    logs.push(`依頼達成：「${q.title}」── ${q.source === "tavern" ? "酒場" : "ギルド"}で報酬を受け取れる。`);
   }
   return logs;
 }

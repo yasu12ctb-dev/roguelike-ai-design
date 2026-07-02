@@ -1,0 +1,32 @@
+{
+  "templates": {
+    "descend": [
+      { "title": "深度#depth#への調査", "desc": "回収業ギルドの調査依頼。深度#depth#まで潜り、無事に戻れ。" },
+      { "title": "深度#depth#の地図取り", "desc": "深度#depth#までの道筋を確かめてほしい。到達して生還すれば良い。" },
+      { "title": "深度#depth#の踏破依頼", "desc": "深みの様子が知りたい。深度#depth#へ至り、戻って報告を。" },
+      { "title": "深度#depth#まで潜れ", "desc": "腕試しの依頼だ。深度#depth#まで下り、五体満足で帰ってこい。" }
+    ],
+    "reclaim": [
+      { "title": "#fossil#の痕跡を回収", "desc": "深度#depth#付近に眠る#fossil#を見つけ出し、その痕跡を確かめてくれ。" },
+      { "title": "#fossil#を捜し当てよ", "desc": "深度#depth#の底に#fossil#が残されている。見つけ出してほしい。" },
+      { "title": "#fossil#の名を確かめよ", "desc": "深度#depth#で朽ちた#fossil#──その最期を、誰かが知りたがっている。" },
+      { "title": "#fossil#の眠りを訪ねよ", "desc": "深度#depth#付近の#fossil#に会ってきてほしい。ただ、それだけの依頼だ。" }
+    ],
+    "bounty": [
+      { "title": "#monster#狩り（#count#体）", "desc": "深みに巣食う#monster#が増えすぎた。#count#体、討ち減らしてくれ。" },
+      { "title": "#monster#の間引き", "desc": "#monster#を#count#体 討ってほしい。数が多くて手が回らんのだ。" },
+      { "title": "#monster#を#count#体討て", "desc": "#monster#の群れが道を塞いでいる。#count#体 討ち払ってくれれば助かる。" },
+      { "title": "討伐依頼：#monster#", "desc": "深みの#monster#を#count#体。仕留めた数はギルドが数えている。" }
+    ],
+    "rescue": [
+      { "title": "手負いを連れ帰れ", "desc": "深みで動けずにいる冒険者がいる。救い出し、生きて連れ帰ってくれ。" },
+      { "title": "救助の要請", "desc": "潜ったきり戻らぬ者がいる。深みで手負いを見つけたら、担いで帰ってやってくれ。" },
+      { "title": "生きて連れ戻せ", "desc": "深みに取り残された仲間を救ってほしい。手負いを救い、街まで生還すれば良い。" }
+    ],
+    "fetch": [
+      { "title": "#item#を納めよ", "desc": "深みで#item#を#count#点 見つけ、持ち帰って納めてくれ。相応の礼はする。" },
+      { "title": "#item#の調達", "desc": "#item#が#count#点 入り用だ。深みから持ち帰ってくれれば買い取る。" },
+      { "title": "#item#を持ち帰れ", "desc": "深度#depth#帯で#item#を#count#点。見つけたら、そのまま納品を。" }
+    ]
+  }
+}
