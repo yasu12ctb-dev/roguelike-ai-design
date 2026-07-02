@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0e0c09" />
+<title>①静謐な写本・ブラッシュアップ版モック — 深蝕</title>
+<style>
+/* ============================================================
+   横断F Phase A：方向①「静謐な写本」ブラッシュアップ版モック（2026-07-02）
+   ・PR #282 の .d1 テーマを土台に、リサーチ反映後の「本実装の最終見た目」を提示
+   ・トグルで「前回モック①」⇄「ブラッシュアップ版」を見比べられる（差分＝下記）
+   ・ブラッシュアップの根拠（リサーチ）：
+     - Wizardry：ラベル/値の右寄せ整列・tabular-nums・簡潔ラベル
+     - シレン/トルネコ：種別記号＋名前[印]・常時HUDは死に直結する値のみ
+     - Shattered Pixel Dungeon：バフ＝チップ＋タップで説明（汎用詳細ポップ1型）
+     - 小画面ベストプラクティス：ラベル淡/値強の二層・セクション余白・行タップ48px
+   ・盤面（方向A発光グリフ）と HP/深蝕/金/敵tier/学派の正典色は不変
+   ・装飾は gradient/border/shadow/text-shadow のみ（画像0・SwiftUI で再現可能）
+   ============================================================ */
+:root { color-scheme: dark; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  background: #0b0d10; color: #cfd6dd; min-height: 100dvh;
+  font-family: "Hiragino Sans", system-ui, sans-serif;
+  display: flex; flex-direction: column; align-items: center;
+  padding: env(safe-area-inset-top) 0 calc(24px + env(safe-area-inset-bottom));
+}
+header { padding: 14px 16px 6px; text-align: center; }
+header h1 { font-size: 15px; letter-spacing: .18em; color: #9aa4b0; font-weight: 600; }
+header p { font-size: 11px; color: #5b6470; margin-top: 4px; }
+nav { display: flex; gap: 6px; padding: 8px 12px 0; width: 100%; max-width: 560px; }
+nav button {
+  flex: 1; font-family: inherit; font-size: 11.5px; line-height: 1.3;
+  color: #8b94a0; background: #14181e; border: 1px solid #232a33; border-radius: 8px;
+  padding: 8px 2px;
+}
+nav button.active { color: #e8e2d4; background: #1d242e; border-color: #3a4554; }
+nav.vtoggle button.active { color: #f0d9c8; border-color: #7a3a2c; }
+.caption { max-width: 560px; padding: 8px 16px 10px; font-size: 12px; line-height: 1.7; color: #8b94a0; }
+.caption b { color: #cfd6dd; }
+.footnote { max-width: 560px; padding: 12px 16px 0; font-size: 11px; line-height: 1.7; color: #5b6470; }
+.toolbar { display: flex; gap: 8px; padding: 10px 12px 0; max-width: 560px; width: 100%; }
+.toolbar button {
+  flex: 1; font-family: inherit; font-size: 12px; color: #8b94a0;
+  background: #14181e; border: 1px solid #232a33; border-radius: 10px; padding: 10px;
+}
+.toolbar[hidden] { display: none; }
+
+/* ============================================================
+   フレーム＝①写本テーマ（トークンは本実装で index.html :root に転写する値）
+   ============================================================ */
+#frame {
+  width: min(96vw, 430px); height: min(84vh, 800px);
+  border: 1px solid #232a33; border-radius: 14px; overflow: hidden;
+  background: var(--bg-app); box-shadow: 0 8px 40px rgba(0,0,0,.5);
+  display: flex; flex-direction: column; position: relative;
+  --font-ui: "Hiragino Sans", system-ui, sans-serif;
+  --font-body: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK JP", serif;
+  --font-mono: "Menlo", "Consolas", monospace;
+  /* ① 静謐な写本 パレット */
+  --bg-app:#0e0c09; --bg-panel:#14110c; --bg-sheet:#17130e;
+  --bg-btn:#1d1812; --bg-btn-active:#2a2318; --bg-input:#201a12;
+  --line:#372f23; --line-2:#4a3f2e;
+  --tx:#d8d0c0; --tx-strong:#efe6d3; --tx-2:#ddd3c2; --tx-dim:#a1957f;
+  --tx-meta:#857a66; --tx-faint:#6b6250; --tx-status:#b0a48c;
+  --tx-log:#d8cfba; --tx-log-dim:#a99d85;
+  --acc:#c2452f; --acc-2:#d9573c; --gold-leaf:#c9a75a;
+  /* 正典色（不変） */
+  --c-hp:#e06c5a; --c-exp:#9d8fd8; --c-gold:#d9b34a; --c-buff:#8fd0c0; --c-warn:#d98c7a;
+  --c-atk:#e0756a; --c-ctl:#6fa8d8; --c-mov:#6fc7c0; --c-sup:#7fcf97; --c-lore:#c4abe6; --c-sum:#e0c46a;
+}
+.scr { display: none; flex: 1; min-height: 0; flex-direction: column; }
+#frame.s-play  #scr-play  { display: flex; }
+#frame.s-scene #scr-scene { display: flex; }
+#frame.s-cards #scr-cards { display: flex; }
+#frame.s-status #scr-status { display: flex; }
+#frame.s-settings #scr-settings { display: flex; }
+#frame.s-title #scr-title { display: flex; }
+/* 「前回モック①」⇄「ブラッシュアップ版」トグル */
+.only-v1 { display: revert; }
+#frame.v0 .only-v1 { display: none !important; }
+.only-v0 { display: none !important; }
+#frame.v0 .only-v0 { display: revert !important; }
+
+/* ============================================================
+   HUD
+   ============================================================ */
+.hud {
+  flex: none; padding: 7px 10px 8px; font-size: 12px; color: var(--tx-status);
+  border-bottom: 1px solid var(--line); background: var(--bg-panel);
+  font-family: var(--font-ui);
+}
+.hudTop { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.hudName { color: var(--tx-strong); font-weight: 700; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; }
+.hudTop .lv, .hudTop .dep { color: var(--tx-dim); }
+.hudTop .lv b, .hudTop .dep b { color: var(--tx-strong); font-variant-numeric: tabular-nums; }
+.hudTop .sp { flex: 1; }
+.hudGold { color: var(--c-gold); font-variant-numeric: tabular-nums; }
+.hudVer { color: var(--tx-faint); font-size: 10px; font-weight: 600; letter-spacing: .03em; }
+.bars { display: flex; gap: 10px; margin-top: 6px; }
+.gauge { flex: 1; min-width: 0; }
+.gauge .lab { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px; font-variant-numeric: tabular-nums; }
+.gauge .track { position: relative; height: 5px; border-radius: 0; background: #0b0906; overflow: hidden; box-shadow: 0 0 0 1px var(--line) inset; }
+.gauge .fill { height: 100%; }
+.gauge.hp .lab { color: var(--c-hp); }
+.gauge.hp .fill { background: var(--c-hp); }
+.gauge.ex .lab { color: var(--c-exp); }
+.gauge.ex .fill { background: var(--c-exp); }
+/* ★牙の閾（深蝕1.5／満点3.0＝50%）の目盛＝「危険になる前に読める」（ブラッシュアップ） */
+.gauge.ex .track::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
+  background: rgba(194,69,47,.6); }
+#frame.v0 .gauge.ex .track::after { display: none; }
+/* ★バフ＝ピルチップ・タップで説明（SPD流・ブラッシュアップ）。前回版はピルのみ（タップなし） */
+.buffs { color: var(--c-buff); font-size: 11px; margin-top: 5px; }
+.buffs .bf { display: inline-block; border: 1px solid rgba(143,208,192,.4); border-radius: 2px;
+  padding: 1px 7px; margin-right: 6px; }
+#frame:not(.v0) .buffs .bf { cursor: pointer; }
+#frame.v0 .buffs .bf { border: none; padding: 0; }
+
+/* ============================================================
+   盤面（方向A・不変）
+   ============================================================ */
+.mapwrap { flex: 1; min-height: 0; position: relative; overflow: hidden; background: #07090c;
+  display: flex; align-items: center; justify-content: center; }
+.grid { display: grid; flex: none; }
+.cell { display: flex; align-items: center; justify-content: center; background: #07090c;
+  font-family: var(--font-mono); font-weight: 700; }
+.cell.wall { background: #11151c; }
+.g-wall   { color: #39434f; }
+.g-floor  { color: #2c333d; }
+.g-door   { color: #b8863b; text-shadow: 0 0 8px rgba(184,134,59,.55); }
+.g-down   { color: #6fb3c8; text-shadow: 0 0 9px rgba(111,179,200,.6); }
+.g-player { color: #ffd87a; text-shadow: 0 0 12px rgba(255,216,122,.9), 0 0 26px rgba(255,160,60,.45); }
+.g-mon-t1 { color: #c4ccd4; text-shadow: 0 0 6px rgba(196,204,212,.5); }
+.g-mon-t3 { color: #e58a45; text-shadow: 0 0 9px rgba(229,138,69,.65); }
+.g-fossil { color: #9fd8cf; text-shadow: 0 0 10px rgba(159,216,207,.75); animation: pulse 2.6s ease-in-out infinite; }
+.g-chest  { color: #e8c06a; text-shadow: 0 0 9px rgba(232,192,106,.7); }
+@keyframes pulse { 50% { text-shadow: 0 0 16px rgba(159,216,207,1), 0 0 30px rgba(159,216,207,.4); } }
+.light { position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at var(--px,50%) var(--py,48%),
+    rgba(255,190,110,.15), rgba(255,190,110,.05) 30%, rgba(0,0,0,.5) 78%); }
+
+/* ============================================================
+   ログ／D-pad／タブバー
+   ============================================================ */
+.log {
+  flex: none; padding: 9px 14px; font-size: 14px; line-height: 1.8; height: 108px; overflow: hidden;
+  border-top: 1px solid var(--line); background: var(--bg-panel);
+  font-family: var(--font-body); color: var(--tx-log);
+}
+.log .dim  { color: var(--tx-log-dim); font-size: .9em; }
+.log .warn { color: var(--c-warn); }
+.log .cue  { color: var(--c-buff); }
+.deck { flex: none; display: flex; align-items: flex-end; justify-content: flex-end;
+  padding: 8px 14px; background: var(--bg-app); }
+.dpad { display: grid; grid-template-columns: repeat(3,44px); grid-template-rows: repeat(3,40px); gap: 6px; }
+.dpad button {
+  font-size: 17px; color: #d8d0c0; background: rgba(29,24,18,.95);
+  border: 1px solid var(--line-2); border-radius: 3px; line-height: 1;
+  display: flex; align-items: center; justify-content: center; padding: 0; font-family: var(--font-ui);
+}
+.dpad button.center { color: #a1957f; font-size: 12px; }
+.tabbar { flex: none; display: flex; align-items: stretch;
+  background: var(--bg-panel); border-top: 2px solid var(--line); padding: 2px 0 8px; }
+.tabbar .tab { flex: 1 1 0; min-width: 0; height: 48px; display: flex; align-items: center; justify-content: center;
+  background: none; border: none; color: var(--tx-dim); }
+.tabbar .tab svg { width: 27px; height: 27px; filter: drop-shadow(0 0 4px currentColor); opacity: .92; }
+.tabbar .t-spell { color: #b9a8d8; }
+.tabbar .t-map { color: #8fb7d8; }
+
+/* ============================================================
+   シート（三層＝ヘッダ帯／本文・構造化リスト／ボタン列）
+   ============================================================ */
+.sheetscr { position: relative; }
+.ghost { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.ghostHud { height: 58px; background: var(--bg-panel); border-bottom: 1px solid var(--line); }
+.ghostMap { flex: 1; background: #07090c; }
+.ghostLog { height: 96px; background: var(--bg-panel); border-top: 1px solid var(--line); }
+.ovl { position: absolute; inset: 0; display: flex; align-items: flex-end;
+  background: rgba(6,5,3,.62); backdrop-filter: blur(1.5px); }
+.sheet {
+  position: relative; width: 100%; max-height: 94%; overflow-y: auto;
+  background: var(--bg-sheet); border-top: 3px double var(--line-2);
+  padding: 16px 16px 14px; font-family: var(--font-body);
+}
+/* 金泥のL字角飾り */
+.sheet::before, .sheet::after { content: ""; position: absolute; top: 7px; width: 13px; height: 13px; pointer-events: none; }
+.sheet::before { left: 7px; border-left: 1px solid rgba(201,167,90,.45); border-top: 1px solid rgba(201,167,90,.45); }
+.sheet::after { right: 7px; border-right: 1px solid rgba(201,167,90,.45); border-top: 1px solid rgba(201,167,90,.45); }
+/* ヘッダ帯（sticky）＝題（朱の左罫）＋副題＋✕（ブラッシュアップ＝✕を帯内へ統合） */
+.sh-head { position: sticky; top: -16px; z-index: 2; margin: -16px -16px 12px; padding: 10px 16px 9px;
+  background: var(--bg-sheet); border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 10px; }
+.sh-title { font-size: 15px; font-weight: 700; color: var(--tx-strong);
+  border-left: 3px solid var(--acc); padding-left: 9px; letter-spacing: .04em; flex: none; }
+.sh-sub { flex: 1; min-width: 0; text-align: right; font-size: 10.5px; color: var(--tx-meta);
+  font-family: var(--font-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-close { flex: none; font-family: var(--font-ui); font-size: 12px; color: var(--tx-2);
+  background: transparent; border: 1px solid var(--line-2); border-radius: 3px; padding: 7px 12px; }
+#frame.v0 .sh-close { display: none; }
+.sh-body { font-size: 14.5px; line-height: 1.95; color: var(--tx-strong); white-space: pre-wrap; }
+.sh-lead { font-size: 12px; line-height: 1.8; color: var(--tx-dim); margin-top: 8px; white-space: pre-wrap; }
+
+/* 構造化リスト（ブラッシュアップの核＝Wizardry流 kv 整列。Swift: Section/LabeledContent に1:1） */
+.sec-h { margin: 16px 0 2px; font-family: var(--font-body); font-size: 12px; color: var(--tx-dim);
+  border-left: 3px solid var(--acc); padding-left: 8px; letter-spacing: .08em; }
+.kvrow { display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  padding: 7px 2px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.6; min-height: 34px; }
+.kvrow.first { border-top: none; }
+.kvlab { color: var(--tx-dim); flex: none; font-size: 13px; }
+.kvval { color: var(--tx-strong); text-align: right; font-variant-numeric: tabular-nums; min-width: 0; }
+.kvval .note { color: var(--tx-meta); font-size: 11px; margin-left: 6px; }
+.kvval.exp { color: var(--c-exp); }
+.kvtext { font-size: 13px; line-height: 1.8; padding: 6px 2px; color: var(--tx-strong); }
+.kvtext.dim { color: var(--tx-dim); font-size: 12px; }
+.kvtext.warn { color: var(--c-warn); }
+
+/* ボタン列（4役割） */
+.sh-btns { margin-top: 12px; }
+.sh-btns button {
+  display: block; width: 100%; text-align: left; font-family: inherit; font-size: 14.5px;
+  color: var(--tx-2); background: transparent; border: 1px solid var(--line-2); border-radius: 3px;
+  padding: 12px 14px; margin-top: 8px; line-height: 1.5; min-height: 48px;
+}
+.sh-btns .b-primary { border-color: var(--acc); color: #f0d9c8; box-shadow: 0 0 10px rgba(194,69,47,.22); }
+.sh-btns .b-cancel { border: none; background: none; text-align: center; color: var(--tx-dim); margin-top: 14px; }
+.sh-btns .b-danger { border-color: #7a3a2c; color: var(--c-warn); }
+.grp { margin-top: 14px; }
+.grp > button:first-child { margin-top: 8px; }
+.sg { margin: 16px 0 2px; font-family: var(--font-body); font-size: 12px; color: var(--tx-dim);
+  border-left: 3px solid var(--acc); padding-left: 8px; letter-spacing: .08em; }
+
+/* カード */
+.cards { display: grid; grid-template-columns: 1fr; gap: 9px; margin-top: 12px; }
+.cards.two { grid-template-columns: 1fr 1fr; }
+.card {
+  text-align: left; background: transparent; border: 1px solid var(--line-2); border-radius: 3px;
+  padding: 11px 12px 12px; min-height: 62px; font-family: var(--font-ui); color: var(--tx-2);
+}
+.chip { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 7px;
+  border-radius: 2px; margin-bottom: 5px; border: 1px solid currentColor; }
+.nm { font-size: 14.5px; color: var(--tx-strong); font-weight: 700; line-height: 1.2; }
+.nm .sig { color: var(--gold-leaf); margin-right: 2px; }
+.nm .sigq { color: var(--tx-dim); margin-right: 2px; }
+.nm .mark { color: var(--acc-2); font-size: 12px; margin-left: 4px; }
+#frame.v0 .nm .sig, #frame.v0 .nm .sigq, #frame.v0 .nm .mark { display: none; }
+.sub { font-size: 11.5px; color: var(--tx-dim); margin-top: 4px; line-height: 1.45; }
+.cost { color: #b79be0; }
+.c-atk{color:var(--c-atk);} .c-ctl{color:var(--c-ctl);} .c-mov{color:var(--c-mov);}
+.c-sup{color:var(--c-sup);} .c-lore{color:var(--c-lore);} .c-sum{color:var(--c-sum);}
+
+/* ============================================================
+   バフ説明ポップアップ（SPD流・タップで開く汎用詳細＝ブラッシュアップ新規）
+   ============================================================ */
+#buffPop { position: absolute; inset: 0; z-index: 5; display: none; align-items: flex-end;
+  background: rgba(6,5,3,.55); }
+#buffPop.show { display: flex; }
+#buffPop .mini { width: 100%; background: var(--bg-sheet); border-top: 3px double var(--line-2);
+  padding: 14px 16px 12px; font-family: var(--font-body); }
+#buffPop .mini .sh-title { margin-bottom: 6px; }
+
+/* ============================================================
+   タイトル（①写本＝墨・落款）
+   ============================================================ */
+.titlewrap { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center;
+  padding: 0 26px 24px; background: var(--bg-app); overflow: hidden; font-family: var(--font-body); }
+.vignette { position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(120% 80% at 50% 28%, rgba(255,240,210,.05), rgba(0,0,0,.55) 80%); }
+.crest { margin-top: 15%; text-align: center; z-index: 2; }
+.tname { font-size: 46px; font-weight: 700; letter-spacing: .2em; line-height: 1.2;
+  color: #efe6d3; text-shadow: 0 0 10px rgba(239,230,211,.14); }
+.entitle { margin-top: 12px; font-size: 14px; font-style: italic; letter-spacing: .12em; color: var(--tx-dim); z-index: 2; }
+.tagline { margin-top: 20px; font-size: 12.5px; line-height: 1.95; color: var(--tx-dim); letter-spacing: .04em; z-index: 2; text-align: center; }
+.t-seal { display: flex; width: 30px; height: 30px; background: var(--acc); color: #f6e8dc;
+  align-items: center; justify-content: center; font-size: 16px; font-weight: 700; border-radius: 2px;
+  margin: 16px auto 0; box-shadow: 0 0 12px rgba(194,69,47,.35); z-index: 2; }
+.tmenu { margin-top: auto; width: 100%; max-width: 300px; z-index: 2; }
+.tmenu button { display: block; width: 100%; text-align: center; font-family: var(--font-body);
+  font-size: 15px; color: var(--tx-strong); background: transparent; border: 1px solid var(--line-2);
+  border-radius: 3px; padding: 14px; margin-top: 9px; letter-spacing: .08em; min-height: 48px; }
+.tmenu button.b-primary { background: linear-gradient(180deg, #c2452f, #9c3423); border-color: #d9573c;
+  color: #f6e8dc; font-weight: 700; box-shadow: 0 0 14px rgba(194,69,47,.3); }
+.tsub { font-size: 11px; color: var(--tx-dim); text-align: center; margin-top: 8px; min-height: 14px; z-index: 2; }
+.tver { margin-top: 12px; text-align: center; font-size: 10px; color: var(--tx-faint);
+  font-family: var(--font-ui); letter-spacing: .05em; z-index: 2; }
+.gatePrompt { display: none; margin-top: auto; margin-bottom: 64px; z-index: 2;
+  font-size: 13px; letter-spacing: .16em; color: var(--tx-dim); animation: gate 2.6s ease-in-out infinite; }
+@keyframes gate { 50% { opacity: .45; } }
+#frame.gate .tmenu, #frame.gate .tsub { display: none; }
+#frame.gate .gatePrompt { display: block; }
+</style>
+</head>
+<body>
+<header>
+  <h1>①「静謐な写本」ブラッシュアップ版</h1>
+  <p>本実装（v0.96.0）の最終見た目。上段トグルで前回モック①と比較できます</p>
+</header>
+
+<nav class="vtoggle" id="verNav">
+  <button data-v="1" class="active">ブラッシュアップ版</button>
+  <button data-v="0">前回モック①（比較用）</button>
+</nav>
+<nav id="scrNav">
+  <button data-s="play" class="active">潜行</button>
+  <button data-s="scene">場面</button>
+  <button data-s="cards">カード</button>
+  <button data-s="status">ステータス</button>
+  <button data-s="settings">設定</button>
+  <button data-s="title">タイトル</button>
+</nav>
+
+<div class="caption" id="caption"></div>
+
+<div id="frame" class="s-play">
+
+  <!-- ============ (a) 潜行 ============ -->
+  <section id="scr-play" class="scr">
+    <div class="hud">
+      <div class="hudTop">
+        <span class="hudName">アリア（第2世代）</span>
+        <span class="lv">Lv<b>7</b></span>
+        <span class="dep">深度 <b>12</b></span>
+        <span class="sp"></span>
+        <span class="hudGold">◇ 48</span>
+        <span class="hudVer">v0.96.0</span>
+      </div>
+      <div class="bars">
+        <div class="gauge hp"><div class="lab"><span>HP</span><span>23/31</span></div><div class="track"><div class="fill" style="width:74%"></div></div></div>
+        <div class="gauge ex"><div class="lab"><span>深蝕</span><span>38%</span></div><div class="track"><div class="fill" style="width:38%"></div></div></div>
+      </div>
+      <div class="buffs" id="buffLine"><span class="bf">⟡硬鱗3</span><span class="bf">⟡疾走5</span></div>
+    </div>
+    <div class="mapwrap">
+      <div class="grid" id="grid"></div><div class="light" id="light"></div>
+      <!-- バフ説明ポップ（ブラッシュアップ版のみ・チップをタップで開く） -->
+      <div id="buffPop">
+        <div class="mini">
+          <div class="sh-title">いまの加護・状態</div>
+          <div class="kvrow first"><span class="kvlab">⟡ 硬鱗</span><span class="kvval">残り 3手<span class="note">被ダメージ −2</span></span></div>
+          <div class="kvrow"><span class="kvlab">⟡ 疾走</span><span class="kvval">残り 5手<span class="note">続けて動ける</span></span></div>
+          <div class="sh-btns"><button class="b-cancel" id="buffClose">閉じる</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="log">
+      <div>亡骸に行き当たった。カイの化石だ。</div>
+      <div class="warn">深蝕が身の内で疼く。</div>
+      <div class="dim">石蛇が こちらの匂いを嗅いでいる。　[スワイプ/D-padで移動]</div>
+    </div>
+    <div class="deck">
+      <div class="dpad">
+        <button>↖</button><button>↑</button><button>↗</button>
+        <button>←</button><button class="center">待</button><button>→</button>
+        <button>↙</button><button>↓</button><button>↘</button>
+      </div>
+    </div>
+    <div class="tabbar">
+      <button class="tab t-spell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c0-1.5 1.2-2.6 2.7-2.4 1.9.3 2.8 2.2 2.2 4-.8 2.4-3.4 3.4-5.7 2.4-2.9-1.2-4-4.6-2.6-7.3 1.7-3.3 5.9-4.5 9.3-2.5"/></svg></button>
+      <button class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 8c0-2.2 1.5-3.8 3.5-3.8S15.5 5.8 15.5 8"/><path d="M6.6 8h10.8l1.1 7.6a3.8 3.8 0 0 1-3.8 4.3H9.3a3.8 3.8 0 0 1-3.8-4.3L6.6 8z"/><path d="M9.2 12.2h5.6"/></svg></button>
+      <button class="tab t-map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.2l6-2 6 2 6-2v13.6l-6 2-6-2-6 2V6.2z"/><path d="M9 4.2v13.6M15 6.2v13.6"/></svg></button>
+      <button class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.3"/><path d="M5.5 19.5c0-3.7 2.9-6.2 6.5-6.2s6.5 2.5 6.5 6.2"/></svg></button>
+      <button class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h6M15 7h4M5 12h2M11 12h8M5 17h9M18 17h1"/><circle cx="13" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="16" cy="17" r="2"/></svg></button>
+    </div>
+  </section>
+
+  <!-- ============ (b) 場面シート ============ -->
+  <section id="scr-scene" class="scr sheetscr">
+    <div class="ghost"><div class="ghostHud"></div><div class="ghostMap"></div><div class="ghostLog"></div></div>
+    <div class="ovl"><div class="sheet">
+      <div class="sh-head">
+        <div class="sh-title">カイの化石</div>
+        <div class="sh-sub">極=怨念 / 変質=風化 / 山場</div>
+        <button class="sh-close">✕ 閉じる</button>
+      </div>
+      <div class="sh-body">――見捨てたあの者が、宿敵となって還った。
+亡骸は壁に向かって倒れていた。片刃の剣は最後まで手放されていない。爪痕が床に深く残る。
+カイは、安らかには逝かなかった。</div>
+      <div class="sh-btns">
+        <div class="grp">
+          <button class="b-primary">向き合って詫びる</button>
+          <button>怨みを撥ねつける</button>
+        </div>
+        <div class="grp">
+          <button>調べる</button>
+          <button>周辺を捜索する</button>
+        </div>
+        <div class="grp">
+          <button>鎮魂する（末路を閉じ、変質の時計を巻き戻す）</button>
+        </div>
+        <button class="b-cancel">そっと立ち去る</button>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- ============ (c) カード（装備・荷物／術） ============ -->
+  <section id="scr-cards" class="scr sheetscr">
+    <div class="ghost"><div class="ghostHud"></div><div class="ghostMap"></div><div class="ghostLog"></div></div>
+    <div class="ovl"><div class="sheet">
+      <div class="sh-head">
+        <div class="sh-title">装備・荷物</div>
+        <div class="sh-sub">荷物 9/16 枠</div>
+        <button class="sh-close">✕ 閉じる</button>
+      </div>
+      <div class="sh-lead only-v1">★=装備中／？=未鑑定／〔薙〕=発動効果。装備枠＝着け替え／薬＝使う・捨てる（街）／武具＝装備・置く。</div>
+      <div class="sh-lead only-v0">装備枠＝着け替え／薬＝使う・捨てる（街）／武具＝装備・置く。</div>
+      <div class="cards">
+        <div class="card"><span class="chip c-atk">武器</span><div class="nm"><span class="sig">★</span>切れ味の良い長剣+2<span class="mark">〔薙〕</span></div><div class="sub">攻 +9　薙ぎ：命中時、隣接の敵へ余波（50%）</div></div>
+        <div class="card"><span class="chip c-ctl">防具</span><div class="nm"><span class="sigq">？</span>見知らぬ防具（未鑑定）</div><div class="sub">正体不明――装備中</div></div>
+        <div class="card"><span class="chip c-lore">遺物</span><div class="nm"><span class="sig">★</span>棘の護符</div><div class="sub">被弾の近接反射 50%　深蝕 +0.015/手</div></div>
+        <div class="card"><span class="chip c-sup">鞄</span><div class="nm"><span class="sig">★</span>革袋</div><div class="sub">荷物の枠 +6</div></div>
+        <div class="card"><span class="chip c-mov">薬・巻物</span><div class="nm">治癒の膏薬　×3</div><div class="sub">傷の半分を癒す。潜行中いつでも。</div></div>
+      </div>
+      <div class="sh-lead">術を放つ ── 構え 6/10（深蝕を代償に）</div>
+      <div class="cards two">
+        <div class="card"><span class="chip c-atk">攻</span><div class="nm">裂震</div><div class="sub">深蝕 <span class="cost">0.30</span>　前方の敵を強く打つ</div></div>
+        <div class="card"><span class="chip c-ctl">制</span><div class="nm">縛鎖</div><div class="sub">深蝕 <span class="cost">0.25</span>　敵を3手その場に縛る</div></div>
+        <div class="card"><span class="chip c-sup">援</span><div class="nm">小癒</div><div class="sub">深蝕 <span class="cost">0.20</span>　傷を少し癒す</div></div>
+        <div class="card"><span class="chip c-mov">移</span><div class="nm">帰還の詠唱</div><div class="sub">深蝕 <span class="cost">0.50</span>　3手の詠唱で街へ還る</div></div>
+      </div>
+      <div class="sh-btns"><button class="b-cancel">閉じる</button></div>
+    </div></div>
+  </section>
+
+  <!-- ============ (d) ステータス ============ -->
+  <section id="scr-status" class="scr sheetscr">
+    <div class="ghost"><div class="ghostHud"></div><div class="ghostMap"></div><div class="ghostLog"></div></div>
+    <div class="ovl"><div class="sheet">
+      <div class="sh-head">
+        <div class="sh-title">ステータス</div>
+        <div class="sh-sub">第2世代・ふつう</div>
+        <button class="sh-close">✕ 閉じる</button>
+      </div>
+
+      <!-- ★ブラッシュアップ版＝Wizardry流の整列（ラベル淡/値強・右寄せ・セクション朱罫） -->
+      <div class="only-v1">
+        <div class="kvtext" style="font-size:15px;">《アリア》　Lv 7</div>
+        <div class="kvrow first"><span class="kvlab">能力</span><span class="kvval">体 7　力 9　理 5　心 6</span></div>
+        <div class="kvrow"><span class="kvlab">最大HP</span><span class="kvval">31</span></div>
+        <div class="kvrow"><span class="kvlab">攻撃</span><span class="kvval">9</span></div>
+        <div class="kvrow"><span class="kvlab">次のLvまで</span><span class="kvval">86</span></div>
+        <div class="kvrow"><span class="kvlab">深蝕</span><span class="kvval exp">1.14<span class="note">牙の閾 1.5</span></span></div>
+        <div class="sec-h">装備</div>
+        <div class="kvrow first"><span class="kvlab">武器</span><span class="kvval">切れ味の良い長剣+2</span></div>
+        <div class="kvrow"><span class="kvlab">防具</span><span class="kvval">？見知らぬ防具（未鑑定）</span></div>
+        <div class="kvrow"><span class="kvlab">遺物</span><span class="kvval">棘の護符</span></div>
+        <div class="kvrow"><span class="kvlab">鞄</span><span class="kvval">革袋</span></div>
+        <div class="sec-h">術</div>
+        <div class="kvrow first"><span class="kvlab">構え</span><span class="kvval">6/10</span></div>
+        <div class="kvtext dim">裂震、縛鎖、小癒、疾走、灯明、帰還の詠唱</div>
+        <div class="sec-h">荷物　9/16 枠</div>
+        <div class="kvrow first"><span class="kvlab">薬・巻物</span><span class="kvval">5個</span></div>
+        <div class="kvrow"><span class="kvlab">武具</span><span class="kvval">3点</span></div>
+        <div class="kvtext dim">※中身は「装備・持ち物を見る」</div>
+        <div class="sec-h">記憶</div>
+        <div class="kvrow first"><span class="kvlab">記憶</span><span class="kvval">4件</span></div>
+      </div>
+
+      <!-- 前回モック①＝プレーンテキスト（比較用） -->
+      <div class="sh-body only-v0">《アリア》（第2世代）　Lv7　難易度：ふつう
+体 7　力 9　理 5　心 6
+最大HP 31　攻撃 9　次のLvまで 86
+深蝕 1.14
+
+【装備】
+　武器　切れ味の良い長剣+2
+　防具　見知らぬ防具（未鑑定）
+　遺物　棘の護符
+　鞄　　革袋
+
+【構え 6/10】裂震、縛鎖、小癒、疾走、灯明、帰還の詠唱
+【荷物 9/16】薬・巻物 5個／武具 3点　※中身は「装備・荷物を見る」
+【記憶】4件</div>
+
+      <div class="sh-btns">
+        <div class="grp">
+          <button>装備・持ち物を見る</button>
+          <button>術（構え・図鑑）</button>
+          <button>進行中（依頼・因縁・印）</button>
+        </div>
+        <div class="grp">
+          <button>人物と年代記</button>
+          <button>敵図鑑</button>
+          <button>記憶を見る（4）</button>
+        </div>
+        <button class="b-cancel">閉じる</button>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- ============ (e) 設定 ============ -->
+  <section id="scr-settings" class="scr sheetscr">
+    <div class="ghost"><div class="ghostHud"></div><div class="ghostMap"></div><div class="ghostLog"></div></div>
+    <div class="ovl"><div class="sheet">
+      <div class="sh-head">
+        <div class="sh-title">設定</div>
+        <div class="sh-sub">v0.96.0（build 2026-07-02）</div>
+        <button class="sh-close">✕ 閉じる</button>
+      </div>
+      <div class="sh-body">音・操作・表示を整える。困ったら「あそびかた」へ。</div>
+      <div class="sh-btns">
+        <div class="sg">あそびかた</div>
+        <button>❓ あそびかた・記号の凡例</button>
+        <div class="sg">音</div>
+        <button>🔇 すべての音を消す</button>
+        <button>🎵 BGM：オン → オフ</button>
+        <button>🎵 BGM音量：中（小→中→大）</button>
+        <button>🔊 効果音音量：中（小→中→大）</button>
+        <div class="sg">操作・表示</div>
+        <button>🕹 方向パッド：オン → オフ</button>
+        <button>🕹 方向パッドの位置：右下（右下→左下→中央）</button>
+        <button>🕹 方向パッドの大きさ：中（大→中→小）</button>
+        <button>🕹 長押しで連続移動：オン → オフ</button>
+        <button>🔤 文字サイズ：中（小→中→大）</button>
+        <div class="sg">データ</div>
+        <button>💾 セーブを書き出す（バックアップ）</button>
+        <button>📂 セーブを読み込む（復元）</button>
+        <button>🔧 テスト</button>
+        <button class="b-danger">⟲ 世界を最初からやり直す</button>
+        <button class="b-cancel">閉じる</button>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- ============ (f) タイトル ============ -->
+  <section id="scr-title" class="scr">
+    <div class="titlewrap">
+      <div class="vignette"></div>
+      <div class="crest">
+        <div class="tname">深蝕</div>
+        <div class="entitle">The Corroding Deep</div>
+      </div>
+      <div class="tagline">あなたの死が、<br>世界の歴史になる。</div>
+      <div class="t-seal">蝕</div>
+      <div class="gatePrompt">画面に触れて、はじめる</div>
+      <div class="tmenu">
+        <button class="b-primary">つづきから（アリア・第2世代）</button>
+        <button>新しい物語</button>
+        <button>設定</button>
+      </div>
+      <div class="tsub">深度12で中断した潜行がある</div>
+      <div class="tver">v0.96.0</div>
+    </div>
+  </section>
+
+</div>
+
+<div class="toolbar" id="titleTools" hidden>
+  <button id="gateToggle">初回起動ゲート（画面に触れて…）の表示を切り替える</button>
+</div>
+
+<div class="footnote">
+  ※盤面（方向A・発光グリフ）と HP/深蝕/金貨/敵tier/術学派の色は正典＝不変。装飾は罫・影・グラデのみ（画像0）＝SwiftUI で再現可能。<br>
+  ※構造化ステータス（ラベル/値の行）は SwiftUI の Section / LabeledContent に1:1で写像する新しいシート部品として実装します（他画面へも順次適用可能）。<br>
+  ※採用が決まったら、本実装（v0.96.0）＋ prototype-spec.md §10（Swiftミラー正典）への反映に進みます。
+</div>
+
+<script>
+// ---- 盤面（方向A・不変） ----
+const ROWS = [
+  " #########   ",
+  " #..r....#   ",
+  " ####+####   ",
+  "    #.#      ",
+  " ####+#####  ",
+  " #....▭...#  ",
+  " #...@....#  ",
+  " #........#  ",
+  " ####+#####  ",
+  "    #.#      ",
+  "  ###+#####  ",
+  "  #..>..S.#  ",
+  "  #.†.....#  ",
+  "  #########  ",
+];
+const W = 13, H = ROWS.length;
+const P = { x: 5, y: 6 };
+const TYPE = { "#": ["wall", "▒", "g-wall"], ".": ["floor", "·", "g-floor"], "+": ["door", "+", "g-door"],
+  ">": ["stairs", "›", "g-down"], "†": ["fossil", "†", "g-fossil"], "▭": ["chest", "▭", "g-chest"],
+  "r": ["mon", "r", "g-mon-t1"], "S": ["mon", "S", "g-mon-t3"], "@": ["player", "@", "g-player"] };
+
+const frame = document.getElementById("frame");
+const grid = document.getElementById("grid");
+const light = document.getElementById("light");
+
+function buildGrid() {
+  const cs = Math.floor(frame.clientWidth / W);
+  grid.innerHTML = "";
+  grid.style.gridTemplateColumns = `repeat(${W}, ${cs}px)`;
+  grid.style.fontSize = Math.round(cs * 0.62) + "px";
+  const dist = (x, y) => Math.hypot(x - P.x, y - P.y);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const t = TYPE[ROWS[y][x]];
+    const c = document.createElement("div");
+    c.className = "cell" + (t && t[0] === "wall" ? " wall" : "");
+    c.style.height = cs + "px";
+    if (t) {
+      const s = document.createElement("span");
+      s.className = t[2]; s.textContent = t[1];
+      c.appendChild(s);
+      c.style.filter = `brightness(${Math.max(0.22, 1 - dist(x, y) / 13.5).toFixed(2)})`;
+    }
+    grid.appendChild(c);
+  }
+  requestAnimationFrame(() => {
+    const mw = grid.parentElement;
+    const px = (grid.offsetLeft + (P.x + 0.5) * cs) / mw.clientWidth * 100;
+    const py = (grid.offsetTop + (P.y + 0.5) * cs) / mw.clientHeight * 100;
+    light.style.setProperty("--px", px.toFixed(1) + "%");
+    light.style.setProperty("--py", py.toFixed(1) + "%");
+  });
+}
+
+// ---- タブ・トグル状態 ----
+const CAPTION_V1 =
+  "<b>ブラッシュアップ版（本実装 v0.96.0 の姿）</b>──ステータス＝Wizardry流のラベル/値整列（値は右寄せ・数字は桁揃え）、" +
+  "深蝕ゲージに<b>牙の閾（1.5）の朱目盛</b>、バフはチップ化し<b>タップで残り手数と効果を表示</b>（潜行タブで試せます）、" +
+  "カードに ★装備中／？未鑑定／〔薙〕発動効果の記号、シートの✕をヘッダ帯へ統合、設定は4グループ見出し。";
+const CAPTION_V0 =
+  "<b>前回モック①（比較用）</b>──PR #282 でお見せした状態。ステータスはプレーンテキスト、バフは文字だけ、牙目盛なし、カード記号なし、✕はヘッダ帯の外。";
+const capEl = document.getElementById("caption");
+const titleTools = document.getElementById("titleTools");
+let ver = 1, scr = "play", gate = false;
+
+function apply() {
+  frame.className = (ver === 0 ? "v0 " : "") + `s-${scr}` + (gate && scr === "title" ? " gate" : "");
+  capEl.innerHTML = ver === 1 ? CAPTION_V1 : CAPTION_V0;
+  for (const b of document.querySelectorAll("#verNav button")) b.classList.toggle("active", +b.dataset.v === ver);
+  for (const b of document.querySelectorAll("#scrNav button")) b.classList.toggle("active", b.dataset.s === scr);
+  titleTools.hidden = scr !== "title";
+}
+for (const b of document.querySelectorAll("#verNav button")) b.onclick = () => { ver = +b.dataset.v; apply(); };
+for (const b of document.querySelectorAll("#scrNav button")) b.onclick = () => { scr = b.dataset.s; apply(); if (scr === "play") buildGrid(); };
+document.getElementById("gateToggle").onclick = () => { gate = !gate; apply(); };
+
+// ---- バフ説明ポップ（ブラッシュアップ版のみ） ----
+const buffPop = document.getElementById("buffPop");
+document.getElementById("buffLine").onclick = () => { if (ver === 1) buffPop.classList.add("show"); };
+document.getElementById("buffClose").onclick = (e) => { e.stopPropagation(); buffPop.classList.remove("show"); };
+buffPop.onclick = (e) => { if (e.target === buffPop) buffPop.classList.remove("show"); };
+
+apply();
+buildGrid();
+addEventListener("resize", buildGrid);
+</script>
+</body>
+</html>
