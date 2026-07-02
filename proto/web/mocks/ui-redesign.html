@@ -1,0 +1,717 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0d10" />
+<title>UIビジュアル刷新モック — 深蝕（4方向×6画面）</title>
+<style>
+/* ============================================================
+   横断F・UI全体刷新モック（2026-07-02）
+   ・同一DOMを4テーマ（.d0 現行／.d1 静謐な写本／.d2 地層と琥珀／.d3 冷たい碑文）で着せ替え
+   ・盤面（方向A＝発光グリフ）と HP/深蝕/金/敵tier/学派色の正典色は全テーマ共通・不変
+   ・テーマ差は CSS 変数の上書き＋方向固有の装飾のみ＝本実装では index.html の :root 差替に転写
+   ・装飾は gradient/border/shadow/text-shadow のみ（画像アセット0・SwiftUI modifier で再現可能）
+   ============================================================ */
+:root { color-scheme: dark; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  background: #0b0d10; color: #cfd6dd; min-height: 100dvh;
+  font-family: "Hiragino Sans", system-ui, sans-serif;
+  display: flex; flex-direction: column; align-items: center;
+  padding: env(safe-area-inset-top) 0 calc(24px + env(safe-area-inset-bottom));
+}
+header { padding: 14px 16px 6px; text-align: center; }
+header h1 { font-size: 15px; letter-spacing: .18em; color: #9aa4b0; font-weight: 600; }
+header p { font-size: 11px; color: #5b6470; margin-top: 4px; }
+
+nav { display: flex; gap: 6px; padding: 8px 12px 0; width: 100%; max-width: 560px; }
+nav button {
+  flex: 1; font-family: inherit; font-size: 12px; line-height: 1.3;
+  color: #8b94a0; background: #14181e; border: 1px solid #232a33; border-radius: 10px;
+  padding: 9px 2px;
+}
+nav button.active { color: #e8e2d4; background: #1d242e; border-color: #3a4554; }
+nav.scrnav button { font-size: 11.5px; padding: 7px 2px; border-radius: 8px; }
+
+.caption { max-width: 560px; padding: 8px 16px 10px; font-size: 12px; line-height: 1.7; color: #8b94a0; }
+.caption b { color: #cfd6dd; }
+.footnote { max-width: 560px; padding: 12px 16px 0; font-size: 11px; line-height: 1.7; color: #5b6470; }
+
+.toolbar { display: flex; gap: 8px; padding: 10px 12px 0; max-width: 560px; width: 100%; }
+.toolbar button {
+  flex: 1; font-family: inherit; font-size: 12px; color: #8b94a0;
+  background: #14181e; border: 1px solid #232a33; border-radius: 10px; padding: 10px;
+}
+.toolbar[hidden] { display: none; }
+
+/* ============================================================
+   フレーム（スマホ縦持ち）と画面切替
+   ============================================================ */
+#frame {
+  width: min(96vw, 430px); height: min(84vh, 800px);
+  border: 1px solid #232a33; border-radius: 14px; overflow: hidden;
+  background: var(--bg-app); box-shadow: 0 8px 40px rgba(0,0,0,.5);
+  display: flex; flex-direction: column;
+  --font-ui: "Hiragino Sans", system-ui, sans-serif;
+  --font-body: "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --font-mono: "Menlo", "Consolas", monospace;
+}
+.scr { display: none; flex: 1; min-height: 0; flex-direction: column; }
+#frame.s-play  #scr-play  { display: flex; }
+#frame.s-scene #scr-scene { display: flex; }
+#frame.s-cards #scr-cards { display: flex; }
+#frame.s-status #scr-status { display: flex; }
+#frame.s-settings #scr-settings { display: flex; }
+#frame.s-title #scr-title { display: flex; }
+
+/* ============================================================
+   テーマ変数（既定＝.d0 現行アプリの :root と同値）
+   ============================================================ */
+#frame {
+  --bg-app:#0c0f14; --bg-panel:#10141a; --bg-sheet:#14181f;
+  --bg-btn:#1c232d; --bg-btn-active:#28303d;
+  --line:#1c222b; --line-2:#2e3946; --line-3:#2c3440;
+  --tx:#cfd6dd; --tx-strong:#e8e2d4; --tx-2:#d8dee6; --tx-dim:#9aa4b0;
+  --tx-meta:#7d8794; --tx-faint:#5b6673; --tx-status:#aab4c0;
+  --tx-log:#d6cfc0; --tx-log-dim:#aab3bd;
+  /* 正典色（全テーマ不変） */
+  --c-hp:#e06c5a; --c-exp:#9d8fd8; --c-gold:#d9b34a; --c-buff:#8fd0c0; --c-warn:#d98c7a;
+  --c-atk:#e0756a; --c-ctl:#6fa8d8; --c-mov:#6fc7c0; --c-sup:#7fcf97; --c-lore:#c4abe6; --c-sum:#e0c46a;
+  /* テーマ形状 */
+  --acc:#d9b34a; --r-btn:10px; --r-card:12px; --r-chip:7px;
+  --gauge-h:6px; --gauge-r:4px;
+  --hp-glow:0 0 8px rgba(224,108,90,.5); --ex-glow:0 0 8px rgba(157,143,216,.5);
+}
+/* --- ① 静謐な写本（墨と朱） --- */
+#frame.d1 {
+  --bg-app:#0e0c09; --bg-panel:#14110c; --bg-sheet:#17130e;
+  --bg-btn:#1d1812; --bg-btn-active:#2a2318;
+  --line:#372f23; --line-2:#4a3f2e; --line-3:#4a3f2e;
+  --tx:#d8d0c0; --tx-strong:#efe6d3; --tx-2:#ddd3c2; --tx-dim:#a1957f;
+  --tx-meta:#857a66; --tx-faint:#6b6250; --tx-status:#b0a48c;
+  --tx-log:#d8cfba; --tx-log-dim:#a99d85;
+  --acc:#c2452f; --r-btn:3px; --r-card:3px; --r-chip:2px;
+  --gauge-h:5px; --gauge-r:0px; --hp-glow:none; --ex-glow:none;
+}
+/* --- ② 地層と琥珀 --- */
+#frame.d2 {
+  --bg-app:#0f0b08; --bg-panel:#161009; --bg-sheet:#1a1410;
+  --bg-btn:#201810; --bg-btn-active:#2e2214;
+  --line:#3d2e1d; --line-2:#54402a; --line-3:#54402a;
+  --tx:#ead9bd; --tx-strong:#f4e7cc; --tx-2:#e6d6ba; --tx-dim:#a8977c;
+  --tx-meta:#8d7d63; --tx-faint:#6e6049; --tx-status:#c0ac8b;
+  --tx-log:#e2d2b3; --tx-log-dim:#ab9a7e;
+  --acc:#e8a84c; --r-btn:14px; --r-card:16px; --r-chip:9px;
+  --gauge-h:8px; --gauge-r:999px;
+  --hp-glow:0 0 12px rgba(224,108,90,.7); --ex-glow:0 0 12px rgba(157,143,216,.7);
+}
+/* --- ③ 冷たい碑文（石と燐光） --- */
+#frame.d3 {
+  --bg-app:#0a0d11; --bg-panel:#0f1318; --bg-sheet:#12161c;
+  --bg-btn:#161b22; --bg-btn-active:#222a34;
+  --line:#242c36; --line-2:#39434f; --line-3:#39434f;
+  --tx:#d3dae2; --tx-strong:#edf2f0; --tx-2:#dbe1e8; --tx-dim:#8794a2;
+  --tx-meta:#71808f; --tx-faint:#596673; --tx-status:#a8b4c0;
+  --tx-log:#d5d8ce; --tx-log-dim:#98a1a8;
+  --acc:#99d6c9; --r-btn:2px; --r-card:2px; --r-chip:2px;
+  --gauge-h:7px; --gauge-r:1px;
+  --hp-glow:0 0 6px rgba(224,108,90,.35); --ex-glow:0 0 6px rgba(157,143,216,.35);
+}
+
+/* ============================================================
+   HUD（上部ステータスバー）
+   ============================================================ */
+.hud {
+  flex: none; padding: 7px 10px 8px; font-size: 12px; color: var(--tx-status);
+  border-bottom: 1px solid var(--line); background: var(--bg-panel);
+  font-family: var(--font-ui);
+}
+.hudTop { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.hudName { color: var(--tx-strong); font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+.hudTop .lv, .hudTop .dep { color: var(--tx-dim); }
+.hudTop .lv b, .hudTop .dep b { color: var(--tx-strong); font-variant-numeric: tabular-nums; }
+.hudTop .sp { flex: 1; }
+.hudGold { color: var(--c-gold); font-variant-numeric: tabular-nums; }
+.hudVer { color: var(--tx-faint); font-size: 10px; font-weight: 600; letter-spacing: .03em; }
+.bars { display: flex; gap: 10px; margin-top: 6px; }
+.gauge { flex: 1; min-width: 0; }
+.gauge .lab { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px; font-variant-numeric: tabular-nums; }
+.gauge .track { position: relative; height: var(--gauge-h); border-radius: var(--gauge-r); background: #0a0d12; overflow: hidden; box-shadow: 0 0 0 1px var(--line) inset; }
+.gauge .fill { height: 100%; border-radius: inherit; }
+.gauge.hp .lab { color: var(--c-hp); }
+.gauge.hp .fill { background: linear-gradient(90deg, #b8453a, var(--c-hp)); box-shadow: var(--hp-glow); }
+.gauge.ex .lab { color: var(--c-exp); }
+.gauge.ex .fill { background: linear-gradient(90deg, #6a5bb0, var(--c-exp)); box-shadow: var(--ex-glow); }
+.buffs { color: var(--c-buff); font-size: 11px; margin-top: 5px; }
+.buffs .bf { display: inline-block; margin-right: 8px; }
+/* HUD 可読性改善（①②③共通）＝名前を主に、ピル化したバフ */
+.d1 .hudName, .d2 .hudName, .d3 .hudName { font-size: 13.5px; }
+.d1 .bf { border: 1px solid rgba(143,208,192,.4); border-radius: 2px; padding: 1px 7px; }
+.d2 .bf { background: rgba(143,208,192,.08); border: 1px solid rgba(143,208,192,.35); border-radius: 999px; padding: 2px 8px; }
+.d3 .bf { border: 1px solid rgba(153,214,201,.35); border-radius: 2px; padding: 1px 7px; }
+/* ①写本＝ゲージは静かな墨線（グラデも消してフラットに） */
+.d1 .gauge.hp .fill { background: var(--c-hp); }
+.d1 .gauge.ex .fill { background: var(--c-exp); }
+.d1 .gauge .track { background: #0b0906; box-shadow: 0 0 0 1px var(--line) inset; }
+/* ②琥珀＝樹脂の溝（深い inset） */
+.d2 .gauge .track { background: #120c07; box-shadow: 0 0 0 1px var(--line) inset, inset 0 2px 3px rgba(0,0,0,.7); }
+/* ③碑文＝彫られた溝＋25%目盛 */
+.d3 .gauge .track { background: #070a0d; box-shadow: inset 0 1px 2px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.05); }
+.d3 .gauge .track::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), rgba(0,0,0,.6) calc(25% - 1px) 25%); }
+
+/* ============================================================
+   盤面（方向A＝発光グリフ・全テーマ共通・不変）
+   ============================================================ */
+.mapwrap { flex: 1; min-height: 0; position: relative; overflow: hidden; background: #07090c;
+  display: flex; align-items: center; justify-content: center; }
+.grid { display: grid; flex: none; }
+.cell { display: flex; align-items: center; justify-content: center; background: #07090c;
+  font-family: var(--font-mono); font-weight: 700; }
+.cell.wall { background: #11151c; }
+.g-wall   { color: #39434f; }
+.g-floor  { color: #2c333d; }
+.g-door   { color: #b8863b; text-shadow: 0 0 8px rgba(184,134,59,.55); }
+.g-down   { color: #6fb3c8; text-shadow: 0 0 9px rgba(111,179,200,.6); }
+.g-player { color: #ffd87a; text-shadow: 0 0 12px rgba(255,216,122,.9), 0 0 26px rgba(255,160,60,.45); }
+.g-mon-t1 { color: #c4ccd4; text-shadow: 0 0 6px rgba(196,204,212,.5); }
+.g-mon-t3 { color: #e58a45; text-shadow: 0 0 9px rgba(229,138,69,.65); }
+.g-fossil { color: #9fd8cf; text-shadow: 0 0 10px rgba(159,216,207,.75); animation: pulse 2.6s ease-in-out infinite; }
+.g-chest  { color: #e8c06a; text-shadow: 0 0 9px rgba(232,192,106,.7); }
+@keyframes pulse { 50% { text-shadow: 0 0 16px rgba(159,216,207,1), 0 0 30px rgba(159,216,207,.4); } }
+.light { position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at var(--px,50%) var(--py,50%),
+    rgba(255,190,110,.15), rgba(255,190,110,.05) 30%, rgba(0,0,0,.5) 78%); }
+
+/* ============================================================
+   ログ
+   ============================================================ */
+.log {
+  flex: none; padding: 9px 14px; font-size: 14px; line-height: 1.8; height: 108px; overflow: hidden;
+  border-top: 1px solid var(--line); background: var(--bg-panel);
+  font-family: var(--font-body); color: var(--tx-log);
+}
+.log .dim  { color: var(--tx-log-dim); font-size: .9em; }
+.log .warn { color: var(--c-warn); }
+.log .cue  { color: var(--c-buff); }
+
+/* ============================================================
+   D-pad ＋ 下部タブバー
+   ============================================================ */
+.deck { flex: none; display: flex; align-items: flex-end; justify-content: flex-end;
+  padding: 8px 14px; background: var(--bg-app); }
+.dpad { display: grid; grid-template-columns: repeat(3,44px); grid-template-rows: repeat(3,40px); gap: 6px; }
+.dpad button {
+  font-size: 17px; color: #cdd6e0; background: rgba(22,27,34,.95);
+  border: 1px solid var(--line-2); border-radius: 10px; line-height: 1;
+  display: flex; align-items: center; justify-content: center; padding: 0; font-family: var(--font-ui);
+}
+.dpad button.center { color: #8b94a0; font-size: 12px; }
+.d1 .dpad button { background: rgba(29,24,18,.95); border-radius: 3px; color: #d8d0c0; }
+.d2 .dpad button { background: linear-gradient(180deg, rgba(36,27,18,.95), rgba(28,21,14,.95)); border-radius: 12px; color: #e6d6ba;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
+.d3 .dpad button { background: #141a20; border-radius: 2px; border-color: #0a0e12; color: #d3dae2;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), inset 0 -2px 3px rgba(0,0,0,.5); }
+
+.tabbar { flex: none; display: flex; align-items: stretch;
+  background: var(--bg-app); border-top: 1px solid var(--line); padding: 2px 0 8px; }
+.tabbar .tab { flex: 1 1 0; min-width: 0; height: 48px; display: flex; align-items: center; justify-content: center;
+  background: none; border: none; color: var(--tx-dim); }
+.tabbar .tab svg { width: 27px; height: 27px; filter: drop-shadow(0 0 4px currentColor); opacity: .92; }
+.tabbar .t-spell { color: var(--c-lore); }
+.tabbar .t-map { color: #8fb7d8; }
+.d1 .tabbar { border-top: 2px solid var(--line); background: var(--bg-panel); }
+.d1 .tabbar .t-spell { color: #b9a8d8; }
+.d2 .tabbar { background: linear-gradient(180deg, #14100a, #100c07); border-top: 1px solid rgba(232,168,76,.3); }
+.d2 .tabbar .tab svg { filter: drop-shadow(0 0 6px currentColor); }
+.d3 .tabbar { border-top: 1px solid #070a0d; box-shadow: 0 1px 0 rgba(255,255,255,.05) inset; }
+
+/* ============================================================
+   シート（オーバーレイ）＝全対話の基本単位
+   ============================================================ */
+.sheetscr { position: relative; }
+.ghost { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.ghostHud { height: 58px; background: var(--bg-panel); border-bottom: 1px solid var(--line); }
+.ghostMap { flex: 1; background: #07090c; }
+.ghostLog { height: 96px; background: var(--bg-panel); border-top: 1px solid var(--line); }
+.ovl { position: absolute; inset: 0; display: flex; align-items: flex-end;
+  background: rgba(5,6,8,.62); backdrop-filter: blur(1.5px); }
+.sheet {
+  position: relative; width: 100%; max-height: 94%; overflow-y: auto;
+  background: var(--bg-sheet); border-top: 1px solid var(--line-3);
+  padding: 16px 16px 14px; font-family: var(--font-body);
+}
+/* --- 三層構造：ヘッダ帯（①②③のみ）／本文／旧メタ（現行のみ） --- */
+.sh-head { margin: -16px -16px 12px; padding: 11px 16px 10px; border-bottom: 1px solid var(--line);
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.sh-title { font-size: 15px; font-weight: 700; color: var(--tx-strong); }
+.sh-sub { font-size: 10.5px; color: var(--tx-meta); font-family: var(--font-ui); text-align: right; }
+.d0 .sh-head { display: none; }
+.sh-metaOld { display: none; font-size: 11px; color: var(--tx-meta); margin-top: 8px; font-family: var(--font-ui); }
+.d0 .sh-metaOld { display: block; }
+.sh-body { font-size: 14.5px; line-height: 1.95; color: var(--tx-strong); white-space: pre-wrap; }
+.sh-lead { font-size: 12px; line-height: 1.8; color: var(--tx-dim); margin-top: 8px; white-space: pre-wrap; }
+
+/* --- ボタン列（4階級＝primary/通常/cancel/danger・①②③のみ差別化） --- */
+.sh-btns { margin-top: 12px; }
+.sh-btns button {
+  display: block; width: 100%; text-align: left; font-family: inherit; font-size: 14.5px;
+  color: var(--tx-2); background: var(--bg-btn); border: 1px solid var(--line-2); border-radius: var(--r-btn);
+  padding: 12px 14px; margin-top: 8px; line-height: 1.5;
+}
+.d1 .sh-btns button, .d2 .sh-btns button, .d3 .sh-btns button { min-height: 48px; }
+.grp { margin-top: 14px; }
+.d0 .grp { margin-top: 0; }
+.grp > button:first-child { margin-top: 8px; }
+
+/* ①写本＝塗りなし罫のみ・朱の primary・角を立てる */
+.d1 .sheet { border-top: 3px double var(--line-2); }
+.d1 .sheet::before, .d1 .sheet::after { content: ""; position: absolute; top: 7px; width: 13px; height: 13px; pointer-events: none; }
+.d1 .sheet::before { left: 7px; border-left: 1px solid rgba(201,167,90,.45); border-top: 1px solid rgba(201,167,90,.45); }
+.d1 .sheet::after { right: 7px; border-right: 1px solid rgba(201,167,90,.45); border-top: 1px solid rgba(201,167,90,.45); }
+.d1 .sh-title { border-left: 3px solid var(--acc); padding-left: 9px; letter-spacing: .04em; }
+.d1 .sh-btns button { background: transparent; }
+.d1 .sh-btns .b-primary { border-color: var(--acc); color: #f0d9c8; box-shadow: 0 0 10px rgba(194,69,47,.22); }
+.d1 .sh-btns .b-cancel { border: none; background: none; text-align: center; color: var(--tx-dim); margin-top: 14px; }
+.d1 .sh-btns .b-danger { border-color: #7a3a2c; color: var(--c-warn); }
+
+/* ②琥珀＝浮かぶ層・琥珀塗りの primary・地層帯ヘッダ */
+.d2 .sheet { border-radius: 16px 16px 0 0; border-top: 1px solid rgba(232,168,76,.4);
+  box-shadow: 0 -6px 30px rgba(0,0,0,.55); }
+.d2 .sh-head { background: repeating-linear-gradient(180deg, #241b12 0 3px, #1d1610 3px 7px);
+  border-bottom: 1px solid rgba(232,168,76,.35); border-radius: 16px 16px 0 0; padding-top: 12px; }
+.d2 .sh-btns button { background: linear-gradient(180deg, #241b12, #1c150e); border-color: rgba(232,168,76,.28);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
+.d2 .sh-btns .b-primary { background: linear-gradient(180deg, #f0b95c, #c98a34); color: #201405; font-weight: 700;
+  border-color: #f0b95c; box-shadow: 0 0 14px rgba(232,168,76,.3); }
+.d2 .sh-btns .b-cancel { background: none; border-color: transparent; box-shadow: none; text-align: center; color: var(--tx-dim); margin-top: 14px; }
+.d2 .sh-btns .b-danger { color: #e08a6a; border-color: rgba(217,140,122,.4); }
+
+/* ③碑文＝石板・刻印ラベル・燐光の primary */
+.d3 .sheet { border-top: 1px solid var(--line-2); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
+.d3 .sh-head { border-bottom: 1px solid #070a0d; box-shadow: 0 1px 0 rgba(255,255,255,.05); }
+.d3 .sh-title { font-family: var(--font-ui); font-size: 12.5px; letter-spacing: .22em; color: var(--tx-dim);
+  text-shadow: 0 -1px 0 rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.06); }
+.d3 .sh-btns button { font-family: var(--font-ui); letter-spacing: .04em; font-size: 14px;
+  background: var(--bg-btn); border-color: #0a0e12;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), inset 0 -2px 3px rgba(0,0,0,.5); }
+.d3 .sh-btns .b-primary { border: 1px solid #2f6b5f; color: #b8f0e2;
+  box-shadow: 0 0 12px rgba(153,214,201,.15), inset 0 1px 0 rgba(255,255,255,.05); }
+.d3 .sh-btns .b-cancel { background: none; border-color: transparent; box-shadow: none; text-align: center; color: var(--tx-dim); margin-top: 14px; }
+.d3 .sh-btns .b-danger { color: var(--c-warn); border-color: #5a2f2a; }
+
+/* --- 設定のグループ見出し（①②③のみ。現行はフラット列） --- */
+.sg { margin: 16px 0 2px; font-family: var(--font-ui); font-size: 11px; color: var(--tx-meta); letter-spacing: .12em; }
+.d0 .sg { display: none; }
+.d1 .sg { font-family: var(--font-body); font-size: 12px; color: var(--tx-dim);
+  border-left: 3px solid var(--acc); padding-left: 8px; letter-spacing: .08em; }
+.d2 .sg { color: var(--acc); opacity: .85; }
+.d3 .sg { letter-spacing: .24em; text-shadow: 0 -1px 0 rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.06); }
+.verline { display: none; font-size: 11px; color: var(--tx-meta); margin-top: 10px; font-family: var(--font-ui); }
+.d0 .verline { display: block; }
+
+/* ============================================================
+   カード（chooseGrid）
+   ============================================================ */
+.cards { display: grid; grid-template-columns: 1fr; gap: 9px; margin-top: 12px; }
+.cards.two { grid-template-columns: 1fr 1fr; }
+.card {
+  text-align: left; background: var(--bg-btn); border: 1px solid var(--line-2); border-radius: var(--r-card);
+  padding: 11px 12px 12px; min-height: 62px; font-family: var(--font-ui); color: var(--tx-2);
+}
+.chip { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 7px;
+  border-radius: var(--r-chip); margin-bottom: 5px; border: 1px solid currentColor; }
+.nm { font-size: 14.5px; color: var(--tx-strong); font-weight: 700; line-height: 1.2; }
+.sub { font-size: 11.5px; color: var(--tx-dim); margin-top: 4px; line-height: 1.45; }
+.cost { color: #b79be0; }
+.c-atk{color:var(--c-atk);} .c-ctl{color:var(--c-ctl);} .c-mov{color:var(--c-mov);}
+.c-sup{color:var(--c-sup);} .c-lore{color:var(--c-lore);} .c-sum{color:var(--c-sum);}
+.d1 .card { background: transparent; }
+.d2 .card { background: linear-gradient(180deg, #221a10, #1a130c); border-color: rgba(232,168,76,.22);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04); }
+.d3 .card { background: var(--bg-btn); border-color: #0a0e12;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), inset 0 -2px 3px rgba(0,0,0,.5); }
+
+/* ============================================================
+   タイトル画面
+   ============================================================ */
+.titlewrap { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center;
+  padding: 0 26px 24px; background: var(--bg-app); overflow: hidden; font-family: var(--font-body); }
+.vignette { position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(120% 80% at 50% 30%, rgba(255,190,110,.10), rgba(255,170,80,.03) 34%, rgba(0,0,0,.62) 82%); }
+.embers { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.embers span { position: absolute; font-family: var(--font-mono); font-weight: 700; color: #ffcf7a; }
+.crest { margin-top: 15%; text-align: center; z-index: 2; }
+.tname { font-size: 46px; font-weight: 700; letter-spacing: .14em; line-height: 1.2;
+  color: #ffe6ad; text-shadow: 0 0 18px rgba(255,216,122,.55), 0 0 44px rgba(255,160,60,.30); }
+.entitle { margin-top: 12px; font-size: 14px; font-style: italic; letter-spacing: .12em; color: var(--tx-dim); z-index: 2; }
+.tagline { margin-top: 20px; font-size: 12.5px; line-height: 1.95; color: var(--tx-dim); letter-spacing: .04em; z-index: 2; text-align: center; }
+.t-seal { display: none; width: 30px; height: 30px; background: var(--acc); color: #f6e8dc;
+  align-items: center; justify-content: center; font-size: 16px; font-weight: 700; border-radius: 2px;
+  margin: 16px auto 0; box-shadow: 0 0 12px rgba(194,69,47,.35); z-index: 2; }
+.t-strata { display: none; position: absolute; left: 0; right: 0; bottom: 0; height: 40%; pointer-events: none;
+  background:
+    linear-gradient(180deg, transparent, rgba(61,46,29,.22) 30%, rgba(61,46,29,.42) 55%, rgba(18,12,7,.9)),
+    repeating-linear-gradient(180deg, transparent 0 24px, rgba(232,168,76,.05) 24px 26px); }
+.t-dust { display: none; position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.t-dust span { position: absolute; font-family: var(--font-mono); color: #9fb2c0; animation: pulse 3.4s ease-in-out infinite; }
+.tmenu { margin-top: auto; width: 100%; max-width: 300px; z-index: 2; }
+.tmenu button { display: block; width: 100%; text-align: center; font-family: var(--font-body);
+  font-size: 15px; color: var(--tx-strong); background: rgba(28,35,45,.66); border: 1px solid var(--line-2);
+  border-radius: 12px; padding: 14px; margin-top: 9px; letter-spacing: .08em; backdrop-filter: blur(2px); }
+.tmenu button.b-primary { color: #1a1206; font-weight: 700;
+  background: linear-gradient(180deg, #ffdc8a, #e8b24a); border-color: #ffcf6a; box-shadow: 0 0 16px rgba(255,200,90,.35); }
+.tsub { font-size: 11px; color: var(--tx-dim); text-align: center; margin-top: 8px; min-height: 14px; z-index: 2; }
+.tver { margin-top: 12px; text-align: center; font-size: 10px; color: var(--tx-faint);
+  font-family: var(--font-ui); letter-spacing: .05em; z-index: 2; }
+.gatePrompt { display: none; margin-top: auto; margin-bottom: 64px; z-index: 2;
+  font-size: 13px; letter-spacing: .16em; color: var(--tx-dim); animation: gate 2.6s ease-in-out infinite; }
+@keyframes gate { 50% { opacity: .45; } }
+#frame.gate .tmenu, #frame.gate .tsub { display: none; }
+#frame.gate .gatePrompt { display: block; }
+
+/* ①写本＝墨黒・最小限の光・朱の落款 */
+.d1 .embers { display: none; }
+.d1 .vignette { background: radial-gradient(120% 80% at 50% 28%, rgba(255,240,210,.05), rgba(0,0,0,.55) 80%); }
+.d1 .tname { color: #efe6d3; letter-spacing: .2em; text-shadow: 0 0 10px rgba(239,230,211,.14); }
+.d1 .t-seal { display: flex; }
+.d1 .tmenu button { background: transparent; border-radius: 3px; backdrop-filter: none; }
+.d1 .tmenu button.b-primary { background: linear-gradient(180deg, #c2452f, #9c3423); border-color: #d9573c;
+  color: #f6e8dc; box-shadow: 0 0 14px rgba(194,69,47,.3); }
+/* ②琥珀＝強い暖光＋地層のホライズン */
+.d2 .t-strata { display: block; }
+.d2 .tname { color: #ffd89a; text-shadow: 0 0 22px rgba(232,168,76,.6), 0 0 54px rgba(201,138,52,.35); }
+.d2 .embers span { color: #f0b95c; }
+.d2 .tmenu button { border-radius: 14px; background: rgba(36,27,18,.7); border-color: rgba(232,168,76,.3); }
+.d2 .tmenu button.b-primary { background: linear-gradient(180deg, #f0b95c, #c98a34); border-color: #f0b95c;
+  color: #201405; box-shadow: 0 0 18px rgba(232,168,76,.4); }
+/* ③碑文＝刻印題字・沈降する塵・リム照明 */
+.d3 .embers { display: none; }
+.d3 .t-dust { display: block; }
+.d3 .vignette { background: radial-gradient(120% 80% at 50% 30%, rgba(153,214,201,.05), rgba(0,0,0,.6) 82%); }
+.d3 .tname { color: #edf2f0; letter-spacing: .24em;
+  text-shadow: 0 -1px 0 rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.08), 0 0 18px rgba(153,214,201,.18); }
+.d3 .tmenu button { border-radius: 2px; background: #141a20; backdrop-filter: none; border-color: #0a0e12;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), inset 0 -2px 3px rgba(0,0,0,.5); font-family: var(--font-ui); }
+.d3 .tmenu button.b-primary { background: #10161a; border: 1px solid #2f6b5f; color: #b8f0e2;
+  box-shadow: 0 0 16px rgba(153,214,201,.22), inset 0 1px 0 rgba(255,255,255,.05); }
+</style>
+</head>
+<body>
+<header>
+  <h1>UIビジュアル刷新 — 全体パス（横断F）</h1>
+  <p>同一画面を4方向で着せ替え。上段＝方向／下段＝画面。盤面（発光グリフ）は全方向共通・不変</p>
+</header>
+
+<nav id="dirNav">
+  <button data-d="0" class="active">現行</button>
+  <button data-d="1">① 静謐な写本</button>
+  <button data-d="2">② 地層と琥珀</button>
+  <button data-d="3">③ 冷たい碑文</button>
+</nav>
+<nav class="scrnav" id="scrNav">
+  <button data-s="play" class="active">潜行</button>
+  <button data-s="scene">場面</button>
+  <button data-s="cards">カード</button>
+  <button data-s="status">ステータス</button>
+  <button data-s="settings">設定</button>
+  <button data-s="title">タイトル</button>
+</nav>
+
+<div class="caption" id="caption"></div>
+
+<div id="frame" class="d0 s-play">
+
+  <!-- ============ (a) 潜行 ============ -->
+  <section id="scr-play" class="scr">
+    <div class="hud">
+      <div class="hudTop">
+        <span class="hudName">アリア（第2世代）</span>
+        <span class="lv">Lv<b>7</b></span>
+        <span class="dep">深度 <b>12</b></span>
+        <span class="sp"></span>
+        <span class="hudGold">◇ 48</span>
+        <span class="hudVer">v0.95.0</span>
+      </div>
+      <div class="bars">
+        <div class="gauge hp"><div class="lab"><span>HP</span><span>23/31</span></div><div class="track"><div class="fill" style="width:74%"></div></div></div>
+        <div class="gauge ex"><div class="lab"><span>深蝕</span><span>38%</span></div><div class="track"><div class="fill" style="width:38%"></div></div></div>
+      </div>
+      <div class="buffs"><span class="bf">⟡硬鱗3</span><span class="bf">⟡疾走5</span></div>
+    </div>
+    <div class="mapwrap"><div class="grid" id="grid"></div><div class="light" id="light"></div></div>
+    <div class="log">
+      <div>亡骸に行き当たった。カイの化石だ。</div>
+      <div class="warn">深蝕が身の内で疼く。</div>
+      <div class="dim">石蛇が こちらの匂いを嗅いでいる。　[スワイプ/D-padで移動]</div>
+    </div>
+    <div class="deck">
+      <div class="dpad">
+        <button>↖</button><button>↑</button><button>↗</button>
+        <button>←</button><button class="center">待</button><button>→</button>
+        <button>↙</button><button>↓</button><button>↘</button>
+      </div>
+    </div>
+    <div class="tabbar">
+      <button class="tab t-spell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c0-1.5 1.2-2.6 2.7-2.4 1.9.3 2.8 2.2 2.2 4-.8 2.4-3.4 3.4-5.7 2.4-2.9-1.2-4-4.6-2.6-7.3 1.7-3.3 5.9-4.5 9.3-2.5"/></svg></button>
+      <button class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 8c0-2.2 1.5-3.8 3.5-3.8S15.5 5.8 15.5 8"/><path d="M6.6 8h10.8l1.1 7.6a3.8 3.8 0 0 1-3.8 4.3H9.3a3.8 3.8 0 0 1-3.8-4.3L6.6 8z"/><path d="M9.2 12.2h5.6"/></svg></button>
+      <button class="tab t-map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.2l6-2 6 2 6-2v13.6l-6 2-6-2-6 2V6.2z"/><path d="M9 4.2v13.6M15 6.2v13.6"/></svg></button>
+      <button class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.3"/><path d="M5.5 19.5c0-3.7 2.9-6.2 6.5-6.2s6.5 2.5 6.5 6.2"/></svg></button>
+      <button class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h6M15 7h4M5 12h2M11 12h8M5 17h9M18 17h1"/><circle cx="13" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="16" cy="17" r="2"/></svg></button>
+    </div>
+  </section>
+
+  <!-- ============ (b) 場面シート（化石遭遇・山場） ============ -->
+  <section id="scr-scene" class="scr sheetscr">
+    <div class="ghost"><div class="ghostHud"></div><div class="ghostMap"></div><div class="ghostLog"></div></div>
+    <div class="ovl"><div class="sheet">
+      <div class="sh-head"><div class="sh-title">カイの化石</div><div class="sh-sub">極=怨念 / 変質=風化 / 山場</div></div>
+      <div class="sh-body">――見捨てたあの者が、宿敵となって還った。
+亡骸は壁に向かって倒れていた。片刃の剣は最後まで手放されていない。爪痕が床に深く残る。
+カイは、安らかには逝かなかった。</div>
+      <div class="sh-metaOld">カイの化石 ── 極=怨念 / 変質=風化 / 山場</div>
+      <div class="sh-btns">
+        <div class="grp">
+          <button class="b-primary">向き合って詫びる</button>
+          <button>怨みを撥ねつける</button>
+        </div>
+        <div class="grp">
+          <button>調べる</button>
+          <button>周辺を捜索する</button>
+        </div>
+        <div class="grp">
+          <button>鎮魂する（末路を閉じ、変質の時計を巻き戻す）</button>
+        </div>
+        <button class="b-cancel">そっと立ち去る</button>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- ============ (c) カード（装備・荷物／術） ============ -->
+  <section id="scr-cards" class="scr sheetscr">
+    <div class="ghost"><div class="ghostHud"></div><div class="ghostMap"></div><div class="ghostLog"></div></div>
+    <div class="ovl"><div class="sheet">
+      <div class="sh-head"><div class="sh-title">装備・荷物</div><div class="sh-sub">荷物 9/16 枠</div></div>
+      <div class="sh-metaOld">装備・荷物 ── 荷物 9/16 枠</div>
+      <div class="sh-lead">装備枠＝着け替え／薬＝使う・捨てる（街）／武具＝装備・置く。</div>
+      <div class="cards">
+        <div class="card"><span class="chip c-atk">武器</span><div class="nm">切れ味の良い長剣+2</div><div class="sub">攻 +9　薙ぎ：命中時、隣接の敵へ余波（50%）</div></div>
+        <div class="card"><span class="chip c-ctl">防具</span><div class="nm">見知らぬ防具（未鑑定）</div><div class="sub">正体不明――装備中</div></div>
+        <div class="card"><span class="chip c-lore">遺物</span><div class="nm">棘の護符</div><div class="sub">被弾の近接反射 50%　深蝕 +0.015/手</div></div>
+        <div class="card"><span class="chip c-sup">鞄</span><div class="nm">革袋</div><div class="sub">荷物の枠 +6</div></div>
+        <div class="card"><span class="chip c-mov">薬・巻物</span><div class="nm">治癒の膏薬　×3</div><div class="sub">傷の半分を癒す。潜行中いつでも。</div></div>
+      </div>
+      <div class="sh-lead">術を放つ ── 構え 6/10（深蝕を代償に）</div>
+      <div class="cards two">
+        <div class="card"><span class="chip c-atk">攻</span><div class="nm">裂震</div><div class="sub">深蝕 <span class="cost">0.30</span>　前方の敵を強く打つ</div></div>
+        <div class="card"><span class="chip c-ctl">制</span><div class="nm">縛鎖</div><div class="sub">深蝕 <span class="cost">0.25</span>　敵を3手その場に縛る</div></div>
+        <div class="card"><span class="chip c-sup">援</span><div class="nm">小癒</div><div class="sub">深蝕 <span class="cost">0.20</span>　傷を少し癒す</div></div>
+        <div class="card"><span class="chip c-mov">移</span><div class="nm">帰還の詠唱</div><div class="sub">深蝕 <span class="cost">0.50</span>　3手の詠唱で街へ還る</div></div>
+      </div>
+      <div class="sh-btns"><button class="b-cancel">閉じる</button></div>
+    </div></div>
+  </section>
+
+  <!-- ============ (d) ステータス ============ -->
+  <section id="scr-status" class="scr sheetscr">
+    <div class="ghost"><div class="ghostHud"></div><div class="ghostMap"></div><div class="ghostLog"></div></div>
+    <div class="ovl"><div class="sheet">
+      <div class="sh-head"><div class="sh-title">ステータス</div><div class="sh-sub">第2世代・ふつう</div></div>
+      <div class="sh-body">《アリア》（第2世代）　Lv7　難易度：ふつう
+体 7　力 9　理 5　心 6
+最大HP 31　攻撃 9　次のLvまで 86
+深蝕 1.14
+
+【装備】
+　武器　切れ味の良い長剣+2
+　防具　見知らぬ防具（未鑑定）
+　遺物　棘の護符
+　鞄　　革袋
+
+【構え 6/10】裂震、縛鎖、小癒、疾走、灯明、帰還の詠唱
+【荷物 9/16】薬・巻物 5個／武具 3点　※中身は「装備・荷物を見る」
+【記憶】4件</div>
+      <div class="sh-metaOld">ステータス</div>
+      <div class="sh-btns">
+        <div class="grp">
+          <button>装備・持ち物を見る</button>
+          <button>術（構え・図鑑）</button>
+          <button>進行中（依頼・因縁・印）</button>
+        </div>
+        <div class="grp">
+          <button>人物と年代記</button>
+          <button>敵図鑑</button>
+          <button>記憶を見る（4）</button>
+        </div>
+        <button class="b-cancel">閉じる</button>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- ============ (e) 設定 ============ -->
+  <section id="scr-settings" class="scr sheetscr">
+    <div class="ghost"><div class="ghostHud"></div><div class="ghostMap"></div><div class="ghostLog"></div></div>
+    <div class="ovl"><div class="sheet">
+      <div class="sh-head"><div class="sh-title">設定</div><div class="sh-sub">v0.95.0（build 2026-07-01）</div></div>
+      <div class="sh-body">音・操作・表示を整える。困ったら「あそびかた」へ。</div>
+      <div class="verline">バージョン 0.95.0（build 2026-07-01）</div>
+      <div class="sh-metaOld">設定</div>
+      <div class="sh-btns">
+        <div class="sg">あそびかた</div>
+        <button>❓ あそびかた・記号の凡例</button>
+        <div class="sg">音</div>
+        <button>🔇 すべての音を消す</button>
+        <button>🎵 BGM：オン → オフ</button>
+        <button>🎵 BGM音量：中（小→中→大）</button>
+        <button>🔊 効果音音量：中（小→中→大）</button>
+        <div class="sg">操作・表示</div>
+        <button>🕹 方向パッド：オン → オフ</button>
+        <button>🕹 方向パッドの位置：右下（右下→左下→中央）</button>
+        <button>🕹 方向パッドの大きさ：中（大→中→小）</button>
+        <button>🕹 長押しで連続移動：オン → オフ</button>
+        <button>🔤 文字サイズ：中（小→中→大）</button>
+        <div class="sg">データ</div>
+        <button>💾 セーブを書き出す（バックアップ）</button>
+        <button>📂 セーブを読み込む（復元）</button>
+        <button>🔧 テスト</button>
+        <button class="b-danger">⟲ 世界を最初からやり直す</button>
+        <button class="b-cancel">閉じる</button>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- ============ (f) タイトル ============ -->
+  <section id="scr-title" class="scr">
+    <div class="titlewrap">
+      <div class="vignette"></div>
+      <div class="embers">
+        <span style="left:14%; top:18%; font-size:13px; opacity:.18;">＊</span>
+        <span style="left:78%; top:24%; font-size:11px; opacity:.14;">·</span>
+        <span style="left:30%; top:60%; font-size:12px; opacity:.12;">✦</span>
+        <span style="left:66%; top:72%; font-size:10px; opacity:.12;">·</span>
+        <span style="left:50%; top:86%; font-size:12px; opacity:.10;">＊</span>
+      </div>
+      <div class="t-dust">
+        <span style="left:22%; top:20%; font-size:10px; opacity:.16;">·</span>
+        <span style="left:70%; top:30%; font-size:9px; opacity:.14;">·</span>
+        <span style="left:40%; top:64%; font-size:10px; opacity:.12;">·</span>
+        <span style="left:82%; top:76%; font-size:9px; opacity:.10;">·</span>
+      </div>
+      <div class="t-strata"></div>
+      <div class="crest">
+        <div class="tname">深蝕</div>
+        <div class="entitle">The Corroding Deep</div>
+      </div>
+      <div class="tagline">あなたの死が、<br>世界の歴史になる。</div>
+      <div class="t-seal">蝕</div>
+      <div class="gatePrompt">画面に触れて、はじめる</div>
+      <div class="tmenu">
+        <button class="b-primary">つづきから（アリア・第2世代）</button>
+        <button>新しい物語</button>
+        <button>設定</button>
+      </div>
+      <div class="tsub">深度12で中断した潜行がある</div>
+      <div class="tver">v0.95.0</div>
+    </div>
+  </section>
+
+</div>
+
+<div class="toolbar" id="titleTools" hidden>
+  <button id="gateToggle">初回起動ゲート（画面に触れて…）の表示を切り替える</button>
+</div>
+
+<div class="footnote">
+  ※盤面のグリフ表現（方向A・発光グリフ）と HP/深蝕/金貨/敵tier/術学派の色は正典＝全方向で共通・不変。<br>
+  ※①②③には方向によらない共通のユーザビリティ改善を焼き込み済み＝シート見出しの昇格（上部ヘッダ帯）／ボタンの4階級
+  （進める・通常・閉じる・取り返しのつかない操作）と動詞グループの間隔／設定の4グループ見出し／ボタン高48px／バフのピル化。
+  「現行」タブとの差分で確認できます。<br>
+  ※採用方向が決まったら、本実装（index.html のトークン差替）と併せて prototype-spec.md §10（Swiftミラー正典）へ反映します。
+</div>
+
+<script>
+// ---- 盤面（方向A・全テーマ共通）：MAP は既存モックの縦持ち3部屋を拡張（敵2種・宝箱を追加） ----
+const ROWS = [
+  " #########   ",
+  " #..r....#   ",
+  " ####+####   ",
+  "    #.#      ",
+  " ####+#####  ",
+  " #....▭...#  ",
+  " #...@....#  ",
+  " #........#  ",
+  " ####+#####  ",
+  "    #.#      ",
+  "  ###+#####  ",
+  "  #..>..S.#  ",
+  "  #.†.....#  ",
+  "  #########  ",
+];
+const W = 13, H = ROWS.length;
+const P = { x: 5, y: 6 };
+const TYPE = { "#": ["wall", "▒", "g-wall"], ".": ["floor", "·", "g-floor"], "+": ["door", "+", "g-door"],
+  ">": ["stairs", "›", "g-down"], "†": ["fossil", "†", "g-fossil"], "▭": ["chest", "▭", "g-chest"],
+  "r": ["mon", "r", "g-mon-t1"], "S": ["mon", "S", "g-mon-t3"], "@": ["player", "@", "g-player"] };
+
+const frame = document.getElementById("frame");
+const grid = document.getElementById("grid");
+const light = document.getElementById("light");
+
+function buildGrid() {
+  const cs = Math.floor(frame.clientWidth / W);
+  grid.innerHTML = "";
+  grid.style.gridTemplateColumns = `repeat(${W}, ${cs}px)`;
+  grid.style.fontSize = Math.round(cs * 0.62) + "px";
+  const dist = (x, y) => Math.hypot(x - P.x, y - P.y);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const t = TYPE[ROWS[y][x]];
+    const c = document.createElement("div");
+    c.className = "cell" + (t && t[0] === "wall" ? " wall" : "");
+    c.style.height = cs + "px";
+    if (t) {
+      const s = document.createElement("span");
+      s.className = t[2]; s.textContent = t[1];
+      c.appendChild(s);
+      c.style.filter = `brightness(${Math.max(0.22, 1 - dist(x, y) / 13.5).toFixed(2)})`;
+    }
+    grid.appendChild(c);
+  }
+  // 松明の灯：プレイヤー位置（グリッドは中央寄せ＝mapwrap 座標に換算）
+  requestAnimationFrame(() => {
+    const mw = grid.parentElement;
+    const px = (grid.offsetLeft + (P.x + 0.5) * cs) / mw.clientWidth * 100;
+    const py = (grid.offsetTop + (P.y + 0.5) * cs) / mw.clientHeight * 100;
+    light.style.setProperty("--px", px.toFixed(1) + "%");
+    light.style.setProperty("--py", py.toFixed(1) + "%");
+  });
+}
+
+// ---- タブ状態 ----
+const CAPTIONS = {
+  0: "<b>現行（v0.95系）</b>──いまの本番UIをそのまま写した基準線。寒色のパネル、角丸10px、フラットなボタン列、メタ情報は本文の下。①②③との差分（見出し帯・ボタン階級・設定グループ）の比較元。",
+  1: "<b>① 静謐な写本（墨と朱）</b>──「あなたの死が、世界の歴史になる」＝年代記・写本のメタファー。暖かい墨紙の面に細い罫、角を立て、朱をひとさし（印・見出し罫・進める動詞）。ゲージも発光を捨てた静かな墨線。最も文学的で落ち着いた方向。",
+  2: "<b>② 地層と琥珀</b>──現行の「灯火」の正統進化。堆積層の縞と、琥珀に封じた化石の暖光。丸く（角丸14-16px）、層状に浮かび、発光を最も活かす。シート上端の地層帯・琥珀塗りの主ボタンが目印。ゲームらしい華やかさが最も強い方向。",
+  3: "<b>③ 冷たい碑文（石と燐光）</b>──死者の碑・拓本。石板に刻んだラベル（刻印の影）、彫られた溝のゲージ、燐光（青緑）の主ボタン。現行の寒色と最も地続き＝移行リスク最小。硬質で静か、ホラー寄りの冷たさ。",
+};
+const capEl = document.getElementById("caption");
+const titleTools = document.getElementById("titleTools");
+let dir = 0, scr = "play", gate = false;
+
+function apply() {
+  frame.className = `d${dir} s-${scr}` + (gate && scr === "title" ? " gate" : "");
+  capEl.innerHTML = CAPTIONS[dir];
+  for (const b of document.querySelectorAll("#dirNav button")) b.classList.toggle("active", +b.dataset.d === dir);
+  for (const b of document.querySelectorAll("#scrNav button")) b.classList.toggle("active", b.dataset.s === scr);
+  titleTools.hidden = scr !== "title";
+}
+for (const b of document.querySelectorAll("#dirNav button")) b.onclick = () => { dir = +b.dataset.d; apply(); };
+for (const b of document.querySelectorAll("#scrNav button")) b.onclick = () => { scr = b.dataset.s; apply(); if (scr === "play") buildGrid(); };
+document.getElementById("gateToggle").onclick = () => { gate = !gate; apply(); };
+
+apply();
+buildGrid();
+addEventListener("resize", buildGrid);
+</script>
+</body>
+</html>
