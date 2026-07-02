@@ -14,7 +14,10 @@ export interface QuestTemplate { title: string; desc: string; }
 export type QuestTemplates = Record<string, QuestTemplate[]>;
 // bounty 用の軽量モンスター記述子（dungeon.ts と疎結合＝web が MONSTER_KINDS から詰めて渡す）。
 export interface MonsterLite { key: string; name: string; tier: number; minDepth: number; maxDepth?: number; }
-export interface OfferOpts { source?: "guild" | "tavern"; templates?: QuestTemplates; monsters?: MonsterLite[]; }
+export interface OfferOpts {
+  source?: "guild" | "tavern"; templates?: QuestTemplates; monsters?: MonsterLite[];
+  escortClient?: { name: string }; // 護衛依頼の依頼人（web が mintActor で用意。相棒雇用中は渡さない）
+}
 
 const ITEM_LABELS: Record<string, string> = { weapon: "武具（武器）", armor: "武具（防具）", relic: "遺物", bag: "鞄" };
 
@@ -63,10 +66,11 @@ export function generateOffers(world: World, ch: Character, rng: Rng, limit: num
   const held = openQuests(world);
   const src = opts?.source ?? "guild";
   const tmpl = opts?.templates;
+  const informal = src === "tavern"; // 酒場の貼り紙＝人に接地した裏仕事のみ（到達/回収の公式調査はギルドの領分）
   // 到達：今のレベル(≈深度)より少し深い目標（4-4E スケール整合。街では ch.depth=0 になるため level 基準）。
   // すでにギルドの到達依頼を抱えていれば重ねて出さない（同じ/類似の到達依頼を二重受注できる不具合の修正）。
   const hasGuildDescend = held.some((q) => q.kind === "descend" && !q.patron);
-  if (!hasGuildDescend) {
+  if (!hasGuildDescend && !informal) {
     const dDepth = Math.max(3, ch.level) + 2 + rng.int(3); // +2..+4
     const t = fillQuest(pickTmpl(tmpl, "descend", rng),
       { title: `深度${dDepth}へ到達`, desc: `回収業ギルドの調査依頼。深度${dDepth}まで潜って戻れ。` }, { depth: dDepth });
@@ -80,7 +84,7 @@ export function generateOffers(world: World, ch: Character, rng: Rng, limit: num
   const allReclaim = world.fossils.filter((f) => !held.some((q) => q.targetFossilId === f.id));
   const nearLevel = allReclaim.filter((f) => f.laidDepth >= ch.level - 6);
   const reclaimable = nearLevel.length ? nearLevel : allReclaim;
-  if (reclaimable.length) {
+  if (reclaimable.length && !informal) {
     const f = rng.pick(reclaimable);
     const t = fillQuest(pickTmpl(tmpl, "reclaim", rng),
       { title: `${f.origin.name}の痕跡を回収`, desc: `深度${f.laidDepth}付近に眠る${f.origin.name}を見つけ出せ。` },
@@ -91,25 +95,26 @@ export function generateOffers(world: World, ch: Character, rng: Rng, limit: num
       rewardGold: f.laidDepth * 6 + 12, status: "active", issuedGeneration: world.generation,
     });
   }
-  // ── 新型（討伐/納品/救助）は opts 有り時のみ＝web 専用。CLI/決定論テストは上の2型で完全一致 ──
+  // ── 新型（討伐/納品/救助/護衛）は opts 有り時のみ＝web 専用。CLI/決定論テストは上の2型で完全一致 ──
   if (opts) {
+    const extra: Quest[] = [];
     // 討伐（bounty）：異なるモンスター種を最大2件。既に抱えている種は除く。
     const heldBounty = new Set(held.filter((q) => q.kind === "bounty").map((q) => q.targetKind));
     const monPool = (opts.monsters ?? []).filter((m) => !heldBounty.has(m.key));
-    for (let n = 0; n < 2 && monPool.length && offers.length < limit; n++) {
+    for (let n = 0; n < 2 && monPool.length; n++) {
       const m = monPool.splice(rng.int(monPool.length), 1)[0];
       const need = 3 + rng.int(Math.max(1, Math.min(4, m.tier))); // 3..6（tier 比例）
       const t = fillQuest(pickTmpl(tmpl, "bounty", rng),
         { title: `${m.name}を${need}体討て`, desc: `深みに巣食う${m.name}を${need}体、討ち減らしてほしい。` },
         { monster: m.name, count: need, depth: m.minDepth });
-      offers.push({
+      extra.push({
         id: qid(), kind: "bounty", source: src, targetKind: m.key, need, have: 0, targetDepth: m.minDepth,
         title: t.title, desc: t.desc,
         rewardGold: need * (m.tier * 3 + 4), status: "active", issuedGeneration: world.generation,
       });
     }
     // 納品（fetch）：指定スロットの武具/遺物を持ち帰る。1件まで。
-    if (offers.length < limit && !held.some((q) => q.kind === "fetch") && !offers.some((q) => q.kind === "fetch")) {
+    if (!held.some((q) => q.kind === "fetch")) {
       const slot = (["relic", "weapon", "armor"] as const)[rng.int(3)];
       const need = slot === "relic" ? 1 : 1 + rng.int(2); // 遺物1／武具1..2
       const label = ITEM_LABELS[slot];
@@ -117,25 +122,62 @@ export function generateOffers(world: World, ch: Character, rng: Rng, limit: num
       const t = fillQuest(pickTmpl(tmpl, "fetch", rng),
         { title: `${label}を納めよ`, desc: `深みで${label}を${need}点 見つけ、持ち帰って納品してくれ。` },
         { item: label, count: need, depth: Math.max(3, ch.level) });
-      offers.push({
+      extra.push({
         id: qid(), kind: "fetch", source: src, targetKind: slot, need,
         title: t.title, desc: t.desc,
         rewardGold: reward, status: "active", issuedGeneration: world.generation,
       });
     }
     // 救助（rescue）：手負いの探索者を救い生還。1件まで（対象なし＝どのダイブでも達成しうる）。
-    if (offers.length < limit && !held.some((q) => q.kind === "rescue") && !offers.some((q) => q.kind === "rescue")) {
+    if (!held.some((q) => q.kind === "rescue")) {
       const t = fillQuest(pickTmpl(tmpl, "rescue", rng),
         { title: `手負いを連れ帰れ`, desc: `深みで動けずにいる冒険者がいる。救い出し、生きて連れ帰ってくれ。` },
         { depth: Math.max(3, ch.level) });
-      offers.push({
+      extra.push({
         id: qid(), kind: "rescue", source: src,
         title: t.title, desc: t.desc,
         rewardGold: (ch.level + 6) * 8, status: "active", issuedGeneration: world.generation,
       });
     }
+    // 護衛（escort）：依頼人を指定深度まで生かして連れる。1件まで・相棒枠が空いている時だけ（web が escortClient を渡す）。
+    if (opts.escortClient && !held.some((q) => q.kind === "escort")) {
+      const eDepth = Math.max(4, ch.level - 2) + rng.int(3); // 護衛しながら＝到達依頼より少し浅め
+      const name = opts.escortClient.name;
+      const t = fillQuest(pickTmpl(tmpl, "escort", rng),
+        { title: `${name}を深度${eDepth}へ護れ`, desc: `${name}が深度${eDepth}へ用がある。無事に連れて行ってほしい。` },
+        { actor: name, depth: eDepth });
+      extra.push({
+        id: qid(), kind: "escort", source: src, targetKind: name, targetDepth: eDepth,
+        title: t.title, desc: t.desc,
+        rewardGold: eDepth * 14, status: "active", issuedGeneration: world.generation, // 護衛リスク相応＝descend(×9)より厚め
+      });
+    }
+    // 新型候補をシャッフルして残枠へ（毎回同じ顔ぶれ・同じ並びにならないように）。
+    for (let i = extra.length - 1; i > 0; i--) { const j = rng.int(i + 1); [extra[i], extra[j]] = [extra[j], extra[i]]; }
+    for (const q of extra) { if (offers.length >= limit) break; offers.push(q); }
   }
   return offers.slice(0, limit);
+}
+
+/** 護衛（escort）の到達判定（依頼人を連れて対象深度に入った時に web の enterFloor から呼ぶ）。 */
+export function onEscortArrive(world: World, questId: string, depth: number): string[] {
+  const logs: string[] = [];
+  for (const q of activeQuests(world)) {
+    if (q.kind !== "escort" || q.id !== questId) continue;
+    if (q.targetDepth !== undefined && depth >= q.targetDepth) {
+      q.status = "done";
+      logs.push(`依頼達成：「${q.title}」── ${q.source === "tavern" ? "酒場" : "ギルド"}で報酬を受け取れる。`);
+    }
+  }
+  return logs;
+}
+
+/** 護衛（escort）の失敗（依頼人の戦死/解散/見捨て）。依頼を取り下げ、失敗文を返す。 */
+export function failEscortQuest(world: World, questId: string): string[] {
+  const q = openQuests(world).find((x) => x.id === questId && x.kind === "escort");
+  if (!q) return [];
+  world.quests = openQuests(world).filter((x) => x.id !== questId);
+  return [`依頼失敗：「${q.title}」── 依頼人を送り届けられなかった。`];
 }
 
 /** 貴族街の統治者からの大命（奉献後・4-14G 高難度版）。奉献済みでのみ供給＝**かなり高難度**。
