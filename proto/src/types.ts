@@ -69,6 +69,7 @@ export interface Companion {
   grade: number;                // 金属等級（4-4E）0=アイアン..4=プラチナ。初期は設定ファイル由来・生還で⤴昇格（プラチナ頭打ち／ミスリルは死後）。
   feats: number;                // 共に遂げた偉業の数（ボス撃破/山場決着）。昇格は生還(bond)＋偉業(feats)の両ゲート＝滅多に上がらない。
   traits?: string[];            // 連帯深蝕で刻まれる「奇癖:…」（Phase B）。任意＝旧セーブ非破壊。
+  escortQuestId?: string;       // 護衛依頼（escort）の依頼人として同行中＝その quest id。到達で離脱・死/解散で依頼失敗。任意。
 }
 
 /** 奉献の試練の印（4-13A）。多様な源から1種ずつ。5種揃うと深淵帯が解錠。 */
@@ -149,6 +150,7 @@ export interface Character {
   // ↑ inventory と gearBag は同じ「荷物」＝合計が progression.packCapacity（2026-06-29 統合：消耗品と武具で枠を共有）。
   prayedAtShrineGen?: number;   // 慰霊堂「深蝕を清める祈り」を捧げた世代（1世代1回ガード）。任意＝旧セーブ非破壊。
   restedTavernGen?: number;     // 酒場「休む（一杯やる）」で英気を養った世代（1世代1回ガード）。任意＝旧セーブ非破壊。
+  pendingDiveBuff?: { atk?: boolean; arm?: boolean; turns: number }; // 酒場「門出の一杯」＝次の潜行の最初のフロアに乗る小バフ（startDive で適用・消費）。任意。
   cultBoonsThisGen?: number;    // 教団「深蝕を捧げる」を今世代に受けた回数（対価の逓増に使う）。任意＝旧セーブ非破壊。
   exposureBrand?: number;       // 教団の烙印（一時分）＝薬師/安息所/解呪でこの値より下に祓えない深蝕の下限。潜行1階ごとに薄れる（exposureTaint までで止まる）。web限定・任意＝旧セーブ非破壊。
   exposureTaint?: number;       // 教団の永続汚染＝二度と祓えない深蝕の下限（1取引ごとに CULT_PERMA 増・潜行でも薄れない）。集めるほど死亡時の怨念化が不可避。web限定・任意＝旧セーブ非破壊。
@@ -265,15 +267,15 @@ export interface ChronicleEntry {
 export interface Quest {
   id: string;
   // 到達／回収／討伐（slay＝深層エリアボス）／bounty＝特定種を N 体討伐／rescue＝手負いを救助生還／
-  // fetch＝指定品を持ち帰り納品（2026-07-02 依頼多様化）。escort は後続スライス。
-  kind: "descend" | "reclaim" | "slay" | "bounty" | "rescue" | "fetch";
+  // fetch＝指定品を持ち帰り納品／escort＝依頼人を指定深度まで生かして護衛（2026-07-02 依頼多様化）。
+  kind: "descend" | "reclaim" | "slay" | "bounty" | "rescue" | "fetch" | "escort";
   patron?: "noble";              // 発注元＝貴族街の統治者（奉献後の大命・4-13D Phase4）。任意＝旧セーブ非破壊。
   source?: "guild" | "tavern";   // 掲示元ボード（受取場所の分岐）。未指定＝guild（旧セーブ非破壊）。
   title: string;
   desc: string;
   targetDepth?: number;          // descend/slay: 到達/撃破すべき深度 / reclaim: 対象化石の眠る深度 / bounty/fetch: 帯の目安
   targetFossilId?: string;       // reclaim: 再発見すべき化石
-  targetKind?: string;           // bounty: MONSTER_KINDS の key ／ fetch: 品目タグ（gear スロット等）
+  targetKind?: string;           // bounty: MONSTER_KINDS の key ／ fetch: 品目タグ（gear スロット等）／ escort: 依頼人名
   need?: number;                 // bounty: 必要撃破数 ／ fetch: 必要点数
   have?: number;                 // bounty: 現在撃破数（rescue は救助で done）
   rewardGold: number;

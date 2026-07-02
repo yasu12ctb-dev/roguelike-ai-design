@@ -31,7 +31,7 @@ import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffect
 import { meetActor, mintActor, rememberActor, pickRosterActor, fossilNames } from "../actors.ts";
 import {
   generateOffers, generateNobleOffers, acceptQuest, activeQuests, doneQuests, claimQuest,
-  onReachDepth, onRediscoverFossil, onSlayBoss, onKillMonster, onRescueDelver,
+  onReachDepth, onRediscoverFossil, onSlayBoss, onKillMonster, onRescueDelver, onEscortArrive, failEscortQuest,
   type QuestTemplates, type MonsterLite, type OfferOpts,
 } from "../quests.ts";
 import storyletsJson from "../../content/storylets.json";
@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.100.0";
+export const APP_VERSION = "0.101.0";
 export const APP_BUILD = "2026-07-02";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -82,9 +82,14 @@ function bountyMonstersFor(level: number): MonsterLite[] {
     .filter((k) => k.minDepth <= level + 4 && k.tier >= 1) // 少し上まで（歯応え）／ボス/眷属の一回種は MONSTER_KINDS 外
     .map((k) => ({ key: k.key, name: k.name, tier: k.tier, minDepth: k.minDepth, maxDepth: k.maxDepth }));
 }
-/** ギルド board 用の生成 opts（テンプレ＋討伐対象モンスター）。 */
-function guildOfferOpts(): OfferOpts {
-  return { source: "guild", templates: QUEST_TEMPLATES, monsters: bountyMonstersFor(curLevel()) };
+/** 護衛依頼の依頼人候補（開板ごとに mint・受注時に同行者へ昇格）。escort offer と受注 run() を橋渡しする。 */
+let escortCandidate: Actor | null = null;
+/** ギルド board 用の生成 opts（テンプレ＋討伐対象モンスター＋護衛依頼人）。 */
+function guildOfferOpts(source: "guild" | "tavern" = "guild"): OfferOpts {
+  // 護衛は相棒枠が空いている時だけ掲示（依頼人が companion スロットを使うため）。死者名は避ける。
+  escortCandidate = world.companion?.alive ? null : mintActor(db, rng, {}, fossilNames(world));
+  return { source, templates: QUEST_TEMPLATES, monsters: bountyMonstersFor(curLevel()),
+    escortClient: escortCandidate ? { name: escortCandidate.name } : undefined };
 }
 
 // 拾得品プール（読み物コレクション）：id→定義の索引。本文はここから引く＝セーブに複製しない。
@@ -1041,6 +1046,95 @@ async function tavernRest() {
   save();
   busy = false;
 }
+// ── 酒場の4役割（2026-07-02 酒場リワーク・PR2）：仕事の貼り紙＝questBoard("tavern")／門出の一杯／勧誘／裏取引 ──
+const SENDOFF_TURNS = 10; // 門出の一杯：次の潜行の最初のフロアに乗る手数（enterFloor のバフリセット後に startDive が適用）
+/** 酒場 act4「門出の一杯」：金貨で次の潜行1回の小バフ（武勇＝攻/加護＝防）。1潜行1回（pending 保持中は再購入不可）。 */
+async function tavernSendoff() {
+  busy = true;
+  const ch = world.current!;
+  if (ch.pendingDiveBuff) {
+    await sheet({ text: "「もう注いだろう。効き目は、次に潜るまで取っておきな」。杯はまだ、卓で香りを立てている。", meta: "酒場 ── 門出の一杯", options: ["わかった"] });
+    busy = false; return;
+  }
+  const price = 12 + curLevel(); // 安めの gold sink（レベル比例＝終盤も無意味にならない）
+  const r = await sheet({
+    text: `女将マレンが二つの瓶を掲げる。「出立の景気づけだ。どっちにする？」\n・武勇の一杯＝潜行の出だし、腕が冴える（近接+${ATTACK_BUFF}・${SENDOFF_TURNS}手）\n・加護の一杯＝潜行の出だし、体が守られる（被ダメ−${ARMOR_BUFF}・${SENDOFF_TURNS}手）\n（${price}金貨・次の潜行の最初のフロアで効く・1潜行1回）　所持 金${ch.gold}`,
+    meta: "酒場 ── 門出の一杯（出立の景気づけ）",
+    options: [`武勇の一杯（${price}金貨）`, `加護の一杯（${price}金貨）`, "やめておく"],
+  });
+  busy = false;
+  if (r.pick !== 1 && r.pick !== 2) return;
+  if (ch.gold < price) { log("金貨が足りない。", "warn"); return; }
+  ch.gold -= price;
+  ch.pendingDiveBuff = r.pick === 1 ? { atk: true, turns: SENDOFF_TURNS } : { arm: true, turns: SENDOFF_TURNS };
+  sfx("consume");
+  log(`${r.pick === 1 ? "武勇" : "加護"}の一杯を干した。喉が熱い──次の潜行の出だしに効いてくる（−${price}金貨／所持 ${ch.gold}）。`, "cue");
+  save();
+}
+/** 酒場 act5「相棒を探す（一杯おごる）」：勧誘・再雇用の明示的な場。常連（縁ある生者）を優先し、いなければ新顔。 */
+async function tavernRecruit() {
+  busy = true;
+  const ch = world.current!;
+  if (world.companion?.alive) {
+    await sheet({ text: `${companionName()}が隣で杯を傾けている。「おいおい、俺がいるだろう」。\n（相棒と別れるなら、ギルドの台帳で）`, meta: "酒場 ── 相棒を探す", options: ["そうだった"] });
+    busy = false; return;
+  }
+  // 候補＝酒場の常連（縁ある生者・再雇用の蓄積つき）を優先＋一見の顔（meetActor＝既知/名簿/新規）。
+  const seen = new Set<string>();
+  const candidates: LivingActor[] = [];
+  for (const la of townRegularsFor("tavern")) { if (!seen.has(la.id)) { seen.add(la.id); candidates.push(la); } }
+  const extra = meetActor(world, db, rng);
+  if (!seen.has(extra.id)) candidates.push(extra);
+  if (!candidates.length) {
+    await sheet({ text: "今夜は、これという顔ぶれがいない。", meta: "酒場 ── 相棒を探す", options: ["席を立つ"] });
+    busy = false; return;
+  }
+  const r = await sheet({
+    text: `一杯おごって、同行を持ちかけるなら──\n（前金＝等級と自分のレベルに応じて。道中の金貨は折半）`,
+    meta: "酒場 ── 相棒を探す（一杯おごる）",
+    options: [...candidates.map((la) => `${GRADE_LABELS[hireGradeOf(la)]}の${la.actor.epithet ?? ""}${la.actor.name}（${la.actor.archetype}）に持ちかける`), "やめる"],
+  });
+  busy = false;
+  const i = r.pick - 1;
+  if (i < 0 || i >= candidates.length) return;
+  await offerCompanion(candidates[i]); // 既存の勧誘フロー（格ゲート・前金・折半）をそのまま流用
+}
+/** 酒場 act6「裏取引を覗く」：高性能・超高額の訳あり品（gold sink）。品揃えは世代ごとに固定（seed 派生＝リロール漁り防止）。 */
+const BLACKMARKET_MUL = 4; // 価格倍率（武具屋の買値 1.6 の約2.5倍＝プレミアム）
+async function tavernBlackMarket() {
+  busy = true;
+  const ch = world.current!;
+  // 世代固定の品揃え：seed×世代から専用 rng を導出（保存不要で決定論＝出直しても同じ棚）。
+  const brng = makeRng(((world.seed ^ (world.generation * 40503) ^ 0xb1ac) >>> 0) || 1);
+  const slots = (["weapon", "armor", "relic"] as const).slice();
+  for (let i = slots.length - 1; i > 0; i--) { const j = brng.int(i + 1); [slots[i], slots[j]] = [slots[j], slots[i]]; }
+  const stock = slots.slice(0, 2).map((slot, idx) => {
+    let it = rollItemOfSlot(curLevel() + 10, brng, slot); // 少し先の深度帯の品＝今より確実に上等
+    for (let k = 0; k < 2; k++) { const up = enchantUp(it); if (up) it = up; } // +2 を保証（enchantUp＝正しく再鍛造）
+    return { it, price: itemValue(it) * BLACKMARKET_MUL, flag: `bm_${world.generation}_${idx}` };
+  }).filter((s) => !(world.flags ?? []).includes(s.flag)); // 購入済みは棚から消える（世代フラグ）
+  if (!stock.length) {
+    await sheet({ text: "「今夜はもう、出せる物がないね」。女将は素知らぬ顔で杯を拭いている。", meta: "酒場 ── 裏取引", options: ["席を立つ"] });
+    busy = false; return;
+  }
+  const r = await sheet({
+    text: `女将が声を落とす。「……訳あり品だ。出所は聞くな。その代わり、物は確かだよ」。\n（相場よりだいぶ高い。だが店に並ばない業物だ）　所持 金${ch.gold}`,
+    meta: "酒場 ── 裏取引（訳あり品）",
+    options: [...stock.map((s) => `${itemLabel(s.it)}（${s.price}金貨）`), "やめておく"],
+  });
+  busy = false;
+  const i = r.pick - 1;
+  if (i < 0 || i >= stock.length) return;
+  const s = stock[i];
+  if (ch.gold < s.price) { log("金貨が足りない。「金ができたら、また来な」。", "warn"); return; }
+  if (packUsed(ch) >= packCapacity(ch)) { log("荷物が一杯だ。何か整理してから来よう。", "warn"); return; }
+  ch.gold -= s.price;
+  (world.flags ??= []).push(s.flag);
+  ch.gearBag ??= []; ch.gearBag.push(s.it); dedupeGearBag(ch);
+  sfx("buy");
+  log(`裏取引で ${itemLabel(s.it)} を手に入れた（−${s.price}金貨／所持 ${ch.gold}）。袋へ。`, "cue");
+  save();
+}
 // 薬師 act0「傷を癒す」：街に戻れば傷は既に塞がっている（4-10C）。基本は flavor、念のため HP を満たす。
 async function healerHeal() {
   busy = true;
@@ -1076,7 +1170,8 @@ async function healerBuy() {
   busy = false;
 }
 // 回収業ギルド：依頼の受注・達成報酬の受領（4-10G）。1操作＝受注 or 受領（再入場で続けられる）。
-async function questBoard(board: "guild" | "noble" = "guild") {
+const TAVERN_BOARD_SIZE = 3; // 酒場の貼り紙の掲示枠（ギルドより小さめ＝裏仕事の口）
+async function questBoard(board: "guild" | "noble" | "tavern" = "guild") {
   busy = true;
   const ch = world.current!;
   // fetch（納品）：袋に必要点数が揃った active を done に昇格（受取時に消費）。開板ごとに判定。
@@ -1087,10 +1182,13 @@ async function questBoard(board: "guild" | "noble" = "guild") {
   const act = activeQuests(world);
   const activeGuild = act.filter((q) => q.patron !== "noble").length; // noble 除く同時受注数（上限ゲート用）
   // 謁見の間（noble）＝統治者の大命のみ。ギルド（guild）＝多様な依頼を盤面 size まで掲示＋（noble_ack 後は）大命も相乗り。
+  // 酒場（tavern）＝人に接地した裏仕事（bounty/rescue/escort/fetch）を小さめの貼り紙で（第2の依頼源・2026-07-02）。
   const offers = board === "noble"
     ? generateNobleOffers(world, ch, rng, 1)
-    : (() => { const o = generateOffers(world, ch, rng, GUILD_BOARD_SIZE, guildOfferOpts());
-        if (getArc(world, "noble_ack")) o.push(...generateNobleOffers(world, ch, rng, 1)); return o; })();
+    : board === "tavern"
+      ? generateOffers(world, ch, rng, TAVERN_BOARD_SIZE, guildOfferOpts("tavern"))
+      : (() => { const o = generateOffers(world, ch, rng, GUILD_BOARD_SIZE, guildOfferOpts());
+          if (getArc(world, "noble_ack")) o.push(...generateNobleOffers(world, ch, rng, 1)); return o; })();
   const lines: string[] = [];
   if (done.length) lines.push("【達成済】" + done.map((q) => q.title).join("／"));
   if (act.length) lines.push("【受注中】\n" + act.map((q) => `　${q.title}\n　　条件：${questConditionLine(q)}／報酬 金${q.rewardGold}`).join("\n"));
@@ -1128,14 +1226,24 @@ async function questBoard(board: "guild" | "noble" = "guild") {
       if (q.patron !== "noble" && activeGuild >= GUILD_ACTIVE_CAP) { // 大命は別枠。通常依頼は同時受注上限まで
         log(`受注が一杯だ（${activeGuild}/${GUILD_ACTIVE_CAP}）。ひとつ果たしてから受けよう。`, "warn"); return;
       }
+      if (q.kind === "escort") { // 護衛＝依頼人が相棒スロットに入って同行（到達で離脱／死・解散で失敗）
+        if (world.companion?.alive) { log("相棒と同行中は、護衛の依頼は受けられない。", "warn"); return; }
+        const client = escortCandidate ?? mintActor(db, rng, {}, fossilNames(world));
+        const la: LivingActor = { id: `escort_${q.id}`, actor: client, metGeneration: world.generation };
+        recruitCompanion(la);
+        if (world.companion) world.companion.escortQuestId = q.id;
+        log(`依頼人${client.name}が支度を整えた。「深度${q.targetDepth}まで、頼む。路銀は道中折半で」。`, "cue");
+      }
       acceptQuest(world, q); log(`依頼を受けた：「${q.title}」。`, "dim");
     },
   });
   const r = await sheet({
     text: board === "noble"
       ? `玉座の間。統治者が、奉献を成した者にのみ託す大命。所持 金${ch.gold}。\n${lines.join("\n") || "（受注中の大命はない）"}`
-      : `回収業ギルド。所持 金${ch.gold}。\n${lines.join("\n") || "（受注中の依頼はない）"}`,
-    meta: board === "noble" ? "謁見の間 ── 統治者の大命" : "ギルド ── 依頼（回収業）",
+      : board === "tavern"
+        ? `酒場の柱に貼られた、雑多な頼み事。女将マレンが顎で示す。「困ってる連中の口さ。堅いのはギルドで聞きな」。所持 金${ch.gold}。\n${lines.join("\n") || "（受注中の依頼はない）"}`
+        : `回収業ギルド。所持 金${ch.gold}。\n${lines.join("\n") || "（受注中の依頼はない）"}`,
+    meta: board === "noble" ? "謁見の間 ── 統治者の大命" : board === "tavern" ? "酒場 ── 仕事の貼り紙" : "ギルド ── 依頼（回収業）",
     options: [...actions.map((a) => a.label), "やめる"],
   });
   busy = false;
@@ -2060,6 +2168,8 @@ async function heroRoll() {
   const label = opts[r.pick - 1];
   if (label === "相棒と別れる（解散）") { // 解散＝無料。等級/絆/偉業を生者NPCへ残し、相棒は街へ（再雇用可）。
     const name = companionName();
+    // 護衛の依頼人と別れる＝依頼失敗（送り届けていない）。
+    if (world.companion?.escortQuestId) for (const l of failEscortQuest(world, world.companion.escortQuestId)) log(l, "warn");
     persistCompanionRecord();
     world.companion = undefined;
     log(`${name}と別れた。「また入用があれば、声をかけな」。`, "cue");
@@ -2282,6 +2392,10 @@ async function talkKeeper(asKind?: string) {
   if (kind === "tavern" && actIdx === 0) return void rumorScene();      // 噂を聞く
   if (kind === "tavern" && actIdx === 1) return void tavernLore();      // 旧き名・化石のことを尋ねる
   if (kind === "tavern" && actIdx === 2) return void tavernRest();      // 休む（一杯やる）
+  if (kind === "tavern" && actIdx === 3) return void questBoard("tavern"); // 仕事の口＝酒場の貼り紙（第2の依頼源・2026-07-02）
+  if (kind === "tavern" && actIdx === 4) return void tavernSendoff();   // 門出の一杯（次の潜行の景気づけバフ）
+  if (kind === "tavern" && actIdx === 5) return void tavernRecruit();   // 相棒を探す（勧誘・再雇用の明示的な場）
+  if (kind === "tavern" && actIdx === 6) return void tavernBlackMarket(); // 裏取引（高性能・超高額の訳あり品）
   if (kind === "archive" && actIdx === 0) return void chronicleScene(); // 年代記を読む
   if (kind === "archive" && actIdx === 1) return void legendApprove();  // 旧キャラを伝説として承認する（4-4）
   if (kind === "archive" && actIdx === 2) return void lineageScene();   // 系譜をたどる
@@ -3583,6 +3697,20 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false) {
   showFloorBanner(abyss ? "深淵 ─ 試練" : `深度 ${depth} ─ ${depthBandLabel({ minDepth: depth })}`, abyss);
   log(`── 深度${depth} ──`, "dim");
   for (const l of onReachDepth(world, depth)) { log(l, "cue"); save(); } // 到達系の依頼達成
+  // 護衛（escort）：依頼人を生かして対象深度へ＝達成。依頼人はここで別れる（残りは自力で行くと言う）。
+  if (world.companion?.alive && world.companion.escortQuestId) {
+    const lines = onEscortArrive(world, world.companion.escortQuestId, depth);
+    if (lines.length) {
+      const name = companionName();
+      for (const l of lines) log(l, "cue");
+      log(`${name}は深く頭を下げた。「ここまでで充分だ。恩に着る」──そう言って、通路の陰へ消えていった。`, "cue");
+      persistCompanionRecord(); // 絆/等級の蓄積は生者NPCへ書き戻し（再会・再雇用の余地）
+      world.companion = undefined;
+      companion = null;
+      sfx("companion_join");
+      save();
+    }
+  }
   // 奉献の試練・印⑤：深淵手前の高深度に到達（4-13A）
   if (depth >= DEPTH_SEAL_AT && !abyss && awardSeal(world, "depth", [ch.id])) {
     sfx("seal"); log("◆ 「深淵への到達」の印を得た。", "warn"); save();
@@ -3646,6 +3774,8 @@ function spawnCompanionNear(at: Pos): void {
 function companionDies(reason: "combat" | "mercy" = "combat"): void {
   if (!floor || !companion || !world.companion) return;
   const name = companionName();
+  // 護衛（escort）の依頼人が斃れた＝依頼失敗（取り下げ）。
+  if (world.companion.escortQuestId) for (const l of failEscortQuest(world, world.companion.escortQuestId)) log(l, "warn");
   // 慈悲のとどめ＝深みに呑まれる前の安らかな解放。連帯深蝕を清めて化石化し、後世で亡霊/怨念へ寄せない
   // （討つ＝神話/喪失寄り／戦死(combat)＝高深蝕のまま＝未決着の亡霊化を残す）。
   const exposureAtRest = reason === "mercy" ? Math.min(world.companion.exposure, 0.2) : world.companion.exposure;
@@ -3980,6 +4110,14 @@ async function startDive() {
   } else {
     enterFloor(1, true);
     log("迷宮に降りた。冷えた空気が頬を撫でる。");
+  }
+  // 門出の一杯（酒場・2026-07-02）：enterFloor がバフをリセットした後に適用＝最初のフロアの出だしに乗る。
+  const pb = world.current?.pendingDiveBuff;
+  if (pb) {
+    if (pb.atk) { attackBuffTurns = Math.max(attackBuffTurns, pb.turns); log(`門出の一杯が効いてくる──腕が冴える（近接+${ATTACK_BUFF}・${pb.turns}手）。`, "cue"); }
+    if (pb.arm) { armorBuffTurns = Math.max(armorBuffTurns, pb.turns); log(`門出の一杯が効いてくる──体が守られている（被ダメ−${ARMOR_BUFF}・${pb.turns}手）。`, "cue"); }
+    world.current!.pendingDiveBuff = undefined; // 1潜行1回＝消費
+    updateStatus(); save();
   }
 }
 
@@ -6081,6 +6219,8 @@ function questConditionLine(q: Quest): string {
     }
     case "rescue":
       return `深みで手負いの冒険者を救い出す`;
+    case "escort":
+      return `依頼人「${q.targetKind ?? "同行者"}」を生かして深度${q.targetDepth ?? "?"}まで連れて行く`;
     case "fetch": {
       const label: Record<string, string> = { weapon: "武具（武器）", armor: "武具（防具）", relic: "遺物", bag: "鞄" };
       const have = (world.current?.gearBag ?? []).filter((it) => it.slot === q.targetKind).length;
@@ -6094,7 +6234,7 @@ function questConditionLine(q: Quest): string {
 async function eventsScreen() {
   busy = true;
   const act = activeQuests(world), done = doneQuests(world);
-  const claimAt = (q: Quest) => (q.patron === "noble" ? "謁見の間" : "ギルド");
+  const claimAt = (q: Quest) => (q.patron === "noble" ? "謁見の間" : q.source === "tavern" ? "酒場" : "ギルド");
   const ql = (act.length || done.length)
     ? [
         ...act.map((q) => `・${q.patron === "noble" ? "【大命】" : ""}${q.title}\n　　条件：${questConditionLine(q)}\n　　報酬：金${q.rewardGold}${q.rewardRelic ? "＋固有遺物" : ""}`),
