@@ -168,9 +168,6 @@
     .fl-heal { color: var(--g-rest); }
     .fl-miss { color: var(--tx-faint); font-size: 12px; }
     .fl-kill { color: #fff; text-shadow: 0 0 10px rgba(201,167,90,.9), 0 0 20px rgba(201,167,90,.5); animation: floatup .55s ease-out forwards; }
-    /* 命中フラッシュ＝命中マスに白いグリフを一瞬重ねる（draw() の className と競合しないオーバーレイ方式）。 */
-    .fl-flash { color: #fff; text-shadow: 0 0 10px rgba(255,255,255,.9); animation: flflash .18s ease-out forwards; }
-    @keyframes flflash { 0% { opacity: .95; } 100% { opacity: 0; } }
     #grid { display: grid; width: 100%; }
     .cell {
       position: relative; display: flex; align-items: center; justify-content: center;
