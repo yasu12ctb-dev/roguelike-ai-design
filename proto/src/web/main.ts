@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.102.1";
+export const APP_VERSION = "0.102.2";
 export const APP_BUILD = "2026-07-03";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -2659,7 +2659,9 @@ function townAct(dx: number, dy: number) {
   if (p && cenotaphKey === `${nx},${ny}`) { void memorialScene(); return; } // 慰霊碑＝歴代の死者を読む（街の差分 4-6C）
   const walkable = t === "floor" || t === "gate" || (nobleOpen && (t === "noble" || t === "ngate")); // 貴族街解禁で noble/ngate も歩行可
   if (!walkable) { if (p?.line) log(p.line, "dim"); return; }
-  if (p && t !== "gate") { if (p.line) log(p.line, "dim"); return; } // 景物（木・井戸・碑）は塞ぐ
+  // 景物（木・井戸・碑）は塞ぐ。ただし walkable な景物（供花＝地面に手向けた物）は跨いで歩ける＝上に乗ると一言だけ添える。
+  if (p && t !== "gate" && !p.walkable) { if (p.line) log(p.line, "dim"); return; }
+  if (p?.walkable && p.line) log(p.line, "dim");
   townPlayer = { x: nx, y: ny };
   sfx("move");
   drawTown();
@@ -3608,7 +3610,7 @@ function refreshMemorialSites() {
     const key = `${x},${y}`;
     if (townTileAt(townGrid, x, y) === "floor" && !townGrid.propMap.has(key) &&
         !townGrid.doorMap.has(key) && !townGrid.guardMap.has(key)) {
-      townGrid.propMap.set(key, { x, y, glyph: "花", color: "#d8a8e8", glow: true, line: "供花。誰かが手向けた、祈りの痕跡。" });
+      townGrid.propMap.set(key, { x, y, glyph: "花", color: "#d8a8e8", glow: true, walkable: true, line: "供花。誰かが手向けた、祈りの痕跡。" });
       memorialKeys.add(key);
     }
   }

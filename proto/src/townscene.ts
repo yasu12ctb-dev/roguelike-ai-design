@@ -25,6 +25,7 @@ export interface GuardDef {
 }
 export interface PropDef {
   x: number; y: number; glyph: string; color: string; glow?: boolean; line?: string;
+  walkable?: boolean; // true＝景物だが上を歩ける（例：供花＝地面に手向けた物）。既定 undefined＝塞ぐ（木/井戸/碑）。
 }
 export interface CrowdKind { glyph: string; color: string; label: string; lines: string[]; }
 /** 屋内のレイアウト設定（建物種別ごと・任意）。無ければ既定の小部屋。 */
