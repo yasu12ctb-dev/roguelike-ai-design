@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.103.0";
+export const APP_VERSION = "0.103.2";
 export const APP_BUILD = "2026-07-03";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -5703,7 +5703,7 @@ async function chestScene(ce: Chest) {
       sfx("pickup");
       await sheet({ text: `${kept.story}\n\n――懐に納めた。街へ持ち帰れば、書記イェンが好古の棚に加えてくれる。`, meta: `深度${depth} ── 拾得品「${kept.title}」`, options: ["懐に納める"] });
       log(`心に残る品を見つけた──「${kept.title}」。街の書記の館（記）で読み返せる。`);
-    } else if (roll < 0.62) { // 装備ドロップ（序盤の入手を底上げ・約28%→約35%・物語枠を軽く削る・FB 2026-07-03 案B）
+    } else if (roll < 0.58) { // 装備ドロップ（序盤の入手を底上げ・約28%→約31%＝初期0.55と0.62の中間・FB 2026-07-03 案B→中間調整。初期支給はそのまま）
       const item = rollItem(depth, rng);
       log("宝箱から、何かを手にした。");
       await equipPrompt(item);
