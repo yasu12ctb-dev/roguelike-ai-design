@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.102.0";
+export const APP_VERSION = "0.102.1";
 export const APP_BUILD = "2026-07-03";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -312,7 +312,7 @@ function flashFx(kind: "warp" | "still" | "blink", at?: Pos) {
 
 // ---------- 盤上フロート（FloatFx・v0.99.0・§10.3）＝ダメージ/回復/撃破を盤上にポップ（シレン6流） ----------
 // 純表示（rng 非使用・engine 非依存）。#floats は #grid の兄弟＝グリッド再構築で消えない。
-// 与ダメ=fl-dmg(金泥)／被ダメ=fl-hurt(赤)／回復=fl-heal(緑)／見切り=fl-miss／撃破=fl-kill「＊」／命中フラッシュ=fl-flash。
+// 与ダメ=fl-dmg(金泥)／被ダメ=fl-hurt(赤)／回復=fl-heal(緑)／見切り=fl-miss／撃破=fl-kill「＊」。
 const FLOAT_MAX = 8; // DOM 増殖の上限（超過は最古を除去）
 let floatSeq = 0;    // 同一マス多重時の横ずらし用（表示のみ）
 function floatFx(x: number, y: number, text: string, cls: string): void {
@@ -335,8 +335,6 @@ function floatFx(x: number, y: number, text: string, cls: string): void {
   el.addEventListener("animationend", () => el.remove());
   setTimeout(() => { if (el.isConnected) el.remove(); }, 900); // 保険（バックグラウンド時など）
 }
-/** 命中フラッシュ＝命中マスに白グリフを一瞬重ねる（draw() の className 再書換えと競合しないオーバーレイ方式）。 */
-function hitFlash(x: number, y: number, glyph: string): void { floatFx(x, y, glyph, "fl-flash"); }
 
 // ---------- 調べる（タップ＝NetHack「;」の現代化・v0.99.0・§10.3/§10.6） ----------
 // 盤面タップでそのマスの情報を上帯にポップ。手番非消費・busy 非使用・入力非ブロック（pointer-events:none）。
@@ -3081,7 +3079,7 @@ function raidMoveOrAttack(nx: number, ny: number): boolean {
     const ch = world.current!;
     const dmg = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
     mon.hp -= dmg; sfx(mon.boss ? "crit" : "hit");
-    floatFx(nx, ny, String(dmg), "fl-dmg"); hitFlash(nx, ny, mon.kind.glyph);
+    floatFx(nx, ny, String(dmg), "fl-dmg"); // 命中フラッシュ（敵グリフの白重ね）は視認性のため廃止＝数字だけ残す（FB 2026-07-03）
     if (mon.hp <= 0) raidKill(mon); else log(`${mon.kind.name}に${dmg}の一撃。`);
     return true;
   }
@@ -5170,7 +5168,7 @@ function moveOrInteract(nx: number, ny: number): boolean {
     const dmg = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
     mon.hp -= dmg;
     sfx(mon.boss ? "crit" : "hit");
-    floatFx(nx, ny, String(dmg), "fl-dmg"); hitFlash(nx, ny, mon.kind.glyph); // 盤上ポップ＋命中フラッシュ（v0.99.0）
+    floatFx(nx, ny, String(dmg), "fl-dmg"); // 盤上ダメージ数字（命中フラッシュ＝敵グリフ白重ねは視認性のため廃止・FB 2026-07-03）
     if (ch.equipment.relic?.relic === "siphon" && deathDoorTurns === 0 && hp < maxHp(ch)) { // 遺物 siphon（渇き）：与ダメぶん吸命
       const drained = Math.max(1, Math.round(dmg * SIPHON_FRAC));
       hp = Math.min(maxHp(ch), hp + drained);
