@@ -20,7 +20,7 @@ import {
   DEPTH_SEAL_AT, ABYSS_DEPTH, RELIC_EXPOSURE_PER_TURN, RELIC_PURSUER_EVERY, RELIC_PURSUER_CAP,
 } from "../progression.ts";
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
-import { rollItem, rollItemOfSlot, itemByName, enchantUp, forgeItem, itemPower, itemLabel, itemValue, SLOT_LABEL, CONSUMABLES, consumableByKey, grantConsumable, type ConsumableDef } from "../items.ts";
+import { rollItem, rollItemOfSlot, itemByName, enchantUp, forgeItem, artifactBaseNames, itemPower, itemLabel, itemValue, SLOT_LABEL, CONSUMABLES, consumableByKey, grantConsumable, type ConsumableDef } from "../items.ts";
 import {
   renderDeathLine, renderRediscovery, renderRumor, renderArcBeat, matchSetPiece, fillStoryletText, fillDungeonText, fillActorText,
   requiemLine, leaveLine, inheritLine, REQUIEM_RELIEF,
@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.103.2";
+export const APP_VERSION = "0.105.0";
 export const APP_BUILD = "2026-07-03";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1108,70 +1108,8 @@ async function tavernRecruit() {
   if (i < 0 || i >= candidates.length) return;
   await offerCompanion(candidates[i]); // 既存の勧誘フロー（格ゲート・前金・折半）をそのまま流用
 }
-/** 酒場 act6「裏取引を覗く」：高性能・超高額の訳あり品（gold sink）。品揃えは固定プールから世代ごとに固定抽選。 */
-const BLACKMARKET_MUL = 4; // 価格倍率（武具屋の買値 1.6 の約2.5倍＝プレミアム）
-const BLACKMARKET_MIN_PRICE = 180; // 価格の床＝遺物（itemValue が低い）も「なかなか買えない」高額に揃える（テスト調整候補）
-// 裏取引の固定プール（2026-07-03・issue3 対応・ユーザー承認）：**レベル非依存の固定・強力・高額な業物**（各スロット5種）。
-// forgeItem(基名, 銘key, +N) で決定論構築＝どのプレイでも同じ品定義（世代ごとに各スロット1点を巡回提示）。
-// 旧実装は rollItemOfSlot(curLevel()+10,…) がレベル依存で、レベルが上がると未購入枠の品が実質リロールされていた（=「固定」意図の破れ）。
-// 蝕む業物（深淵の刃/餓狼の爪 等）を混ぜて「出所を聞くな」の裏市場らしさを出す。
-const BLACKMARKET_POOL: Record<"weapon" | "armor" | "relic", [string, string | null, number][]> = {
-  weapon: [
-    ["双刃", "divine", 3],   // 神々の双刃+3＝dmg 4+3+3
-    ["断界刃", "master", 3], // 達人の断界刃+3（cleave 余波）
-    ["深淵の刃", "abyssal", 3], // 深淵の深淵の刃+3（強力だが蝕む＝訳あり）
-    ["大剣", "kingly", 4],   // 王の大剣+4
-    ["鎖星", "flash", 3],    // 閃光の鎖星+3（stun）
-  ],
-  armor: [
-    ["全身鎧", "divine", 4],   // 神々の全身鎧+4＝reduce 4+2+2
-    ["板金鎧", "bulwark", 4],  // 鉄壁の板金鎧+4
-    ["怯ませの鎧", "heavy", 3], // 重厚な怯ませの鎧+3（stagger）
-    ["全身鎧", "devour", 3],   // 喰らう全身鎧+3（高減だが蝕む＝訳あり）
-    ["清めの鎧", "consecr", 3], // 聖別の清めの鎧+3（cleanse＝深蝕を薄める）
-  ],
-  relic: [ // 遺物は +N を取らない＝基のみ（強力な効果で固定）
-    ["不死鳥の灰", null, 0], // 潜行中一度だけ致死を耐える
-    ["巨人の心臓", null, 0], // 最大HP+6
-    ["術理の宝珠", null, 0], // 術ダメージ増
-    ["餓狼の爪", null, 0],   // 吸命（強いが蝕む＝訳あり）
-    ["強欲の眼", null, 0],   // 撃破XP×1.5（強いが蝕む＝訳あり）
-  ],
-};
-async function tavernBlackMarket() {
-  busy = true;
-  const ch = world.current!;
-  // 世代固定の品揃え：seed×世代の専用 rng で各スロット5種プールから1点ずつ選ぶ（レベル非依存＝リロール漁り不可・保存不要）。
-  const brng = makeRng(((world.seed ^ (world.generation * 40503) ^ 0xb1ac) >>> 0) || 1);
-  const stock = (["weapon", "armor", "relic"] as const).map((slot, idx) => {
-    const pool = BLACKMARKET_POOL[slot];
-    const [base, affix, ench] = pool[brng.int(pool.length)];
-    const it = forgeItem(base, affix, ench); // 決定論・鑑定済み（premium＝物は確か）
-    return { it, idx };
-  }).filter((s) => s.it && !(world.flags ?? []).includes(`bm_${world.generation}_${s.idx}`)) // 購入済みは棚から消える（世代フラグ）
-    .map((s) => ({ it: s.it!, price: Math.max(BLACKMARKET_MIN_PRICE, itemValue(s.it!) * BLACKMARKET_MUL), flag: `bm_${world.generation}_${s.idx}` }));
-  if (!stock.length) {
-    await sheet({ text: "「今夜はもう、出せる物がないね」。女将は素知らぬ顔で杯を拭いている。", meta: "酒場 ── 裏取引", options: ["席を立つ"] });
-    busy = false; return;
-  }
-  const r = await sheet({
-    text: `女将が声を落とす。「……訳あり品だ。出所は聞くな。その代わり、物は確かだよ」。\n（相場よりだいぶ高い。だが店に並ばない業物だ）　所持 金${ch.gold}`,
-    meta: "酒場 ── 裏取引（訳あり品）",
-    options: [...stock.map((s) => `${itemLabel(s.it)}（${s.price}金貨）`), "やめておく"],
-  });
-  busy = false;
-  const i = r.pick - 1;
-  if (i < 0 || i >= stock.length) return;
-  const s = stock[i];
-  if (ch.gold < s.price) { log("金貨が足りない。「金ができたら、また来な」。", "warn"); return; }
-  if (packUsed(ch) >= packCapacity(ch)) { log("荷物が一杯だ。何か整理してから来よう。", "warn"); return; }
-  ch.gold -= s.price;
-  (world.flags ??= []).push(s.flag);
-  ch.gearBag ??= []; ch.gearBag.push(s.it); dedupeGearBag(ch);
-  sfx("buy");
-  log(`裏取引で ${itemLabel(s.it)} を手に入れた（−${s.price}金貨／所持 ${ch.gold}）。袋へ。`, "cue");
-  save();
-}
+// 【裏取引は廃止（2026-07-03）】酒場の武具取引を機能削除。秘宝は「深層レアドロップ＋統治者の大命の褒賞」で入手。
+// 酒場は 噂／旧き名／休む／仕事の貼り紙／門出の一杯／相棒を探す の6機能で成立（武具取引なしで店として十分）。
 // 薬師 act0「傷を癒す」：街に戻れば傷は既に塞がっている（4-10C）。基本は flavor、念のため HP を満たす。
 async function healerHeal() {
   busy = true;
@@ -1252,18 +1190,19 @@ async function questBoard(board: "guild" | "noble" | "tavern" = "guild") {
       const from = q.source === "tavern" ? "酒場の店主" : q.patron === "noble" ? "貴族の使い" : "ギルド長";
       sfx("coin"); log(`${from}から報酬を受け取った（＋${gross - cut}金貨／所持 ${ch.gold}）。`);
       chronicle(world, "legend", `${ch.name}が${q.patron === "noble" ? "貴族街の大命" : "依頼"}「${q.title}」を果たした。`, [ch.id]);
-      // 高難度大命の固有報酬（4-14G）：ボス級遺物を袋へ＋一度きりの称号。
+      // 高難度大命の固有報酬（4-14G→2026-07-03）：秘宝を1点授与＝終盤の入手経路＋一度きりの称号。
       if (q.rewardRelic) {
-        const it = rollItemOfSlot(q.targetDepth ?? ABYSS_DEPTH, rng, "relic");
-        it.unidentified = false; it.enchant = Math.max(it.enchant ?? 0, 3); // 確かな業物
-        ch.gearBag ??= []; ch.gearBag.push(it); dedupeGearBag(ch);
-        sfx("seal"); log(`統治者より固有の遺物「${itemLabel(it)}」を賜った（袋へ）。`, "cue");
-        if (!ch.traits.includes("統治者の覇者")) ch.traits.push("統治者の覇者");
+        const art = rollArtifact(Math.max(ARTIFACT_MIN_DEPTH, q.targetDepth ?? ABYSS_DEPTH));
+        if (art) {
+          ch.gearBag ??= []; ch.gearBag.push(art); dedupeGearBag(ch);
+          sfx("seal"); log(`統治者より秘宝「${itemLabel(art)}」を賜った（袋へ）。`, "cue");
+          if (!ch.traits.includes("統治者の覇者")) ch.traits.push("統治者の覇者");
+        }
       }
     },
   });
   for (const q of offers) actions.push({
-    label: `受ける：${q.title}（報酬 ${q.rewardGold}金貨${q.rewardRelic ? "＋固有遺物" : ""}）`,
+    label: `受ける：${q.title}（報酬 ${q.rewardGold}金貨${q.rewardRelic ? "＋秘宝" : ""}）`,
     run: () => {
       if (q.patron !== "noble" && activeGuild >= GUILD_ACTIVE_CAP) { // 大命は別枠。通常依頼は同時受注上限まで
         log(`受注が一杯だ（${activeGuild}/${GUILD_ACTIVE_CAP}）。ひとつ果たしてから受けよう。`, "warn"); return;
@@ -2437,7 +2376,7 @@ async function talkKeeper(asKind?: string) {
   if (kind === "tavern" && actIdx === 3) return void questBoard("tavern"); // 仕事の口＝酒場の貼り紙（第2の依頼源・2026-07-02）
   if (kind === "tavern" && actIdx === 4) return void tavernSendoff();   // 門出の一杯（次の潜行の景気づけバフ）
   if (kind === "tavern" && actIdx === 5) return void tavernRecruit();   // 相棒を探す（勧誘・再雇用の明示的な場）
-  if (kind === "tavern" && actIdx === 6) return void tavernBlackMarket(); // 裏取引（高性能・超高額の訳あり品）
+  // 旧 act6「裏取引」は廃止（2026-07-03）。秘宝は深層レアドロップ＋大命褒賞で入手。
   if (kind === "archive" && actIdx === 0) return void chronicleScene(); // 年代記を読む
   if (kind === "archive" && actIdx === 1) return void legendApprove();  // 旧キャラを伝説として承認する（4-4）
   if (kind === "archive" && actIdx === 2) return void lineageScene();   // 系譜をたどる
@@ -2706,8 +2645,12 @@ async function pickBloodSpells(anc: Fossil): Promise<string[]> {
 
 // 深蝕の累積（4-11H）：難易度 exposure 係数を掛けて溜める。easy=×1.0（従来）／normal=×1.2／hard=×1.4。
 // プレイヤーの深蝕加点はすべてここを通す（減算/清めは別経路＝据え置き）。
+const ADAPT_EXP_MUL = 0.4; // 秘宝 adapt（深淵順応の鎧）：深蝕の蓄積(正)をこの割合に（＝60%軽減）
 function addExp(amount: number): void {
-  if (world.current) world.current.exposure += amount * diffMods(world.difficulty).exposure;
+  if (!world.current) return;
+  // 秘宝 adapt（深淵順応の鎧）：深蝕の蓄積（正の量）を大幅軽減＝異物/術を使うビルドの核。
+  if (amount > 0 && world.current.equipment.armor?.proc === "adapt") amount *= ADAPT_EXP_MUL;
+  world.current.exposure += amount * diffMods(world.difficulty).exposure;
 }
 // 深蝕を祓う（正の量）。教団の烙印（exposureBrand・一時）／永続汚染（exposureTaint）より下には祓えない＝買い戻し不能の実リスク。
 // 反復・購入で祓える各所（薬師/慰霊堂の祈り/安息所/解呪術/鎮静薬）はこれを通す。烙印は enterFloor で taint まで薄れる。
@@ -3743,6 +3686,10 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false, viaDoor = 
   if (abyss) setBgm("abyss", depth); else { setBgm("dungeon", depth); setBgmDepth(depth); }
   hidePeek();
   applyDepthBand(depth, abyss); // 松明の色調＝深度帯（v0.99.0）
+  // 秘宝のフロア進入フック（2026-07-03）：farsight＝地図/宝/化石を開示／hasten＝進入時ヘイスト。
+  const eq = world.current?.equipment;
+  if (eq?.relic?.relic === "farsight") { for (let i = 0; i < floor.explored.length; i++) floor.explored[i] = true; }
+  if (eq?.armor?.proc === "hasten") { hasteTurns = Math.max(hasteTurns, HASTEN_TURNS); }
   draw();
   showFloorBanner(abyss ? "深淵 ─ 試練" : `深度 ${depth} ─ ${depthBandLabel({ minDepth: depth })}`, abyss);
   log(`── 深度${depth} ──`, "dim");
@@ -4067,15 +4014,29 @@ const CURSE_EXP = 0.25;     // 敵 curse（蝕み・深淵帯 PR2）：命中で
 const THORNS_FRAC = 0.5;    // 遺物 thorns（茨）：被弾した近接ダメージの 50% を反射で相手へ
 const SIPHON_FRAC = 0.2;    // 遺物 siphon（渇き）：近接で与えたダメージの 20% を回復
 const POTENCY_MUL = 1.25;   // 遺物 potency（術理）：術ダメージ ×1.25
+const SPELLCROWN_MUL = 1.6; // 秘宝 spellcrown（秘術の宝冠）：術ダメージ ×1.6（potency の上位）
+const SPELLCROWN_COST_MUL = 0.6; // 秘宝 spellcrown：術の深蝕コストを 0.6 倍（−40%）
 let revenantUsed = false;   // 遺物 revenant（不死鳥の灰）：潜行ごと一度だけ致死を1で耐える。enterFloor 開始で潜行単位にリセット
+let blinkUsed = false;      // 秘宝 blink（転移の護符）：潜行ごと一度だけ致死を安全地帯転移で回避。startDive でリセット
+const TIMESLIP_CHANCE = 0.18; // 秘宝 timeslip（時詠み）：被弾を低確率で完全回避
 /** 術の基礎ダメージ（理由来＋遺物 potency）。castSpell の全術はこれを基準にする。 */
-const spellBase = (ch: Character): number => warpDamage(effectiveReason(ch)) * (ch.equipment.relic?.relic === "potency" ? POTENCY_MUL : 1);
+const spellBase = (ch: Character): number => {
+  const r = ch.equipment.relic?.relic;
+  const mult = r === "spellcrown" ? SPELLCROWN_MUL : r === "potency" ? POTENCY_MUL : 1; // 秘宝 spellcrown＞遺物 potency
+  return warpDamage(effectiveReason(ch)) * mult;
+};
 // 発動効果つき武器（物量レビュー PR4）：命中時に発動。武器に初の「挙動差」を与える（従来は近接+ダメージのみ）。
 const CLEAVE_FRAC = 0.5;    // 薙ぎ：隣接の他の敵へ与ダメの 50%
 const STUN_CHANCE = 0.3;    // 当て止め：命中ごと 30% で目標を1手止める
 const REND_TURNS = 3;       // 裂傷：継続ダメの手数
 const SAP_TURNS = 3;        // 弱体：目標の攻撃減（WEAK_AMT）の手数
 /** 武器の発動効果（proc）を命中時に適用。target=殴った敵・dmg=与えた近接ダメージ。潜行(dive)のみ。 */
+// 秘宝の武器 proc 係数（特殊効果・2026-07-03）。
+const ARC_FRAC = 0.7, ARC_RANGE = 6;   // 雷撃＝別の最寄り敵へ連鎖（実質遠距離）
+const BLAST_FRAC = 0.6, BLAST_RADIUS = 2; // 炎の範囲
+const PIERCE_FRAC = 0.8;               // 貫通＝攻撃方向の奥1マス
+const FREEZE_TURNS = 2;                 // 凍結＝目標+隣接を rooted+slowed
+const DRAIN_FRAC = 0.4;                 // 吸命＝与ダメの一部を回復
 function applyWeaponProc(ch: Character, target: Monster, dmg: number): void {
   const proc = ch.equipment.weapon?.proc;
   if (!proc || !floor) return;
@@ -4086,6 +4047,58 @@ function applyWeaponProc(ch: Character, target: Monster, dmg: number): void {
       if (Math.max(Math.abs(m.x - target.x), Math.abs(m.y - target.y)) > 1) continue;
       m.hp -= splash; flashFx("warp", { x: m.x, y: m.y });
       if (m.hp <= 0) downOrKill(m, `薙ぎが${m.kind.name}を巻き込んだ。`);
+    }
+    return;
+  }
+  if (proc === "blast") { // 秘宝：炎の範囲（目標の周囲半径2の全敵）
+    const splash = Math.max(1, Math.round(dmg * BLAST_FRAC));
+    for (const m of floor.monsters) {
+      if (m.hp <= 0 || m === target) continue;
+      if (Math.max(Math.abs(m.x - target.x), Math.abs(m.y - target.y)) > BLAST_RADIUS) continue;
+      m.hp -= splash; flashFx("warp", { x: m.x, y: m.y }); floatFx(m.x, m.y, String(splash), "fl-dmg");
+      if (m.hp <= 0) downOrKill(m, `業炎が${m.kind.name}を焼いた。`);
+    }
+    return;
+  }
+  if (proc === "arc") { // 秘宝：雷撃＝視界内の別の最寄り敵へ連鎖（遠距離）
+    let best: Monster | null = null, bd = ARC_RANGE + 1;
+    for (const m of floor.monsters) {
+      if (m.hp <= 0 || m === target) continue;
+      const d = Math.hypot(m.x - target.x, m.y - target.y);
+      if (d <= ARC_RANGE && d < bd) { bd = d; best = m; }
+    }
+    if (best) {
+      const arc = Math.max(1, Math.round(dmg * ARC_FRAC));
+      best.hp -= arc; flashFx("blink", { x: best.x, y: best.y }); floatFx(best.x, best.y, String(arc), "fl-dmg");
+      if (best.hp <= 0) downOrKill(best, `雷撃が${best.kind.name}を貫いた。`); else log(`雷鳴が${best.kind.name}へ連鎖した（${arc}）。`, "dim");
+    }
+    return;
+  }
+  if (proc === "pierce") { // 秘宝：貫通＝攻撃方向の奥1マスの敵も打つ（直線の遠距離リーチ）
+    const dx = Math.sign(target.x - player.x), dy = Math.sign(target.y - player.y);
+    const bx = target.x + dx, by = target.y + dy;
+    const beyond = floor.monsters.find((m) => m.hp > 0 && m.x === bx && m.y === by);
+    if (beyond) {
+      const p = Math.max(1, Math.round(dmg * PIERCE_FRAC));
+      beyond.hp -= p; flashFx("warp", { x: bx, y: by }); floatFx(bx, by, String(p), "fl-dmg");
+      if (beyond.hp <= 0) downOrKill(beyond, `刃が${beyond.kind.name}まで貫いた。`);
+    }
+    return;
+  }
+  if (proc === "freeze") { // 秘宝：目標＋隣接を凍結(rooted)＋鈍化（範囲無力化）
+    for (const m of floor.monsters) {
+      if (m.hp <= 0) continue;
+      if (Math.max(Math.abs(m.x - target.x), Math.abs(m.y - target.y)) > 1) continue;
+      m.rooted = Math.max(m.rooted ?? 0, FREEZE_TURNS); m.slowed = Math.max(m.slowed ?? 0, FREEZE_TURNS);
+    }
+    log(`氷結が${target.kind.name}とその周囲を縛る。`, "dim");
+    return;
+  }
+  if (proc === "drain") { // 秘宝：与ダメの一部を回復（魔法吸収）
+    if (hp < maxHp(ch) && deathDoorTurns === 0) {
+      const heal = Math.max(1, Math.round(dmg * DRAIN_FRAC));
+      const before = hp; hp = Math.min(maxHp(ch), hp + heal);
+      if (hp > before) { floatFx(player.x, player.y, `+${hp - before}`, "fl-heal"); log(`吸命が巡る（HP＋${hp - before}）。`, "dim"); }
     }
     return;
   }
@@ -4109,9 +4122,17 @@ const ARMOR_STAGGER_CHANCE = 0.35; // 怯み：殴った敵を鈍化させる確
 const ARMOR_STAGGER_TURNS = 2;
 const ARMOR_DAUNT_CHANCE = 0.25;  // 威圧：殴った敵を恐慌させる確率
 const ARMOR_DAUNT_TURNS = 2;
-/** 防具 proc のうち「受け（被害軽減）」を被ダメ確定前に適用＝軽減後の dmg を返す。潜行(dive)のみ。 */
+// 秘宝の防具 proc 係数（2026-07-03）。
+const ARMOR_REFLECTALL_FRAC = 0.4; // 反射結界：近接も遠距離も被弾の 40% を返す
+const ARMOR_NEGATE_CHANCE = 0.25;  // 虚無の法衣：一定確率でその一撃を完全無効
+const ARMOR_PURGE = 0.18;          // 浄化：被弾ごとに深蝕を強く祓う（cleanse の約3倍）
+const HASTEN_TURNS = 6;            // 疾風の外套：フロア進入時に得るヘイストの手数
+/** 防具 proc のうち「受け（被害軽減）／無効化」を被ダメ確定前に適用＝軽減後の dmg を返す。潜行(dive)のみ。 */
 function armorBlock(ch: Character, dmg: number): number {
-  if (ch.equipment.armor?.proc !== "block" || dmg <= 0) return dmg;
+  const proc = ch.equipment.armor?.proc;
+  if (dmg <= 0) return dmg;
+  if (proc === "negate" && rng.next() < ARMOR_NEGATE_CHANCE) { log("虚無の法衣が、一撃を消し去った。", "dim"); return 0; } // 秘宝：完全無効
+  if (proc !== "block") return dmg;
   if (rng.next() >= ARMOR_BLOCK_CHANCE) return dmg;
   const kept = Math.max(1, Math.round(dmg * ARMOR_BLOCK_KEEP));
   if (kept < dmg) log("受けの鎧が一撃を受け流した。", "dim");
@@ -4132,6 +4153,13 @@ function applyArmorProc(ch: Character, m: Monster, dmg: number): void {
     m.fear = Math.max(m.fear ?? 0, ARMOR_DAUNT_TURNS); log(`威圧の鎧が${m.kind.name}を怯えさせた。`, "dim");
   } else if (proc === "cleanse") { // 清め＝被弾で深蝕を薄める（深蝕テーマの防御。烙印/永続汚染より下へは祓えない＝既存ルール尊重）
     cleanseExposure(ch, ARMOR_CLEANSE);
+  } else if (proc === "purge") { // 秘宝：浄化＝被弾で深蝕を強く祓う（cleanse 上位）
+    cleanseExposure(ch, ARMOR_PURGE);
+  } else if (proc === "reflectall" && m.hp > 0) { // 秘宝：反射結界＝近接も遠距離も被弾を反射（applyArmorProc は近接/遠距離 両方の被弾後に呼ばれる）
+    const recoil = Math.max(1, Math.round(dmg * ARMOR_REFLECTALL_FRAC));
+    m.hp -= recoil;
+    if (m.hp <= 0) downOrKill(m, `${m.kind.name}は反射結界に還されて斃れた。`);
+    else log(`反射結界が${m.kind.name}へ${recoil}を返す。`, "dim");
   }
 }
 // 召喚＝一時味方（4-11F③・召系）。盤上 ephemeral：数手で霧散。隣接敵を毎手討ち、いなければ最寄りへ寄る。
@@ -4149,6 +4177,7 @@ async function startDive() {
   floorCache = new Map(); // 新しい潜行＝階の記憶をリセット（深度1から）
   setPieceCooldown = 0; quietDescents = 0; // 4-10H 第二層：新しい潜行はペーシング調停層もまっさらから
   revenantUsed = false; // 遺物 revenant（不死鳥の灰）：潜行ごと一度きり＝新しい潜行で復活
+  blinkUsed = false;    // 秘宝 blink（転移の護符）：潜行ごと一度きり＝新しい潜行で復活
   world.diveCount = (world.diveCount ?? 0) + 1; // 潜行ごとに別ダンジョン＝再潜行farm防止（genFloor のseed nonce）
   world.diveMaxDepth = 0; // 世界クロック（4-14G 層1）：新しい潜行は最深をリセット（死で帰還しなかった前回の値を持ち越さない）
   if (world.current) hp = townHealHp(); // 街で癒えた状態から潜る（難易度 townHeal<1 なら満タンに戻らない＝消耗）
@@ -4326,8 +4355,12 @@ async function endTurn() {
       floatFx(companion.x, companion.y, String(h.dmg), "fl-hurt");
       log(`${h.monster.kind.name}の一撃が${companionName()}を襲う！ ${h.dmg}の傷。`, "warn");
     } else {
+      // 秘宝 timeslip（時詠みの懐中時計）：被弾を低確率で完全回避（時をわずかに滑らせる）。死戸/影分けの前に判定。
+      if (ch.equipment.relic?.relic === "timeslip" && rng.next() < TIMESLIP_CHANCE) {
+        floatFx(player.x, player.y, "時滑", "fl-miss"); log(`時が滑り、${h.monster.kind.name}の一撃が逸れた。`, "dim"); continue;
+      }
       let dmg = Math.max(1, h.dmg - armorReduce(ch) - (armorBuffTurns > 0 ? ARMOR_BUFF : 0)); // 防具＋硬鱗で軽減（下限1）
-      dmg = armorBlock(ch, dmg); // 防具 proc「受け」：一定確率でその一撃を軽減（被ダメ確定前）
+      dmg = armorBlock(ch, dmg); // 防具 proc「受け／無効化」：一定確率でその一撃を軽減 or 0に（被ダメ確定前）
       if (deathDoorTurns > 0) dmg = 0; // 死戸＝無敵
       if (dmg > 0 && shadowGuard > 0) { shadowGuard--; dmg = 0; log(`${h.monster.kind.name}の一撃を、影が引き受けた。`, "dim"); } // 影分け
       else if (deathDoorTurns > 0) log(`${h.monster.kind.name}の一撃を、死戸が弾く。`, "warn");
@@ -4386,6 +4419,14 @@ async function endTurn() {
     revenantUsed = true; hp = 1;
     sfx("seal"); flashFx("still"); updateStatus();
     log("不死鳥の灰が燃え上がる――灰の中から、もう一度。（HP1 で持ちこたえた）", "warn");
+  }
+  // 秘宝 blink（転移の護符）：潜行ごと一度だけ、致死を受けると死なず安全地帯へ転移し HP を一部回復（回避型）。
+  if (hp <= 0 && !blinkUsed && world.current?.equipment.relic?.relic === "blink" && floor) {
+    blinkUsed = true; hp = Math.max(1, Math.round(maxHp(ch) * 0.4));
+    const safe = randomFloorAway(floor, rng, player, 7) ?? randomFloorAway(floor, rng, player, 3);
+    if (safe) { player = { x: safe.x, y: safe.y }; if (companion) spawnCompanionNear(player); }
+    sfx("intervene"); flashFx("blink"); planMonsters(floor, player, rng, companion); updateStatus();
+    log("転移の護符が砕け、光がお前を物陰へ運んだ――危機を脱した。", "warn");
   }
   if (hp <= 0) { await deathFlow(); return; }
   // 帰還の詠唱（v2）：詠唱が満ちたら地上へ還る（聖遺物携行中は奉献成立＝NetHack 昇天ラン型の山場）。
@@ -4986,7 +5027,9 @@ async function castSpell(key: string) {
     log("影分け。三つの影が、身代わりに立つ（3度まで）。");
   }
 
-  const gain = def.cost * heartFactor(ch); // 心（染み込み係数）で術の深蝕代償が和らぐ＝v2 の主累積源①
+  // 秘宝 spellcrown（秘術の宝冠）：術の深蝕コストを軽減＝魔法ビルドの核。
+  const crownCost = ch.equipment.relic?.relic === "spellcrown" ? SPELLCROWN_COST_MUL : 1;
+  const gain = def.cost * heartFactor(ch) * crownCost; // 心（染み込み係数）で術の深蝕代償が和らぐ＝v2 の主累積源①
   addExp(gain);
   log(`（${def.name}の代償：深蝕＋${gain.toFixed(2)}）`, "dim");
   await turnPass();
@@ -5106,6 +5149,25 @@ function spawnReturnDoor(mon: Monster): void {
 }
 
 /** 撃破時の報酬：XP（敵の堅さ比例）。ボスは特別演出＋年代記に刻む（4-11F）。 */
+// ── 秘宝（artifact）の入手（2026-07-03・酒場の裏取引を廃止→深層レアドロップ＋統治者の大命の褒賞）──
+const ARTIFACT_MIN_DEPTH = 20;    // これ未満の深度では秘宝は出ない（中盤以降）
+const ARTIFACT_CHEST_BASE = 0.04; // 宝箱：深度20で4%、深いほど上昇
+const ARTIFACT_BOSS_BASE = 0.35;  // エリアボス：深度20で35%、深いほど上昇（ボスは秘宝の主源）
+/** 深度に応じた秘宝ドロップ率（上限つき・深いほど高い）。 */
+function artifactChance(depth: number, base: number, cap: number): number {
+  if (depth < ARTIFACT_MIN_DEPTH) return 0;
+  return Math.min(cap, base + (depth - ARTIFACT_MIN_DEPTH) * 0.004);
+}
+/** 秘宝を1点生成（鑑定済み）。武器/防具は深度で +N が少し伸びる（深いほど強い）。遺物は基効果のみ。 */
+function rollArtifact(depth: number): Item | null {
+  const names = artifactBaseNames();
+  if (!names.length) return null;
+  const base = names[Math.floor(rng.next() * names.length)];
+  const ench = 1 + Math.min(2, Math.floor((depth - ARTIFACT_MIN_DEPTH) / 14)); // depth20→+1・34→+2・48+→+3
+  const it = forgeItem(base, null, ench);
+  if (it) it.unidentified = false;
+  return it;
+}
 function rewardKill(mon: Monster, killLine?: string) {
   const ch = world.current!;
   ch.xp += Math.round(xpForKill(mon.kind.hp) * xpMul(ch) * diffMods(world.difficulty).xp); // 遺物「貪欲」でXP増
@@ -5116,6 +5178,11 @@ function rewardKill(mon: Monster, killLine?: string) {
     chronicle(world, "legend", `${ch.name}が深度${floor!.depth}で${mon.kind.name}を打ち倒した。`, [ch.id]);
     // ボスドロップ：エリアは確定、エリートは高確率（手番末の装備プロンプトへ）
     if (mon.boss === "area" || rng.next() < 0.7) pendingDrops.push(rollItem(floor!.depth, rng, { boss: true }));
+    // 秘宝レアドロップ（2026-07-03）：エリアボスは深度20+で高確率に秘宝を追加で落とす（秘宝の主源）。
+    if (mon.boss === "area" && rng.next() < artifactChance(floor!.depth, ARTIFACT_BOSS_BASE, 0.6)) {
+      const art = rollArtifact(floor!.depth);
+      if (art) { pendingDrops.push(art); log("亡骸の奥で、秘宝が妖しく脈打っている。", "warn"); }
+    }
     // 奉献の試練・印①：エリアボス（成れの果て）を撃破（4-13A）
     if (mon.boss === "area" && awardSeal(world, "abyss_boss", [ch.id])) {
       sfx("seal"); log("◆ 「成れの果ての討伐」の印を得た。", "warn");
@@ -5144,6 +5211,7 @@ function rollKillLoot(mon: Monster): void {
   if (rng.next() < 0.15) { // 金貨：亡骸から拾うめぼしい物
     let g = 1 + tier + Math.floor(depth * 0.35) + Math.floor(rng.next() * 3);
     if (ch.equipment.relic?.relic === "fortune") g = Math.round(g * 1.5); // 遺物 fortune＝拾う金貨↑
+    else if (ch.equipment.relic?.relic === "goldvein") g = Math.round(g * 2.2); // 秘宝 goldvein（金蔓の指輪）＝拾う金貨を大幅増
     ch.gold += g; sfx("coin", 0.1);
     log(`亡骸から ${g} 金貨を拾った（所持 ${ch.gold}）。`, "dim");
   }
@@ -5692,6 +5760,11 @@ async function chestScene(ce: Chest) {
     // 開けた宝箱はマップから取り除く（空き箱を残さない）
     const i = floor!.chests.indexOf(ce);
     if (i >= 0) floor!.chests.splice(i, 1);
+    // 秘宝レアドロップ（2026-07-03）：深度20+の宝箱に低確率で秘宝（深いほど上昇）。当たれば通常抽選より優先。
+    if (depth >= ARTIFACT_MIN_DEPTH && rng.next() < artifactChance(depth, ARTIFACT_CHEST_BASE, 0.18)) {
+      const art = rollArtifact(depth);
+      if (art) { sfx("seal"); log("宝箱の底に、妖しく脈打つ秘宝が眠っていた。", "warn"); await equipPrompt(art); save(); busy = false; draw(); return; }
+    }
     const roll = rng.next();
     const kept = roll >= 0.15 && roll < 0.15 + KEEPSAKE_CHANCE ? grantKeepsake(depth) : null; // 拾得品（詩情系の収集物・band 適合）
     if (roll < 0.15) { // 罠
@@ -6092,6 +6165,9 @@ const GEAR_SLOT_CLS: Record<ItemSlot, string> = { weapon: "c-atk", armor: "c-ctl
 const PROC_MARK: Record<NonNullable<Item["proc"]>, string> = {
   cleave: "薙", stun: "止", rend: "裂", sap: "萎",
   block: "受", barbs: "棘", cleanse: "清", daunt: "威", stagger: "怯",
+  // 秘宝（2026-07-03）
+  arc: "雷", blast: "炎", pierce: "貫", freeze: "氷", drain: "吸",
+  reflectall: "反", negate: "無", hasten: "疾", adapt: "順", purge: "浄",
 };
 function nameWithSigils(it: Item, equipped: boolean): string {
   const pre = it.unidentified ? `<span class="sigq">？</span>` : equipped ? `<span class="sig">★</span>` : "";
@@ -6289,7 +6365,7 @@ async function eventsScreen() {
   const claimAt = (q: Quest) => (q.patron === "noble" ? "謁見の間" : q.source === "tavern" ? "酒場" : "ギルド");
   const ql = (act.length || done.length)
     ? [
-        ...act.map((q) => `・${q.patron === "noble" ? "【大命】" : ""}${q.title}\n　　条件：${questConditionLine(q)}\n　　報酬：金${q.rewardGold}${q.rewardRelic ? "＋固有遺物" : ""}`),
+        ...act.map((q) => `・${q.patron === "noble" ? "【大命】" : ""}${q.title}\n　　条件：${questConditionLine(q)}\n　　報酬：金${q.rewardGold}${q.rewardRelic ? "＋秘宝" : ""}`),
         ...done.map((q) => `・【達成】${q.title} → ${claimAt(q)}で報酬 金${q.rewardGold} を受領`),
       ].join("\n")
     : "・依頼はない";
