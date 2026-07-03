@@ -22,6 +22,7 @@ interface Template {
   slot: ItemSlot; name: string; minDepth: number;
   dmg?: number; reduce?: number; relic?: Item["relic"]; proc?: Item["proc"]; capacity?: number; exposurePerTurn?: number;
   oddity?: boolean; // 異物（必ず未鑑定）
+  exclusive?: boolean; // 秘宝＝通常の宝箱/討伐/店頭抽選には出さない。深層レアドロップ／統治者の大命の褒賞でのみ入手（2026-07-03）。
 }
 
 // 実装の正。新装備はここに足すだけで宝箱/ボスドロップに乗る（銘・+N は自動で付与される）。
@@ -82,7 +83,31 @@ const TEMPLATES: Template[] = [
   { slot: "bag",    name: "革袋",         minDepth: 1,  capacity: 3 },
   { slot: "bag",    name: "探索者の背嚢", minDepth: 6,  capacity: 5 },
   { slot: "bag",    name: "深淵の嚢",     minDepth: 14, capacity: 8 },
+  // ── 秘宝（artifact・2026-07-03・酒場の裏取引を廃止し「深層レアドロップ＋大命褒賞」で入手）──
+  // exclusive:true＝通常の宝箱/討伐/店頭抽選には出さない（rollItem/rollItemOfSlot で除外＝golden 不変）。
+  // ★攻撃/防御は控えめ・価値は「店に無い特殊効果」に置く＝数値インフレでバランスを崩さない。多くは蝕む。
+  // 効果の適用は web（applyWeaponProc/applyArmorProc/relic フック）。深層で真価を発揮する。
+  { slot: "weapon", name: "雷鳴の魔剣",   minDepth: 20, dmg: 3, proc: "arc",    exposurePerTurn: 0.02, exclusive: true }, // 連鎖/遠距離
+  { slot: "weapon", name: "業炎の魔刀",   minDepth: 20, dmg: 3, proc: "blast",  exposurePerTurn: 0.02, exclusive: true }, // 範囲（半径2）
+  { slot: "weapon", name: "貫きの長刀",   minDepth: 20, dmg: 4, proc: "pierce", exclusive: true }, // 直線の遠距離リーチ
+  { slot: "weapon", name: "氷結の魔杖",   minDepth: 20, dmg: 2, proc: "freeze", exclusive: true }, // 範囲凍結＋鈍化（無力化）
+  { slot: "weapon", name: "吸命の魔剣",   minDepth: 20, dmg: 3, proc: "drain",  exposurePerTurn: 0.02, exclusive: true }, // 魔法吸収（回復）
+  { slot: "armor",  name: "反射結界の鎧", minDepth: 20, reduce: 3, proc: "reflectall", exposurePerTurn: 0.02, exclusive: true }, // 近接も遠距離も反射
+  { slot: "armor",  name: "虚無の法衣",   minDepth: 20, reduce: 3, proc: "negate", exclusive: true }, // 一定確率で完全無効
+  { slot: "armor",  name: "疾風の外套",   minDepth: 20, reduce: 3, proc: "hasten", exclusive: true }, // 進入時ヘイスト
+  { slot: "armor",  name: "深淵順応の鎧", minDepth: 20, reduce: 3, proc: "adapt",  exclusive: true }, // 深蝕蓄積を大幅軽減
+  { slot: "armor",  name: "贖罪の白鎧",   minDepth: 20, reduce: 3, proc: "purge",  exposurePerTurn: -0.015, exclusive: true }, // 被弾で深蝕を強く祓う
+  { slot: "relic",  name: "秘術の宝冠",   minDepth: 20, relic: "spellcrown", exposurePerTurn: 0.02, exclusive: true }, // 術ダメ大幅増＋術コスト減
+  { slot: "relic",  name: "転移の護符",   minDepth: 20, relic: "blink",   exclusive: true }, // 致死で安全地帯へ転移（潜行1回）
+  { slot: "relic",  name: "時詠みの懐中時計", minDepth: 20, relic: "timeslip", exclusive: true }, // 被弾を低確率で完全回避
+  { slot: "relic",  name: "探査の水晶",   minDepth: 20, relic: "farsight", exclusive: true }, // 進入時に地図/宝/化石を開示
+  { slot: "relic",  name: "金蔓の指輪",   minDepth: 20, relic: "goldvein", exposurePerTurn: 0.02, exclusive: true }, // 拾う金貨大幅増
 ];
+
+/** 秘宝（exclusive）の基名一覧（スロット別）。web の深層レアドロップ／大命褒賞が forgeItem で直接出す。 */
+export function artifactBaseNames(slot?: ItemSlot): string[] {
+  return TEMPLATES.filter((t) => t.exclusive && (!slot || t.slot === slot)).map((t) => t.name);
+}
 
 // ---------- 銘(affix)＝品質接辞 ----------
 // 深蝕の正負はスロット非依存（蝕=深蝕+・浄=深蝕−・恵=深蝕なし）。命名トーンと exposureAdd の符号が一致。
@@ -240,7 +265,7 @@ function pickBaseByDepth(src: Template[], depth: number, rng: Rng): Template {
 
 /** 深度に応じた装備を1つ抽選（銘・+N 込み）。ボスは上位寄り。蝕や一定確率で異物（未鑑定）。 */
 export function rollItem(depth: number, rng: Rng, opts: { boss?: boolean } = {}): Item {
-  const avail = TEMPLATES.filter((t) => t.minDepth <= depth + (opts.boss ? 5 : 0));
+  const avail = TEMPLATES.filter((t) => !t.exclusive && t.minDepth <= depth + (opts.boss ? 5 : 0)); // 秘宝は通常ドロップに出さない
   const src = avail.length ? avail : [TEMPLATES[0]];
   let t: Template;
   if (opts.boss) {
@@ -260,7 +285,7 @@ export function rollItem(depth: number, rng: Rng, opts: { boss?: boolean } = {})
 /** 指定スロットの装備を1つ抽選（武具屋＝武器担当/防具担当の品揃え用。必ずそのスロットが並ぶ）。
  *  深度に合う候補が無ければ、そのスロットの最も浅いテンプレにフォールバック。鑑定済み相当（店頭は素性が見える）。 */
 export function rollItemOfSlot(depth: number, rng: Rng, slot: ItemSlot): Item {
-  const ofSlot = TEMPLATES.filter((t) => t.slot === slot);
+  const ofSlot = TEMPLATES.filter((t) => t.slot === slot && !t.exclusive); // 秘宝は店頭に並べない
   const avail = ofSlot.filter((t) => t.minDepth <= depth);
   const src = avail.length ? avail : [[...ofSlot].sort((a, b) => a.minDepth - b.minDepth)[0]];
   const t = pickBaseByDepth(src, depth, rng); // 深度加重（深い街ほど上位基が並ぶ）
@@ -313,12 +338,18 @@ const RELIC_DESC: Record<NonNullable<Item["relic"]>, string> = {
   calm: "深蝕レート減", reason: "理＋1", greed: "撃破XP増", might: "近接＋1",
   vigor: "最大HP＋6", ward: "被ダメ−1", fortune: "拾う金貨増", mending: "潜行中ゆっくり回復",
   thorns: "被弾を反射", siphon: "近接で吸命", clarity: "毒・侵蝕を半減", potency: "術ダメージ増", revenant: "一度だけ致死を耐える",
+  // 秘宝（2026-07-03）
+  spellcrown: "術ダメージ大幅増＋術の深蝕コスト減", blink: "致死で安全地帯へ転移（潜行1回）",
+  timeslip: "被弾を低確率で完全回避", farsight: "進入時に地図と宝箱/化石を開示", goldvein: "拾う金貨を大幅増",
 };
 
 /** 発動効果の説明（武器 PR4／防具 2026-07-01）。 */
 const PROC_DESC: Record<NonNullable<Item["proc"]>, string> = {
   cleave: "薙ぎ（隣接の敵にも余波）", stun: "当て止め", rend: "裂傷（継続ダメ）", sap: "敵の攻撃を弱める",
   block: "受け（被害を軽減）", barbs: "棘（被弾を反射）", cleanse: "清め（被弾で深蝕減）", daunt: "威圧（敵を恐慌）", stagger: "怯み（敵を鈍化）",
+  // 秘宝（2026-07-03）
+  arc: "雷撃（別の敵へ連鎖・遠距離）", blast: "炎の範囲（半径2）", pierce: "貫通（直線の奥も打つ）", freeze: "凍結（範囲を無力化）", drain: "吸命（与ダメを回復）",
+  reflectall: "反射結界（近接も遠距離も返す）", negate: "無効化（確率で一撃を0に）", hasten: "疾風（進入時ヘイスト）", adapt: "深淵順応（深蝕を大幅軽減）", purge: "浄化（被弾で深蝕を強く祓う）",
 };
 /** 効果の説明（鑑定済み前提）。 */
 export function itemPower(it: Item): string {

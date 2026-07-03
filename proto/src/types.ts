@@ -99,15 +99,29 @@ export type RelicKind = "calm" | "reason" | "greed" | "might" | "vigor" | "ward"
   | "siphon"    // 近接命中ぶんを吸命（渇き）
   | "clarity"   // 毒・侵蝕(curse)の蓄積を半減（澄心）
   | "potency"   // 術ダメージ増（術理）
-  | "revenant"; // 潜行中一度だけ致死を1で耐える（不死鳥の灰）
+  | "revenant"  // 潜行中一度だけ致死を1で耐える（不死鳥の灰）
+  // 秘宝（裏取り廃止→深層レアドロップ／大命褒賞・2026-07-03）：店に無い効用を持つ遺物。
+  | "spellcrown" // 術ダメージ大幅増＋術の深蝕コスト減（秘術の宝冠）
+  | "blink"      // 致死を受けると死なず安全地帯へ転移（潜行1回・転移の護符）
+  | "timeslip"   // 被弾時 低確率で完全回避（時をわずかに滑らせる・時詠みの懐中時計）
+  | "farsight"   // フロア進入時に地図＋宝箱/化石の位置を開示（探査の水晶）
+  | "goldvein";  // 拾う金貨を大幅増（金蔓の指輪）
 // calm=深蝕レート減 / reason=理+1 / greed=撃破XP×1.5 / might=近接+1 / vigor=最大HP+6 / ward=被ダメ-1 / fortune=拾う金貨×1.5 / mending=潜行中ゆっくり回復
 // 武器の発動効果（物量レビュー PR4・2026-06-28）：武器に初の「挙動差」を与える（従来は近接+ダメージのみ）。命中時に発動・web 適用。
 //   cleave=隣接の他の敵にも余波／stun=一定確率で目標を当て止め／rend=裂傷（継続ダメ）／sap=目標の攻撃を弱める。
-export type WeaponProc = "cleave" | "stun" | "rend" | "sap";
+// 秘宝の武器 proc（特殊効果＝店に無い挙動・2026-07-03）：arc=命中時に別の敵へ雷撃（連鎖/遠距離）／
+//   blast=目標の周囲半径2に炎（範囲）／pierce=攻撃方向の奥1マスも貫く（直線遠距離）／
+//   freeze=目標＋隣接を凍結(rooted)＋鈍化（範囲制御）／drain=与ダメの一部を回復（魔法吸収）。
+export type WeaponProc = "cleave" | "stun" | "rend" | "sap"
+  | "arc" | "blast" | "pierce" | "freeze" | "drain";
 // 防具の発動効果（2026-07-01・武器 proc と対称に「被弾時」発動＝防具の機械的多様性を補う）。web 適用。
 //   barbs=近接被弾の一部を反射／block=一定確率でその一撃を軽減／cleanse=被弾ごとに自分の深蝕を薄める／
 //   stagger=一定確率で殴った敵を鈍化／daunt=一定確率で殴った敵を恐慌。
-export type ArmorProc = "barbs" | "block" | "cleanse" | "stagger" | "daunt";
+// 秘宝の防具 proc（特殊効果・2026-07-03）：reflectall=近接も遠距離も被弾の一部を反射／
+//   negate=一定確率でその一撃を完全無効（0化）／hasten=フロア進入時ヘイスト／
+//   adapt=深蝕の蓄積を大幅軽減（深淵順応）／purge=被弾ごとに深蝕を大きく祓う（cleanse 強化）。
+export type ArmorProc = "barbs" | "block" | "cleanse" | "stagger" | "daunt"
+  | "reflectall" | "negate" | "hasten" | "adapt" | "purge";
 export interface Item {
   id: string; slot: ItemSlot; name: string;
   dmg?: number;             // 武器：近接ダメージ+（銘・+N 込みの最終値）
