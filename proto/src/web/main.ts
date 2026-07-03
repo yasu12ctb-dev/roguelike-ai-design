@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.103.1";
+export const APP_VERSION = "0.103.2";
 export const APP_BUILD = "2026-07-03";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -2779,10 +2779,11 @@ async function characterCreation() {
     }
     log(`${heirAnc.origin.name}の遺した装備を受け継いだ。家督とともに。`, "cue");
   }
-  // 序盤の丸腰を解消（テストプレイFB 2026-07-03・案A→中間調整）：支給は**武器のみ（短刀＝攻+1・鑑定済み）**。
-  // 防具は「見つける」対象に戻す（初期支給+宝箱率アップの二重で緩過ぎたFBを受け、中間値へ引き戻し）。
-  // 継承で得た装備があればそちらを優先＝上書きしない。支給は最弱基ゆえ「終始シビア」は崩さない（序盤だけ緩める）。
+  // 序盤の丸腰を解消（テストプレイFB 2026-07-03・案A・ユーザー承認）：装備の空きスロットに最低限の支給品
+  // （短刀＝攻+1／革鎧＝被ダメ-1・鑑定済み）を配る。継承で得た装備があればそちらを優先＝上書きしない。
+  // 冒険者が丸腰で潜る不自然さの解消＝支給は最弱基ゆえ「終始シビア」の数値曲線は崩さない（序盤だけを緩める）。
   if (!ch.equipment.weapon) { const w = forgeItem("短刀", null, 0); if (w) { w.unidentified = false; ch.equipment.weapon = w; } }
+  if (!ch.equipment.armor)  { const a = forgeItem("革鎧", null, 0); if (a) { a.unidentified = false; ch.equipment.armor = a; } }
   // 家格の恩恵（4-14G 層3）：家が栄えるほど、次の当主は家の蓄え（治癒の膏薬・餞別）を携えて発つ＝微小。
   const hr = houseRank();
   if (hr.tier >= 1) {
@@ -2793,7 +2794,7 @@ async function characterCreation() {
   }
   hp = maxHp(ch);
   const intro = lineage.relation === "none"
-    ? `${ch.name}は、何も受け継がず、支給の短刀ひとつを手に迷宮へ向かう（${statsLine(ch)}）。`
+    ? `${ch.name}は、何も受け継がず、支給の短刀と革鎧だけを手に迷宮へ向かう（${statsLine(ch)}）。`
     : `${ch.name}は先代の${lineage.relation === "blood" ? "血" : "教え"}を継いで迷宮へ向かう（Lv${ch.level}・${statsLine(ch)}）。`;
   log(intro, "dim");
   if (ch.bonds.some((b) => b.unfinished)) log("……先代の未完の因縁が、お前に引き継がれた。", "warn");
@@ -5702,7 +5703,7 @@ async function chestScene(ce: Chest) {
       sfx("pickup");
       await sheet({ text: `${kept.story}\n\n――懐に納めた。街へ持ち帰れば、書記イェンが好古の棚に加えてくれる。`, meta: `深度${depth} ── 拾得品「${kept.title}」`, options: ["懐に納める"] });
       log(`心に残る品を見つけた──「${kept.title}」。街の書記の館（記）で読み返せる。`);
-    } else if (roll < 0.58) { // 装備ドロップ（序盤の入手を底上げ・約28%→約31%＝初期値0.55と0.62の中間・FB 2026-07-03 案B→中間調整）
+    } else if (roll < 0.58) { // 装備ドロップ（序盤の入手を底上げ・約28%→約31%＝初期0.55と0.62の中間・FB 2026-07-03 案B→中間調整。初期支給はそのまま）
       const item = rollItem(depth, rng);
       log("宝箱から、何かを手にした。");
       await equipPrompt(item);
