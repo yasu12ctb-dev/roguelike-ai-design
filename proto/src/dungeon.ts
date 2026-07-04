@@ -745,16 +745,44 @@ export function planCompanion(f: Floor, player: Pos, comp: CompanionEntity, rng?
   // 隣接する生きた敵がいれば討つ（最も近い＝最小添字で安定選択）
   const foe = f.monsters.find((m) => m.hp > 0 && Math.max(Math.abs(m.x - comp.x), Math.abs(m.y - comp.y)) <= 1);
   if (foe) { comp.intent = { type: "attack", x: foe.x, y: foe.y }; return; }
-  // さもなくば @ に追従（隣接なら待機）
-  const dp = Math.max(Math.abs(player.x - comp.x), Math.abs(player.y - comp.y));
-  if (dp <= 1) { comp.intent = { type: "wait" }; return; }
-  const dx = Math.sign(player.x - comp.x), dy = Math.sign(player.y - comp.y);
-  const cand: Pos[] = [{ x: comp.x + dx, y: comp.y + dy }, { x: comp.x + dx, y: comp.y }, { x: comp.x, y: comp.y + dy }];
-  for (const c of cand) {
+  // 交戦支援＝挟撃志向（2026-07-04 テストプレイFB「相棒が回り込まない」）：@ が敵と交戦中（隣接）なら、
+  // ただ後ろで待たず、その敵へ寄る。目標＝敵を挟んで @ の反対側（挟撃位置）を最優先、
+  // 塞がっていれば敵に隣接する空き床のうち相棒から最も近いもの（安定順）。
+  // @ 交戦中の敵は @ の隣＝ leash は自然に保たれる。erratic（連帯深蝕の逸脱）はこの段より先に判定済み＝不変。
+  const engaged = f.monsters.find((m) => m.hp > 0 && Math.max(Math.abs(m.x - player.x), Math.abs(m.y - player.y)) <= 1);
+  const goal: Pos | null = (() => {
+    if (!engaged) return null;
+    const free = (x: number, y: number) =>
+      tileAt(f, x, y) === 1 && !(x === player.x && y === player.y) && !occupiedBy(f, x, y, null, block);
+    const flank = { x: engaged.x * 2 - player.x, y: engaged.y * 2 - player.y }; // 敵を挟んで @ の反対側
+    if (free(flank.x, flank.y)) return flank;
+    let best: Pos | null = null, bestD = Infinity;
+    for (let dy2 = -1; dy2 <= 1; dy2++) for (let dx2 = -1; dx2 <= 1; dx2++) {
+      if (dx2 === 0 && dy2 === 0) continue;
+      const x = engaged.x + dx2, y = engaged.y + dy2;
+      if (!free(x, y)) continue;
+      const d = Math.max(Math.abs(x - comp.x), Math.abs(y - comp.y));
+      if (d < bestD) { bestD = d; best = { x, y }; }
+    }
+    return best;
+  })();
+  // 目標（挟撃位置 or @）へ一歩＝8方向から「目標に最も近づく空きマス」を選ぶ（決定論＝走査順で安定）。
+  // 同距離の横滑りも許す＝@ の真後ろから回り込める（通路で詰まらない）。遠ざかる一歩は踏まない。
+  const tgt = goal ?? player;
+  const dt = Math.max(Math.abs(tgt.x - comp.x), Math.abs(tgt.y - comp.y));
+  if (dt <= (goal ? 0 : 1)) { comp.intent = { type: "wait" }; return; } // 挟撃位置に到達済み or @ の隣＝待機
+  let bestC: Pos | null = null, bestScore = Infinity;
+  for (let ddy = -1; ddy <= 1; ddy++) for (let ddx = -1; ddx <= 1; ddx++) {
+    if (ddx === 0 && ddy === 0) continue;
+    const c = { x: comp.x + ddx, y: comp.y + ddy };
     const blocked = (c.x === player.x && c.y === player.y) || occupiedBy(f, c.x, c.y, null, block);
-    if (tileAt(f, c.x, c.y) === 1 && !blocked) { comp.intent = { type: "move", x: c.x, y: c.y }; return; }
+    if (tileAt(f, c.x, c.y) !== 1 || blocked) continue;
+    const cheb = Math.max(Math.abs(tgt.x - c.x), Math.abs(tgt.y - c.y));
+    if (cheb > dt) continue; // 遠ざかる一歩は踏まない（振動防止＝同距離までは許す）
+    const score = cheb * 100 + Math.abs(tgt.x - c.x) + Math.abs(tgt.y - c.y); // 同着はマンハッタンで安定タイブレーク
+    if (score < bestScore) { bestScore = score; bestC = c; }
   }
-  comp.intent = { type: "wait" };
+  comp.intent = bestC ? { type: "move", x: bestC.x, y: bestC.y } : { type: "wait" };
 }
 
 /** 相棒の予告を実行（攻撃＝予告マスの敵に確定ダメージ／移動＝空きへ一歩）。撃破した敵を返す。 */
