@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.105.1";
+export const APP_VERSION = "0.105.2";
 export const APP_BUILD = "2026-07-03";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1952,32 +1952,86 @@ function houseRank(): { tier: number; label: string; score: number } {
   const label = ["名もなき家", "駆け出しの家", "名の知れた家", "誉れ高き家", "英傑の家系", "大いなる家系"][tier];
   return { tier, label, score };
 }
-/** 系譜の間（家系図）：歴代当主＝どう終えたか（斃れた／退いた）＋何を遺したか＋今どう変わっているかを連ねる。 */
+// 極（tonePole）の色＝正典色から流用：神話=金泥（player）/喪失=青緑（fossil）/怨念=赤（danger 系を読みやすく）。
+const POLE_COLOR: Record<string, string> = { myth: "#ffd87a", loss: "#9fd8cf", grudge: "#ff8a76" };
+/** 系譜の間（家系図）：歴代当主のカード一覧（図鑑と同じ二層UI・テストプレイFB「文字の羅列で見づらい」対応）。
+ *  一覧＝chooseGrid カード（第N代・名・最期の極を色分け）／タップ→詳細（sheet の sections＝Swift Section ミラー）。 */
 async function lineageHallScene() {
   busy = true;
   const wt = worldTime(world);
   const line = world.fossils.filter((f) => f.kind === "character"); // 歴代当主（死者＋退隠した先代）
   const ordered = [...line].sort((a, b) => a.death.generationCreated - b.death.generationCreated);
-  const recent = ordered.slice(-15);
-  const rows = recent.map((f) => {
-    const g = f.death.generationCreated;
-    const epi = f.origin.epithet ? `〈${f.origin.epithet}〉` : "";
-    const gear = f.origin.gearTags?.[0] ? `／遺品「${f.origin.gearTags[0]}」` : "";
-    if (f.retired) return `第${g}代 ${f.origin.name}${epi}\n   伝説として退いた（街の守護者）${gear}`;
-    const v = computeVariation(f, wt);
-    return `第${g}代 ${f.origin.name}${epi}\n   深度${f.laidDepth}で斃れた（${poleLabel(f.tonePole)}）／今は ${VARIATION_JP[v.stage] ?? v.stage}${gear}`;
-  });
-  const body = rows.length ? rows.join("\n") : "・（まだ歴代の当主はいない。最初の一代として、名を刻め）";
   const hr = houseRank();
-  const more = recent.length < ordered.length ? `\n\n…ほか ${ordered.length - recent.length} 名、古い代の者たち。` : "";
-  const boon = hr.tier >= 1 ? `\n\n家格に応じ、次の当主は家の蓄え（治癒の膏薬・餞別）を携えて発つ。` : "";
   const hall = world.manorUnlocked
-    ? `貴族街の館・大広間。歴代の名は今、貴族の列に連なる肖像として壁を埋めている。`
-    : `世代を継ぐたび、この壁に名が刻まれる。退いた者は伝説に、斃れた者は深みで静かに変わってゆく。`;
-  await sheet({
-    text: `〔${hr.label}〕（家格 ${hr.tier}/5・誉れ ${hr.score}）\n${hall}${boon}\n\n${body}${more}`,
-    meta: `${world.manorUnlocked ? "貴族街の館" : "自宅"} ── 系譜の間（家系図）`, options: ["閉じる"],
-  });
+    ? "貴族街の館・大広間。歴代の名は、貴族の列に連なる肖像として壁を埋めている。"
+    : "世代を継ぐたび、この壁に名が刻まれる。退いた者は伝説に、斃れた者は深みで静かに変わってゆく。";
+  const boon = hr.tier >= 1 ? `　家格に応じ、次の当主は家の蓄え（膏薬・餞別）を携えて発つ。` : "";
+  for (;;) {
+    if (!ordered.length) {
+      await sheet({
+        text: `〔${hr.label}〕（家格 ${hr.tier}/5・誉れ ${hr.score}）\n${hall}\n\nまだ歴代の当主はいない。最初の一代として、名を刻め。`,
+        meta: `${world.manorUnlocked ? "貴族街の館" : "自宅"} ── 系譜の間（家系図）`, options: ["閉じる"],
+      });
+      break;
+    }
+    // 一覧＝カード（新しい代が上＝直近の物語から辿れる）。glyph：★=退いた伝説（金）／†=斃れた（極の色）。
+    const list = [...ordered].reverse();
+    const cells = list.map((f) => {
+      const g = f.death.generationCreated;
+      const epi = f.origin.epithet ? `〈${f.origin.epithet}〉` : "";
+      if (f.retired) {
+        return { html: `<div class="nm"><span style="color:#ffd87a;font-size:1.15em">★</span>　第${g}代　${f.origin.name}${epi}</div>`
+          + `<div class="sub">伝説として退いた ── 街の守護者</div>` };
+      }
+      const v = computeVariation(f, wt);
+      const col = POLE_COLOR[f.tonePole] ?? "#9fd8cf";
+      return { html: `<div class="nm"><span style="color:${col};font-size:1.15em">†</span>　第${g}代　${f.origin.name}${epi}</div>`
+        + `<div class="sub"><span style="color:${col}">${poleLabel(f.tonePole)}の極</span>　深度${f.laidDepth}で斃れた・今は ${VARIATION_JP[v.stage] ?? v.stage}</div>` };
+    });
+    const i = await chooseGrid({
+      title: `系譜の間 ── 〔${hr.label}〕 家格 ${hr.tier}/5・誉れ ${hr.score}`,
+      lead: `${hall}${boon}　歴代 ${ordered.length} 名。`,
+      cells, cancel: "閉じる", cols: 1,
+    });
+    if (i < 0 || i >= list.length) break;
+    // 詳細＝構造化シート（最期／いま／遺品／言葉）。
+    const f = list[i];
+    const epi = f.origin.epithet ? `〈${f.origin.epithet}〉` : "";
+    const endRows: SheetRow[] = f.retired
+      ? [{ label: "終わり方", value: "伝説として退いた" }, { label: "その後", value: "街の守護者", note: "街で再会できる" }]
+      : [
+          { label: "終わり方", value: `深度${f.laidDepth}で斃れた` },
+          { label: "極", value: `${poleLabel(f.tonePole)}の極` },
+          { label: "最後の一手", value: finalActLabel(f.death.finalAct.choice) },
+        ];
+    const nowRows: SheetRow[] = f.retired
+      ? [{ text: "深みに亡骸はない。人としての余生を、街で静かに送っている。", dim: true }]
+      : (() => {
+          const v = computeVariation(f, wt);
+          return [
+            { label: "変質", value: VARIATION_JP[v.stage] ?? v.stage, note: "放置で進み、干渉で緩む" },
+            { text: "亡骸は深みに眠り、世代とともに変わってゆく。潜れば、再会することもある。", dim: true },
+          ] as SheetRow[];
+        })();
+    const gearRows: SheetRow[] = (f.origin.gearTags?.length ? f.origin.gearTags : []).slice(0, 4)
+      .map((gname) => ({ text: `「${gname}」` } as SheetRow));
+    const sections: SheetSection[] = [
+      { header: "最期", rows: endRows },
+      { header: "いま", rows: nowRows },
+    ];
+    if (gearRows.length) sections.push({ header: "遺品", rows: gearRows });
+    if (f.origin.catchphrase || f.death.finalAct.note) {
+      const wordRows: SheetRow[] = [];
+      if (f.death.finalAct.note) wordRows.push({ text: `最期の言葉 ──「${f.death.finalAct.note}」`, dim: true });
+      if (f.origin.catchphrase) wordRows.push({ text: `口癖 ──『${f.origin.catchphrase}』`, dim: true });
+      sections.push({ header: "言葉", rows: wordRows });
+    }
+    await sheet({
+      text: `第${f.death.generationCreated}代《${f.origin.name}》${epi}`,
+      meta: `系譜の間 ── ${f.origin.name}`,
+      sections, options: ["戻る"],
+    });
+  }
   busy = false;
 }
 
