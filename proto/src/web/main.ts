@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.109.1";
+export const APP_VERSION = "0.110.0";
 export const APP_BUILD = "2026-07-04";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -539,6 +539,7 @@ let mapMode = false; // 地図表示（踏破範囲の俯瞰）
 // 収まらなければ @ 中心で切り出し＝ドラッグでパン。深層で1タイルが潰れて読めない問題への対応。
 let mapCam: Pos = { x: 0, y: 0 };
 let mapCols = 0, mapRows = 0; // 地図ビューポートのマス数（＝グリッド寸法）
+let mapOverview = false;      // 「全体図」モード：フロア全体を1画面に収める（パン無し。既定=off＝読めるサイズ+パン）
 const MAP_CELL_MIN = 13;      // これ未満に縮むならパン表示へ切替（px）
 let aim: Pos | null = null;   // 照準モード（地図でタップ→マーカー→D-padで微調整→確定で自動移動）
 let aimReachable = false;     // 現在のマーカーへ到達経路があるか（確定可否・色分け）
@@ -765,7 +766,8 @@ function layoutMapView(): void {
   const availW = Math.min(window.innerWidth, 560);
   const availH = Math.max(1, $("mapWrap").clientHeight - 4);
   const fitCell = Math.min(availW / floor.w, availH / floor.h);
-  const cell = Math.max(fitCell, MAP_CELL_MIN); // 収まればそのまま／縮みすぎるなら最小で窓表示
+  // 全体図モード＝フロア全体を1画面に収める（fitCell）。既定＝読めるサイズ（≥MAP_CELL_MIN）でパン。
+  const cell = mapOverview ? fitCell : Math.max(fitCell, MAP_CELL_MIN);
   mapCols = Math.min(floor.w, Math.max(1, Math.floor(availW / cell)));
   mapRows = Math.min(floor.h, Math.max(1, Math.floor(availH / cell)));
   buildGridDom(mapCols, mapRows); // cellSize は buildGridDom が min(availW/cols, availH/rows)≈cell で算出
@@ -789,6 +791,18 @@ function mapPannable(): boolean { return !!floor && (mapCols < floor.w || mapRow
 function updatePanHint(): void {
   const el = document.getElementById("mapPanHint"); if (!el) return;
   el.textContent = mapPannable() ? "◧ ドラッグでスクロール" : "";
+}
+function updateOverviewBtn(): void {
+  const b = document.getElementById("mapOverviewBtn"); if (!b) return;
+  b.textContent = mapOverview ? "拡大" : "全体図"; // 全体図表示中は「拡大」（＝読めるサイズ+パンへ戻す）
+}
+/** 全体図 ⇄ 拡大（読めるサイズ+パン）を切り替える。地図モード中のみ。 */
+function toggleMapOverview(): void {
+  if (!mapMode || !floor) return;
+  mapOverview = !mapOverview;
+  layoutMapView(); // cell/cols/rows を計算し直し、@ 中心へ再センタリング
+  drawMapMode();
+  updateOverviewBtn();
 }
 function drawMapMode() {
   if (!floor) return;
@@ -836,14 +850,19 @@ function drawMapMode() {
 function resetMapView(): void {
   mapMode = false;
   mapCols = 0; mapRows = 0;
+  mapOverview = false;
   aim = null; aimPath = null;
   $("aimBar").hidden = true;
   $("mapLegend").hidden = true;
+  $("mapOverviewBtn").hidden = true;
 }
 function setMapMode(v: boolean) {
   mapMode = v;
   if (!v && aim) { aim = null; aimPath = null; $("aimBar").hidden = true; } // 地図を閉じたら照準も解除
+  if (v) mapOverview = false; // 開くたびに既定＝読めるサイズ+パン（「全体図」ボタンで全体表示に切替）
   $("mapLegend").hidden = !v; // 凡例は地図モード中のみ（地図の外＝下の行・v0.109.0）
+  $("mapOverviewBtn").hidden = !v; // 全体図トグルは地図モード中のみ
+  updateOverviewBtn();
   hidePeek();
   // 地図↔プレイでグリッド寸法が変わるので組み直す（プレイ=VIEW／地図=読めるサイズのカメラ窓）
   if (v && floor) { layoutMapView(); drawMapMode(); }
@@ -6862,8 +6881,10 @@ $("mapBtn").onclick = () => { if (mode !== "dive") return; setMapMode(!mapMode);
 // 照準バー：ボタンは地図のスワイプ/タップ判定から隔離（touch を mapWrap へ伝播させない）。
 $("aimGo").onclick = () => confirmAim();
 $("aimCancel").onclick = () => cancelAim();
+$("mapOverviewBtn").onclick = () => toggleMapOverview();
 for (const ev of ["touchstart", "touchend", "pointerdown"]) {
   $("aimBar").addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+  $("mapOverviewBtn").addEventListener(ev, (e) => e.stopPropagation(), { passive: true }); // 地図のタップ/パン判定へ伝播させない
 }
 // ステータスタブ＝身上・装備・術・進行中・年代記・敵図鑑（旧「冒険の記録」を統合）。
 $("statBtn").onclick = () => { if (!busy) void charScreen(); };

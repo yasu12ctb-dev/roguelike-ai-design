@@ -133,6 +133,12 @@
       border-top: 1px solid var(--line); font-size: 10.5px; color: var(--tx-dim);
       white-space: nowrap; overflow-x: auto; font-family: "Menlo", "Consolas", monospace; }
     #mapLegend[hidden] { display: none; }
+    /* 全体図トグル（地図モード中・右下。1画面に収まる全体図 ⇄ 読めるサイズのパン表示） */
+    #mapOverviewBtn { position: absolute; right: 8px; bottom: 8px; z-index: 15;
+      padding: 6px 12px; border-radius: var(--r-btn); border: 1px solid var(--line-2);
+      background: rgba(20,17,12,.92); color: var(--tx-2); font-family: inherit; font-size: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.5); }
+    #mapOverviewBtn[hidden] { display: none; }
     #mapLegend .lg { margin-right: 8px; }
     #mapLegend .lg:last-child { margin-right: 0; }
     /* 調べる（タップ＝NetHack「;」の現代化・v0.99.0）：HUD直下の帯ポップ。手番非消費・入力非ブロック。 */
@@ -479,6 +485,7 @@
       <button id="aimGo" type="button">移動</button>
       <button id="aimCancel" type="button">やめる</button>
     </div>
+    <button id="mapOverviewBtn" type="button" hidden>全体図</button>
   </div>
 
   <div id="mapLegend" hidden>
