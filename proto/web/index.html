@@ -173,6 +173,29 @@
     .fl-heal { color: var(--g-rest); }
     .fl-miss { color: var(--tx-faint); font-size: 12px; }
     .fl-kill { color: #fff; text-shadow: 0 0 10px rgba(201,167,90,.9), 0 0 20px rgba(201,167,90,.5); animation: floatup .55s ease-out forwards; }
+    .fl-crit { color: #fff; font-size: 21px; text-shadow: 0 0 12px rgba(230,198,106,1), 0 0 26px rgba(230,198,106,.6), 0 1px 2px rgba(0,0,0,.9);
+      animation: floatup .8s ease-out forwards, critpop .28s ease-out; } /* 見切り反撃の会心数字（特大金白・v0.115.0） */
+    @keyframes critpop { 0% { letter-spacing: 4px; filter: brightness(2); } 100% { letter-spacing: 0; filter: brightness(1); } }
+    /* タイル演出レイヤ（1マスぶんの純CSSエフェクト・グリフを覆わない・v0.115.0） */
+    #floats .tfx { position: absolute; transform: translate(-50%, -50%); pointer-events: none; }
+    .tfx-ready { border: 2px solid var(--gold-leaf); border-radius: 50%;
+      box-shadow: 0 0 14px rgba(230,198,106,.8), inset 0 0 8px rgba(230,198,106,.4);
+      animation: fxready .45s ease-out forwards; } /* 見切り成立＝@に金の波紋 */
+    @keyframes fxready { 0% { opacity: .95; transform: translate(-50%,-50%) scale(.3); } 100% { opacity: 0; transform: translate(-50%,-50%) scale(2.1); } }
+    .tfx-slash::before { content: ""; position: absolute; left: 50%; top: 50%; width: 160%; height: 3px; border-radius: 2px;
+      background: linear-gradient(90deg, transparent, #fff 35%, var(--gold-leaf) 65%, transparent);
+      box-shadow: 0 0 10px rgba(255,230,150,.95), 0 0 22px rgba(230,198,106,.6);
+      transform: translate(-50%,-50%) rotate(-45deg); }
+    .tfx-slash { animation: fxslash .3s ease-out forwards; } /* 会心＝金白の一閃（斬光） */
+    @keyframes fxslash { 0% { opacity: 0; transform: translate(-50%,-50%) scale(.4) rotate(0deg); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%,-50%) scale(1.35) rotate(0deg); } }
+    .tfx-press::before, .tfx-press::after { content: ""; position: absolute; top: 50%; width: 26%; height: 55%; transform: translateY(-50%); opacity: .9; }
+    .tfx-press::before { left: -10%; border: 2px solid var(--c-mov); border-right: none; animation: fxpressL .26s ease-out forwards; }
+    .tfx-press::after  { right: -10%; border: 2px solid var(--c-mov); border-left: none; animation: fxpressR .26s ease-out forwards; }
+    .tfx-press { filter: drop-shadow(0 0 6px rgba(111,199,192,.7)); } /* 挟撃＝両側から閉じる楔（控えめ） */
+    @keyframes fxpressL { 0% { transform: translate(-70%,-50%); opacity: 0; } 45% { opacity: .9; } 100% { transform: translate(30%,-50%); opacity: 0; } }
+    @keyframes fxpressR { 0% { transform: translate(70%,-50%); opacity: 0; } 45% { opacity: .9; } 100% { transform: translate(-30%,-50%); opacity: 0; } }
+    .shake-crit { animation: shakecrit .14s linear; } /* 会心のマイクロシェイク（±2px・140ms） */
+    @keyframes shakecrit { 25% { transform: translate(2px,-1px); } 50% { transform: translate(-2px,1px); } 75% { transform: translate(1px,1px); } 100% { transform: translate(0,0); } }
     #grid { display: grid; width: 100%; }
     .cell {
       position: relative; display: flex; align-items: center; justify-content: center;
