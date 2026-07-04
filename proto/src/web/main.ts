@@ -60,8 +60,8 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.105.2";
-export const APP_BUILD = "2026-07-03";
+export const APP_VERSION = "0.106.0";
+export const APP_BUILD = "2026-07-04";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
 const db = makeContentDb(
@@ -970,8 +970,11 @@ async function rumorScene() {
 async function chronicleScene() {
   busy = true;
   const mark = { birth: "生", death: "死", rediscovery: "再", intervention: "干", legend: "伝", rumor: "噂" } as const;
-  const tail = world.chronicle.slice(-14).map((e) => `世代${e.generation} [${mark[e.kind]}] ${e.text}`).join("\n");
-  await sheet({ text: tail || "まだ何も記されていない。", meta: `年代記 ── 全${world.chronicle.length}件`, options: ["頁を閉じる"] });
+  const entries = world.chronicle.slice(-14).reverse(); // 新しい順（読みやすさ・#300 と揃える）
+  const rows: SheetRow[] = entries.length
+    ? entries.map((e) => ({ text: `〔${mark[e.kind]}〕第${e.generation}世代　${e.text}` }))
+    : [{ text: "まだ何も記されていない。", dim: true }];
+  await sheet({ sections: [{ rows }], meta: `年代記 ── 全${world.chronicle.length}件`, options: ["頁を閉じる"] });
   busy = false;
 }
 // 書記の館「拾得品を読み返す」：迷宮で拾った詩情系の品＝読み物コレクション（世代を越えて堆積）。
@@ -1146,21 +1149,16 @@ async function healerBuy() {
 }
 // 回収業ギルド：依頼の受注・達成報酬の受領（4-10G）。1操作＝受注 or 受領（再入場で続けられる）。
 const TAVERN_BOARD_SIZE = 3; // 酒場の貼り紙の掲示枠（ギルドより小さめ＝裏仕事の口）
+// 依頼板（ギルド/酒場/謁見）＝カード一覧→タップで受取/受注／受注中は詳細（#300 と同型の二層UI・文字羅列FB対応）。
+// 状態を色分けglyphで区別：受取可＝✓（緑・報酬は金）／受注可＝標準／受注中＝◦（淡・情報カード）。engine 非改変・golden 不変。
 async function questBoard(board: "guild" | "noble" | "tavern" = "guild") {
   busy = true;
   const ch = world.current!;
-  // fetch（納品）：袋に必要点数が揃った active を done に昇格（受取時に消費）。開板ごとに判定。
+  // fetch（納品）：袋に必要点数が揃った active を done に昇格（受取時に消費）。開板時に一度判定。
   for (const q of activeQuests(world)) {
     if (q.kind === "fetch" && (ch.gearBag ?? []).filter((it) => it.slot === q.targetKind).length >= (q.need ?? 1)) q.status = "done";
   }
-  // 受取は発注元で（分業に忠実・issue8・ユーザー承認）：達成済の受領は掲示元 board でのみ。
-  // 謁見の間＝大命(patron=noble)／酒場＝酒場発注(source=tavern)／ギルド＝それ以外。eventsScreen の claimAt と整合。
-  const done = doneQuests(world).filter((q) =>
-    board === "noble" ? q.patron === "noble"
-      : board === "tavern" ? q.source === "tavern"
-      : q.patron !== "noble" && q.source !== "tavern");
-  const act = activeQuests(world);
-  const activeGuild = act.filter((q) => q.patron !== "noble").length; // noble 除く同時受注数（上限ゲート用）
+  // 掲示は開板時に一度だけ生成（rng を消費するため・タップごとに引き直さない）。受注済みは taken で表示から除く。
   // 謁見の間（noble）＝統治者の大命のみ。ギルド（guild）＝多様な依頼を盤面 size まで掲示＋（noble_ack 後は）大命も相乗り。
   // 酒場（tavern）＝人に接地した裏仕事（bounty/rescue/escort/fetch）を小さめの貼り紙で（第2の依頼源・2026-07-02）。
   const offers = board === "noble"
@@ -1169,67 +1167,106 @@ async function questBoard(board: "guild" | "noble" | "tavern" = "guild") {
       ? generateOffers(world, ch, rng, TAVERN_BOARD_SIZE, guildOfferOpts("tavern"))
       : (() => { const o = generateOffers(world, ch, rng, GUILD_BOARD_SIZE, guildOfferOpts());
           if (getArc(world, "noble_ack")) o.push(...generateNobleOffers(world, ch, rng, 1)); return o; })();
-  const lines: string[] = [];
-  if (done.length) lines.push("【達成済】" + done.map((q) => q.title).join("／"));
-  if (act.length) lines.push("【受注中】\n" + act.map((q) => `　${q.title}\n　　条件：${questConditionLine(q)}／報酬 金${q.rewardGold}`).join("\n"));
-  type Action = { label: string; run: () => void };
-  const actions: Action[] = [];
-  for (const q of done) actions.push({
-    label: `報酬を受け取る：${q.title}（＋${q.rewardGold}金貨）`,
-    run: () => {
-      if (q.kind === "fetch") { // 納品：受取時に袋から need 点（安い順）を渡す。売却済み等で足りなければ差し戻す。
-        const bag = ch.gearBag ?? [];
-        const matches = bag.filter((it) => it.slot === q.targetKind).sort((a, b) => itemValue(a) - itemValue(b));
-        if (matches.length < (q.need ?? 1)) { q.status = "active"; log("納品する品が足りない。もう一度深みで見つけてこよう。", "warn"); return; }
-        for (let n = 0; n < (q.need ?? 1); n++) { const it = matches.shift()!; const idx = bag.indexOf(it); if (idx >= 0) bag.splice(idx, 1); }
-        dedupeGearBag(ch);
+  const taken = new Set<string>(); // 受注済みの掲示 id（表示から除く）
+  // 受取は発注元で（分業に忠実・issue8・ユーザー承認）：達成済の受領は掲示元 board でのみ。eventsScreen の claimAt と整合。
+  const boardDone = () => doneQuests(world).filter((q) =>
+    board === "noble" ? q.patron === "noble"
+      : board === "tavern" ? q.source === "tavern"
+      : q.patron !== "noble" && q.source !== "tavern");
+  // 受取（達成済）：報酬・秘宝・折半・年代記の処理は従来どおり（見た目だけ改善）。
+  const claimRun = (q: Quest) => {
+    if (q.kind === "fetch") { // 納品：受取時に袋から need 点（安い順）を渡す。売却済み等で足りなければ差し戻す。
+      const bag = ch.gearBag ?? [];
+      const matches = bag.filter((it) => it.slot === q.targetKind).sort((a, b) => itemValue(a) - itemValue(b));
+      if (matches.length < (q.need ?? 1)) { q.status = "active"; log("納品する品が足りない。もう一度深みで見つけてこよう。", "warn"); return; }
+      for (let n = 0; n < (q.need ?? 1); n++) { const it = matches.shift()!; const idx = bag.indexOf(it); if (idx >= 0) bag.splice(idx, 1); }
+      dedupeGearBag(ch);
+    }
+    const gross = claimQuest(world, ch, q.id); // claimQuest が満額を加算済み
+    const cut = world.companion?.alive ? companionCut(gross) : 0; // 同行中は依頼報酬も折半（4-14C）
+    if (cut > 0) { ch.gold -= cut; log(`${companionName()}が取り分として ${cut}金貨を受け取った（折半）。`, "dim"); }
+    const from = q.source === "tavern" ? "酒場の店主" : q.patron === "noble" ? "貴族の使い" : "ギルド長";
+    sfx("coin"); log(`${from}から報酬を受け取った（＋${gross - cut}金貨／所持 ${ch.gold}）。`);
+    chronicle(world, "legend", `${ch.name}が${q.patron === "noble" ? "貴族街の大命" : "依頼"}「${q.title}」を果たした。`, [ch.id]);
+    // 高難度大命の固有報酬（4-14G→2026-07-03）：秘宝を1点授与＝終盤の入手経路＋一度きりの称号。
+    if (q.rewardRelic) {
+      const art = rollArtifact(Math.max(ARTIFACT_MIN_DEPTH, q.targetDepth ?? ABYSS_DEPTH));
+      if (art) {
+        ch.gearBag ??= []; ch.gearBag.push(art); dedupeGearBag(ch);
+        sfx("seal"); log(`統治者より秘宝「${itemLabel(art)}」を賜った（袋へ）。`, "cue");
+        if (!ch.traits.includes("統治者の覇者")) ch.traits.push("統治者の覇者");
       }
-      const gross = claimQuest(world, ch, q.id); // claimQuest が満額を加算済み
-      const cut = world.companion?.alive ? companionCut(gross) : 0; // 同行中は依頼報酬も折半（4-14C）
-      if (cut > 0) { ch.gold -= cut; log(`${companionName()}が取り分として ${cut}金貨を受け取った（折半）。`, "dim"); }
-      const from = q.source === "tavern" ? "酒場の店主" : q.patron === "noble" ? "貴族の使い" : "ギルド長";
-      sfx("coin"); log(`${from}から報酬を受け取った（＋${gross - cut}金貨／所持 ${ch.gold}）。`);
-      chronicle(world, "legend", `${ch.name}が${q.patron === "noble" ? "貴族街の大命" : "依頼"}「${q.title}」を果たした。`, [ch.id]);
-      // 高難度大命の固有報酬（4-14G→2026-07-03）：秘宝を1点授与＝終盤の入手経路＋一度きりの称号。
-      if (q.rewardRelic) {
-        const art = rollArtifact(Math.max(ARTIFACT_MIN_DEPTH, q.targetDepth ?? ABYSS_DEPTH));
-        if (art) {
-          ch.gearBag ??= []; ch.gearBag.push(art); dedupeGearBag(ch);
-          sfx("seal"); log(`統治者より秘宝「${itemLabel(art)}」を賜った（袋へ）。`, "cue");
-          if (!ch.traits.includes("統治者の覇者")) ch.traits.push("統治者の覇者");
-        }
-      }
-    },
-  });
-  for (const q of offers) actions.push({
-    label: `受ける：${q.title}（報酬 ${q.rewardGold}金貨${q.rewardRelic ? "＋秘宝" : ""}）`,
-    run: () => {
-      if (q.patron !== "noble" && activeGuild >= GUILD_ACTIVE_CAP) { // 大命は別枠。通常依頼は同時受注上限まで
-        log(`受注が一杯だ（${activeGuild}/${GUILD_ACTIVE_CAP}）。ひとつ果たしてから受けよう。`, "warn"); return;
-      }
-      if (q.kind === "escort") { // 護衛＝依頼人が相棒スロットに入って同行（到達で離脱／死・解散で失敗）
-        if (world.companion?.alive) { log("相棒と同行中は、護衛の依頼は受けられない。", "warn"); return; }
-        const client = escortCandidate ?? mintActor(db, rng, {}, fossilNames(world));
-        const la: LivingActor = { id: `escort_${q.id}`, actor: client, metGeneration: world.generation };
-        recruitCompanion(la);
-        if (world.companion) world.companion.escortQuestId = q.id;
-        log(`依頼人${client.name}が支度を整えた。「深度${q.targetDepth}まで、頼む。路銀は道中折半で」。`, "cue");
-      }
-      acceptQuest(world, q); log(`依頼を受けた：「${q.title}」。`, "dim");
-    },
-  });
-  const r = await sheet({
-    text: board === "noble"
-      ? `玉座の間。統治者が、奉献を成した者にのみ託す大命。所持 金${ch.gold}。\n${lines.join("\n") || "（受注中の大命はない）"}`
-      : board === "tavern"
-        ? `酒場の柱に貼られた、雑多な頼み事。女将マレンが顎で示す。「困ってる連中の口さ。堅いのはギルドで聞きな」。所持 金${ch.gold}。\n${lines.join("\n") || "（受注中の依頼はない）"}`
-        : `回収業ギルド。所持 金${ch.gold}。\n${lines.join("\n") || "（受注中の依頼はない）"}`,
-    meta: board === "noble" ? "謁見の間 ── 統治者の大命" : board === "tavern" ? "酒場 ── 仕事の貼り紙" : "ギルド ── 依頼（回収業）",
-    options: [...actions.map((a) => a.label), "やめる"],
-  });
+    }
+  };
+  // 受注（掲示）：受注上限・護衛特例は従来どおり。受注できたら true。
+  const acceptRun = (q: Quest): boolean => {
+    const activeGuild = activeQuests(world).filter((qq) => qq.patron !== "noble").length; // noble 除く同時受注数
+    if (q.patron !== "noble" && activeGuild >= GUILD_ACTIVE_CAP) { // 大命は別枠。通常依頼は同時受注上限まで
+      log(`受注が一杯だ（${activeGuild}/${GUILD_ACTIVE_CAP}）。ひとつ果たしてから受けよう。`, "warn"); return false;
+    }
+    if (q.kind === "escort") { // 護衛＝依頼人が相棒スロットに入って同行（到達で離脱／死・解散で失敗）
+      if (world.companion?.alive) { log("相棒と同行中は、護衛の依頼は受けられない。", "warn"); return false; }
+      const client = escortCandidate ?? mintActor(db, rng, {}, fossilNames(world));
+      const la: LivingActor = { id: `escort_${q.id}`, actor: client, metGeneration: world.generation };
+      recruitCompanion(la);
+      if (world.companion) world.companion.escortQuestId = q.id;
+      log(`依頼人${client.name}が支度を整えた。「深度${q.targetDepth}まで、頼む。路銀は道中折半で」。`, "cue");
+    }
+    acceptQuest(world, q); log(`依頼を受けた：「${q.title}」。`, "dim");
+    return true;
+  };
+  // 受注中カードのタップ＝条件・報酬・受取場所を構造化行で見せる情報詳細（手番非消費）。
+  const activeDetail = async (q: Quest) => {
+    const claimAt = q.patron === "noble" ? "謁見の間" : q.source === "tavern" ? "酒場" : "ギルド";
+    await sheet({
+      text: q.desc ?? "",
+      meta: `受注中 ── ${q.title}`,
+      sections: [{ rows: [
+        { text: questConditionLine(q) },
+        { label: "報酬", value: `${q.rewardGold}金貨${q.rewardRelic ? "＋秘宝" : ""}` },
+        { label: "受取", value: `${claimAt}で` },
+      ] }],
+      options: ["戻る"],
+    });
+  };
+  const meta = board === "noble" ? "謁見の間 ── 統治者の大命" : board === "tavern" ? "酒場 ── 仕事の貼り紙" : "ギルド ── 依頼（回収業）";
+  const introOf = () => board === "noble"
+    ? `玉座の間。統治者が、奉献を成した者にのみ託す大命。所持 金${ch.gold}。`
+    : board === "tavern"
+      ? `酒場の柱に貼られた、雑多な頼み事。女将マレンが顎で示す。「困ってる連中の口さ。堅いのはギルドで聞きな」。所持 金${ch.gold}。`
+      : `回収業ギルド。所持 金${ch.gold}。`;
+  type Entry = { kind: "claim" | "offer" | "active"; q: Quest };
+  for (;;) {
+    const done = boardDone();
+    const act = activeQuests(world).filter((q) =>
+      board === "noble" ? q.patron === "noble"
+        : board === "tavern" ? q.source === "tavern"
+        : q.patron !== "noble" && q.source !== "tavern");
+    const entries: Entry[] = [
+      ...done.map((q): Entry => ({ kind: "claim", q })),
+      ...offers.filter((q) => !taken.has(q.id)).map((q): Entry => ({ kind: "offer", q })),
+      ...act.map((q): Entry => ({ kind: "active", q })),
+    ];
+    const cells = entries.map((e) => {
+      if (e.kind === "claim") return { html:
+        `<div class="nm"><span style="color:#8fce9b">✓</span>　${e.q.title}</div>`
+        + `<div class="sub" style="color:#ffd87a">報酬を受け取る　＋${e.q.rewardGold}金貨${e.q.rewardRelic ? "＋秘宝" : ""}</div>` };
+      if (e.kind === "offer") return { html:
+        `<div class="nm">${e.q.title}</div>`
+        + `<div class="sub">${questConditionLine(e.q)}　／　報酬 ${e.q.rewardGold}金貨${e.q.rewardRelic ? "＋秘宝" : ""}</div>` };
+      return { html: // 受注中（情報）
+        `<div class="nm"><span style="color:var(--tx-dim)">◦</span>　${e.q.title}<span style="color:var(--tx-dim);font-weight:400"> ── 受注中</span></div>`
+        + `<div class="sub">${questConditionLine(e.q)}</div>` };
+    });
+    const lead = introOf() + (entries.length ? "" : board === "noble" ? "\n（受注中の大命はない）" : "\n（今は頼み事がない）");
+    const idx = await chooseGrid({ title: meta, lead, cells, cancel: "やめる", cols: 1 });
+    if (idx < 0 || idx >= entries.length) break;
+    const e = entries[idx];
+    if (e.kind === "claim") { claimRun(e.q); save(); }
+    else if (e.kind === "offer") { if (acceptRun(e.q)) { taken.add(e.q.id); save(); } }
+    else await activeDetail(e.q);
+  }
   busy = false;
-  const i = r.pick - 1;
-  if (i >= 0 && i < actions.length) { actions[i].run(); save(); }
 }
 // 武具屋 売る：袋の未装備装備を確実・高値（itemValue×0.6）で買い取る。
 const APPRAISE_MUL = 0.4; // 鑑定料＝鑑定後価値の4割（拾い得を残しつつ、装備で賭けるより安全な対価）
@@ -1932,10 +1969,11 @@ async function homeWithdraw() {
 async function homeView() {
   busy = true;
   const st = world.stash ?? [], gear = world.stashGear ?? [];
-  const cons = st.length ? st.map((s) => `・${consumableByKey(s.key)?.name ?? s.key} ×${s.qty}`).join("\n") : "・（なし）";
-  const armory = gear.length ? gear.map((it) => `・${SLOT_LABEL[it.slot]} ${itemLabel(it)}`).join("\n") : "・（なし）";
+  const consRows: SheetRow[] = st.length ? st.map((s) => ({ label: consumableByKey(s.key)?.name ?? s.key, value: `×${s.qty}` })) : [{ text: "（なし）", dim: true }];
+  const armoryRows: SheetRow[] = gear.length ? gear.map((it) => ({ label: SLOT_LABEL[it.slot], value: itemLabel(it) })) : [{ text: "（なし）", dim: true }];
   await sheet({
-    text: `代々の物入れ。世代を越えて遺せるのは消耗品${stashInherit()}・装備${stashInherit()}枠まで。\n\n〔消耗品〕\n${cons}\n\n〔武具庫〕\n${armory}`,
+    text: `代々の物入れ。世代を越えて遺せるのは消耗品${stashInherit()}・装備${stashInherit()}枠まで。`,
+    sections: [{ header: "消耗品", rows: consRows }, { header: "武具庫", rows: armoryRows }],
     meta: `${world.manorUnlocked ? "貴族街の館" : "自宅"} ── 保管 ${homeUsed()}/${stashCap()}`, options: ["閉じる"],
   });
   busy = false;
@@ -2180,10 +2218,15 @@ async function lineageScene() {
   const lin = ch.lineage;
   const anc = lin.ancestorFossilId ? world.fossils.find((f) => f.id === lin.ancestorFossilId) : undefined;
   const rel = lin.relation === "blood" ? "血を継ぐ者" : lin.relation === "pupil" ? "教えを継ぐ者" : "誰の系譜にも連ならぬ者";
-  const body = anc
-    ? `先代＝${anc.origin.name}（深度${anc.death.depth}・${poleLabel(anc.tonePole)}の極）。\nあなたは その${rel}。\n継いだもの：${ch.traits.filter((t) => t.includes(anc.origin.name)).join("、") || "（薄き面影のみ）"}`
-    : `あなたは ${rel}。先代の記録は、まだ街にない。`;
-  await sheet({ text: `老書記イェンは系譜の綴りを開いた。\n\n${body}`, meta: "書記 ── 系譜をたどる", options: ["閉じる"] });
+  const rows: SheetRow[] = anc
+    ? [
+        { label: "先代", value: anc.origin.name },
+        { label: "最期", value: `深度${anc.death.depth}・${poleLabel(anc.tonePole)}の極` },
+        { label: "続柄", value: `その${rel}` },
+        { text: `継いだもの：${ch.traits.filter((t) => t.includes(anc.origin.name)).join("、") || "（薄き面影のみ）"}` },
+      ]
+    : [{ label: "続柄", value: rel }, { text: "先代の記録は、まだ街にない。", dim: true }];
+  await sheet({ text: "老書記イェンは系譜の綴りを開いた。", sections: [{ rows }], meta: "書記 ── 系譜をたどる", options: ["閉じる"] });
   busy = false;
 }
 // ギルド act1「等級・英雄譜を見る」：現キャラの等級＋world.tracked の英雄譜を一覧（4-4）。
@@ -2191,21 +2234,27 @@ async function heroRoll() {
   busy = true;
   const ch = world.current!;
   const legends = world.tracked.filter((t) => t.source === "player_legend").length;
-  const roll = world.tracked.length
-    ? world.tracked.map((t) => `・${t.name}（${TRACK_SOURCE_LABEL[t.source] ?? t.source}／${ARC_LABEL[t.arcType] ?? t.arcType}）── 現在：${arcStageLabel(t)}`).join("\n")
-    : "・（まだ誰の名もない）";
   // 相棒の等級（4-4E ⤴）：雇用中の相棒がいれば等級を併記し、ここから解散もできる（4-14C 契約）。
   const hired = world.companion?.alive ? world.companion : null;
-  const comp = hired
-    ? `\n雇用中の相棒《${hired.actor.name}》── ${GRADE_LABELS[hired.grade]}（生還${hired.bond}・偉業${hired.feats ?? 0}）。道中の金貨は折半。`
-    : "";
+  const topRows: SheetRow[] = [
+    { label: "あなたの等級", value: GRADE_LABELS[playerGrade()] },
+    { label: "遺した伝説", value: `${legends} 柱` },
+  ];
+  if (hired) {
+    topRows.push({ label: "雇用中の相棒", value: `${hired.actor.name}（${GRADE_LABELS[hired.grade]}）` });
+    topRows.push({ text: `生還${hired.bond}・偉業${hired.feats ?? 0}／道中の金貨は折半。`, dim: true });
+  }
+  const rollRows: SheetRow[] = world.tracked.length
+    ? world.tracked.map((t) => ({ text: `${t.name}（${TRACK_SOURCE_LABEL[t.source] ?? t.source}／${ARC_LABEL[t.arcType] ?? t.arcType}）── 現在：${arcStageLabel(t)}` }))
+    : [{ text: "まだ誰の名もない", dim: true }];
   const canRetire = playerGrade() >= 2; // 退隠＝確立した者（銀以上）のみ。ボーナスは更に功績比例（雪だるま防止・4-14G）。
   const opts: string[] = [];
   if (hired) opts.push("相棒と別れる（解散）");
   if (canRetire) opts.push("退いて次代に託す（襲名・この物語を終える）");
   opts.push("閉じる");
   const r = await sheet({
-    text: `ギルド長は台帳を繰る。\n「あなたの等級は ── 《${GRADE_LABELS[playerGrade()]}》。あなたが遺した伝説は ${legends} 柱」。${comp}\n\n〔英雄譜〕\n${roll}`,
+    text: "ギルド長は台帳を繰る。",
+    sections: [{ rows: topRows }, { header: "英雄譜", rows: rollRows }],
     meta: "ギルド ── 等級・英雄譜（4-4）", options: opts,
   });
   busy = false;
@@ -3344,11 +3393,11 @@ async function monumentScene() {
   busy = true;
   const n = world.ascended ?? 0;
   const names = ascendedNames();
-  const roll = names.length ? names.map((nm) => `　・${nm}`).join("\n") : "　（まだ名は刻まれていない）";
-  const body = n <= 1
-    ? `中央広場に、ひとつの像が建っている。\n深淵帯より聖遺物を持ち帰った者を讃える、街の新しい記念碑だ。\n\n〔奉献を成した者〕\n${roll}`
-    : `中央広場の像は、奉献を重ねるごとに台座を継ぎ足され、いまや街の威容のひとつだ（奉献${n}回）。\n\n〔奉献を成した者たち〕\n${roll}`;
-  await sheet({ text: body, meta: "奉献の像 ── 街の記憶", options: ["立ち去る"] });
+  const lead = n <= 1
+    ? "中央広場に、ひとつの像が建っている。深淵帯より聖遺物を持ち帰った者を讃える、街の新しい記念碑だ。"
+    : `中央広場の像は、奉献を重ねるごとに台座を継ぎ足され、いまや街の威容のひとつだ（奉献${n}回）。`;
+  const rows: SheetRow[] = names.length ? names.map((nm) => ({ text: nm })) : [{ text: "まだ名は刻まれていない", dim: true }];
+  await sheet({ text: lead, sections: [{ header: "奉献を成した者", rows }], meta: "奉献の像 ── 街の記憶", options: ["立ち去る"] });
   busy = false;
 }
 
@@ -3639,11 +3688,12 @@ async function memorialScene() {
     busy = false;
     return;
   }
-  const shown = names.slice(-12); // 直近12名（古い層は碑の底に沈む）
-  const roll = shown.map((nm) => `　・${nm}${mourned.has(nm) ? "（悼）" : ""}`).join("\n");
-  const more = names.length > shown.length ? `\n　…ほか${names.length - shown.length}名、碑の底に沈んでいる` : "";
+  const shown = names.slice(-12).reverse(); // 直近12名（新しい順・古い層は碑の底に沈む）
+  const rows: SheetRow[] = shown.map((nm) => ({ text: `${nm}${mourned.has(nm) ? "　（悼）" : ""}` }));
+  if (names.length > 12) rows.push({ text: `…ほか${names.length - 12}名、碑の底に沈んでいる`, dim: true });
   await sheet({
-    text: `慰霊碑の前に立つ。迷宮に還らなかった者たちの名が、層を成して刻まれている。\n\n〔ここに眠る者たち〕\n${roll}${more}\n\nあなたが世代を重ねるほど、この碑は深くなる。（悼）＝慰霊堂で悼んだ先人。`,
+    text: "慰霊碑の前に立つ。迷宮に還らなかった者たちの名が、層を成して刻まれている。世代を重ねるほど、この碑は深くなる。（悼）＝慰霊堂で悼んだ先人。",
+    sections: [{ header: "ここに眠る者たち", rows }],
     meta: `慰霊碑 ── 街の記憶（全${names.length}名）`, options: ["黙礼する"],
   });
   busy = false;
@@ -6212,12 +6262,10 @@ async function memoriesSheet(ch: Character) {
     if (!arr) { arr = []; groups.set(cat, arr); }
     arr.push(item);
   }
-  const lines: string[] = [];
-  for (const [cat, items] of groups) {
-    lines.push(`〈${cat}〉`);
-    for (const it of items) lines.push(`　・${it}`);
-  }
-  await sheet({ text: lines.join("\n") || "まだ何も刻まれていない。", meta: `記憶 ${ch.traits.length}件`, options: ["閉じる"] });
+  const sections: SheetSection[] = [];
+  for (const [cat, items] of groups) sections.push({ header: cat, rows: items.map((it) => ({ text: it })) });
+  if (!sections.length) sections.push({ rows: [{ text: "まだ何も刻まれていない。", dim: true }] });
+  await sheet({ sections, meta: `記憶 ${ch.traits.length}件`, options: ["閉じる"] });
   busy = false;
 }
 
@@ -6426,15 +6474,22 @@ async function eventsScreen() {
   busy = true;
   const act = activeQuests(world), done = doneQuests(world);
   const claimAt = (q: Quest) => (q.patron === "noble" ? "謁見の間" : q.source === "tavern" ? "酒場" : "ギルド");
-  const ql = (act.length || done.length)
-    ? [
-        ...act.map((q) => `・${q.patron === "noble" ? "【大命】" : ""}${q.title}\n　　条件：${questConditionLine(q)}\n　　報酬：金${q.rewardGold}${q.rewardRelic ? "＋秘宝" : ""}`),
-        ...done.map((q) => `・【達成】${q.title} → ${claimAt(q)}で報酬 金${q.rewardGold} を受領`),
-      ].join("\n")
-    : "・依頼はない";
-  const arcs = (world.arcs ?? []).filter((a) => !a.done).map((a) => `・${ARC_KEY_LABEL[a.key] ?? a.key}（第${a.step}段）`).join("\n") || "・進行中の因縁はない";
-  const relic = world.current?.carryingRelic ? "\n★聖遺物を携行中（地上へ生還せよ）" : "";
-  await sheet({ text: `〔依頼〕\n${ql}\n\n〔因縁・長尺〕\n${arcs}\n\n〔奉献の印〕\n${sealProgressLine()}${relic}`, meta: "進行中の事ども", options: ["閉じる"] });
+  const questRows: SheetRow[] = [];
+  for (const q of act) {
+    questRows.push({ text: `${q.patron === "noble" ? "【大命】" : ""}${q.title}` });
+    questRows.push({ text: `条件：${questConditionLine(q)}／報酬 金${q.rewardGold}${q.rewardRelic ? "＋秘宝" : ""}`, dim: true });
+  }
+  for (const q of done) questRows.push({ text: `【達成】${q.title} → ${claimAt(q)}で 金${q.rewardGold} を受領` });
+  if (!questRows.length) questRows.push({ text: "依頼はない", dim: true });
+  const arcRows: SheetRow[] = (world.arcs ?? []).filter((a) => !a.done).map((a) => ({ text: `${ARC_KEY_LABEL[a.key] ?? a.key}（第${a.step}段）` }));
+  if (!arcRows.length) arcRows.push({ text: "進行中の因縁はない", dim: true });
+  const sealRows: SheetRow[] = sealProgressLine().split("\n").map((t) => ({ text: t.trim() }));
+  if (world.current?.carryingRelic) sealRows.push({ text: "★聖遺物を携行中（地上へ生還せよ）", cls: "warn" });
+  await sheet({ sections: [
+    { header: "依頼", rows: questRows },
+    { header: "因縁・長尺", rows: arcRows },
+    { header: "奉献の印", rows: sealRows },
+  ], meta: "進行中の事ども", options: ["閉じる"] });
   busy = false;
 }
 
@@ -6513,17 +6568,19 @@ async function bestiaryScreen() {
     const i = await chooseGrid({ title: `モンスター図鑑 ── 遭遇 ${seenKinds.length}／${MONSTER_KINDS.length}種`, cells, cancel: "閉じる", cols: 1 });
     if (i < 0 || i >= seenKinds.length) break;
     const k = seenKinds[i];
-    const lines = [
-      `${k.glyph}　${k.name}`,
-      `危険度 ${tierStars(k.tier)}（tier ${k.tier}）`,
-      `出現 深度${k.minDepth}〜${k.maxDepth ? k.maxDepth : "（最深まで）"}・${depthBandLabel(k)}`,
-      `体力 ${k.hp}・攻撃 ${k.dmg}　※基礎値。深く潜るほど増す`,
-      `動き ${erraticWord(k.erratic)}`,
-      k.ability ? `能力〔${ABILITY_LABEL[k.ability]}〕 ${ABILITY_INFO[k.ability] ?? ""}` : "能力 なし（素の近接）",
-      "",
-      MONSTER_LORE[k.key] ?? "",
+    const rows: SheetRow[] = [
+      { label: "危険度", value: `${tierStars(k.tier)}（tier ${k.tier}）` },
+      { label: "出現", value: `深度${k.minDepth}〜${k.maxDepth ? k.maxDepth : "（最深まで）"}・${depthBandLabel(k)}` },
+      { label: "体力", value: String(k.hp), note: "基礎値" },
+      { label: "攻撃", value: String(k.dmg), note: "深く潜るほど増す" },
+      { label: "動き", value: erraticWord(k.erratic) },
+      { label: "能力", value: k.ability ? `〔${ABILITY_LABEL[k.ability]}〕` : "なし（素の近接）" },
     ];
-    await sheet({ text: lines.join("\n"), meta: `図鑑 ── ${k.name}`, options: ["戻る"] });
+    if (k.ability && ABILITY_INFO[k.ability]) rows.push({ text: ABILITY_INFO[k.ability], dim: true });
+    const lore = MONSTER_LORE[k.key] ?? "";
+    const sections: SheetSection[] = [{ rows }];
+    if (lore) sections.push({ header: "寸評", rows: [{ text: lore }] });
+    await sheet({ text: `${k.glyph}　${k.name}`, sections, meta: `図鑑 ── ${k.name}`, options: ["戻る"] });
   }
   busy = false;
 }
@@ -6552,18 +6609,24 @@ async function resetWorld() {
 /** 術の構え（ロードアウト）を整える。識得済みの中から LOADOUT_CAP 個を選んで構える（安全地帯のみ）。 */
 async function manageLoadout(ch: Character) {
   if (!ch.loadout) ch.loadout = ch.spells.slice(0, LOADOUT_CAP);
-  while (true) {
+  for (;;) {
     const known = ch.spells.map((k) => spellByKey(k)).filter((s): s is NonNullable<typeof s> => !!s);
-    const opts = known.map((s) => `${ch.loadout!.includes(s.key) ? "◆構え" : "・控え"} [${s.school}] ${s.name} ── ${s.desc}`);
-    const r = await sheet({
-      text: `戦闘で撃てるのは「構え」だけ。タップで 構え⇄控え を入れ替える。\n構え ${ch.loadout!.length}/${LOADOUT_CAP}`,
-      meta: `術の構え ── ${ch.spells.length}種 識得`,
-      options: [...opts, "閉じる"],
+    // 学派チップ＋構え印のカード（術の図鑑 spellCodex と同じ見た目）。タップで 構え⇄控え を入れ替える。
+    const cells = known.map((s) => {
+      const on = ch.loadout!.includes(s.key);
+      return { html: `<span class="chip ${schoolCls(s.school)}">${s.school}</span>`
+        + `<div class="nm">${on ? `<span style="color:#ffd87a">◆</span>` : ""}${s.name} <span style="color:#8b94a0;font-weight:400;font-size:11px">${on ? "構え中" : "控え"}</span></div>`
+        + `<div class="sub">深蝕＋${s.cost}・${s.desc}</div>` };
     });
-    if (r.pick < 1 || r.pick > known.length) break;
-    const s = known[r.pick - 1];
-    const i = ch.loadout!.indexOf(s.key);
-    if (i >= 0) { ch.loadout!.splice(i, 1); log(`${s.name} を控えに戻した。`, "dim"); }
+    const i = await chooseGrid({
+      title: `術の構え ── ${ch.spells.length}種 識得`,
+      lead: `戦闘で撃てるのは「構え」だけ。タップで 構え⇄控え を入れ替える。　構え ${ch.loadout!.length}/${LOADOUT_CAP}`,
+      cells, cancel: "閉じる", cols: 1,
+    });
+    if (i < 0 || i >= known.length) break;
+    const s = known[i];
+    const at = ch.loadout!.indexOf(s.key);
+    if (at >= 0) { ch.loadout!.splice(at, 1); log(`${s.name} を控えに戻した。`, "dim"); }
     else if (ch.loadout!.length < LOADOUT_CAP) { ch.loadout!.push(s.key); log(`${s.name} を構えた。`, "dim"); }
     else log(`構えは${LOADOUT_CAP}つまで。何か外してから。`, "dim");
   }
