@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.117.0";
+export const APP_VERSION = "0.118.0";
 export const APP_BUILD = "2026-07-04";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -3324,7 +3324,7 @@ async function raidEndTurn(): Promise<void> {
   if (attackBuffTurns > 0) attackBuffTurns--;
   const hasted = hasteTurns > 0; if (hasteTurns > 0) hasteTurns--;
   if (deathDoorTurns > 0) { deathDoorTurns--; if (deathDoorTurns === 0) { addExp(0.4); log("死戸が閉じる……（深蝕＋0.4）。", "warn"); } }
-  for (const m of floor.monsters) if (m.hp > 0 && m.poison && m.poison > 0) { m.hp -= (m.poisonDmg ?? 1); m.poison--; if (m.hp <= 0) raidKill(m); }
+  for (const m of floor.monsters) if (m.hp > 0 && m.poison && m.poison > 0) { const pd = m.poisonDmg ?? 1; m.hp -= pd; m.poison--; floatFx(m.x, m.y, String(pd), "fl-dmg"); if (m.hp <= 0) raidKill(m); }
   if (poisonTurns > 0) { poisonTurns--; if (deathDoorTurns === 0) { hp -= poisonDmg; sfx("drain"); log(`毒が回る……（HP -${poisonDmg}）`, "warn"); } }
   resolveSummons();
   if (hasted) log("疾走――もう一手。", "dim");
@@ -4638,7 +4638,8 @@ async function endTurn() {
   // 腐喰（継続ダメ・4-11F③）：毒を受けた敵は毎手 poisonDmg を失う。死亡は通常の撃破処理へ。
   for (const m of floor.monsters) {
     if (m.hp > 0 && m.poison && m.poison > 0) {
-      m.hp -= (m.poisonDmg ?? 1); m.poison--;
+      const pd = m.poisonDmg ?? 1;
+      m.hp -= pd; m.poison--; floatFx(m.x, m.y, String(pd), "fl-dmg"); // 継続ダメも数字ポップ（毒の効きを可視化）
       if (m.hp <= 0) downOrKill(m, `腐喰が${m.kind.name}を朽ち果てさせた。`);
     }
   }
@@ -5102,7 +5103,7 @@ function resolveSummons() {
   for (const s of summons) {
     const adj = floor.monsters.find((m) => m.hp > 0 && Math.max(Math.abs(m.x - s.x), Math.abs(m.y - s.y)) <= 1);
     if (adj) {
-      adj.hp -= s.dmg; flashFx("warp", { x: adj.x, y: adj.y });
+      adj.hp -= s.dmg; floatFx(adj.x, adj.y, String(s.dmg), "fl-dmg"); flashFx("warp", { x: adj.x, y: adj.y }); // 召喚の与ダメも数字ポップ（毎手ゆえログは出さない）
       if (adj.hp <= 0) downOrKill(adj, `${s.name}が${adj.kind.name}を断った。`);
     } else {
       const live = floor.monsters.filter((m) => m.hp > 0);
@@ -5149,6 +5150,7 @@ async function castSpell(key: string) {
       Math.hypot(a.x - player.x, a.y - player.y) <= Math.hypot(b.x - player.x, b.y - player.y) ? a : b);
     const dmg = spellBase(ch); // 遺物「理脈」で威力+
     target.hp -= dmg;
+    floatFx(target.x, target.y, String(dmg), "fl-dmg"); // 盤上ダメージ数字（近接と揃える・術の手応え）
     sfx("spell_warp"); flashFx("warp", { x: target.x, y: target.y });
     if (target.hp <= 0) downOrKill(target, `歪んだ一撃。${target.kind.name}を討ち砕いた。`);
     else log(`歪撃が${target.kind.name}を抉る（${dmg}）。`);
@@ -5189,7 +5191,7 @@ async function castSpell(key: string) {
       const x = player.x + sx * i, y = player.y + sy * i;
       if (tileAt(floor, x, y) !== 1) break; // 壁で止まる
       const m = floor.monsters.find((mm) => mm.hp > 0 && mm.x === x && mm.y === y);
-      if (m) { m.hp -= dmg; hitN++; flashFx("warp", { x, y }); if (m.hp <= 0) downOrKill(m, `裂界が${m.kind.name}を裂いた。`); }
+      if (m) { m.hp -= dmg; hitN++; floatFx(x, y, String(dmg), "fl-dmg"); flashFx("warp", { x, y }); if (m.hp <= 0) downOrKill(m, `裂界が${m.kind.name}を裂いた。`); }
     }
     sfx("spell_warp");
     log(hitN ? `裂界が一直線を貫く（${hitN}体・各${dmg}）。` : "裂界は空を裂いた。");
@@ -5200,7 +5202,7 @@ async function castSpell(key: string) {
     let hitN = 0;
     for (const m of floor.monsters) {
       if (m.hp > 0 && Math.max(Math.abs(m.x - t.x), Math.abs(m.y - t.y)) <= 1) {
-        m.hp -= dmg; hitN++; flashFx("warp", { x: m.x, y: m.y });
+        m.hp -= dmg; hitN++; floatFx(m.x, m.y, String(dmg), "fl-dmg"); flashFx("warp", { x: m.x, y: m.y });
         if (m.hp <= 0) downOrKill(m, `崩落が${m.kind.name}を呑んだ。`);
       }
     }
@@ -5209,7 +5211,7 @@ async function castSpell(key: string) {
   } else if (key === "thunder") { // 雷霆＝可視の敵すべてに放射状の雷（弱め）
     if (!visMon.length) { log("雷を落とす敵が見えない。", "dim"); draw(); return; }
     const dmg = Math.max(1, Math.round(spellBase(ch) * 0.5));
-    for (const m of visMon) { m.hp -= dmg; if (m.hp <= 0) downOrKill(m, `雷霆が${m.kind.name}を撃ち抜いた。`); }
+    for (const m of visMon) { m.hp -= dmg; floatFx(m.x, m.y, String(dmg), "fl-dmg"); if (m.hp <= 0) downOrKill(m, `雷霆が${m.kind.name}を撃ち抜いた。`); }
     sfx("spell_warp"); flashFx("still");
     log(`雷霆が${visMon.length}体を撃つ（各${dmg}）。`);
   } else if (key === "slow") { // 鈍り＝可視の敵を数手1手おきに
@@ -5229,9 +5231,10 @@ async function castSpell(key: string) {
     if (spot) { flashFx("blink", { x: player.x, y: player.y }); player = spot; }
     const dmg = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
     t.hp -= dmg;
+    floatFx(t.x, t.y, String(dmg), "fl-dmg");
     sfx("spell_blink");
     if (t.hp <= 0) downOrKill(t, `迫り、${t.kind.name}を討ち砕いた。`);
-    else log(`迫って斬りつける（${dmg}）。`);
+    else log(`迫って${t.kind.name}を斬りつける（${dmg}）。`);
   } else if (key === "heal") { // 癒し＝HP回復（理＋体）。死戸中は回復不可
     if (deathDoorTurns > 0) { log("死戸が開いている間は、癒えない。", "dim"); draw(); return; }
     const amt = effectiveReason(ch) + ch.stats.body;
@@ -5251,10 +5254,12 @@ async function castSpell(key: string) {
     const dmg = Math.round(spellBase(ch) * 0.6);
     const dealt = Math.min(dmg, t.hp);
     t.hp -= dmg;
+    floatFx(t.x, t.y, String(dmg), "fl-dmg");
     const before = hp; if (deathDoorTurns === 0) hp = Math.min(maxHp(ch), hp + Math.ceil(dealt / 2)); // 死戸中は吸命しても癒えない
+    if (hp > before) floatFx(player.x, player.y, `+${hp - before}`, "fl-heal");
     sfx("spell_warp"); flashFx("warp", { x: t.x, y: t.y });
     if (t.hp <= 0) downOrKill(t, `吸命が${t.kind.name}を干涸びさせた。`);
-    else log(`吸命（与${dmg}／HP＋${hp - before}）。`);
+    else log(`吸命が${t.kind.name}を蝕む（与${dmg}／HP＋${hp - before}）。`);
   } else if (key === "ironscale") { // 硬鱗＝数手 被ダメ軽減
     armorBuffTurns = 5;
     sfx("spell_still"); flashFx("still");
@@ -5310,22 +5315,25 @@ async function castSpell(key: string) {
     const t = nearestMon(visMon);
     const dmg = Math.round(spellBase(ch) * 1.3);
     t.hp -= dmg; t.stunned = Math.max(t.stunned ?? 0, 2);
+    floatFx(t.x, t.y, String(dmg), "fl-dmg");
     sfx("spell_warp"); flashFx("still", { x: t.x, y: t.y });
-    if (t.hp <= 0) downOrKill(t, `氷棺が${t.kind.name}を砕いた。`); else log(`氷棺（${dmg}・凍結）。`);
+    if (t.hp <= 0) downOrKill(t, `氷棺が${t.kind.name}を砕いた。`); else log(`氷棺が${t.kind.name}を封じる（${dmg}・凍結）。`);
   } else if (key === "wither") { // 痩身＝現在HPの割合を削る（硬い敵に効く）
     if (!visMon.length) { log("削る相手が見えない。", "dim"); draw(); return; }
     const t = nearestMon(visMon);
     const cut = Math.max(1, Math.ceil(t.hp * 0.4));
     t.hp -= cut;
+    floatFx(t.x, t.y, String(cut), "fl-dmg");
     sfx("spell_warp"); flashFx("warp", { x: t.x, y: t.y });
-    if (t.hp <= 0) downOrKill(t, `痩身が${t.kind.name}を朽ちさせた。`); else log(`痩身（HP−${cut}）。`);
+    if (t.hp <= 0) downOrKill(t, `痩身が${t.kind.name}を朽ちさせた。`); else log(`痩身が${t.kind.name}を削る（HP−${cut}）。`);
   } else if (key === "condemn") { // 断罪＝一撃必殺級（深蝕は極めて重い）
     if (!visMon.length) { log("断ずべき敵が見えない。", "dim"); draw(); return; }
     const t = nearestMon(visMon);
     const dmg = Math.round(spellBase(ch) * 3);
     t.hp -= dmg;
+    floatFx(t.x, t.y, String(dmg), "fl-dmg");
     sfx("spell_warp"); flashFx("warp", { x: t.x, y: t.y });
-    if (t.hp <= 0) downOrKill(t, `断罪。${t.kind.name}は赦されなかった。`); else log(`断罪（${dmg}）。`);
+    if (t.hp <= 0) downOrKill(t, `断罪。${t.kind.name}は赦されなかった。`); else log(`断罪が${t.kind.name}を灼く（${dmg}）。`);
   } else if (key === "confuse") { // 惑乱＝可視の敵をよろめかせる
     if (!visMon.length) { log("惑わせる敵が見えない。", "dim"); draw(); return; }
     for (const m of visMon) m.confused = 5;
@@ -5344,7 +5352,7 @@ async function castSpell(key: string) {
   } else if (key === "omni_strike") { // 万象斬＝視界の敵すべてへ斬撃（近接威力）
     if (!visMon.length) { log("斬る敵が見えない。", "dim"); draw(); return; }
     const dmg = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
-    for (const m of visMon) { m.hp -= dmg; flashFx("warp", { x: m.x, y: m.y }); if (m.hp <= 0) downOrKill(m, `万象斬が${m.kind.name}を断った。`); }
+    for (const m of visMon) { m.hp -= dmg; floatFx(m.x, m.y, String(dmg), "fl-dmg"); flashFx("warp", { x: m.x, y: m.y }); if (m.hp <= 0) downOrKill(m, `万象斬が${m.kind.name}を断った。`); }
     sfx("spell_warp");
     log(`万象斬（${visMon.length}体・各${dmg}）。`);
   } else if (key === "gravity_pull") { // 引閘＝可視の敵を自分のほうへ一斉に引き寄せる
