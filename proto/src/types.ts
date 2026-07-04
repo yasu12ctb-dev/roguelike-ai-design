@@ -306,6 +306,9 @@ export interface TownState {
   scene?: "town" | "interior";
   pos?: { x: number; y: number };
   interiorKind?: string | null;
+  // 帰還の扉（街側・一回だけ）：エリアボス撃破後、慰霊碑の傍に開く「あの階への帰り道」。
+  // world セーブに保存＝リロード/アプリ再起動でも消えない（旧セーブ非破壊＝欠落は扉なし）。
+  returnPortal?: { depth: number } | null;
 }
 
 // ---- 鋳造所コンテンツ ----
