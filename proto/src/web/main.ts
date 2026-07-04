@@ -31,7 +31,7 @@ import { selectStorylet, applyEffects, selectDungeonStorylet, applyDungeonEffect
 import { meetActor, mintActor, rememberActor, pickRosterActor, fossilNames } from "../actors.ts";
 import {
   generateOffers, generateNobleOffers, acceptQuest, activeQuests, doneQuests, claimQuest,
-  onReachDepth, onRediscoverFossil, onSlayBoss, onKillMonster, onRescueDelver, onEscortArrive, failEscortQuest,
+  onReachDepth, onRediscoverFossil, onPlunderFossil, onSlayBoss, onKillMonster, onRescueDelver, onEscortArrive, failEscortQuest,
   type QuestTemplates, type MonsterLite, type OfferOpts,
 } from "../quests.ts";
 import storyletsJson from "../../content/storylets.json";
@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.118.0";
+export const APP_VERSION = "0.119.0";
 export const APP_BUILD = "2026-07-04";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1265,14 +1265,18 @@ async function healerBuy() {
 }
 // 回収業ギルド：依頼の受注・達成報酬の受領（4-10G）。1操作＝受注 or 受領（再入場で続けられる）。
 const TAVERN_BOARD_SIZE = 3; // 酒場の貼り紙の掲示枠（ギルドより小さめ＝裏仕事の口）
+const PLUNDER_EXPOSURE = 0.4;      // 盗掘の冒涜の代償＝死者を暴いた深蝕（シビア寄り＝毎回課す）。テスト調整候補。
+const CONTRABAND_EXPOSURE = 0.08;  // 密売＝呪物1点ごとに移る深蝕（受取＝納品時に need 点ぶん）。テスト調整候補。
 // 依頼板（ギルド/酒場/謁見）＝カード一覧→タップで受取/受注／受注中は詳細（#300 と同型の二層UI・文字羅列FB対応）。
 // 状態を色分けglyphで区別：受取可＝✓（緑・報酬は金）／受注可＝標準／受注中＝◦（淡・情報カード）。engine 非改変・golden 不変。
 async function questBoard(board: "guild" | "noble" | "tavern" = "guild") {
   busy = true;
   const ch = world.current!;
-  // fetch（納品）：袋に必要点数が揃った active を done に昇格（受取時に消費）。開板時に一度判定。
+  // fetch（納品）／contraband（密売）：袋に必要点数が揃った active を done に昇格（受取時に消費）。開板時に一度判定。
+  //   fetch＝指定スロットの武具/遺物／contraband＝未鑑定の異物（呪物）。predicate だけ違う同型。
   for (const q of activeQuests(world)) {
-    if (q.kind === "fetch" && (ch.gearBag ?? []).filter((it) => it.slot === q.targetKind).length >= (q.need ?? 1)) q.status = "done";
+    if ((q.kind === "fetch" || q.kind === "contraband") &&
+      (ch.gearBag ?? []).filter((it) => questItemMatch(q, it)).length >= (q.need ?? 1)) q.status = "done";
   }
   // 掲示は開板時に一度だけ生成（rng を消費するため・タップごとに引き直さない）。受注済みは taken で表示から除く。
   // 謁見の間（noble）＝統治者の大命のみ。ギルド（guild）＝多様な依頼を盤面 size まで掲示＋（noble_ack 後は）大命も相乗り。
@@ -1291,12 +1295,16 @@ async function questBoard(board: "guild" | "noble" | "tavern" = "guild") {
       : q.patron !== "noble" && q.source !== "tavern");
   // 受取（達成済）：報酬・秘宝・折半・年代記の処理は従来どおり（見た目だけ改善）。
   const claimRun = (q: Quest) => {
-    if (q.kind === "fetch") { // 納品：受取時に袋から need 点（安い順）を渡す。売却済み等で足りなければ差し戻す。
+    if (q.kind === "fetch" || q.kind === "contraband") { // 納品/密売：受取時に袋から need 点（安い順）を渡す。売却済み等で足りなければ差し戻す。
       const bag = ch.gearBag ?? [];
-      const matches = bag.filter((it) => it.slot === q.targetKind).sort((a, b) => itemValue(a) - itemValue(b));
-      if (matches.length < (q.need ?? 1)) { q.status = "active"; log("納品する品が足りない。もう一度深みで見つけてこよう。", "warn"); return; }
+      const matches = bag.filter((it) => questItemMatch(q, it)).sort((a, b) => itemValue(a) - itemValue(b));
+      if (matches.length < (q.need ?? 1)) { q.status = "active"; log("納める品が足りない。もう一度深みで見つけてこよう。", "warn"); return; }
       for (let n = 0; n < (q.need ?? 1); n++) { const it = matches.shift()!; const idx = bag.indexOf(it); if (idx >= 0) bag.splice(idx, 1); }
       dedupeGearBag(ch);
+      if (q.kind === "contraband") { // 密売＝呪物を運んだ代償の深蝕（need 点ぶん・鑑定せず引き取らせた報い）
+        addExp(CONTRABAND_EXPOSURE * (q.need ?? 1));
+        log(`故買屋は品を検めもせず銅貨を寄越した。運んだ呪物の澱が、少し移った（深蝕＋${(CONTRABAND_EXPOSURE * (q.need ?? 1)).toFixed(2)}）。`, "warn");
+      }
     }
     const gross = claimQuest(world, ch, q.id); // claimQuest が満額を加算済み
     const cut = world.companion?.alive ? companionCut(gross) : 0; // 同行中は依頼報酬も折半（4-14C）
@@ -5956,6 +5964,20 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   markEventFired(); // 4-10H 第二層：化石遭遇＝イベントが起きた＝凪を解除
   for (const l of onRediscoverFossil(world, fossil.id)) { log(l, "cue"); save(); } // 回収系の依頼達成
   const ch = world.current!;
+  // 盗掘（plunder・酒場のグレー依頼）：この化石が盗掘対象なら暴いて依頼達成＋冒涜の代償を課す。
+  //   代償＝深蝕＋（死者を暴いた）＋この化石を怨念（grudge）へ傾ける＝後世で宿敵として還りやすくなる（4-2）。
+  //   ＝「金のために自分の未来の敵を作る」グレーの重み。web 限定・engine 非改変。
+  const plunderLogs = onPlunderFossil(world, fossil.id);
+  if (plunderLogs.length) {
+    addExp(PLUNDER_EXPOSURE); // 冒涜の深蝕
+    fossil.tonePole = "grudge"; // 怨念極へ（encounter/setpiece が grudge として読む）
+    fossil.bondAtDeath = Math.max(fossil.bondAtDeath ?? 0, 3); // grudge_hunt（宿敵）適格へ
+    fossil.lastTouchedGeneration = world.generation; // 変質クロックを起こす（暴きは干渉＝新しい起点）
+    chronicle(world, "intervention", `${ch.name}が${fossil.origin.name}の亡骸を暴き、遺品を剥いだ。`, [fossil.id, ch.id]);
+    for (const l of plunderLogs) log(l, "warn");
+    log(`${fossil.origin.name}を暴いた――胸に、拭えぬ澱が残る（深蝕＋${PLUNDER_EXPOSURE.toFixed(2)}）。`, "warn");
+    save();
+  }
 
   // 継承は1化石1回のみ（既に継いだ化石は再提示しない＝先代の武器を潜行ごとに複製する farm を防ぐ。
   //  rollEncounter は seenThisDive しか除外せず潜行ごとリセットゆえ、同じ化石が後の潜行で再遭遇しうる）。
@@ -6732,6 +6754,12 @@ async function spellCodex(ch: Character) {
 }
 
 // 依頼の達成条件を一行で明示する（ステータス画面／ギルド board 共用）。目標深度・回収対象を data から導出。
+/** 納品系（fetch/contraband）の「袋のこの品が納品対象か」判定。fetch＝指定スロット／contraband＝未鑑定の異物。 */
+function questItemMatch(q: Quest, it: Item): boolean {
+  if (q.kind === "contraband") return !!it.unidentified; // 密売＝正体の知れぬ品（スロット不問）
+  return it.slot === q.targetKind; // fetch＝指定スロット
+}
+
 function questConditionLine(q: Quest): string {
   switch (q.kind) {
     case "descend":
@@ -6755,6 +6783,15 @@ function questConditionLine(q: Quest): string {
       const label: Record<string, string> = { weapon: "武具（武器）", armor: "武具（防具）", relic: "遺物", bag: "鞄" };
       const have = (world.current?.gearBag ?? []).filter((it) => it.slot === q.targetKind).length;
       return `〔${Math.min(have, q.need ?? 1)}/${q.need ?? 1}〕${label[q.targetKind ?? ""] ?? "指定の品"}を持ち帰り納品する`;
+    }
+    case "plunder": {
+      const f = q.targetFossilId ? world.fossils.find((x) => x.id === q.targetFossilId) : undefined;
+      const who = f?.origin.name ?? "対象";
+      return `深度${q.targetDepth ?? "?"}付近で「${who}」の亡骸を暴き、遺品を剥ぐ（冒涜＝深蝕を負う）`;
+    }
+    case "contraband": {
+      const have = (world.current?.gearBag ?? []).filter((it) => it.unidentified).length;
+      return `〔${Math.min(have, q.need ?? 1)}/${q.need ?? 1}〕未鑑定の異物を鑑定せず故買屋へ密売する`;
     }
     default:
       return q.desc || "（条件不明）";

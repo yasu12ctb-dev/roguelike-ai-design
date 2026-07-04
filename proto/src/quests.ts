@@ -152,11 +152,58 @@ export function generateOffers(world: World, ch: Character, rng: Rng, limit: num
         rewardGold: eDepth * 14, status: "active", issuedGeneration: world.generation, // 護衛リスク相応＝descend(×9)より厚め
       });
     }
+    // ── 酒場専用のグレー依頼（plunder/contraband）＝ギルドには一切出さない（informal 時のみ）。 ──
+    //   「街の裏面」＝死者の持ち物と禁制品を扱う署名なき口。盤面（小さめ）を優先して埋める＝酒場らしさを担保。
+    const grey: Quest[] = [];
+    if (informal) {
+      // ① 盗掘（plunder）：既知の化石を名指しで暴き、遺品を剥ぐ＝回収（reclaim）の闇の鏡。
+      //   まだどの依頼の対象でもない化石を1体（reclaim と同じ近レベル優先）。報酬は reclaim より厚い（グレー割増）。
+      const untargeted = world.fossils.filter((f) => !held.some((q) => q.targetFossilId === f.id) && !offers.some((q) => q.targetFossilId === f.id));
+      const nearLv = untargeted.filter((f) => f.laidDepth >= ch.level - 6);
+      const pool = nearLv.length ? nearLv : untargeted;
+      if (pool.length) {
+        const f = rng.pick(pool);
+        const t = fillQuest(pickTmpl(tmpl, "plunder", rng),
+          { title: `${f.origin.name}の亡骸を暴け`, desc: `深度${f.laidDepth}付近に眠る${f.origin.name}から、遺品を剥いで持ち帰れ。弔いはいらん。` },
+          { fossil: f.origin.name, depth: f.laidDepth });
+        grey.push({
+          id: qid(), kind: "plunder", source: src, targetFossilId: f.id, targetDepth: f.laidDepth,
+          title: t.title, desc: t.desc,
+          rewardGold: f.laidDepth * 8 + 20, status: "active", issuedGeneration: world.generation, // reclaim(×6+12)より厚い＝グレー割増
+        });
+      }
+      // ② 密売（contraband）：未鑑定の異物を N 点、鑑定せずに故買屋へ＝納品（fetch）の闇の鏡。
+      if (!held.some((q) => q.kind === "contraband") && !offers.some((q) => q.kind === "contraband")) {
+        const need = 1 + rng.int(2); // 1..2
+        const t = fillQuest(pickTmpl(tmpl, "contraband", rng),
+          { title: `曰くつきの品を${need}点`, desc: `深みで拾った異物を${need}点、鑑定せずに持ってこい。見なかったことにするのが作法だ。` },
+          { count: need, depth: Math.max(3, ch.level) });
+        grey.push({
+          id: qid(), kind: "contraband", source: src, targetKind: "unidentified", need,
+          title: t.title, desc: t.desc,
+          rewardGold: (ch.level * 3 + 24) * need, status: "active", issuedGeneration: world.generation, // 高額（禁制品）
+        });
+      }
+    }
     // 新型候補をシャッフルして残枠へ（毎回同じ顔ぶれ・同じ並びにならないように）。
     for (let i = extra.length - 1; i > 0; i--) { const j = rng.int(i + 1); [extra[i], extra[j]] = [extra[j], extra[i]]; }
-    for (const q of extra) { if (offers.length >= limit) break; offers.push(q); }
+    // グレー依頼を先に積む（小さな酒場ボードを酒場専用の顔で埋める）→ 残枠に人の裏仕事。
+    for (const q of [...grey, ...extra]) { if (offers.length >= limit) break; offers.push(q); }
   }
   return offers.slice(0, limit);
+}
+
+/** 盗掘（plunder）の達成判定（対象化石を暴いた＝再発見した時に web の fossilScene から呼ぶ）。
+ *  ★これは「依頼が done になる」だけ。冒涜の代償（深蝕＋／化石の怨念化）は web 側で適用する（ch.exposure/fossil 変異を触るため）。 */
+export function onPlunderFossil(world: World, fossilId: string): string[] {
+  const logs: string[] = [];
+  for (const q of activeQuests(world)) {
+    if (q.kind === "plunder" && q.targetFossilId === fossilId) {
+      q.status = "done";
+      logs.push(`盗掘達成：「${q.title}」── 酒場で報酬を受け取れる。`);
+    }
+  }
+  return logs;
 }
 
 /** 護衛（escort）の到達判定（依頼人を連れて対象深度に入った時に web の enterFloor から呼ぶ）。 */
