@@ -168,6 +168,7 @@ export function migrateWorld(w: World): World {
   if (typeof w.diveCount !== "number") w.diveCount = 0; // 潜行回数（再潜行farm防止のseed nonce）：欠落は0で補完
   if (typeof w.eraBeats !== "number") w.eraBeats = 0;   // 世界時間の加算分（4-14G 層1）：欠落は0＝旧セーブは worldTime==generation で従来挙動
   if (typeof w.eraClock !== "number") w.eraClock = 0;   // 世界クロックのアキュムレータ：欠落は0
+  if (typeof w.aurelChapter !== "number") w.aurelChapter = 0; // メインの縦糸「アウレルの遺した問い」（4-15）：欠落は序章前＝旧セーブは書記訪問から始まる
   if (!Array.isArray(w.echoes)) w.echoes = []; // 残響召喚の遺灰（4-10I）：欠落は空で補完
   if (!Array.isArray(w.keepsakes)) w.keepsakes = []; // 拾得品の蒐集（読み物コレクション）：欠落は空で補完
   else for (const k of w.keepsakes as any[]) { // 旧形式 {title,story,gen,depth} → {id,gen,depth,title}（本文複製を廃し id 参照へ・v0.54.0）
