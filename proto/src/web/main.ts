@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.114.0";
+export const APP_VERSION = "0.115.0";
 export const APP_BUILD = "2026-07-04";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -334,6 +334,36 @@ function floatFx(x: number, y: number, text: string, cls: string): void {
   box.appendChild(el);
   el.addEventListener("animationend", () => el.remove());
   setTimeout(() => { if (el.isConnected) el.remove(); }, 900); // 保険（バックグラウンド時など）
+}
+
+/** タイル1マスぶんの演出レイヤ（挟撃の楔／会心の斬光／見切りの波紋・v0.115.0）。
+ *  floatFx と同じカメラ算出＝手番解決中でもズレない。純CSS 200-400ms・入力非ブロック（pointer-events:none）。
+ *  グリフは覆わない（半透明の線・枠のみ）＝命中フラッシュ廃止（FB 2026-07-03）の教訓を守る。 */
+function tileFx(x: number, y: number, cls: string): void {
+  if ((mode !== "dive" && mode !== "raid") || mapMode || !floor) return;
+  const cx = clampCam(player.x - (VIEW_W >> 1), floor.w, VIEW_W);
+  const cy = clampCam(player.y - (VIEW_H >> 1), floor.h, VIEW_H);
+  const vx = x - cx, vy = y - cy;
+  if (vx < 0 || vy < 0 || vx >= VIEW_W || vy >= VIEW_H) return;
+  const box = $("floats");
+  const el = document.createElement("span");
+  el.className = `tfx ${cls}`;
+  el.style.left = ((vx + 0.5) / VIEW_W * 100) + "%";
+  el.style.top = ((vy + 0.5) / VIEW_H * 100) + "%";
+  el.style.width = (100 / VIEW_W) + "%";
+  el.style.height = (100 / VIEW_H) + "%";
+  box.appendChild(el);
+  el.addEventListener("animationend", () => el.remove());
+  setTimeout(() => { if (el.isConnected) el.remove(); }, 900);
+}
+
+/** 会心のマイクロシェイク（盤面を140msだけ僅かに揺らす＝重い一撃の手応え）。 */
+function shakeGrid(): void {
+  const mw = $("mapWrap");
+  mw.classList.remove("shake-crit");
+  void mw.offsetWidth; // 連発時もアニメを再始動させる
+  mw.classList.add("shake-crit");
+  setTimeout(() => mw.classList.remove("shake-crit"), 200);
 }
 
 // ---------- 調べる（タップ＝NetHack「;」の現代化・v0.99.0・§10.3/§10.6） ----------
@@ -3259,9 +3289,10 @@ function raidMoveOrAttack(nx: number, ny: number): boolean {
   const mon = f.monsters.find((m) => m.hp > 0 && m.x === nx && m.y === ny);
   if (mon) {
     const ch = world.current!;
-    const dmg = meleeWithPositioning(meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0), mon); // 挟撃/見切り反撃（C/D・raidは共闘者が多く挟撃が輝く）
+    const hitR = meleeWithPositioning(meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0), mon); // 挟撃/見切り反撃（C/D・raidは共闘者が多く挟撃が輝く）
+    const dmg = hitR.dmg;
     mon.hp -= dmg; sfx(mon.boss ? "crit" : "hit");
-    floatFx(nx, ny, String(dmg), "fl-dmg"); // 命中フラッシュ（敵グリフの白重ね）は視認性のため廃止＝数字だけ残す（FB 2026-07-03）
+    floatFx(nx, ny, String(dmg), hitR.crit ? "fl-crit" : "fl-dmg"); // 命中フラッシュ（敵グリフの白重ね）は視認性のため廃止＝数字だけ残す（FB 2026-07-03）
     if (mon.hp <= 0) raidKill(mon); else log(`${mon.kind.name}に${dmg}の一撃。`);
     return true;
   }
@@ -3321,7 +3352,7 @@ async function raidEndTurn(): Promise<void> {
     }
     for (const m of res.dodges) log(`${m.kind.name}の一撃を見切った。`, "dim");
     if (res.dodges.length > 0 && hp > 0) { // D. 見切り反撃は raid でも同じ読み合い
-      if (counterTurns === 0) { floatFx(player.x, player.y, "反撃の好機", "fl-dmg"); log("空振りの隙が見えた――反撃の好機。", "cue"); }
+      if (counterTurns === 0) { tileFx(player.x, player.y, "tfx-ready"); floatFx(player.x, player.y, "反撃の好機", "fl-dmg"); log("空振りの隙が見えた――反撃の好機。", "cue"); }
       counterTurns = COUNTER_WINDOW;
     }
     for (const a of allies) if (a.hp <= 0 && !raid.fallen.includes(a)) raid.fallen.push(a);
@@ -4457,16 +4488,18 @@ function flankedByAlly(m: Monster): boolean {
   return false;
 }
 
-/** 近接ダメージに位置取り補正（挟撃＋見切り反撃）を適用し、演出も出す。戻り値＝最終ダメージ。 */
-function meleeWithPositioning(base: number, mon: Monster): number {
+/** 近接ダメージに位置取り補正（挟撃＋見切り反撃）を適用し、演出も出す（v0.115.0＝専用エフェクト）。
+ *  会心（希少）＝斬光＋マイクロシェイク＋特大数字／挟撃（高頻度）＝控えめな楔＝頻度に合わせた強度。 */
+function meleeWithPositioning(base: number, mon: Monster): { dmg: number; crit: boolean; flank: boolean } {
   let dmg = base;
-  const countered = counterTurns > 0;
-  const flanked = flankedByAlly(mon);
-  if (countered) { dmg = Math.round(dmg * COUNTER_MULT); counterTurns = 0; } // 好機は一撃で消費
-  if (flanked) dmg = Math.round(dmg * FLANK_MULT);
-  if (countered) { sfx("crit"); log(`見切りからの反撃！ 会心の${dmg}。`, "cue"); }
-  else if (flanked) log(`挟み撃ち！ ${dmg}の一撃。`);
-  return dmg;
+  const crit = counterTurns > 0;
+  const flank = flankedByAlly(mon);
+  if (crit) { dmg = Math.round(dmg * COUNTER_MULT); counterTurns = 0; } // 好機は一撃で消費
+  if (flank) dmg = Math.round(dmg * FLANK_MULT);
+  if (flank) tileFx(mon.x, mon.y, "tfx-press"); // 挟撃＝両側から閉じる楔（控えめ）
+  if (crit) { tileFx(mon.x, mon.y, "tfx-slash"); shakeGrid(); sfx("crit"); log(`見切りからの反撃！ 会心の${dmg}。`, "cue"); }
+  else if (flank) log(`挟み撃ち！ ${dmg}の一撃。`);
+  return { dmg, crit, flank };
 }
 
 let abyssDivePending = false; // 次の潜行が「奉献の試練」（深淵帯への直下降）か
@@ -4724,7 +4757,7 @@ async function endTurn() {
   }
   for (const m of res.dodges) { floatFx(player.x, player.y, "見切", "fl-miss"); log(`${m.kind.name}の一撃を見切った。`, "dim"); }
   if (res.dodges.length > 0 && hp > 0) { // D. ジャスト見切り→反撃：空振りを誘った直後は次の近接が会心
-    if (counterTurns === 0) { floatFx(player.x, player.y, "反撃の好機", "fl-dmg"); log("空振りの隙が見えた――反撃の好機（次の近接が会心）。", "cue"); }
+    if (counterTurns === 0) { tileFx(player.x, player.y, "tfx-ready"); floatFx(player.x, player.y, "反撃の好機", "fl-dmg"); log("空振りの隙が見えた――反撃の好機（次の近接が会心）。", "cue"); }
     counterTurns = COUNTER_WINDOW;
   }
   if (companion && companion.hp <= 0) companionDies(); // 相棒の戦死＝化石化
@@ -5574,10 +5607,11 @@ function moveOrInteract(nx: number, ny: number): boolean {
   const mon = f.monsters.find((m) => m.hp > 0 && m.x === nx && m.y === ny);
   if (mon) { // 攻撃（確定命中・確定ダメージ＝力依存＋焦躁バフ＋位置取り補正）
     const ch = world.current!;
-    const dmg = meleeWithPositioning(meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0), mon); // 挟撃/見切り反撃（C/D）
+    const hitR = meleeWithPositioning(meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0), mon); // 挟撃/見切り反撃（C/D）
+    const dmg = hitR.dmg;
     mon.hp -= dmg;
     sfx(mon.boss ? "crit" : "hit");
-    floatFx(nx, ny, String(dmg), "fl-dmg"); // 盤上ダメージ数字（命中フラッシュ＝敵グリフ白重ねは視認性のため廃止・FB 2026-07-03）
+    floatFx(nx, ny, String(dmg), hitR.crit ? "fl-crit" : "fl-dmg"); // 盤上ダメージ数字（会心は特大金白・命中フラッシュ＝敵グリフ白重ねは視認性のため廃止・FB 2026-07-03）
     if (ch.equipment.relic?.relic === "siphon" && deathDoorTurns === 0 && hp < maxHp(ch)) { // 遺物 siphon（渇き）：与ダメぶん吸命
       const drained = Math.max(1, Math.round(dmg * SIPHON_FRAC));
       hp = Math.min(maxHp(ch), hp + drained);
