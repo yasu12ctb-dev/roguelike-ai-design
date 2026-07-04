@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.106.1";
+export const APP_VERSION = "0.107.0";
 export const APP_BUILD = "2026-07-04";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1088,7 +1088,7 @@ async function tavernRecruit() {
   busy = true;
   const ch = world.current!;
   if (world.companion?.alive) {
-    await sheet({ text: `${companionName()}が隣で杯を傾けている。「おいおい、俺がいるだろう」。\n（相棒と別れるなら、ギルドの台帳で）`, meta: "酒場 ── 相棒を探す", options: ["そうだった"] });
+    await sheet({ text: `${companionName()}が隣で杯を傾けている。「おいおい、俺がいるだろう」。\n（相棒の詳細・解散は、ステータスの「相棒を見る」から）`, meta: "酒場 ── 相棒を探す", options: ["そうだった"] });
     busy = false; return;
   }
   // 候補＝酒場の常連（縁ある生者・再雇用の蓄積つき）を優先＋一見の顔（meetActor＝既知/名簿/新規）。
@@ -2229,6 +2229,50 @@ async function lineageScene() {
   await sheet({ text: "老書記イェンは系譜の綴りを開いた。", sections: [{ rows }], meta: "書記 ── 系譜をたどる", options: ["閉じる"] });
   busy = false;
 }
+/** 相棒と別れる（解散）＝無料。等級/絆/偉業を生者NPCへ残し、相棒は街へ（再雇用可）。護衛依頼中なら失敗。 */
+function dismissCompanion(): void {
+  if (!world.companion?.alive) return;
+  const name = companionName();
+  if (world.companion.escortQuestId) for (const l of failEscortQuest(world, world.companion.escortQuestId)) log(l, "warn");
+  persistCompanionRecord();
+  world.companion = undefined;
+  log(`${name}と別れた。「また入用があれば、声をかけな」。`, "cue");
+  save();
+}
+/** 相棒を見る（4-14C）＝等級・絆・偉業・連帯深蝕・強さの目安・奇癖を一覧し、別れる（解散）こともできる。
+ *  ステータス画面／ギルド台帳の両方から到達＝解散導線を見つけやすく（テストプレイFB）。相棒に「レベル」は無く等級で表す。 */
+async function companionSheet(): Promise<void> {
+  if (!world.companion?.alive) {
+    await sheet({ text: "いま、共に潜る相棒はいない。\n酒場の「相棒を探す」や、フロアで手負いの冒険者を救うと、仲間になる。", meta: "相棒", options: ["閉じる"] });
+    return;
+  }
+  busy = true;
+  for (;;) {
+    const c = world.companion; if (!c?.alive) break;
+    const rows: SheetRow[] = [
+      { label: "等級", value: GRADE_LABELS[c.grade] },
+      { label: "絆（生還）", value: String(c.bond), note: "共に生還で深まる" },
+      { label: "偉業", value: String(c.feats ?? 0), note: "ボス撃破・山場" },
+      { label: "連帯深蝕", value: c.exposure.toFixed(2), cls: "exp", note: "潜行で上がる" },
+      { label: "強さの目安", value: `HP ${companionMaxHp(c.grade)}・攻 ${companionDmg(c.grade)}`, note: "等級と深さで増す" },
+    ];
+    if (c.escortQuestId) rows.push({ text: "護衛の依頼人として同行中（別れると依頼は失敗）", cls: "warn" });
+    const sections: SheetSection[] = [{ rows }];
+    if (c.traits?.length) sections.push({ header: "奇癖（連帯深蝕）", rows: c.traits.map((t) => ({ text: t.replace(/^奇癖[:：]/, "") })) });
+    const title = `${c.actor.epithet ? c.actor.epithet + "・" : ""}${c.actor.name}`;
+    const opts: SheetOption[] = [{ label: "相棒と別れる（解散）", role: "danger" }, "閉じる"];
+    const r = await sheet({ text: `《${title}》　${c.actor.archetype}`, meta: `相棒 ── ${GRADE_LABELS[c.grade]}`, sections, options: opts });
+    busy = false;
+    if (optLabel(opts[r.pick - 1] ?? "") !== "相棒と別れる（解散）") break;
+    const cf = await sheet({
+      text: `${companionName()}と別れるか。\n相棒は街に残り、また雇える（等級・絆・偉業は引き継がれる）。${c.escortQuestId ? "\n※護衛の依頼は失敗になる。" : ""}`,
+      meta: "確認 ── 相棒と別れる", options: [{ label: "別れる", role: "danger" }, "やめておく"],
+    });
+    if (cf.pick === 1) { dismissCompanion(); break; }
+    busy = true;
+  }
+  busy = false;
+}
 // ギルド act1「等級・英雄譜を見る」：現キャラの等級＋world.tracked の英雄譜を一覧（4-4）。
 async function heroRoll() {
   busy = true;
@@ -2242,14 +2286,14 @@ async function heroRoll() {
   ];
   if (hired) {
     topRows.push({ label: "雇用中の相棒", value: `${hired.actor.name}（${GRADE_LABELS[hired.grade]}）` });
-    topRows.push({ text: `生還${hired.bond}・偉業${hired.feats ?? 0}／道中の金貨は折半。`, dim: true });
+    topRows.push({ text: `生還${hired.bond}・偉業${hired.feats ?? 0}／道中の金貨は折半。「相棒を見る」で詳細・解散。`, dim: true });
   }
   const rollRows: SheetRow[] = world.tracked.length
     ? world.tracked.map((t) => ({ text: `${t.name}（${TRACK_SOURCE_LABEL[t.source] ?? t.source}／${ARC_LABEL[t.arcType] ?? t.arcType}）── 現在：${arcStageLabel(t)}` }))
     : [{ text: "まだ誰の名もない", dim: true }];
   const canRetire = playerGrade() >= 2; // 退隠＝確立した者（銀以上）のみ。ボーナスは更に功績比例（雪だるま防止・4-14G）。
   const opts: string[] = [];
-  if (hired) opts.push("相棒と別れる（解散）");
+  if (hired) opts.push(`相棒を見る（${hired.actor.name}）`);
   if (canRetire) opts.push("退いて次代に託す（襲名・この物語を終える）");
   opts.push("閉じる");
   const r = await sheet({
@@ -2259,14 +2303,8 @@ async function heroRoll() {
   });
   busy = false;
   const label = opts[r.pick - 1];
-  if (label === "相棒と別れる（解散）") { // 解散＝無料。等級/絆/偉業を生者NPCへ残し、相棒は街へ（再雇用可）。
-    const name = companionName();
-    // 護衛の依頼人と別れる＝依頼失敗（送り届けていない）。
-    if (world.companion?.escortQuestId) for (const l of failEscortQuest(world, world.companion.escortQuestId)) log(l, "warn");
-    persistCompanionRecord();
-    world.companion = undefined;
-    log(`${name}と別れた。「また入用があれば、声をかけな」。`, "cue");
-    save();
+  if (label?.startsWith("相棒を見る")) {
+    await companionSheet(); // 相棒の詳細（等級・絆・偉業…）＋別れる（解散）。
   } else if (label === "退いて次代に託す（襲名・この物語を終える）") {
     await retireFlow();
   }
@@ -4000,7 +4038,7 @@ async function offerCompanion(la: LivingActor): Promise<void> {
     return;
   }
   const r = await sheet({
-    text: `${GRADE_LABELS[grade]}の${la.actor.name}に、共に潜らないかと持ちかける。\n「いいだろう。前金は ${fee}金貨。道中で得た金貨は、山分けだ」。\n（雇えば次の潜行から隣を歩く。街でいつでも解散できる）`,
+    text: `${GRADE_LABELS[grade]}の${la.actor.name}に、共に潜らないかと持ちかける。\n「いいだろう。前金は ${fee}金貨。道中で得た金貨は、山分けだ」。\n（雇えば次の潜行から隣を歩く。詳細・解散はステータスの「相棒を見る」から）`,
     meta: "同行 ── 雇う（前金＋折半）", options: [`頼む（前金${fee}金貨を払う）`, "やめておく"],
   });
   if (r.pick === 1) {
@@ -6223,12 +6261,19 @@ async function charScreen() {
       { header: "術", rows: spellRows },
       { header: `荷物　${packUsed(ch)}/${packCapacity(ch)} 枠`, rows: packRows },
     ];
+    // 相棒（雇用中）＝主画面に要約を出し、詳細・解散は「相棒を見る」へ（解散導線を見つけやすく・テストプレイFB）。
+    const hired = world.companion?.alive ? world.companion : null;
+    if (hired) sections.push({ header: "相棒", rows: [
+      { label: hired.actor.name, value: GRADE_LABELS[hired.grade] },
+      { text: `絆${hired.bond}・偉業${hired.feats ?? 0}　※詳細は「相棒を見る」`, dim: true },
+    ] });
     if (ch.traits.length) sections.push({ header: "記憶", rows: [{ label: "記憶", value: `${ch.traits.length}件` }] });
 
     const opts: SheetOption[] = [
       "装備・持ち物を見る", "術（構え・図鑑）", "進行中（依頼・因縁・印）",
       { label: "人物と年代記", gap: true }, "敵図鑑",
     ];
+    if (hired) opts.push(`相棒を見る（${hired.actor.name}）`);
     if (ch.traits.length) opts.push(`記憶を見る（${ch.traits.length}）`);
     opts.push("閉じる");
     const r = await sheet({
@@ -6243,6 +6288,7 @@ async function charScreen() {
     else if (label === "進行中（依頼・因縁・印）") await eventsScreen();
     else if (label === "人物と年代記") await chronicleScene();
     else if (label === "敵図鑑") await bestiaryScreen();
+    else if (label?.startsWith("相棒を見る")) await companionSheet();
     else if (label?.startsWith("記憶を見る")) await memoriesSheet(ch);
     else break;
     busy = true;
