@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.112.0";
+export const APP_VERSION = "0.113.0";
 export const APP_BUILD = "2026-07-04";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -598,6 +598,7 @@ function currentBuffs(): BuffInfo[] {
   if (hasteTurns > 0) b.push({ label: "疾走", turns: hasteTurns, unit: "手", desc: "続けて動ける（離脱・追撃）" });
   if (deathDoorTurns > 0) b.push({ label: "死戸", turns: deathDoorTurns, unit: "手", desc: "この間は致死の一撃を耐える" });
   if (shadowGuard > 0) b.push({ label: "影", turns: shadowGuard, unit: "手", desc: "影の守り手が身を守る" });
+  if (counterTurns > 0) b.push({ label: "反撃", turns: counterTurns, unit: "手", desc: `見切りの好機＝次の近接が会心（×${COUNTER_MULT}）` });
   if (chantTurns > 0) b.push({ label: "帰還詠唱", turns: chantTurns, unit: "手", desc: "詠唱中。動くか撃たれると中断" });
   if (poisonTurns > 0) b.push({ label: "毒", turns: poisonTurns, unit: "手", desc: "毎手ダメージを受ける（被毒）" });
   if (summons.length) b.push({ label: "召", turns: summons.length, unit: "体", desc: "一時の眷属が味方する", count: true });
@@ -3249,7 +3250,7 @@ function raidMoveOrAttack(nx: number, ny: number): boolean {
   const mon = f.monsters.find((m) => m.hp > 0 && m.x === nx && m.y === ny);
   if (mon) {
     const ch = world.current!;
-    const dmg = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
+    const dmg = meleeWithPositioning(meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0), mon); // 挟撃/見切り反撃（C/D・raidは共闘者が多く挟撃が輝く）
     mon.hp -= dmg; sfx(mon.boss ? "crit" : "hit");
     floatFx(nx, ny, String(dmg), "fl-dmg"); // 命中フラッシュ（敵グリフの白重ね）は視認性のため廃止＝数字だけ残す（FB 2026-07-03）
     if (mon.hp <= 0) raidKill(mon); else log(`${mon.kind.name}に${dmg}の一撃。`);
@@ -3279,6 +3280,7 @@ async function raidEndTurn(): Promise<void> {
   if (!floor || !world.current || !raid) return;
   const ch = world.current;
   if (armorBuffTurns > 0) armorBuffTurns--;
+  if (counterTurns > 0) counterTurns--; // 反撃の好機は短い（見切った直後の1〜2手だけ）
   if (attackBuffTurns > 0) attackBuffTurns--;
   const hasted = hasteTurns > 0; if (hasteTurns > 0) hasteTurns--;
   if (deathDoorTurns > 0) { deathDoorTurns--; if (deathDoorTurns === 0) { addExp(0.4); log("死戸が閉じる……（深蝕＋0.4）。", "warn"); } }
@@ -3309,6 +3311,10 @@ async function raidEndTurn(): Promise<void> {
       }
     }
     for (const m of res.dodges) log(`${m.kind.name}の一撃を見切った。`, "dim");
+    if (res.dodges.length > 0 && hp > 0) { // D. 見切り反撃は raid でも同じ読み合い
+      if (counterTurns === 0) { floatFx(player.x, player.y, "反撃の好機", "fl-dmg"); log("空振りの隙が見えた――反撃の好機。", "cue"); }
+      counterTurns = COUNTER_WINDOW;
+    }
     for (const a of allies) if (a.hp <= 0 && !raid.fallen.includes(a)) raid.fallen.push(a);
     // 市民への被害：隣接した獣が、逃げ遅れた者を呑む（守れなかった＝喪失）。
     for (const cv of civics) {
@@ -3341,7 +3347,7 @@ function fossilizeRaidFallen(): void {
 /** 戦場の後片付け（盤上 ephemeral とバフ/毒/召喚をクリア）。 */
 function clearRaidBoard(): void {
   raid = null; allies = []; civics = []; floor = null;
-  armorBuffTurns = attackBuffTurns = hasteTurns = deathDoorTurns = poisonTurns = poisonDmg = shadowGuard = 0;
+  armorBuffTurns = attackBuffTurns = hasteTurns = deathDoorTurns = poisonTurns = poisonDmg = shadowGuard = counterTurns = 0;
   summons = [];
 }
 /** 勝利＝街へ。報酬（規模×tier＋撃破＋救助＋生存仲間）・称号・年代記・戦死仲間の化石化。 */
@@ -3372,7 +3378,7 @@ async function raidVictory(): Promise<void> {
 async function raidDefeat(): Promise<void> {
   fossilizeRaidFallen();
   raid = null; allies = []; civics = [];
-  armorBuffTurns = attackBuffTurns = hasteTurns = deathDoorTurns = poisonTurns = poisonDmg = shadowGuard = 0; summons = [];
+  armorBuffTurns = attackBuffTurns = hasteTurns = deathDoorTurns = poisonTurns = poisonDmg = shadowGuard = counterTurns = 0; summons = [];
   raidResolve = null; // deathFlow が新しいゲームループを起こす＝この raid の await は孤児化（既存の死亡と同じ作法）
   log("街の防衛に斃れた――。", "warn");
   await deathFlow();
@@ -3862,7 +3868,7 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false, viaDoor = 
   pursuerCount = 0; turnsSinceFloor = 0;
   armorBuffTurns = 0; attackBuffTurns = 0; hasteTurns = 0; deathDoorTurns = 0; chantTurns = 0; // 術バフはフロアを跨がない（戦闘内のみ）
   poisonTurns = 0; poisonDmg = 0; // 毒もフロアを跨がない（4-11G）
-  summons = []; shadowGuard = 0; // 召喚・影分けもフロアを跨がない
+  summons = []; shadowGuard = 0; counterTurns = 0; // 召喚・影分け・反撃の好機もフロアを跨がない
   mendTick = 0; // 遺物 mending の回復タイマーもフロア毎に仕切り直す（前フロアの貯めで降下直後に回復させない）
   const ch = world.current!;
   ch.depth = depth;
@@ -4408,6 +4414,36 @@ interface SummonEntity extends Pos { glyph: string; name: string; dmg: number; t
 let summons: SummonEntity[] = [];
 let shadowGuard = 0; // 影分け：>0 の間、敵の一撃を影が肩代わり（被ダメを無効化し1減）
 
+// ── 位置取りの通貨（2026-07-04 ユーザー承認・戦闘C/D・web限定＝golden不変）──
+// C. 挟撃：味方（相棒/召喚/raid共闘者）と敵を挟んだ近接は増し。回り込む1歩に意味を持たせる。
+// D. ジャスト見切り→反撃：テレグラフを退いて空振りさせた直後は「反撃の好機」＝次の近接が会心。
+//    読んで避けるだけでなく「避けて刺す」へ。数値はテストプレイ調整候補。
+const FLANK_MULT = 1.3;    // 挟撃の近接倍率
+const COUNTER_MULT = 1.75; // 見切り反撃の会心倍率
+const COUNTER_WINDOW = 2;  // 反撃の好機の持続（手）＝見切った次の1〜2手
+let counterTurns = 0;      // >0 の間、次の近接が会心（消費で0・ephemeral＝フロアを跨がない）
+
+/** 挟撃判定：この敵に隣接する生存味方（相棒/召喚/raid共闘者）がいるか。 */
+function flankedByAlly(m: Monster): boolean {
+  const adj = (x: number, y: number) => Math.max(Math.abs(m.x - x), Math.abs(m.y - y)) <= 1;
+  if (companion && companion.hp > 0 && adj(companion.x, companion.y)) return true;
+  if (summons.some((s) => adj(s.x, s.y))) return true;
+  if (allies.some((a) => a.hp > 0 && adj(a.x, a.y))) return true;
+  return false;
+}
+
+/** 近接ダメージに位置取り補正（挟撃＋見切り反撃）を適用し、演出も出す。戻り値＝最終ダメージ。 */
+function meleeWithPositioning(base: number, mon: Monster): number {
+  let dmg = base;
+  const countered = counterTurns > 0;
+  const flanked = flankedByAlly(mon);
+  if (countered) { dmg = Math.round(dmg * COUNTER_MULT); counterTurns = 0; } // 好機は一撃で消費
+  if (flanked) dmg = Math.round(dmg * FLANK_MULT);
+  if (countered) { sfx("crit"); log(`見切りからの反撃！ 会心の${dmg}。`, "cue"); }
+  else if (flanked) log(`挟み撃ち！ ${dmg}の一撃。`);
+  return dmg;
+}
+
 let abyssDivePending = false; // 次の潜行が「奉献の試練」（深淵帯への直下降）か
 let portalDivePending = false; // 次の startDive が「帰還の扉（街側・一回だけ）」＝駐機盤面の復元か
 
@@ -4537,6 +4573,7 @@ async function endTurn() {
   }
   // 術バフの計時（毎手減算。疾走中はこの手番の敵を飛ばす。死戸は明けに揺り戻し）。
   if (armorBuffTurns > 0) armorBuffTurns--;
+  if (counterTurns > 0) counterTurns--; // 反撃の好機は短い（見切った直後の1〜2手だけ）
   if (attackBuffTurns > 0) attackBuffTurns--;
   const hasted = hasteTurns > 0; if (hasteTurns > 0) hasteTurns--;
   if (deathDoorTurns > 0) { deathDoorTurns--; if (deathDoorTurns === 0) { addExp(0.4); log("死戸が閉じる……深みの揺り戻し（深蝕＋0.4）。", "warn"); } }
@@ -4661,6 +4698,10 @@ async function endTurn() {
     }
   }
   for (const m of res.dodges) { floatFx(player.x, player.y, "見切", "fl-miss"); log(`${m.kind.name}の一撃を見切った。`, "dim"); }
+  if (res.dodges.length > 0 && hp > 0) { // D. ジャスト見切り→反撃：空振りを誘った直後は次の近接が会心
+    if (counterTurns === 0) { floatFx(player.x, player.y, "反撃の好機", "fl-dmg"); log("空振りの隙が見えた――反撃の好機（次の近接が会心）。", "cue"); }
+    counterTurns = COUNTER_WINDOW;
+  }
   if (companion && companion.hp <= 0) companionDies(); // 相棒の戦死＝化石化
   } // end if(!hasted)
   // 敵図鑑：視界内の生存敵を記録（遭遇＝図鑑に編む。web限定・決定論）。
@@ -5506,9 +5547,9 @@ function moveOrInteract(nx: number, ny: number): boolean {
   if (tileAt(f, nx, ny) !== 1) return false;
 
   const mon = f.monsters.find((m) => m.hp > 0 && m.x === nx && m.y === ny);
-  if (mon) { // 攻撃（確定命中・確定ダメージ＝力依存＋焦躁バフ）
+  if (mon) { // 攻撃（確定命中・確定ダメージ＝力依存＋焦躁バフ＋位置取り補正）
     const ch = world.current!;
-    const dmg = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
+    const dmg = meleeWithPositioning(meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0), mon); // 挟撃/見切り反撃（C/D）
     mon.hp -= dmg;
     sfx(mon.boss ? "crit" : "hit");
     floatFx(nx, ny, String(dmg), "fl-dmg"); // 盤上ダメージ数字（命中フラッシュ＝敵グリフ白重ねは視認性のため廃止・FB 2026-07-03）
@@ -6150,7 +6191,9 @@ const HELP_FLOW =
   "・キー：矢印・WASD・viキー(y u b n)・テンキー(1〜9)\n" +
   "・「.」またはパッド中央＝その場で待機（1手）\n" +
   "・盤面をタップ＝そのマスを調べる（敵の強さ・傷・能力が分かる。手番は使わない）\n" +
-  "・敵は次の一手を予告する（テレグラフ）。退いて空振りさせるのが「見切り」。\n\n" +
+  "・敵は次の一手を予告する（テレグラフ）。退いて空振りさせるのが「見切り」。\n" +
+  "・見切った直後は「反撃の好機」＝次の近接攻撃が会心になる。\n" +
+  "・相棒・召喚・共闘者と敵を挟むと「挟み撃ち」＝近接攻撃が増す。\n\n" +
   "▍地図とねらい\n" +
   "地図ボタンでフロア全体を表示。地図をタップ→最寄りの床にマーカー→パッドで微調整→「移動」で自動で歩く。";
 const HELP_LEGEND =
