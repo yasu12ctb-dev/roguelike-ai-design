@@ -283,7 +283,8 @@ export interface Quest {
   id: string;
   // 到達／回収／討伐（slay＝深層エリアボス）／bounty＝特定種を N 体討伐／rescue＝手負いを救助生還／
   // fetch＝指定品を持ち帰り納品／escort＝依頼人を指定深度まで生かして護衛（2026-07-02 依頼多様化）。
-  kind: "descend" | "reclaim" | "slay" | "bounty" | "rescue" | "fetch" | "escort";
+  // plunder＝化石を暴いて遺品を剥ぐ（酒場専用のグレー・回収の闇の鏡）／contraband＝未鑑定の異物を故買屋へ密売（酒場専用・2026-07-04）。
+  kind: "descend" | "reclaim" | "slay" | "bounty" | "rescue" | "fetch" | "escort" | "plunder" | "contraband";
   patron?: "noble";              // 発注元＝貴族街の統治者（奉献後の大命・4-13D Phase4）。任意＝旧セーブ非破壊。
   source?: "guild" | "tavern";   // 掲示元ボード（受取場所の分岐）。未指定＝guild（旧セーブ非破壊）。
   title: string;
