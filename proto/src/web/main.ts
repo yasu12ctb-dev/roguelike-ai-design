@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.107.0";
+export const APP_VERSION = "0.108.0";
 export const APP_BUILD = "2026-07-04";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -415,7 +415,7 @@ function showPeek(x: number, y: number): void {
   // ノード・地形（泉/安/扉/階段は draw() が記憶描画する＝視界外でも答えてよい）。
   const shr = f.shrines.find((s) => !s.used && s.x === x && s.y === y);
   if (shr) { setPeek(shr.kind === "spring" ? "泉　回復の泉" : "安　安息所", shr.kind === "spring" ? "澄んだ水が傷を癒す（一度きり）。" : "腰を下ろせば深蝕が薄らぐ（一度きり）。"); return; }
-  if (f.returnDoor && f.returnDoor.x === x && f.returnDoor.y === y) { setPeek("扉　帰還の扉", "街とこの階を結ぶ。何度でも往復できる。"); return; }
+  if (f.returnDoor && f.returnDoor.x === x && f.returnDoor.y === y) { setPeek("扉　帰還の扉", "くぐれば街へ戻る。あの階への帰り道は、街の慰霊碑の傍に一度だけ開く。"); return; }
   // 階段は迷宮でのみ機能する（街防衛戦の戦場 genRaidField は装飾の階段を置くだけ＝raid では説明しない）。
   if (mode === "dive" && f.stairsDown.x === x && f.stairsDown.y === y) { setPeek("›　降り階段", "さらに深くへ。"); return; }
   if (mode === "dive" && f.stairsUp.x === x && f.stairsUp.y === y) { setPeek("‹　上り階段", f.depth === 1 ? "地上へ。ここから生還できる。" : "ひとつ浅い層へ。"); return; }
@@ -487,6 +487,30 @@ function saveDive(): void {
   } catch { /* ignore */ }
 }
 function clearDive(): void { try { localStorage.removeItem(DIVE_KEY); } catch { /* ignore */ } }
+
+// 帰還の扉（街側・一回だけ）：ボス撃破後に街へ戻ると、あの階の盤面（ボス討伐済み）を丸ごと
+// 「駐機」しておく。live な DiveSnapshot は街入場で破棄されるので、これは専用キーに退避＝
+// リロード/アプリ再起動でも生き残り、慰霊碑の扉から一度だけ同じ盤面へ戻れる。
+const PORTAL_KEY = "sekitsui.portal.v0";
+function parkPortal(): void {
+  try {
+    if (mode === "dive" && floor && world.current?.alive) {
+      const snap: DiveSnapshot = { depth: floor.depth, hp, inAbyss, player: floor.returnDoor ? { ...floor.returnDoor } : player, floor, cache: [...floorCache.entries()], pursuerCount, turnsSinceFloor, setPieceCooldown, quietDescents };
+      localStorage.setItem(PORTAL_KEY, JSON.stringify(snap));
+      world.town.returnPortal = { depth: floor.depth };
+    }
+  } catch { /* ignore＝盤面は失っても world フラグで深度だけは戻せる（保険） */ }
+}
+function loadPortal(): DiveSnapshot | null {
+  try {
+    const raw = localStorage.getItem(PORTAL_KEY); if (!raw) return null;
+    const s = JSON.parse(raw) as DiveSnapshot;
+    if (s && s.floor && s.player && typeof s.hp === "number" && Array.isArray(s.cache)) return s;
+  } catch { /* ignore */ }
+  return null;
+}
+function clearPortal(): void { try { localStorage.removeItem(PORTAL_KEY); } catch { /* ignore */ } world.town.returnPortal = null; }
+
 function loadDive(): DiveSnapshot | null {
   try {
     const raw = localStorage.getItem(DIVE_KEY); if (!raw) return null;
@@ -530,7 +554,6 @@ let interior: Interior | null = null; // 屋内シーン（null=街路）
 let townReturn: Pos | null = null;    // 屋内に入る直前の街路位置（出たら戻る）
 let wanderTimer: ReturnType<typeof setInterval> | null = null;
 let townDescendResolve: (() => void) | null = null; // 門で潜行＝townLoop を解決
-let pendingReturnDepth: number | null = null; // 帰還の扉で一時帰還中＝門は「あのフロアへ戻る」になる（returnViaDoor が設定）
 
 // ---------- ステータスバー ----------
 function updateStatus() {
@@ -2323,6 +2346,7 @@ async function retireFlow() {
   busy = true;
   sfx("seal");
   const f = retireCurrent(world);
+  if (world.town?.returnPortal) clearPortal(); // 先代の帰還の扉（駐機）は次代へ引き継がない（あの階は先代のもの）
   log(`${f.origin.name}は探索者の列を退いた。その名は、伝説として英雄譜に刻まれる。`, "warn");
   save();
   await characterCreation();   // 後継を作成（襲名すれば術＋装備を手厚く継ぐ）
@@ -2681,28 +2705,16 @@ async function talkGuard(g: GuardDef) {
 async function promptDescend() {
   if (busy) return;
   busy = true;
-  // 帰還の扉が開いている（ボス撃破後の一時帰還中）：門は新規潜行でなく「あのフロアへ戻る」になる。
-  if (pendingReturnDepth != null) {
-    const unlockedR = abyssUnlocked(world);
-    const back = `▶ あのフロアへ戻る（帰還の扉・深度${pendingReturnDepth}）`;
-    const opts = unlockedR ? [back, "奉献の試練へ潜る（深淵帯）", "とどまる"] : [back, "とどまる"];
-    const r = await sheet({
-      text: `迷宮の口に立った。\n帰還の扉は、まだ あのフロア（深度${pendingReturnDepth}）へ繋がっている。\n降りれば、討ち倒した相手のいた場所へ戻る（潜行は続いている）。`,
-      meta: "街 ── 迷宮の口（帰還の扉）", options: opts,
-    });
-    busy = false;
-    if (unlockedR && r.pick === 2) { abyssDivePending = true; leaveTownToDive(); return; } // 深淵帯＝この潜行を畳んで試練へ
-    if (r.pick === 1) leaveTownToDive(); else drawTown();
-    return;
-  }
   const unlocked = abyssUnlocked(world);
+  // 帰還の扉を駐機中（ボス撃破後）：ここから新規に潜ると、あの階への帰り道は閉じる（慰霊碑の扉が消える）。
+  const parked = world.town?.returnPortal ? `\n（慰霊碑の傍に、あの階〔深度${world.town.returnPortal.depth}〕へ戻る帰還の扉が開いている。ここから新しく潜ると、その帰り道は閉じる）` : "";
   const opts = unlocked
     ? ["潜行する（迷宮へ降りる）", "奉献の試練へ潜る（深淵帯・聖遺物を持ち帰る）", "とどまる"]
     : ["潜行する（迷宮へ降りる）", "とどまる"];
   const r = await sheet({
-    text: unlocked
+    text: (unlocked
       ? "迷宮の口に立った。\n五つの印が揃い、門の奥に封じられた道――深淵帯への階が、ほの暗く口を開けている。"
-      : "迷宮の口に立った。潜行するか？",
+      : "迷宮の口に立った。潜行するか？") + parked,
     meta: "街 ── 迷宮の口", options: opts,
   });
   busy = false;
@@ -2746,6 +2758,7 @@ function townAct(dx: number, dy: number) {
   if (p && guardianKeys.has(`${nx},${ny}`)) { void guardianScene(guardianKeys.get(`${nx},${ny}`)!); return; } // 引退した英雄＝会話（運命の弧 4-6D）
   if (p && courtKeys.has(`${nx},${ny}`)) { void courtNpcScene(courtKeys.get(`${nx},${ny}`)!); return; } // 宮廷NPC＝家令/廷臣/再会の客人（4-14G 後続）
   if (p && cenotaphKey === `${nx},${ny}`) { void memorialScene(); return; } // 慰霊碑＝歴代の死者を読む（街の差分 4-6C）
+  if (p && portalKey === `${nx},${ny}`) { void useReturnPortal(); return; } // 帰還の扉（街側・一回だけ）＝あの階へ戻る
   const walkable = t === "floor" || t === "gate" || (nobleOpen && (t === "noble" || t === "ngate")); // 貴族街解禁で noble/ngate も歩行可
   if (!walkable) { if (p?.line) log(p.line, "dim"); return; }
   // 景物（木・井戸・碑）は塞ぐ。ただし walkable な景物（供花＝地面に手向けた物）は跨いで歩ける＝上に乗ると一言だけ添える。
@@ -3680,6 +3693,7 @@ async function guardianScene(trackedId: string) {
 // 歴代の自キャラ化石が層を成し、堆積に応じて広場に供花（見た目の差分）が増える。
 let cenotaphKey: string | null = null;
 const memorialKeys = new Set<string>();
+let portalKey: string | null = null; // 慰霊碑の傍の帰還の扉（街側・一回だけ）の propMap key
 /** 慰霊碑に刻まれる名（悼んだ先人＋歴代の自キャラ・重複排除）。 */
 function rememberedDead(): { names: string[]; mourned: Set<string> } {
   const mourned = new Set(world.town?.memorials ?? []);
@@ -3690,6 +3704,7 @@ function rememberedDead(): { names: string[]; mourned: Set<string> } {
 function refreshMemorialSites() {
   for (const k of memorialKeys) townGrid.propMap.delete(k);
   memorialKeys.clear();
+  if (portalKey) { townGrid.propMap.delete(portalKey); portalKey = null; } // 前回分を消してから建て直す（駐機解除で消える）
   if (!cenotaphKey) { // 静的な慰霊碑（glyph「碑」）の位置を一度だけ特定
     for (const [k, pr] of townGrid.propMap) if (pr.glyph === "碑") { cenotaphKey = k; break; }
   }
@@ -3699,6 +3714,21 @@ function refreshMemorialSites() {
     if (c) c.line = count > 0
       ? `慰霊碑。迷宮に還らなかった者たちの名が、層を成して刻まれている（${count}名）。`
       : "慰霊碑。迷宮に還らなかった者たちの名が刻まれている。";
+  }
+  // 帰還の扉（街側・一回だけ）：ボス撃破後の駐機があれば、慰霊碑の傍へ扉を据える（bump で useReturnPortal）。
+  const portal = world.town?.returnPortal;
+  if (portal) {
+    const doorCands: [number, number][] = [[28, 30], [28, 32], [27, 31], [29, 31], [27, 32], [29, 32]];
+    for (const [x, y] of doorCands) {
+      const key = `${x},${y}`;
+      if (townTileAt(townGrid, x, y) === "floor" && !townGrid.propMap.has(key) &&
+          !townGrid.doorMap.has(key) && !townGrid.guardMap.has(key)) {
+        townGrid.propMap.set(key, { x, y, glyph: "扉", color: "#e8c66a", glow: true,
+          line: `帰還の扉。討ち倒した相手のいた あの階（深度${portal.depth}）へ、一度だけ戻れる。` });
+        portalKey = key;
+        break;
+      }
+    }
   }
   // 堆積に応じて供花を足す（見た目の差分・上限6）。碑(28,31)まわりの空き床へ。占有/非床は自動回避。
   const cands: [number, number][] = [[27, 31], [29, 31], [27, 30], [29, 30], [26, 30], [30, 30]];
@@ -4320,10 +4350,14 @@ let summons: SummonEntity[] = [];
 let shadowGuard = 0; // 影分け：>0 の間、敵の一撃を影が肩代わり（被ダメを無効化し1減）
 
 let abyssDivePending = false; // 次の潜行が「奉献の試練」（深淵帯への直下降）か
+let portalDivePending = false; // 次の startDive が「帰還の扉（街側・一回だけ）」＝駐機盤面の復元か
 
 async function startDive() {
   stopWander(); // 街の群衆ループを止める
   mode = "dive";
+  // 帰還の扉（街側・一回だけ）：駐機した あの階の盤面（ボス討伐済み）へ戻る。新規潜行のリセットはせず同じ盤面を継続。
+  if (portalDivePending) { portalDivePending = false; restoreFromPortal(); return; }
+  if (world.town?.returnPortal) clearPortal(); // 新しい潜行を始めた＝駐機していた帰還の扉（あの階への帰り道）を諦める
   seenThisDive = [];
   floorCache = new Map(); // 新しい潜行＝階の記憶をリセット（深度1から）
   setPieceCooldown = 0; quietDescents = 0; // 4-10H 第二層：新しい潜行はペーシング調停層もまっさらから
@@ -4351,6 +4385,29 @@ async function startDive() {
     world.current!.pendingDiveBuff = undefined; // 1潜行1回＝消費
     updateStatus(); save();
   }
+}
+
+/** 帰還の扉（街側・一回だけ）で駐機盤面へ戻る。startDive の portalDivePending 分岐から呼ぶ＝
+ *  同じ盤面（ボス討伐済み・floorCache 込み）を復元し、そこから潜行を続ける。くぐった時点で消費（farm根絶）。 */
+function restoreFromPortal(): void {
+  const snap = loadPortal();
+  const depth = world.town?.returnPortal?.depth ?? snap?.depth ?? 1;
+  clearPortal(); // 一度きり＝消費（盤面の有無に関わらず閉じる）
+  if (snap) {
+    resumeDive(snap); // mode/floorCache/グリッド/敵予告/描画まで面倒を見る
+    if (world.current) hp = townHealHp(); // 街で癒えた分（難易度 townHeal<1 なら満タンでない＝消耗）
+    if (floor?.returnDoor) player = { ...floor.returnDoor }; // 扉のあった場所へ再出現
+    if (world.current?.alive && world.companion?.alive) spawnCompanionNear(player);
+    draw(); updateStatus();
+  } else {
+    // 保険：スナップショット消失＝深度だけ戻す（新規盤面で再生成・farm は一度きりゆえ起きない）。
+    seenThisDive = []; floorCache = new Map();
+    buildGridDom(VIEW_W, VIEW_H);
+    if (world.current) hp = townHealHp();
+    enterFloor(depth, true, false, true); // viaDoor=true＝escort 到達を判定しない（issue4）
+  }
+  save();
+  log(`帰還の扉――深度${depth}へ戻った。`, "cue");
 }
 
 /** 保存した潜行を再開（boot 時）：街に戻さず、同じ深度・盤面・HP から続ける。 */
@@ -5500,37 +5557,48 @@ async function surfaceReturn() {
   await townLoop(); await startDive();
 }
 
-/** 帰還の扉（v2）：エリアボス撃破で出現する往復チェックポイント。街⇔このフロアを何度でも往復
- *  （floorCache/diveCount を保持＝同一潜行を継続）。フル離脱（階段/詠唱）するまで扉は残る。 */
+/** 帰還の扉（v2→街側・一回だけ）：エリアボス撃破で出現する扉をくぐると、あの階の盤面（ボス討伐済み）を
+ *  「駐機」し（parkPortal＝world セーブ＋専用スナップショット）街へ戻す。以後、慰霊碑の傍に開く帰還の扉から
+ *  一度だけ同じ盤面へ戻れる（useReturnPortal）。駐機は world に保存＝リロード/アプリ再起動でも消えない。 */
 async function returnViaDoor() {
   if (busy) return;
   busy = true;
   const ch = world.current!;
   const depth = floor!.depth;
   const r = await sheet({
-    text: `帰還の扉が、静かに口を開けている。\nここから街へ一度戻り、また このフロア（深度${depth}）へ戻って来られる。\n（潜行は続く＝迷宮はそのまま。傷は街で癒えるが、深みは残る）`,
-    meta: "帰還の扉 ── 一時帰還", options: ["扉をくぐる（街へ・また戻れる）", "とどまる"],
+    text: `帰還の扉が、静かに口を開けている。\nここから街へ一度戻れる。あの階（深度${depth}）への帰り道は、街の慰霊碑の傍にもう一度だけ開く。\n（潜行は続く＝盤面はそのまま・ボスは討たれたまま。傷は街で癒えるが、深みは残る）`,
+    meta: "帰還の扉 ── 街へ戻る", options: ["扉をくぐる（街へ）", "とどまる"],
   });
   if (r.pick !== 1) { busy = false; draw(); return; }
+  parkPortal(); // あの階の盤面を駐機（world.town.returnPortal ＋ 専用スナップショット）＝リロードでも消えない
   hp = maxHp(ch); ch.depth = 0;
   companion = null; // 相棒は world.companion として街へ同道（再降下で再展開）
   tickWorldClock(); // 世界クロック（4-14G 層1）：扉での一時帰還も「深部から地上へ」＝世界が進む
   save();
   sfx("stairs_up"); flashFx("warp");
-  log("帰還の扉をくぐる――束の間の地上。扉は、あのフロアへ繋がったままだ。", "cue");
-  log("（街の「迷宮の口（>）」から、いつでも あのフロアへ戻れる）", "dim");
+  log("帰還の扉をくぐる――束の間の地上。慰霊碑の傍に、あの階へ戻る扉が待っている。", "cue");
+  log("（街の慰霊碑（碑）の傍に開いた「帰還の扉（扉）」から、一度だけ あの階へ戻れる）", "dim");
   busy = false;
-  pendingReturnDepth = depth; // 街の門を「あのフロアへ戻る」表示に（一時帰還中の目印）
   await townLoop();
-  pendingReturnDepth = null;  // 街を出た＝目印を解除
-  if (abyssDivePending) { await startDive(); return; } // 街で奉献の試練を選んだ＝通常の新規潜行へ（floorCache リセット）
-  // 同一潜行を継続：floorCache が同じ盤面を復元（diveCount/seenThisDive は据え置き＝farm根絶を侵さない）。
-  mode = "dive";
-  buildGridDom(VIEW_W, VIEW_H);
-  if (world.current) hp = townHealHp(); // 難易度 townHeal<1 なら満タンに戻らない（消耗）
-  enterFloor(depth, true, false, true); // viaDoor=true＝扉の再降下では escort 到達を判定しない（issue4）
-  if (floor?.returnDoor) { player = { ...floor.returnDoor }; if (companion) spawnCompanionNear(player); draw(); } // 扉のあった場所へ再出現
-  log(`帰還の扉――深度${depth}へ戻った。`, "cue");
+  await startDive(); // 街の「迷宮の口」から潜った＝新規潜行（startDive が駐機 portal を破棄＝checkpoint を諦めた）
+}
+
+/** 慰霊碑の傍の帰還の扉（街側・一回だけ）：あの階へ戻る。街の他の潜行と同じく leaveTownToDive で
+ *  townLoop を解決し、呼び出し側の startDive が portalDivePending を見て駐機盤面を復元する。 */
+async function useReturnPortal() {
+  if (busy) return;
+  const portal = world.town?.returnPortal;
+  if (!portal) return;
+  busy = true;
+  const depth = portal.depth;
+  const r = await sheet({
+    text: `慰霊碑の傍に、ほのかな光の門が開いている――帰還の扉。\nくぐれば、討ち倒した相手のいた あの階（深度${depth}）へ戻る。潜行の続きだ。\n（この扉は一度きり。くぐれば閉じる。傷は街で癒えたが、深みは残ったまま）`,
+    meta: "帰還の扉 ── あの階へ戻る", options: [`扉をくぐる（深度${depth}へ）`, "とどまる"],
+  });
+  busy = false;
+  if (r.pick !== 1) return;
+  portalDivePending = true; // 呼び出し側（townLoop→startDive）が駐機盤面を復元する目印
+  leaveTownToDive();        // 街の他の潜行と同じ経路で townLoop を解決
 }
 
 async function stairsPrompt(dir: "down" | "up") {
@@ -6084,7 +6152,7 @@ async function importSave(): Promise<void> {
   catch { await sheet({ text: "読み込めませんでした。文字列が壊れているか、このゲームのセーブではない可能性があります。", meta: "読み込み失敗", options: ["閉じる"] }); return; }
   const c = await sheet({ text: `第${w.generation}世代・化石${w.fossils.length}件の世界を読み込みます。\n今の世界は上書きされ、元に戻せません。よろしいですか？`, meta: "復元の確認", options: ["いいえ", "はい、読み込む"] });
   if (c.pick !== 2) return;
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(w)); clearDive(); } catch { /* ignore */ }
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(w)); clearDive(); localStorage.removeItem(PORTAL_KEY); } catch { /* ignore */ }
   log("セーブを読み込んだ。世界を復元する……", "cue");
   location.reload(); // 再起動でクリーンに再初期化（タイトル→続きから）
 }
@@ -6646,7 +6714,7 @@ async function resetWorld() {
     options: ["いいえ", "はい、消す"],
   });
   if (r2.pick !== 2) return;
-  try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ }
+  try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(PORTAL_KEY); } catch { /* ignore */ }
   clearDive();
   log("世界をまっさらに戻す……", "warn");
   location.reload(); // 再起動＝boot() が新規 World＋キャラ作成から走る（一時状態の取りこぼし無し）
