@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.105.0";
+export const APP_VERSION = "0.105.1";
 export const APP_BUILD = "2026-07-03";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1854,12 +1854,15 @@ async function homeDeposit() {
   busy = true;
   const ch = world.current!;
   for (;;) {
+    dedupeGearBag(ch); // 袋の参照重複を除いてから（二重表示/二重移動を防ぐ）
     const inv = ch.inventory ?? [];
+    const bag = ch.gearBag ?? []; // 荷物の中の未装備の武具（拾った予備）＝これも預けられるように（FB 2026-07-03）
     const eqSlots: ItemSlot[] = ["weapon", "armor", "relic", "bag"];
     const equipped = eqSlots.filter((sl) => ch.equipment[sl]);
     const opts = [
       ...inv.map((s) => `消耗品：${consumableByKey(s.key)?.name ?? s.key} ×${s.qty}`),
-      ...equipped.map((sl) => `装備：${SLOT_LABEL[sl]} ${itemLabel(ch.equipment[sl]!)}`),
+      ...bag.map((it) => `荷物の武具：${SLOT_LABEL[it.slot]} ${itemLabel(it)}`),
+      ...equipped.map((sl) => `装備中：${SLOT_LABEL[sl]} ${itemLabel(ch.equipment[sl]!)}`),
     ];
     if (!opts.length) { await sheet({ text: "預けられる持ち物も装備もない。", options: ["閉じる"] }); break; }
     const r = await sheet({
@@ -1874,9 +1877,15 @@ async function homeDeposit() {
       if (!stashAdd(s.key)) { await sheet({ text: "保管庫がもう一杯だ。", options: ["戻る"] }); continue; }
       consumeOne(ch, s.key); sfx("consume");
       log(`${consumableByKey(s.key)?.name ?? s.key} を保管庫に預けた。`, "dim"); save();
-    } else { // 装備（外して武具庫へ）
+    } else if (i < inv.length + bag.length) { // 荷物の予備武具（装備は外さずそのまま武具庫へ）
       if (homeFull()) { await sheet({ text: "武具庫がもう一杯だ。", options: ["戻る"] }); continue; }
-      const sl = equipped[i - inv.length];
+      const it = bag[i - inv.length];
+      world.stashGear ??= []; world.stashGear.push(it);
+      ch.gearBag = bag.filter((g) => g !== it);
+      sfx("equip"); log(`${it.name} を武具庫に納めた。`, "dim"); updateStatus(); save();
+    } else { // 装備中（外して武具庫へ）
+      if (homeFull()) { await sheet({ text: "武具庫がもう一杯だ。", options: ["戻る"] }); continue; }
+      const sl = equipped[i - inv.length - bag.length];
       const it = ch.equipment[sl]!;
       world.stashGear ??= []; world.stashGear.push(it); ch.equipment[sl] = null;
       sfx("equip"); log(`${it.name} を外して武具庫に納めた。`, "dim"); updateStatus(); save();
