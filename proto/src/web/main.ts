@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.106.0";
+export const APP_VERSION = "0.106.1";
 export const APP_BUILD = "2026-07-04";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -1234,7 +1234,7 @@ async function questBoard(board: "guild" | "noble" | "tavern" = "guild") {
     ? `玉座の間。統治者が、奉献を成した者にのみ託す大命。所持 金${ch.gold}。`
     : board === "tavern"
       ? `酒場の柱に貼られた、雑多な頼み事。女将マレンが顎で示す。「困ってる連中の口さ。堅いのはギルドで聞きな」。所持 金${ch.gold}。`
-      : `回収業ギルド。所持 金${ch.gold}。`;
+      : `ギルドの詰所。依頼の貼り札が壁一面にひしめく。所持 金${ch.gold}。`;
   type Entry = { kind: "claim" | "offer" | "active"; q: Quest };
   for (;;) {
     const done = boardDone();
@@ -1254,8 +1254,8 @@ async function questBoard(board: "guild" | "noble" | "tavern" = "guild") {
       if (e.kind === "offer") return { html:
         `<div class="nm">${e.q.title}</div>`
         + `<div class="sub">${questConditionLine(e.q)}　／　報酬 ${e.q.rewardGold}金貨${e.q.rewardRelic ? "＋秘宝" : ""}</div>` };
-      return { html: // 受注中（情報）
-        `<div class="nm"><span style="color:var(--tx-dim)">◦</span>　${e.q.title}<span style="color:var(--tx-dim);font-weight:400"> ── 受注中</span></div>`
+      return { html: // 受注中（情報・受注可/受取可と一目で区別＝題を淡く＋◦と「受注中」を移色のティール accent に）
+        `<div class="nm" style="color:var(--tx-dim)"><span style="color:var(--c-mov)">◦</span>　${e.q.title}<span style="color:var(--c-mov);font-weight:400;font-size:12px"> ── 受注中</span></div>`
         + `<div class="sub">${questConditionLine(e.q)}</div>` };
     });
     const lead = introOf() + (entries.length ? "" : board === "noble" ? "\n（受注中の大命はない）" : "\n（今は頼み事がない）");
