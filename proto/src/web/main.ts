@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.113.0";
+export const APP_VERSION = "0.114.0";
 export const APP_BUILD = "2026-07-04";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -416,6 +416,7 @@ function showPeek(x: number, y: number): void {
   const shr = f.shrines.find((s) => !s.used && s.x === x && s.y === y);
   if (shr) { setPeek(shr.kind === "spring" ? "泉　回復の泉" : "安　安息所", shr.kind === "spring" ? "澄んだ水が傷を癒す（一度きり）。" : "腰を下ろせば深蝕が薄らぐ（一度きり）。"); return; }
   if (f.returnDoor && f.returnDoor.x === x && f.returnDoor.y === y) { setPeek("扉　帰還の扉", "くぐれば街へ戻る。あの階への帰り道は、街の慰霊碑の傍に一度だけ開く。"); return; }
+  if (f.aurelSite && f.aurelSite.x === x && f.aurelSite.y === y) { setPeek(f.aurelSite.kind === "mark" ? "痕　灼き付いた徴" : "境　岩壁の呼吸", f.aurelSite.kind === "mark" ? "始祖の遺構らしい。踏み込めば読める。" : "岩と人の境目が、生きて呼吸している。踏み込めば言葉を交わせる。"); return; }
   // 階段は迷宮でのみ機能する（街防衛戦の戦場 genRaidField は装飾の階段を置くだけ＝raid では説明しない）。
   if (mode === "dive" && f.stairsDown.x === x && f.stairsDown.y === y) { setPeek("›　降り階段", "さらに深くへ。"); return; }
   if (mode === "dive" && f.stairsUp.x === x && f.stairsUp.y === y) { setPeek("‹　上り階段", f.depth === 1 ? "地上へ。ここから生還できる。" : "ひとつ浅い層へ。"); return; }
@@ -703,6 +704,7 @@ function draw() {
     const shrM = floor.shrines.find((s) => s.x === x && s.y === y); // 回復ノード（v2・記憶に残る目印）
     if (shrM) { glyph = shrM.kind === "spring" ? "泉" : "安"; cls = shrM.kind === "spring" ? "g-spring" : "g-rest"; }
     if (floor.returnDoor && floor.returnDoor.x === x && floor.returnDoor.y === y) { glyph = "扉"; cls = "g-door"; } // 帰還の扉
+    if (floor.aurelSite && floor.aurelSite.x === x && floor.aurelSite.y === y) { glyph = floor.aurelSite.kind === "mark" ? "痕" : "境"; cls = floor.aurelSite.kind === "mark" ? "g-aurel" : "g-laila"; } // メインの縦糸（4-15）
     if (visible) {
       const fe = floor.fossils.find((e) => e.x === x && e.y === y);
       if (fe) { glyph = "†"; cls = fe.resolved ? "g-fossil-quiet" : "g-fossil"; }
@@ -831,6 +833,7 @@ function drawMapMode() {
     const shrM = floor.shrines.find((s) => s.x === x && s.y === y);
     if (shrM) { bg = shrM.kind === "spring" ? MAP_BG.spring : MAP_BG.rest; glyph = shrM.kind === "spring" ? "泉" : "安"; cls = shrM.kind === "spring" ? "g-spring" : "g-rest"; }
     if (floor.returnDoor && floor.returnDoor.x === x && floor.returnDoor.y === y) { bg = MAP_BG.door; glyph = "扉"; cls = "g-door"; }
+    if (floor.aurelSite && floor.aurelSite.x === x && floor.aurelSite.y === y) { bg = MAP_BG.door; glyph = floor.aurelSite.kind === "mark" ? "痕" : "境"; cls = floor.aurelSite.kind === "mark" ? "g-aurel" : "g-laila"; } // メインの縦糸（4-15）
     const fe = floor.fossils.find((e) => e.x === x && e.y === y);
     if (fe) { bg = fe.resolved ? MAP_BG.fossilQuiet : MAP_BG.fossil; glyph = "†"; cls = fe.resolved ? "g-fossil-quiet" : "g-fossil"; } // 未対面は一段明るく
     if (floor.chests.some((cc) => cc.x === x && cc.y === y && !cc.opened)) { bg = MAP_BG.chest; glyph = "▭"; cls = "g-chest"; }
@@ -2083,9 +2086,10 @@ async function lineageHallScene() {
   const line = world.fossils.filter((f) => f.kind === "character"); // 歴代当主（死者＋退隠した先代）
   const ordered = [...line].sort((a, b) => a.death.generationCreated - b.death.generationCreated);
   const hr = houseRank();
-  const hall = world.manorUnlocked
+  const hall = (world.manorUnlocked
     ? "貴族街の館・大広間。歴代の名は、貴族の列に連なる肖像として壁を埋めている。"
-    : "世代を継ぐたび、この壁に名が刻まれる。退いた者は伝説に、斃れた者は深みで静かに変わってゆく。";
+    : "世代を継ぐたび、この壁に名が刻まれる。退いた者は伝説に、斃れた者は深みで静かに変わってゆく。")
+    + (aurelCh() >= 6 ? "\nこの家系は、始祖の遺した問いを継いでいる。欠けた頁の、次の頁を書き続ける家系。" : "");
   const boon = hr.tier >= 1 ? `　家格に応じ、次の当主は家の蓄え（膏薬・餞別）を携えて発つ。` : "";
   for (;;) {
     if (!ordered.length) {
@@ -2564,6 +2568,8 @@ async function talkKeeper(asKind?: string) {
   const d = townGrid.data.keepers[kind];
   if (kind === "guild") await checkRankUp(); // 等級の正式認定＝昇格イベント（4-4E）
   if (kind === "guild" || kind === "home" || kind === "manor" || kind === "audience") await maybeGrantManor(); // 館/格上げの告知（終盤メタ・4-14G・冪等）
+  if (kind === "archive") { await maybeAurelIntro(); await maybeAurelFinale(); } // メインの縦糸（4-15）：序章／終章＝書記の館
+  if (kind === "cult") await maybeAurelCult(); // メインの縦糸（4-15）：第三章＝教団の「声」
   if (busy || !interior) return; // 昇格イベント中に状況が変わっていないか再確認
   // 店主目線の小イベント（4-4B 辻褄整合）：時々、固定の挨拶＋メニューの前に「店主本人が語る」一幕を挟む。
   // 話者＝その店主＝#origin_name# は店主名で充填（雑踏のランダム冒険者と取り違えない）。商い導線は後続でそのまま到達。
@@ -2764,8 +2770,11 @@ async function talkGuard(g: GuardDef) {
 }
 async function promptDescend() {
   if (busy) return;
+  const preUnlocked = abyssUnlocked(world);
+  if (preUnlocked) await maybeAurelMira(); // メインの縦糸（4-15）：第四章＝5印が揃った迷宮の口で、道を示す者
+  if (busy) return;
   busy = true;
-  const unlocked = abyssUnlocked(world);
+  const unlocked = preUnlocked;
   // 帰還の扉を駐機中（ボス撃破後）：ここから新規に潜ると、あの階への帰り道は閉じる（慰霊碑の扉が消える）。
   const parked = world.town?.returnPortal ? `\n（慰霊碑の傍に、あの階〔深度${world.town.returnPortal.depth}〕へ戻る帰還の扉が開いている。ここから新しく潜ると、その帰り道は閉じる）` : "";
   const opts = unlocked
@@ -3917,6 +3926,22 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false, viaDoor = 
         floor.delver = rosterLa
           ? { id: rosterLa.id, actor: rosterLa.actor, x: at.x, y: at.y }
           : { id: `delver_${depth}_${world.generation}_${world.diveCount ?? 0}`, actor: mintActor(db, rng, {}, fossilNames(world)), x: at.x, y: at.y };
+      }
+    }
+    // メインの縦糸「アウレルの遺した問い」（4-15）：章に応じ、このフロアに遺構「痕」／ライラ・境を置く。
+    // 確定配置（縦糸の灯台＝迷わせない）。手負い/すれ違いと同マスなら今回は見送り（次のフロアでまた出る）。
+    floor.aurelSite = null;
+    if (aurelCh() === 1 && !abyss && depth >= AUREL_MARK_DEPTH) {
+      const at = randomFloorAway(floor, rng, player, 6);
+      if (at && !(floor.downed && floor.downed.x === at.x && floor.downed.y === at.y) && !(floor.delver && floor.delver.x === at.x && floor.delver.y === at.y)) {
+        floor.aurelSite = { x: at.x, y: at.y, kind: "mark" };
+        log("……この層のどこかに、灼き付いた「痕」の気配がする。", "cue");
+      }
+    } else if (aurelCh() === 4 && abyss) {
+      const at = randomFloorAway(floor, rng, player, 6);
+      if (at && !(floor.downed && floor.downed.x === at.x && floor.downed.y === at.y) && !(floor.delver && floor.delver.x === at.x && floor.delver.y === at.y)) {
+        floor.aurelSite = { x: at.x, y: at.y, kind: "laila" };
+        log("岩壁のどこかに、呼吸の気配がある。生きて、待っている。", "cue");
       }
     }
   }
@@ -5583,6 +5608,12 @@ function moveOrInteract(nx: number, ny: number): boolean {
   // 同時に潜る生者の冒険者（4-14・すれ違い）：接触で軽い会話（一度きり）
   if (f.delver && f.delver.x === nx && f.delver.y === ny) { void delverScene(f.delver); return true; }
 
+  // メインの縦糸「アウレルの遺した問い」（4-15）：遺構「痕」／ライラ・境（踏み込むと章が進む）
+  if (f.aurelSite && f.aurelSite.x === nx && f.aurelSite.y === ny) {
+    if (f.aurelSite.kind === "mark") void aurelMarkScene(f); else void aurelLailaScene(f);
+    return true;
+  }
+
   // 相棒のマスへ踏み込む＝位置を入れ替える（相棒が @ の元いたマスへ）。手番は消費。
   if (companion && companion.x === nx && companion.y === ny) {
     companion.x = player.x; companion.y = player.y;
@@ -6201,6 +6232,7 @@ const HELP_LEGEND =
   "▍迷宮\n" +
   "@ 金＝あなた／@ 青＝相棒／@ 緑＝すれ違う冒険者\n" +
   "& 琥珀＝手負いの冒険者（救助できる）\n" +
+  "痕・境＝古き徴（踏み込むと読める・物語が進む）\n" +
   "敵＝記号×色（上位の色ほど強い）\n" +
   "ψ ‡ Ψ 菫＝あなたが召喚した一時の味方\n" +
   "泉 青緑＝回復の泉（HP回復）／安 緑＝安息所（深蝕を祓う）\n" +
@@ -6687,6 +6719,152 @@ function questConditionLine(q: Quest): string {
   }
 }
 
+// ---------- メインの縦糸「アウレルの遺した問い」（4-15・2026-07-04 ユーザー承認） ----------
+// 世界に一本の「謎の背骨」を通す：欠けた頁 → 遺構「痕」 → 教団の声 → ミラの導き → ライラ・境 → 問いの継承。
+// 鉄則＝答えは出さない（4-3①「底は永久に未到達」）。各章は謎を「解く」のでなく「深める」。
+// 章は World.aurelChapter（0..6）に蓄積＝世代を跨ぐ＝「解読を継ぐ家系」になる。全て既存機構の上＝web限定・golden 不変。
+const AUREL_MARK_DEPTH = 15; // 第二章：遺構「痕」が現れ始める深度（テスト調整候補）
+function aurelCh(): number { return world.aurelChapter ?? 0; }
+function setAurelCh(n: number): void { world.aurelChapter = n; save(); }
+
+/** 進行ヒント（「進行中の事ども」に常設表示＝縦糸の可視化。次にどこへ行けばいいかだけを言う）。 */
+function aurelHint(): string {
+  switch (aurelCh()) {
+    case 0: return "書記の館の老書記が、誰にも読めない頁を抱えているという。";
+    case 1: return `深み（深度${AUREL_MARK_DEPTH}以深）のどこかに、始祖の「痕」が灼き付いているという。`;
+    case 2: return "教団〈深淵を讃える者たち〉は、何かを知っているらしい。";
+    case 3: return "五つの印が揃うとき、迷宮の口で道を示す者が現れる。";
+    case 4: return "深淵帯のどこかで、「境」と呼ばれた人が待っている。";
+    case 5: return "奉献を果たしたら、書記イェンにすべてを語れ。";
+    default: return "問いは、この家系に継がれた。";
+  }
+}
+
+/** 序章→第一章＝欠けた頁：書記の館でイェンが年代記の失われた冒頭を見せる（一度きり）。 */
+async function maybeAurelIntro(): Promise<void> {
+  if (aurelCh() !== 0 || !world.current || busy) return;
+  busy = true;
+  await sheet({
+    text: "老書記イェンが、ふと手を止めた。\n「お前は物を見る目がある。……ひとつ、見せておきたいものがある」。\n\n書架の最奥から、鎖で綴じられた最初の巻が下ろされる。年代記の、いちばん古い一冊。\n開かれた冒頭は――焼け落ちたように、数頁ぶん失われていた。",
+    meta: "アウレルの遺した問い ── 序章", options: ["頁をのぞき込む"],
+  });
+  await sheet({
+    text: "「年代記はすべてを覚えている、と皆は言う。だが本当の最初の頁は、誰も読んだことがない」。\n\n「始祖――と呼ぶしかない誰かが、最初にあの深みへ入った。名は失われ、いまは『烙印（アウレル）』とだけ伝わる。何を求めて潜り、何を見て、なぜ還らなかったのか。……この欠けた頁が、儂の生涯の宿題だ」。\n\n「深みで『痕』を見つけたら、教えてくれ。深く潜る者にしか、見えぬものだ」。",
+    meta: "アウレルの遺した問い ── 第一章「欠けた頁」", options: ["心に留める"],
+  });
+  chronicle(world, "legend", "老書記イェンから、年代記の欠けた冒頭頁――始祖アウレルの話を聞いた。", []);
+  setAurelCh(1);
+  log("《アウレルの遺した問い》――縦糸が始まった（進行は「進行中の事ども」で読める）。", "cue");
+  busy = false;
+}
+
+/** 第二章＝遺構「痕」（深度15+の盤上ランドマーク・bump で読む）。 */
+async function aurelMarkScene(f: Floor): Promise<void> {
+  if (busy) return;
+  busy = true;
+  await sheet({
+    text: "岩肌に、聖痕のようなしるしが灼き付いていた。\n炎でも、鑿でもない。深みの理そのものが、ここだけ誰かの意志の形に固まっている。\n\n触れると、熱くも冷たくもない。ただ――「先へ」とだけ、感じる。",
+    meta: "アウレルの遺した問い ── 第二章「痕」", options: ["しるしに手を当てる"],
+  });
+  await sheet({
+    text: "指の下で、しるしが一瞬だけ言葉になった。読んだのではない。思い出したのに近い。\n\n『名を残すな。名は、深みに喰われる。\n　おれの代わりに、底を見ろ。\n　そして誰かに――これが問いだったと、伝えてくれ』\n\n目を離すと、しるしはもう、ただの模様に戻っていた。",
+    meta: "アウレルの遺した問い ── 第二章「痕」", options: ["目に焼き付ける"],
+  });
+  f.aurelSite = null;
+  chronicle(world, "legend", "深みで始祖の遺構「痕」に触れ、断章を読んだ。『おれの代わりに、底を見ろ』。", []);
+  setAurelCh(2);
+  busy = false;
+  draw(); saveDive();
+}
+
+/** 第三章＝教団の「声」：教団の戸をくぐったとき、教主が一度だけ素の声で語る。 */
+async function maybeAurelCult(): Promise<void> {
+  if (aurelCh() !== 2 || !world.current || busy) return;
+  busy = true;
+  await sheet({
+    text: "祭壇の香が揺れた。仮面の教主が、ふいに――祝詞ではない、素の声で言った。\n\n「……『痕』に触れたな。匂いで分かる」。",
+    meta: "アウレルの遺した問い ── 第三章「声」", options: ["黙って先を促す"],
+  });
+  await sheet({
+    text: "「我らが讃えるのは、深淵そのものではないよ。深淵の底から、誰かがずっと、呼んでいるのだ。\n始祖の声だと言う者がいる。神の声だと言う者がいる。ただの残響だと嗤う者もいる。\n――確かめた者だけが、どこにもいない」。\n\n仮面の奥で、教主が笑ったのか泣いたのか、分からなかった。\n「お前は底を見に行く目をしている。……見たら、教えておくれ。呼んでいたのが、誰だったのか」。",
+    meta: "アウレルの遺した問い ── 第三章「声」", options: ["祭壇に背を向ける"],
+  });
+  chronicle(world, "legend", "教団の教主が素の声で語った――深淵の底から、誰かがずっと呼んでいる、と。", []);
+  setAurelCh(3);
+  busy = false;
+}
+
+/** 第四章＝道を示す者：5印が揃った迷宮の口で、ミラ・片目（生死で分岐）がライラへの伝言を託す。 */
+async function maybeAurelMira(): Promise<void> {
+  if (aurelCh() !== 3 || !world.current || busy) return;
+  const miraDead = (world.fossils ?? []).some((fo) => fo.origin.name === "ミラ・片目");
+  busy = true;
+  if (!miraDead) {
+    await sheet({
+      text: "迷宮の口の脇に、女がひとり、壁にもたれて立っていた。\n左目が、深みの色――銀に濁っている。深淵帯を見て還った、ただ一人の生き残り。ミラ・片目。\n\n「五つの印。……あんたが、そうか」。",
+      meta: "アウレルの遺した問い ── 第四章「導き」", options: ["頷く"],
+    });
+    await sheet({
+      text: "「忠告はしない。行く奴は、何を言っても行く。私がそうだった」。\nミラは懐から、片目の刻印がある小さな骨片を取り出し、押し付けるように渡した。\n\n「底の近くに、ライラという人がいる。……人、と呼んでいいのか、もう分からないが。\n岩壁が呼吸していたら、それだ。これを見せろ。私の名を出せ。それで足りる」。\n\n「――底に何があったか、聞かないのか、と思っているだろう」。銀の左目が、笑った。「聞くな。自分の目で見ろ。それがあの人の流儀で、たぶん、始祖の流儀だ」。",
+      meta: "アウレルの遺した問い ── 第四章「導き」", options: ["骨片を受け取る"],
+    });
+    chronicle(world, "legend", "ミラ・片目が深淵帯への手引きをくれた――底の近くにいる「ライラ」への伝言と共に。", []);
+  } else {
+    await sheet({
+      text: "ギルドの預かり箱に、宛名のない古い手記が届いていた。差出人の欄には、片目の刻印だけ。\n\n――ミラ・片目。深淵帯を見て還った、ただ一人だった人。いまは深みで、静かに変わりつつある人。",
+      meta: "アウレルの遺した問い ── 第四章「導き」", options: ["手記を開く"],
+    });
+    await sheet({
+      text: "『私が還れなかったなら、これを読むのは、五つの印を集めた誰かだ。\n　底の近くに、ライラという人がいる。境と呼ばれた人だ。岩壁が呼吸していたら、それだ。\n　私の名を出せ。それで足りる。\n　――そして、聞くな。自分の目で見ろ。それがあの人の流儀で、たぶん、始祖の流儀だ』\n\n手記に挟まれて、片目の刻印がある小さな骨片が落ちてきた。",
+      meta: "アウレルの遺した問い ── 第四章「導き」", options: ["骨片を受け取る"],
+    });
+    chronicle(world, "legend", "亡きミラ・片目の手記が、深淵帯の「ライラ」への手引きを遺していた。", []);
+  }
+  world.current.traits.push("伝言:ライラ・境へ（ミラより）");
+  setAurelCh(4);
+  busy = false;
+}
+
+/** 第五章＝ライラ・境（深淵帯の盤上ランドマーク・bump で邂逅）。生ける神話＝世界の果ての証人。 */
+async function aurelLailaScene(f: Floor): Promise<void> {
+  if (busy) return;
+  busy = true;
+  await sheet({
+    text: "岩壁が、人の形に盛り上がっている。\n皮膚は石板のように変色し、目は光を持たない。それでも――呼吸している。胸が、ゆっくりと上下している。\n\n「……ミラの匂いがする」。岩が、しゃがれた声で言った。「まだ生きているか、あの子は」。",
+    meta: "アウレルの遺した問い ── 第五章「境」", options: ["骨片を見せる"],
+  });
+  await sheet({
+    text: "ライラ・境。生きたまま秘銀に至った、歴史上ただ一人の例外。\n骨片を見ると、石の顔がわずかにほどけた。\n\n「底に何があるか、聞きに来たのだろう。みんなそうだ。……わからない。ほんとうに、わからないんだ。\nでも、美しい。それだけは、何度でも言える」。\n\n「怖いか？　なら、まだ引き返せる。美しいと思ったら――もう、遅い」。",
+    meta: "アウレルの遺した問い ── 第五章「境」", options: ["アウレルのことを訊く"],
+  });
+  await sheet({
+    text: "「烙印の人か」。ライラは長いこと黙った。岩壁の呼吸だけが、洞に響いた。\n\n「――あの人は、答えを見つけて還らなかったのではないよ。\n順序が逆だ。問いのほうが、あの人を選んだのだ。\n選ばれた者は、底を見る。見て、どうするかは……それぞれだ。私は、ここで境になることにした」。\n\n「おまえにも、いずれ分かる。聖遺物を抱いて地上の光を見た瞬間に、な。\n……行け。呼ばれているうちに」。\n\n岩壁は、それきり何も言わなかった。ただ、呼吸だけが続いていた。",
+    meta: "アウレルの遺した問い ── 第五章「境」", options: ["深く一礼して離れる"],
+  });
+  f.aurelSite = null;
+  chronicle(world, "legend", "深淵帯でライラ・境に会った。『問いのほうが、あの人を選んだ』。", []);
+  setAurelCh(5);
+  busy = false;
+  draw(); saveDive();
+}
+
+/** 終章＝問いの継承：奉献を果たしたのち、書記の館で。答えは出ない――問いが家系に継がれる。 */
+async function maybeAurelFinale(): Promise<void> {
+  if (aurelCh() !== 5 || (world.ascended ?? 0) < 1 || !world.current || busy) return;
+  busy = true;
+  await sheet({
+    text: "イェンは、あなたの話を最後まで黙って聞いた。欠けた頁。痕の断章。教団の声。ミラの骨片。そして――岩壁の呼吸と、『問いのほうが、あの人を選んだ』という言葉。\n\n老書記は長いこと目を閉じ、それから、新しい一頁を年代記に綴じた。\n最初の欠けた頁は、埋まらないまま。",
+    meta: "アウレルの遺した問い ── 終章「継がれる問い」", options: ["「頁は、埋まらないのか」"],
+  });
+  await sheet({
+    text: "「埋まらんよ、この頁は。儂の代でも、お前の代でも」。\nイェンは笑った。皺の奥で、目だけが若かった。\n\n「だが、いいことを教えてやろう。欠けた頁の“次の頁”は、もう書かれ始めている。\nお前と、お前の家系が、ずっと書き続けている。斃れた者も、退いた者も、みな一行ずつ。\n\n……問いは、答えより長生きするものだ。それでいい。それが、いい」。\n\n窓の外で、街の鐘がひとつ鳴った。深みは今日も、そこにある。",
+    meta: "アウレルの遺した問い ── 終章「継がれる問い」", options: ["年代記を閉じる"],
+  });
+  chronicle(world, "legend", "奉献の顛末を書記に語った。欠けた頁は埋まらぬまま――問いは、この家系に継がれた。", []);
+  setAurelCh(6);
+  busy = false;
+}
+
 async function eventsScreen() {
   busy = true;
   const act = activeQuests(world), done = doneQuests(world);
@@ -6702,7 +6880,12 @@ async function eventsScreen() {
   if (!arcRows.length) arcRows.push({ text: "進行中の因縁はない", dim: true });
   const sealRows: SheetRow[] = sealProgressLine().split("\n").map((t) => ({ text: t.trim() }));
   if (world.current?.carryingRelic) sealRows.push({ text: "★聖遺物を携行中（地上へ生還せよ）", cls: "warn" });
+  const aurelRows: SheetRow[] = [
+    { text: `読み解いた章：${aurelCh()}／6`, dim: true },
+    { text: aurelHint() },
+  ];
   await sheet({ sections: [
+    { header: "アウレルの遺した問い", rows: aurelRows },
     { header: "依頼", rows: questRows },
     { header: "因縁・長尺", rows: arcRows },
     { header: "奉献の印", rows: sealRows },

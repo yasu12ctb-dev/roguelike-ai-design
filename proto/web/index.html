@@ -46,7 +46,7 @@
       --g-elite:#ffcf4a; --g-boss:#ff5cf0;
       /* objects / nodes（正典＝不変） */
       --g-fossil:#9fd8cf; --g-fossil-quiet:#6f9a93; --g-chest:#e8c06a; --g-chest-open:#7a6a44;
-      --g-spring:#5fd2d8; --g-rest:#8fdf9a; --g-door:#ffd24a;
+      --g-spring:#5fd2d8; --g-rest:#8fdf9a; --g-door:#ffd24a; --g-aurel:#ffcf6e; --g-laila:#c9a3ff;
       /* spell schools（正典＝不変） */
       --c-atk:#e0756a; --c-ctl:#6fa8d8; --c-mov:#6fc7c0; --c-sup:#7fcf97; --c-lore:#c4abe6; --c-sum:#e0c46a;
     }
@@ -230,6 +230,8 @@
     .g-spring { color: var(--g-spring); text-shadow: 0 0 10px rgba(95,210,216,.8), 0 0 20px rgba(60,170,200,.4); animation: pulse 2.4s ease-in-out infinite; }
     .g-rest   { color: var(--g-rest); text-shadow: 0 0 10px rgba(143,223,154,.75); animation: pulse 2.8s ease-in-out infinite; }
     .g-door   { color: var(--g-door); text-shadow: 0 0 12px rgba(255,210,74,.9), 0 0 26px rgba(255,170,40,.5); animation: pulse 1.5s ease-in-out infinite; }
+    .g-aurel  { color: var(--g-aurel); text-shadow: 0 0 12px rgba(255,207,110,.9), 0 0 26px rgba(255,170,40,.45); animation: pulse 1.8s ease-in-out infinite; } /* 始祖の遺構「痕」（4-15） */
+    .g-laila  { color: var(--g-laila); text-shadow: 0 0 12px rgba(201,163,255,.9), 0 0 26px rgba(160,110,255,.5); animation: pulse 2.2s ease-in-out infinite; } /* ライラ・境（4-15） */
     @keyframes pulse { 50% { text-shadow: 0 0 16px rgba(159,216,207,1), 0 0 30px rgba(159,216,207,.4); } }
     /* 攻撃予告：自分のマスが討たれる＝赤い危険枠（@ も赤く明滅する：g-player-danger） */
     .cell.tele-atk::after {
