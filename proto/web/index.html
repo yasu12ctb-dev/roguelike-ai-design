@@ -128,11 +128,10 @@
     .g-aim { color: #f6efe0; font-weight: 700; text-shadow: 0 0 6px rgba(201,167,90,.9); }
     /* 地図の経路プレビュー（照準までの bfsPath＝金泥の点）。 */
     .g-aimpath { color: var(--gold-leaf); text-shadow: 0 0 5px rgba(201,167,90,.6); }
-    /* 地図の凡例（地図モード中のみ・下端の1行） */
-    #mapLegend { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 14;
-      padding: 4px 10px; border-radius: var(--r-card); background: rgba(20,17,12,.92); border: 1px solid var(--line);
-      font-size: 10.5px; color: var(--tx-dim); white-space: nowrap; pointer-events: none;
-      font-family: "Menlo", "Consolas", monospace; }
+    /* 地図の凡例（地図モード中のみ・地図の外＝下の専用行。盤面を覆わない・v0.109.0） */
+    #mapLegend { flex: none; text-align: center; padding: 5px 8px 6px; background: var(--bg-void);
+      border-top: 1px solid var(--line); font-size: 10.5px; color: var(--tx-dim);
+      white-space: nowrap; overflow-x: auto; font-family: "Menlo", "Consolas", monospace; }
     #mapLegend[hidden] { display: none; }
     #mapLegend .lg { margin-right: 8px; }
     #mapLegend .lg:last-child { margin-right: 0; }
@@ -475,20 +474,22 @@
     <div id="floats"></div>
     <div id="floorBanner"></div>
     <div id="peek" hidden><div class="pk-name"></div><div class="pk-sub"></div></div>
-    <div id="mapLegend" hidden>
-      <span class="lg"><span class="g-down">›</span>階段</span>
-      <span class="lg"><span class="g-chest">▭</span>宝</span>
-      <span class="lg"><span class="g-fossil">†</span>化石</span>
-      <span class="lg"><span class="g-spring">泉</span></span>
-      <span class="lg"><span class="g-rest">安</span></span>
-      <span class="lg"><span class="g-door">扉</span></span>
-      <span class="lg"><span class="g-aim">⊕</span>照準</span>
-    </div>
     <div id="aimBar" hidden>
       <span id="aimMsg">目標を方向パッドで調整</span>
       <button id="aimGo" type="button">移動</button>
       <button id="aimCancel" type="button">やめる</button>
     </div>
+  </div>
+
+  <div id="mapLegend" hidden>
+    <span class="lg"><span class="g-down">›</span>階段</span>
+    <span class="lg"><span class="g-chest">▭</span>宝</span>
+    <span class="lg"><span class="g-fossil">†</span>化石</span>
+    <span class="lg"><span class="g-spring">泉</span></span>
+    <span class="lg"><span class="g-rest">安</span></span>
+    <span class="lg"><span class="g-door">扉</span></span>
+    <span class="lg"><span class="g-aim">⊕</span>照準</span>
+    <span class="lg" id="mapPanHint"></span>
   </div>
 
   <div id="log"></div>

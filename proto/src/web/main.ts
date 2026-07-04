@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.108.0";
+export const APP_VERSION = "0.109.0";
 export const APP_BUILD = "2026-07-04";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -535,6 +535,11 @@ let raid: RaidState | null = null;
 let raidResolve: (() => void) | null = null; // 戦闘終了で resolve＝maybeTownEvent の await を解く
 let busy = false; // シート表示中の入力ロック
 let mapMode = false; // 地図表示（踏破範囲の俯瞰）
+// 地図モードのカメラ窓（v0.109.0）：読めるサイズ（≥MAP_CELL_MIN px）で収まればフロア全体、
+// 収まらなければ @ 中心で切り出し＝ドラッグでパン。深層で1タイルが潰れて読めない問題への対応。
+let mapCam: Pos = { x: 0, y: 0 };
+let mapCols = 0, mapRows = 0; // 地図ビューポートのマス数（＝グリッド寸法）
+const MAP_CELL_MIN = 13;      // これ未満に縮むならパン表示へ切替（px）
 let aim: Pos | null = null;   // 照準モード（地図でタップ→マーカー→D-padで微調整→確定で自動移動）
 let aimReachable = false;     // 現在のマーカーへ到達経路があるか（確定可否・色分け）
 let aimPath: Pos[] | null = null; // 照準までの経路（地図に点で描く・v0.99.0）
@@ -753,20 +758,54 @@ const MAP_BG = {
   fossil: "#26534c", fossilQuiet: "#1f433d", chest: "#54431a",
   player: "#5a4a1a", path: "#3d3423", aimOk: "#1f7a4a", aimNg: "#7a2f2f",
 } as const;
+/** 地図ビューポートを算出（v0.109.0）：フロアが読めるサイズ（≥MAP_CELL_MIN px）で収まれば全体表示、
+ *  収まらなければ最小サイズで @ 中心のカメラ窓（ドラッグでパン）。グリッドを組み直す。 */
+function layoutMapView(): void {
+  if (!floor) return;
+  const availW = Math.min(window.innerWidth, 560);
+  const availH = Math.max(1, $("mapWrap").clientHeight - 4);
+  const fitCell = Math.min(availW / floor.w, availH / floor.h);
+  const cell = Math.max(fitCell, MAP_CELL_MIN); // 収まればそのまま／縮みすぎるなら最小で窓表示
+  mapCols = Math.min(floor.w, Math.max(1, Math.floor(availW / cell)));
+  mapRows = Math.min(floor.h, Math.max(1, Math.floor(availH / cell)));
+  buildGridDom(mapCols, mapRows); // cellSize は buildGridDom が min(availW/cols, availH/rows)≈cell で算出
+  centerMapOn(player);
+  updatePanHint();
+}
+function centerMapOn(p: Pos): void {
+  if (!floor) return;
+  mapCam = { x: clampCam(p.x - (mapCols >> 1), floor.w, mapCols), y: clampCam(p.y - (mapRows >> 1), floor.h, mapRows) };
+}
+/** 指定マスがビューポートに入るようカメラを寄せる（照準を D-pad で画面外へ動かしたとき追従）。 */
+function ensureMapVisible(p: Pos): void {
+  if (!floor) return;
+  let cx = mapCam.x, cy = mapCam.y;
+  if (p.x < cx) cx = p.x; else if (p.x > cx + mapCols - 1) cx = p.x - mapCols + 1;
+  if (p.y < cy) cy = p.y; else if (p.y > cy + mapRows - 1) cy = p.y - mapRows + 1;
+  mapCam = { x: clampCam(cx, floor.w, mapCols), y: clampCam(cy, floor.h, mapRows) };
+}
+/** 地図がパン可能か（フロアがビューポートに収まりきらない）。 */
+function mapPannable(): boolean { return !!floor && (mapCols < floor.w || mapRows < floor.h); }
+function updatePanHint(): void {
+  const el = document.getElementById("mapPanHint"); if (!el) return;
+  el.textContent = mapPannable() ? "◧ ドラッグでスクロール" : "";
+}
 function drawMapMode() {
   if (!floor) return;
   lightEl.style.display = "none"; // 松明の減光を外す
   hidePeek();
   const W = floor.w, H = floor.h;
-  if (cells.length !== W * H) buildGridDom(W, H); // 防御：グリッドが地図寸法と食い違うなら組み直す（範囲外セルの firstChild 参照＝クラッシュを封じる）
+  if (cells.length !== mapCols * mapRows || mapCols === 0) layoutMapView(); // 防御：ビューポートとグリッドが食い違うなら組み直す
   // 経路プレビュー（v0.99.0）：照準までの bfsPath を金泥の点で描く（照準・自分のマスは除く）
   const pathIdx = new Set<number>();
   if (aim && aimPath) for (const p of aimPath) pathIdx.add(p.y * W + p.x);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const i = y * W + x; // = mapIdx(floor, x, y)
-    const c = cells[i], span = c.firstChild as HTMLElement;
+  for (let vy = 0; vy < mapRows; vy++) for (let vx = 0; vx < mapCols; vx++) {
+    const x = mapCam.x + vx, y = mapCam.y + vy;
+    const c = cells[vy * mapCols + vx], span = c.firstChild as HTMLElement;
     c.classList.remove("tele-atk", "tele-move", "wall");
     c.style.filter = "brightness(1)";
+    if (x >= W || y >= H) { span.textContent = ""; c.style.background = MAP_BG.unexplored; continue; } // カメラ窓がフロア端を超えた余白
+    const i = y * W + x; // = mapIdx(floor, x, y)
     if (!floor.explored[i]) { span.textContent = ""; c.style.background = MAP_BG.unexplored; continue; }
     const isFloor = floor.tiles[i] === 1;
     let bg: string = isFloor ? MAP_BG.floor : MAP_BG.wall; // 床=明るい / 壁=暗い
@@ -796,6 +835,7 @@ function drawMapMode() {
  *  VIEW サイズのグリッドに描くと drawMapMode が範囲外セルの firstChild を読んでクラッシュする（enterRaid と同じ規約）。 */
 function resetMapView(): void {
   mapMode = false;
+  mapCols = 0; mapRows = 0;
   aim = null; aimPath = null;
   $("aimBar").hidden = true;
   $("mapLegend").hidden = true;
@@ -803,11 +843,11 @@ function resetMapView(): void {
 function setMapMode(v: boolean) {
   mapMode = v;
   if (!v && aim) { aim = null; aimPath = null; $("aimBar").hidden = true; } // 地図を閉じたら照準も解除
-  $("mapLegend").hidden = !v; // 凡例は地図モード中のみ（v0.99.0）
+  $("mapLegend").hidden = !v; // 凡例は地図モード中のみ（地図の外＝下の行・v0.109.0）
   hidePeek();
-  // 地図↔プレイでグリッド寸法が変わるので組み直す（実マップ忠実 vs カメラ窓）
-  if (v && floor) { buildGridDom(floor.w, floor.h); drawMapMode(); }
-  else { buildGridDom(VIEW_W, VIEW_H); draw(); }
+  // 地図↔プレイでグリッド寸法が変わるので組み直す（プレイ=VIEW／地図=読めるサイズのカメラ窓）
+  if (v && floor) { layoutMapView(); drawMapMode(); }
+  else { mapCols = 0; mapRows = 0; buildGridDom(VIEW_W, VIEW_H); draw(); }
 }
 
 // ---------- 街・屋内の描画（全面可視・データ駆動のインライン色） ----------
@@ -5331,6 +5371,7 @@ function setAim(x: number, y: number): void {
   aim = { x: nx, y: ny };
   aimPath = bfsPath(floor, player, aim); // 経路を保持＝地図に点で描く（v0.99.0）
   aimReachable = !!aimPath;
+  ensureMapVisible(aim); // 照準を D-pad で画面外へ動かしたらカメラが追う（v0.109.0）
   updateAimBar();
   drawMapMode();
 }
@@ -6960,15 +7001,31 @@ addEventListener("keydown", (e) => {
   dirMove(dir[0], dir[1]);
 });
 let touchStart: { x: number; y: number } | null = null;
+let mapPanLast: { x: number; y: number } | null = null; // 地図ドラッグの直近位置（パン差分の起点）
+let mapPanned = false;                                    // このタッチでパンが起きたか（起きたら tap 扱いしない）
 $("mapWrap").addEventListener("touchstart", (e) => {
   touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  mapPanLast = { ...touchStart };
+  mapPanned = false;
+}, { passive: true });
+$("mapWrap").addEventListener("touchmove", (e) => {
+  // 地図モードでフロアが収まりきらないとき＝ドラッグでカメラをパン（v0.109.0）。
+  if (!mapMode || !floor || !mapPannable() || !mapPanLast || cellSize <= 0) return;
+  const cx = e.touches[0].clientX, cy = e.touches[0].clientY;
+  const dxT = Math.round((cx - mapPanLast.x) / cellSize), dyT = Math.round((cy - mapPanLast.y) / cellSize);
+  if (dxT === 0 && dyT === 0) return;
+  mapCam = { x: clampCam(mapCam.x - dxT, floor.w, mapCols), y: clampCam(mapCam.y - dyT, floor.h, mapRows) }; // 指の向きと逆＝紙をつまんで動かす感覚
+  mapPanLast = { x: cx, y: cy };
+  mapPanned = true;
+  drawMapMode();
 }, { passive: true });
 $("mapWrap").addEventListener("touchend", (e) => {
   if (!touchStart) return;
   const tx = e.changedTouches[0].clientX, ty = e.changedTouches[0].clientY;
   const dx = tx - touchStart.x, dy = ty - touchStart.y;
-  touchStart = null;
+  touchStart = null; mapPanLast = null;
   const tap = Math.hypot(dx, dy) < 24;
+  if (mapPanned) { mapPanned = false; return; } // ドラッグでパンした＝タップ/スワイプ扱いしない
 
   if (mode === "town" || mode === "interior") {
     if (!tap) { // スワイプ＝8方向移動
@@ -6986,14 +7043,15 @@ $("mapWrap").addEventListener("touchend", (e) => {
   if (mapMode) {
     // 図：タップ→最寄りの到達マスにマーカー（照準モード）。D-padで微調整→確定で自動移動（FB 2026-06-23）。
     if (tap && floor) {
-      const h = hitCell(tx, ty); // 地図はグリッド＝実マップ寸法（cam 不要）
+      const h = hitCell(tx, ty); // グリッド相対＝mapCam を足してワールド座標に（v0.109.0 カメラ窓）
       if (h) {
-        const snap = nearestReachable(floor, player, h.x, h.y); // 指のズレを吸収＝最寄りの到達床へ
+        const snap = nearestReachable(floor, player, mapCam.x + h.x, mapCam.y + h.y); // 指のズレを吸収＝最寄りの到達床へ
         if (snap) { setAim(snap.x, snap.y); return; }
       }
     }
-    // 床外/到達不能をタップ or スワイプ：照準中なら解除、無ければ地図を閉じる
-    if (aim) cancelAim(); else setMapMode(false);
+    // タップ（床外/到達不能）：照準中なら解除、無ければ地図を閉じる。パン可能な地図でのスワイプは何もしない（誤爆で閉じない）。
+    if (tap) { if (aim) cancelAim(); else setMapMode(false); }
+    else if (!mapPannable()) { if (aim) cancelAim(); else setMapMode(false); }
     return;
   }
 
@@ -7012,7 +7070,7 @@ addEventListener("resize", () => {
   if (mode === "town") { buildGridDom(townGrid.data.view.w, townGrid.data.view.h); drawTown(); return; }
   if (mode === "interior" && interior) { buildGridDom(interior.w, interior.h); drawInterior(); return; }
   if (mode !== "dive") return;
-  if (mapMode && floor) { buildGridDom(floor.w, floor.h); drawMapMode(); }
+  if (mapMode && floor) { layoutMapView(); drawMapMode(); }
   else { buildGridDom(); draw(); }
 });
 
