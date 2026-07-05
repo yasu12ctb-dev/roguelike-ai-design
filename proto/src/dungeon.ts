@@ -119,7 +119,7 @@ export const scaleKind = (k: MonsterKind, depth: number, mods: DifficultyMods = 
 
 /** 敵の次手のテレグラフ（4-11A 読める盤面）。move=ここへ動く / attack=このマスを討つ */
 export type MonsterIntent =
-  | { type: "attack"; x: number; y: number; ranged?: boolean; heavy?: boolean } // ranged=遠隔の狙撃／heavy=ボスの渾身の一撃（B・テレグラフ・退けば空振り）
+  | { type: "attack"; x: number; y: number; ranged?: boolean; heavy?: boolean; cells?: Pos[]; shape?: number } // ranged=遠隔の狙撃／heavy=ボスの渾身の一撃（B・テレグラフ・退けば空振り）／cells=形つき確定範囲（D・area ボス限定・全マス橙予告）／shape=形の種別（0直線/1扇/2薙ぎ）
   | { type: "move"; x: number; y: number }
   | { type: "wait" };
 
@@ -139,6 +139,7 @@ export interface Monster extends Pos {
   breedCd?: number;              // breeder：眷属を湧かしたあとの待機手数（4-11G）
   enraged?: boolean;             // ボス（area）：HP 半減で覚醒済み（B・攻撃↑＋大技CD短縮）
   bigCd?: number;                // ボス（area）：渾身の一撃のクールダウン（B・溜め大技）
+  bigShape?: number;             // ボス（area）：次の大技の形（D・0直線/1扇/2薙ぎを大技ごとに巡回）
   summonCd?: number;             // ボス（area）：覚醒後の眷属召喚クールダウン（B）
 }
 interface FossilEntity extends Pos {
@@ -565,6 +566,28 @@ const occupiedBy = (f: Floor, x: number, y: number, self: Monster | null, friend
   (!!f.downed && f.downed.x === x && f.downed.y === y) ||
   (!!f.delver && f.delver.x === x && f.delver.y === y);
 
+// ボスの形つき確定範囲（D・area ボス限定・rng 非使用＝ボス位置×標的方向×形番号で決定論）。
+//   全マスを1手前に橙で予告し、範囲に留まれば全弾ヒット・外なら確定安全＝「動けば無傷で捌ける」パズル。
+const DIRS8: readonly [number, number][] = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
+/** 主方向とその左右45°の3方向（扇の展開に使う）。 */
+function frontDirs(dx: number, dy: number): [number, number][] {
+  const order: [number, number][] = [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]];
+  let i = order.findIndex((d) => d[0] === dx && d[1] === dy);
+  if (i < 0) i = 0;
+  return [order[(i + 7) % 8], order[i], order[(i + 1) % 8]];
+}
+/** area ボスの大技の形の全マス（床のみ）を返す。idx=0 直線3／1 扇（前方3方向×2）／2 薙ぎ（周囲8）。 */
+function bossShapeCells(f: Floor, bx: number, by: number, tx: number, ty: number, idx: number): Pos[] {
+  let dx = Math.sign(tx - bx), dy = Math.sign(ty - by);
+  if (dx === 0 && dy === 0) dx = 1; // 標的が重なる異常時の保険
+  const cells: Pos[] = [];
+  const add = (x: number, y: number) => { if (tileAt(f, x, y) === 1) cells.push({ x, y }); };
+  if (idx === 0) { for (let k = 1; k <= 3; k++) add(bx + dx * k, by + dy * k); } // 直線3マス
+  else if (idx === 1) { for (const [ax, ay] of frontDirs(dx, dy)) { add(bx + ax, by + ay); add(bx + ax * 2, by + ay * 2); } } // 扇
+  else { for (const [ax, ay] of DIRS8) add(bx + ax, by + ay); } // 薙ぎ（周囲8）
+  return cells;
+}
+
 /** 各モンスターの次手を決め、intent に予告として書く（プレイヤーが見て動ける）。
  *  覚醒判定もここで行う：新たに気づいた敵はまず予告し、実行は次ターン（理不尽な不意打ちを排す）。
  *  相棒がいる場合は @ と相棒のうち近い方を標的にする（4-14C）。 */
@@ -667,8 +690,11 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
       // d > RANGED_MAX → 通常追跡で間合いを詰める（下へ落ちる）
     }
     if (d < 1.5) { // 隣接 → 標的の現在マスを討つと予告（退けば空振り＝見切り）
-      if (m.boss === "area" && (m.bigCd ?? 0) <= 0) { // ①溜め大技：渾身の一撃を予告（退けば空振り＝読み合い）
-        m.intent = { type: "attack", x: target.x, y: target.y, heavy: true };
+      if (m.boss === "area" && (m.bigCd ?? 0) <= 0) { // ①溜め大技：渾身の一撃を予告（退けば空振り＝読み合い）。D＝形つき確定範囲へ発展
+        const shape = (m.bigShape ?? 0) % 3; // 直線→扇→薙ぎを大技ごとに巡回
+        m.bigShape = shape + 1;
+        const cells = bossShapeCells(f, m.x, m.y, target.x, target.y, shape);
+        m.intent = { type: "attack", x: target.x, y: target.y, heavy: true, cells, shape };
         m.bigCd = m.enraged ? BOSS_HEAVY_CD_ENRAGED : BOSS_HEAVY_CD;
         continue;
       }
@@ -707,13 +733,25 @@ export function resolveMonsters(f: Floor, player: Pos, companion?: CompanionEnti
     if (m.hp <= 0 || !m.intent) continue;
     if (m.intent.type === "attack") {
       const ix = m.intent.x, iy = m.intent.y; // 局所化（クロージャ内では m.intent の絞り込みが失われるため）
-      const onPlayer = player.x === ix && player.y === iy;
-      const onComp = !onPlayer && friends.some((c) => c.x === ix && c.y === iy);
+      const cells = m.intent.cells; // D＝形つき確定範囲（area ボス限定・cells 有りのときだけ集合判定）。通常敵は undefined＝単点判定（golden 不変）。
+      let onPlayer: boolean, onComp: boolean;
+      if (cells) {
+        onPlayer = cells.some((c) => c.x === player.x && c.y === player.y);
+        onComp = !onPlayer && cells.some((c) => friends.some((fr) => fr.x === c.x && fr.y === c.y));
+      } else {
+        onPlayer = player.x === ix && player.y === iy;
+        onComp = !onPlayer && friends.some((c) => c.x === ix && c.y === iy);
+      }
       if (onPlayer || onComp) {
         const heavy = m.intent.heavy === true; // ①溜め大技（B）：渾身の一撃＝倍率
         const dmg = monsterDmg(m, f) * (heavy ? BOSS_HEAVY_MULT : 1);
         if (m.kind.ability === "leech") m.hp = Math.min(m.kind.hp, m.hp + dmg); // 吸命＝命中ぶん自己回復（しぶとい）
-        const hit: MonsterHit = { monster: m, dmg, target: onPlayer ? "player" : "companion", tx: m.intent.x, ty: m.intent.y };
+        // 被弾マス（街防衛戦が味方の誰を撃たれたか特定する用）。単点なら intent マス＝従来一致。
+        // 形つき（D）で味方が撃たれた場合のみ、範囲内の実際の味方位置を返す。
+        let tx = ix, ty = iy;
+        if (cells && onComp) { const fr = friends.find((f2) => cells.some((c) => c.x === f2.x && c.y === f2.y)); if (fr) { tx = fr.x; ty = fr.y; } }
+        else if (cells && onPlayer) { tx = player.x; ty = player.y; }
+        const hit: MonsterHit = { monster: m, dmg, target: onPlayer ? "player" : "companion", tx, ty };
         if (heavy) hit.effect = "heavy"; // web 側の演出（強い被弾）
         else if (m.kind.ability === "venom" && onPlayer) hit.effect = "poison"; // 毒はプレイヤーのみ（相棒に毒tickの器が無い）
         else if (m.kind.ability === "curse" && onPlayer) hit.effect = "curse"; // 深蝕の上塗り（プレイヤーのみ・深淵帯 minDepth>50＝golden 不変）
