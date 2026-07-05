@@ -12,14 +12,20 @@ export interface DifficultyMods {
   xp: number;         // XP倍率（低いほど育ちにくい＝相対的に敵が硬い）
   townHeal: number;   // 街帰還/潜行開始の回復割合（1=全回復・<1=割合・0=回復なし）
   lineage: boolean;   // 系譜ボーナス（血縁/弟子の地力）を有効にするか
+  // ── オーバーレベル対策（v0.121.0・2026-07-05 バランス監査＝「成長が深度を追い越し全深度が平坦化」FB対応）──
+  xpTether: number;   // XPの深度係留＝格下狩り逓減の強さ。倍率 = 1/(1 + xpTether×max(0, Lv−深度−2))。0=無効。
+  greedMul: number;   // 遺物 greed（XP増加）の実効倍率。easy=1.5（従来）／normal+=1.2（単一遺物で恒常+3Lvは過大）。
+  chipFrac: number;   // 被ダメの比例下限＝max(1, ceil(素の攻×chipFrac), 攻−軽減−バフ)。防具飽和（軽減が攻を打ち消し被ダメ1固定）対策。0=従来の固定下限1。
 }
 
 // death は「枠だけ」用意（中身は後日調整・UI 未選択）。easy=1.0 基準＝golden 不変。
+// easy＝「丁寧に進めると気持ちよく無双できる」快適モード（2026-07-05 ユーザー確定＝オーバーレベルを容認する公式仕様＝新3係数は全て無効）。
+// normal/hard＝終始シビア＝XP係留＋比例チップで「成長の追い越し」を封じ、全深度で手応えを保つ。
 export const DIFFICULTY: Record<Difficulty, DifficultyMods> = {
-  easy:   { enemyHp: 1.0,  enemyDmg: 1.0, dmgFloor: 0, exposure: 1.0, xp: 1.0,  townHeal: 1.0, lineage: true },
-  normal: { enemyHp: 1.25, enemyDmg: 1.25, dmgFloor: 1, exposure: 1.2, xp: 0.9,  townHeal: 1.0, lineage: true },
-  hard:   { enemyHp: 1.5,  enemyDmg: 1.4, dmgFloor: 2, exposure: 1.4, xp: 0.85, townHeal: 0.8, lineage: true },
-  death:  { enemyHp: 1.8,  enemyDmg: 1.6, dmgFloor: 2, exposure: 1.7, xp: 0.8,  townHeal: 0.0, lineage: false },
+  easy:   { enemyHp: 1.0,  enemyDmg: 1.0, dmgFloor: 0, exposure: 1.0, xp: 1.0,  townHeal: 1.0, lineage: true,  xpTether: 0,    greedMul: 1.5, chipFrac: 0 },
+  normal: { enemyHp: 1.25, enemyDmg: 1.25, dmgFloor: 1, exposure: 1.2, xp: 0.9,  townHeal: 1.0, lineage: true,  xpTether: 0.35, greedMul: 1.2, chipFrac: 0.15 },
+  hard:   { enemyHp: 1.5,  enemyDmg: 1.4, dmgFloor: 2, exposure: 1.4, xp: 0.85, townHeal: 0.8, lineage: true,  xpTether: 0.4,  greedMul: 1.2, chipFrac: 0.18 },
+  death:  { enemyHp: 1.8,  enemyDmg: 1.6, dmgFloor: 2, exposure: 1.7, xp: 0.8,  townHeal: 0.0, lineage: false, xpTether: 0.45, greedMul: 1.2, chipFrac: 0.2 },
 };
 
 export const EASY_MODS = DIFFICULTY.easy;
@@ -34,8 +40,8 @@ export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   easy: "安寧（やさしい）", normal: "常闇（ふつう）", hard: "深淵（むずかしい）", death: "終焉（極限）",
 };
 export const DIFFICULTY_BLURB: Record<Difficulty, string> = {
-  easy: "現行の手応え。序盤はじっくり慣らせる。",
-  normal: "終始シビア。序盤から敵が噛み、深蝕も速い。歯ごたえ重視の標準。",
+  easy: "快適の途。丁寧に狩れば力が深みを追い越し、気持ちよく無双できる。",
+  normal: "終始シビア。深みは常に半歩強い——浅場ではもう育たない。深く潜れ。",
   hard: "深部志向。敵は硬く痛く、街の癒えも一部に留まり、育ちも遅い。",
   death: "（準備中）",
 };
