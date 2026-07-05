@@ -151,6 +151,16 @@
     border: 1px solid var(--line-2); border-radius: 10px; padding: 11px 8px; }
   #waveBtn { color: var(--gold-leaf); font-weight: 700; }
   #sideNote { font-size: 10.5px; color: var(--tx-faint); line-height: 1.4; text-align: center; }
+  /* 【E】踏ボタン（タップ=単発／長押し=構え固定）。D-pad の隣＝親指で届く位置 */
+  #lungeBtn { display: none; font-weight: 700; font-size: 15px; letter-spacing: .1em; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+  #lungeBtn.show { display: block; }
+  #lungeBtn.armed { color: var(--gold-leaf); border-color: var(--gold-leaf); background: #241c0e;
+    box-shadow: 0 0 8px rgba(201,167,90,.35); }
+  #lungeBtn.stance { color: #ffe9b0; border-color: var(--gold-leaf); background: #2e2410;
+    box-shadow: 0 0 14px rgba(201,167,90,.75), 0 0 4px rgba(201,167,90,.9) inset; animation: lungeGlow 1.1s ease-in-out infinite; }
+  @keyframes lungeGlow { 50% { box-shadow: 0 0 20px rgba(230,198,106,.95), 0 0 6px rgba(230,198,106,1) inset; } }
+  #lungePill { color: var(--gold-leaf); font-weight: 700; font-size: 11.5px; display: none; }
+  #lungePill.on { display: inline; }
 
   /* ---- オーバーレイ（設定・イントロ・死亡） ---- */
   .ov { position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center;
@@ -195,6 +205,7 @@
   <div id="hud">
     <div id="hpWrap"><span style="color:var(--c-hp)">♥</span><div id="hpBar"><div id="hpFill"></div></div><span id="hpNum"></span></div>
     <span id="counterPill">⟡ 反撃の好機</span>
+    <span id="lungePill">➶ 踏み込み構え</span>
     <span id="threat"></span>
   </div>
 
@@ -220,6 +231,7 @@
       <button data-dx="1" data-dy="1">↘</button>
     </div>
     <div id="sideCtl">
+      <button id="lungeBtn">踏</button>
       <button id="waveBtn">↻ 次のウェーブ</button>
       <button id="gear2">⚙ トグル設定</button>
       <div id="sideNote">タップ＝D-pad／キー＝矢印・WASD・yubn・. 待機</div>
@@ -251,7 +263,8 @@
     <div class="scene">
       ・完全ターン制。あなた1手 → 敵全体1手（<b>予告した行動を実行 → 次を予告</b>）。<br>
       ・攻撃は<b>確定命中</b>。予告マス（自マスの赤枠）から退けば空振り＝<b>見切り</b>。<br>
-      ・見切ると次の一撃が<b>会心（反撃の好機）</b>に。<br><br>
+      ・見切ると次の一撃が<b>会心（反撃の好機）</b>に。<br>
+      ・【E】ON時はD-pad横に<b>「踏」ボタン</b>：タップ=次の一撃だけ踏み込み／長押し=構え固定。<b>踏み込みには会心が乗らない</b>（貫いて離脱するか、その場で会心を叩き込むかの選択）。<br><br>
       右上の <b>⚙</b> で5つのトグルを切り替えられます。<br>「↻ 次のウェーブ」で何度でも敵が湧きます。
     </div>
     <div class="legend">
@@ -448,7 +461,9 @@ function hitPlayer(e, dmg, heavy){
 //  プレイヤーの手番
 // ============================================================
 let busy = false;
-function playerTurn(dx,dy){
+// 【E】踏み込みの構え：0=なし／1=単発（次の近接1回だけ）／2=構え固定（長押し）
+let lungeArm = 0;
+function playerTurn(dx,dy,lungeOnce){
   if (busy || player.hp<=0) return;
   const hadCounter = counterTurns > 0;
   let consumed = false;
@@ -460,7 +475,9 @@ function playerTurn(dx,dy){
     const nx = player.x+dx, ny = player.y+dy;
     const tgt = enemyAt(nx,ny);
     if (tgt){
-      consumed = meleeAttack(tgt, dx, dy, hadCounter);
+      const lunge = feat.E && (!!lungeOnce || lungeArm > 0);
+      consumed = meleeAttack(tgt, dx, dy, hadCounter, lunge);
+      if (lungeArm === 1) lungeArm = 0; // 単発は近接1回で消灯（フォールバックでも消費）
     } else if (isFloor(nx,ny)){
       player.x=nx; player.y=ny;
     } else if (isHazard(nx,ny)){
@@ -491,10 +508,11 @@ function playerTurn(dx,dy){
   render();
 }
 
-function meleeAttack(tgt, dx, dy, hadCounter){
+function meleeAttack(tgt, dx, dy, hadCounter, lunge){
+  // 枷：踏み込みには会心（見切り反撃1.2倍）が乗らない＝等倍・counterTurns 非消費（窓は残る）
   let dmg = PLAYER_DMG;
   let crit = false, consumed = false;
-  if (hadCounter){
+  if (hadCounter && !lunge){
     dmg = Math.round(PLAYER_DMG*1.2);
     crit = true; consumed = true; counterTurns = 0;
   }
@@ -506,23 +524,25 @@ function meleeAttack(tgt, dx, dy, hadCounter){
   const ox = dx===0?tgt.x:player.x+Math.sign(dx); // 敵がいた（攻撃方向の隣）マス
   const oy = dy===0?tgt.y:player.y+Math.sign(dy);
 
-  // 【C】見切り反撃＝押し出し（カウンター中のみ）
+  // 【C】見切り反撃＝押し出し（会心攻撃のみ＝踏み込みでは発動しない）
   if (feat.C && crit && tgt.hp>0){
     pushEnemy(tgt, dx, dy);
   }
 
   if (tgt.hp<=0){ tgt.alive=false; log(`${KIND[tgt.kind].glyph}を倒した。`, "cue"); }
 
-  // 【E】踏み込み攻撃：攻撃で敵が退いた/倒れた/貫ける空きがあれば1手で移動（予告マスから自動離脱）
-  if (feat.E){
+  // 【E】踏み込み：貫き先が空いていれば移動（予告マスから離脱）。塞がっていればその場攻撃にフォールバック
+  if (lunge){
     const px = Math.sign(dx), py = Math.sign(dy);
     const bx = ox+px, by = oy+py; // 敵の背後
     if (isFloor(ox,oy) && !occupied(ox,oy)){
-      // 敵のいたマスが空いた（撃破 or 押し出しで退去）→ そこへ踏み込む
-      player.x=ox; player.y=oy; log("踏み込んで抜けた。", "dim");
+      // 敵のいたマスが空いた（撃破で退去）→ そこへ踏み込む
+      player.x=ox; player.y=oy; log("貫き抜けた。", "cue");
     } else if (tgt.alive && isFloor(bx,by) && !occupied(bx,by)){
-      // 敵は健在だが背後が空き → 貫いて背後へ（実験）
-      player.x=bx; player.y=by; log("敵を貫いて抜けた。", "dim");
+      // 敵は健在だが背後が空き → 貫いて背後へ
+      player.x=bx; player.y=by; log("敵を貫き抜けた。", "cue");
+    } else {
+      log("貫き先が塞がっている。その場で打った。", "dim");
     }
   }
   return consumed;
@@ -647,6 +667,11 @@ function render(){
     th.className = "hidden"; th.textContent="";
   }
   document.getElementById("counterPill").className = counterTurns>0 ? "on" : "";
+  // 【E】踏ボタン＝E ON時のみ表示。armed=金点灯／stance=強い金発光＋HUDピル
+  if (!feat.E) lungeArm = 0;
+  const lb = document.getElementById("lungeBtn");
+  lb.className = (feat.E?"show":"") + (lungeArm===1?" armed":"") + (lungeArm===2?" stance":"");
+  document.getElementById("lungePill").className = lungeArm===2 ? "on" : "";
   renderPills();
 }
 
@@ -687,7 +712,7 @@ function restart(){
 // ============================================================
 //  入力
 // ============================================================
-function move(dx,dy){ playerTurn(dx,dy); }
+function move(dx,dy,lungeOnce){ playerTurn(dx,dy,lungeOnce); }
 document.querySelectorAll("#dpad button").forEach(b=>{
   b.addEventListener("click", ()=> move(+b.dataset.dx, +b.dataset.dy));
 });
@@ -703,9 +728,42 @@ addEventListener("keydown", e=>{
     if (e.key==="Escape") document.querySelectorAll(".ov.show").forEach(o=>o.classList.remove("show"));
     return;
   }
-  const m = KEYMAP[e.key];
-  if (m){ e.preventDefault(); move(m[0], m[1]); }
+  const m = KEYMAP[e.key] ?? KEYMAP[e.key.toLowerCase?.() ?? e.key];
+  // Shift+方向＝その一撃だけ踏み込み（armed 不要・E ON時のみ効く）
+  if (m){ e.preventDefault(); move(m[0], m[1], e.shiftKey); }
 });
+
+// ---- 【E】踏ボタン：タップ=単発arm（再タップ解除）／長押し280ms=構え固定（タップで解除） ----
+const LUNGE_HOLD_DELAY = 280; // 本体 D-pad 長押しと同じ閾値
+let lungeHoldTimer = null, lungeHeld = false;
+function lungeTap(){
+  // タップ：構え中→解除／armed→解除／off→単発arm
+  lungeArm = (lungeArm===0) ? 1 : 0;
+  if (lungeArm===1) log("踏み込みを構えた（次の一撃）。", "dim");
+  else log("踏み込みをやめた。", "dim");
+  render();
+}
+function lungeHold(){
+  lungeHeld = true;
+  lungeArm = 2;
+  log("踏み込み構え＝固定。以後の近接は貫き抜ける。", "cue");
+  render();
+}
+const lungeBtn = document.getElementById("lungeBtn");
+lungeBtn.addEventListener("pointerdown", e=>{
+  e.preventDefault();
+  lungeHeld = false;
+  clearTimeout(lungeHoldTimer);
+  lungeHoldTimer = setTimeout(lungeHold, LUNGE_HOLD_DELAY);
+});
+const lungeUp = e=>{
+  clearTimeout(lungeHoldTimer);
+  if (e.type==="pointerup" && !lungeHeld && e.target===lungeBtn) lungeTap();
+  lungeHeld = false;
+};
+lungeBtn.addEventListener("pointerup", lungeUp);
+lungeBtn.addEventListener("pointerleave", lungeUp);
+lungeBtn.addEventListener("pointercancel", lungeUp);
 
 // ============================================================
 //  設定UI
@@ -714,7 +772,7 @@ const TOGGLE_DEFS = [
   ["B","脅威の可視化","この手番あなたを殴れる敵の数をHUDに常時表示。予告中の敵タイルに薄い赤枠。0なら「安全」。"],
   ["C","見切り反撃＝押し出し","反撃の好機の近接が会心1.2倍に加え、敵を直線に1マス突き飛ばす。壁=追加ダメ／敵=詰まる／裂け目=即死。"],
   ["D","ボスの形つき確定範囲","ボスの攻撃を「直線／扇／薙ぎ」の形にし、全マスを橙で1手前に予告。範囲に留まれば全弾ヒット、外なら確定安全。"],
-  ["E","踏み込み攻撃（実験）","近接で敵を倒す／押し出すと、そのマスへ貫き抜けて移動。攻撃＋離脱が1手に融合し、自分の予告マスから自動で外れる。"],
+  ["E","踏み込み攻撃（実験）","D-pad横の「踏」ボタン：タップ=次の一撃だけ／長押し=構え固定。近接で貫き抜けて移動（攻撃＋離脱が1手）。踏み込みには会心が乗らない（等倍・反撃の窓は残る）。Shift+方向キーでも単発可。"],
 ];
 function buildToggles(){
   const c = document.getElementById("toggles");
@@ -761,8 +819,10 @@ render();
 
 // テスト用フック
 window.__sandbox = {
-  state: ()=>({ player:{...player}, enemies: enemies.filter(e=>e.alive).map(e=>({id:e.id,kind:e.kind,x:e.x,y:e.y,hp:e.hp,intent:e.intent})), counterTurns, density, feat:{...feat}, bossShapeIdx }),
+  state: ()=>({ player:{...player}, enemies: enemies.filter(e=>e.alive).map(e=>({id:e.id,kind:e.kind,x:e.x,y:e.y,hp:e.hp,intent:e.intent})), counterTurns, density, feat:{...feat}, bossShapeIdx, lungeArm }),
   move, spawnWave,
+  setLunge: (v)=>{ lungeArm=v; render(); },
+  lungeTap, lungeHold,
   setFeat: (k,v)=>{ feat[k]=v; buildToggles(); planEnemies(); render(); },
   setDensity: (n)=>{ density=n; spawnWave(); },
   hlBossCount: ()=> document.querySelectorAll(".cell.hl-boss").length,
