@@ -16,7 +16,7 @@ import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.t
 import {
   maxHp, meleeDmg, heartFactor, xpToNext, xpForKill, statsLine,
   STAT_KEYS, STAT_LABEL, HP_PER, packCapacity, STASH_CAP, STASH_CAP_MANOR, STASH_INHERIT, STASH_INHERIT_MANOR, LOADOUT_CAP, BASE_STATS,
-  armorReduce, effectiveReason, xpMul, equipExposure,
+  armorReduce, effectiveReason, equipExposure,
   DEPTH_SEAL_AT, ABYSS_DEPTH, RELIC_EXPOSURE_PER_TURN, RELIC_PURSUER_EVERY, RELIC_PURSUER_CAP,
 } from "../progression.ts";
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.120.0";
+export const APP_VERSION = "0.121.0";
 export const APP_BUILD = "2026-07-04";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -3313,10 +3313,21 @@ function raidMoveOrAttack(nx: number, ny: number): boolean {
   player = { x: nx, y: ny }; sfx("move"); return true;
 }
 /** 街防衛戦の撃破処理（XP・撃破数・ボス処遇）。dive の rewardKill とは別＝迷宮の年代記/扉を出さない。 */
+/** 撃破XP（web の全授与経路を一本化・v0.121.0 オーバーレベル対策）＝基礎×greed（難易度別）×難易度xp×深度係留。
+ *  深度係留＝格下狩り逓減：Lv が「深度+2」を超えたぶんだけXPが痩せる（倍率 1/(1+xpTether×超過)）。
+ *  深度相応で戦う限り不変＝序盤の手応えそのまま。全踏破・再潜行farmでも Lv が深度+3前後に自然収束し、
+ *  「成長が深度を追い越して全深度が平坦化する」構造を封じる。easy は xpTether=0・greedMul=1.5＝従来どおり（快適モード）。 */
+function killXpFor(monHp: number, depth: number, frac = 1): number {
+  const ch = world.current!;
+  const mods = diffMods(world.difficulty);
+  const greed = ch.equipment?.relic?.relic === "greed" ? mods.greedMul : 1;
+  const tether = 1 / (1 + mods.xpTether * Math.max(0, ch.level - depth - 2));
+  return Math.round(xpForKill(monHp) * frac * greed * mods.xp * tether);
+}
 function raidKill(mon: Monster): void {
   floatFx(mon.x, mon.y, "＊", "fl-kill");
   const ch = world.current!;
-  ch.xp += Math.round(xpForKill(mon.kind.hp) * xpMul(ch) * diffMods(world.difficulty).xp);
+  ch.xp += killXpFor(mon.kind.hp, raid?.pseudoDepth ?? 10);
   if (raid) raid.killed++;
   if (mon.boss) {
     sfx("boss_down"); flashFx("warp");
@@ -3353,7 +3364,7 @@ async function raidEndTurn(): Promise<void> {
         const a = allies.find((x) => x.hp > 0 && x.x === h.tx && x.y === h.ty);
         if (a) { a.hp -= h.dmg; floatFx(a.x, a.y, String(h.dmg), "fl-hurt"); log(`${h.monster.kind.name}の一撃が${a.name}を襲う！ ${h.dmg}の傷。`, "warn"); if (a.hp <= 0) log(`${a.name}が斃れた……。`, "warn"); }
       } else {
-        let dmg = Math.max(1, h.dmg - armorReduce(ch) - (armorBuffTurns > 0 ? ARMOR_BUFF : 0));
+        let dmg = Math.max(1, Math.ceil(h.dmg * diffMods(world.difficulty).chipFrac), h.dmg - armorReduce(ch) - (armorBuffTurns > 0 ? ARMOR_BUFF : 0)); // 比例チップ（v0.121.0・raid も同式）
         if (deathDoorTurns > 0) dmg = 0;
         if (dmg > 0 && shadowGuard > 0) { shadowGuard--; dmg = 0; log(`${h.monster.kind.name}の一撃を、影が引き受けた。`, "dim"); }
         else if (h.effect === "heavy") { hp -= dmg; sfx("boss", 0.16); flashFx("warp"); floatFx(player.x, player.y, String(dmg), "fl-hurt"); log(`${h.monster.kind.name}の渾身の一撃！ ${dmg}の大ダメージ。`, "warn"); }
@@ -4732,7 +4743,9 @@ async function endTurn() {
       if (ch.equipment.relic?.relic === "timeslip" && rng.next() < TIMESLIP_CHANCE) {
         floatFx(player.x, player.y, "時滑", "fl-miss"); log(`時が滑り、${h.monster.kind.name}の一撃が逸れた。`, "dim"); continue;
       }
-      let dmg = Math.max(1, h.dmg - armorReduce(ch) - (armorBuffTurns > 0 ? ARMOR_BUFF : 0)); // 防具＋硬鱗で軽減（下限1）
+      // 防具＋硬鱗で軽減。下限＝max(固定1, 素の攻×chipFrac)＝比例チップ（v0.121.0 防具飽和対策：normal+ では
+      // 軽減をどれだけ積んでも強敵の一撃は最低限痛い。easy は chipFrac=0＝従来の下限1）。
+      let dmg = Math.max(1, Math.ceil(h.dmg * diffMods(world.difficulty).chipFrac), h.dmg - armorReduce(ch) - (armorBuffTurns > 0 ? ARMOR_BUFF : 0));
       dmg = armorBlock(ch, dmg); // 防具 proc「受け／無効化」：一定確率でその一撃を軽減 or 0に（被ダメ確定前）
       if (deathDoorTurns > 0) dmg = 0; // 死戸＝無敵
       if (dmg > 0 && shadowGuard > 0) { shadowGuard--; dmg = 0; log(`${h.monster.kind.name}の一撃を、影が引き受けた。`, "dim"); } // 影分け
@@ -4888,7 +4901,7 @@ async function handleBossResolve() {
       meta: `${boss.kind.name} ── 決着（戦闘版の干渉）${known ? " / 縁" : ""}`,
       options: opts,
     });
-    const halfXp = () => { ch.xp += Math.round(xpForKill(boss.kind.hp) * 0.5 * xpMul(ch) * diffMods(world.difficulty).xp); }; // 非殺＝報酬控えめ（慈悲の代償）
+    const halfXp = () => { ch.xp += killXpFor(boss.kind.hp, floor?.depth ?? ch.depth ?? 1, 0.5); }; // 非殺＝報酬控えめ（慈悲の代償）・深度係留込み
 
     if (opts[r.pick - 1] === "名を呼ぶ（呼び戻しを試みる）" && boss.fossilId) {
       // 呼び戻し＝人だった芯に届く最も人間的な決着。安らかに送り、記憶に深く刻む。
@@ -5555,7 +5568,7 @@ function rollArtifact(depth: number): Item | null {
 }
 function rewardKill(mon: Monster, killLine?: string) {
   const ch = world.current!;
-  ch.xp += Math.round(xpForKill(mon.kind.hp) * xpMul(ch) * diffMods(world.difficulty).xp); // 遺物「貪欲」でXP増
+  ch.xp += killXpFor(mon.kind.hp, floor?.depth ?? ch.depth ?? 1); // 遺物「貪欲」（難易度別倍率）＋深度係留込み（v0.121.0）
   if (mon.boss) {
     sfx("boss_down");
     flashFx("warp");
