@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.119.0";
+export const APP_VERSION = "0.120.0";
 export const APP_BUILD = "2026-07-04";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -2077,14 +2077,16 @@ async function homeWithdraw() {
       if (!addConsumable(ch, s.key)) { await sheet({ text: "持ち物が一杯だ。", options: ["戻る"] }); continue; }
       stashTake(s.key); sfx("pickup");
       log(`${consumableByKey(s.key)?.name ?? s.key} を持ち物に移した。`, "dim"); save();
-    } else { // 装備→その場で装備（今の装備は武具庫に戻す＝スワップ）
+    } else { // 装備→荷物へ移すだけ（強制装備スワップを廃止＝FB 2026-07-05「引き出しで装備と交換になり不便」）。
+      // 迷宮の戦利品と同じ流れ＝荷物に入れ、装備は「装備・荷物を見る」から任意に。荷物が満杯なら整理を促す（消失なし）。
       const it = gear[i - st.length];
-      const cur = ch.equipment[it.slot] ?? null;
-      it.unidentified = false; // 武具庫から出して装備＝鑑定
-      ch.equipment[it.slot] = it;
+      if (packUsed(ch) >= packCapacity(ch)) {
+        await sheet({ text: `荷物が一杯だ（${packUsed(ch)}/${packCapacity(ch)}）。先に持ち物を整理してから引き出そう。`, options: ["戻る"] });
+        continue;
+      }
+      ch.gearBag ??= []; ch.gearBag.push(it);
       world.stashGear = gear.filter((g) => g !== it);
-      if (cur) world.stashGear.push(cur); // スワップ（総枠は変わらない）
-      sfx("equip"); log(`武具庫から ${it.name} を取り出して装備した（${itemPower(it)}）。`); updateStatus(); save();
+      sfx("pickup"); log(`武具庫から ${itemLabel(it)} を荷物に移した（装備は「装備・荷物を見る」から）。`, "dim"); updateStatus(); save();
     }
   }
   busy = false;
