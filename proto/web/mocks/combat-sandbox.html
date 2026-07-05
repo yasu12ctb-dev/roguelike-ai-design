@@ -1,0 +1,783 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0c0f14" />
+<title>戦闘サンドボックス — 深蝕 The Corroding Deep</title>
+<style>
+  :root {
+    color-scheme: dark;
+    /* 盤面/状態色は本体 proto/web/index.html の正典トークンを踏襲 */
+    --bg-app:#0e0c09; --bg-panel:#14110c; --bg-void:#07090c; --bg-wall:#11151c;
+    --bg-sheet:#17130e; --bg-btn:#1d1812; --bg-btn-active:#2a2318;
+    --line:#372f23; --line-2:#4a3f2e;
+    --tx:#d8d0c0; --tx-strong:#efe6d3; --tx-dim:#a1957f; --tx-meta:#857a66; --tx-faint:#6b6250;
+    --acc:#c2452f; --gold-leaf:#c9a75a;
+    --c-hp:#e06c5a; --c-buff:#8fd0c0; --c-warn:#d98c7a; --c-good:#7fcf97;
+    --g-player:#ffd87a; --g-danger:#ff4f3c;
+    --g-mon-t1:#c4ccd4; --g-mon-t3:#e58a45; --g-boss:#ff5cf0;
+    --g-hazard:#b58bff;
+    --torch-rgb:224,200,150;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg-app); color: var(--tx);
+    font-family: "Hiragino Sans", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+    overflow: hidden;
+  }
+  #frame {
+    width: 100%; max-width: 430px; height: 100dvh; display: flex; flex-direction: column;
+    background: var(--bg-void); border-left: 1px solid var(--line); border-right: 1px solid var(--line);
+  }
+
+  /* ---- 上部：ピル＋設定 ---- */
+  #top {
+    flex: none; display: flex; align-items: center; gap: 6px; padding: 7px 9px;
+    background: var(--bg-panel); border-bottom: 1px solid var(--line); min-height: 40px;
+  }
+  #title { font-size: 11px; letter-spacing: .06em; color: var(--tx-dim); font-weight: 700; flex: none; }
+  #pills { flex: 1; display: flex; flex-wrap: wrap; gap: 4px; overflow: hidden; }
+  .pill { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px;
+    background: #241d13; border: 1px solid var(--line-2); color: var(--gold-leaf); letter-spacing: .02em; }
+  #pills .none { color: var(--tx-faint); border-color: var(--line); background: transparent; }
+  #gear { flex: none; width: 34px; height: 30px; border-radius: 8px; border: 1px solid var(--line-2);
+    background: var(--bg-btn); color: var(--tx-dim); font-size: 16px; }
+
+  /* ---- HUD ---- */
+  #hud { flex: none; display: flex; align-items: center; gap: 10px; padding: 6px 11px;
+    background: var(--bg-panel); border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  #hpWrap { display: flex; align-items: center; gap: 6px; }
+  #hpBar { width: 96px; height: 9px; border-radius: 5px; background: #0b0906;
+    box-shadow: 0 0 0 1px var(--line) inset; overflow: hidden; }
+  #hpFill { height: 100%; background: var(--c-hp); transition: width .18s; }
+  #hpNum { color: var(--c-hp); font-variant-numeric: tabular-nums; font-weight: 700; }
+  #threat { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #threat.safe { color: var(--c-good); }
+  #threat.warn { color: var(--g-danger); }
+  #threat.hidden { display: none; }
+  #counterPill { color: var(--gold-leaf); font-weight: 700; font-size: 11.5px; display: none; }
+  #counterPill.on { display: inline; }
+
+  /* ---- 盤面 ---- */
+  #mapWrap { position: relative; flex: 1; overflow: hidden; background: var(--bg-void);
+    display: flex; align-items: center; justify-content: center; touch-action: none; }
+  #board { position: relative; }
+  #grid { display: grid; }
+  .cell { position: relative; display: flex; align-items: center; justify-content: center; }
+  .cell .g { font-family: "Menlo","Consolas",monospace; font-weight: 700; font-size: calc(var(--cs) * .58); line-height: 1; }
+  .cell.wall { background: var(--bg-wall); }
+  .cell.wall .g { color: #333d49; }
+  .cell.floor { background: #0a0d12; }
+  .cell.floor .g { color: #23292f; }
+  .cell.hazard { background: #140f1e; }
+  .cell.hazard .g { color: var(--g-hazard); text-shadow: 0 0 8px rgba(181,139,255,.7); animation: pulse 2.4s ease-in-out infinite; }
+
+  .g-player { color: var(--g-player) !important; text-shadow: 0 0 12px rgba(255,216,122,.9), 0 0 26px rgba(255,160,60,.45); }
+  .g-player-danger { color: var(--g-danger) !important; text-shadow: 0 0 14px rgba(255,79,60,1), 0 0 30px rgba(255,50,30,.7); animation: danger .55s ease-in-out infinite; }
+  .g-rat  { color: var(--g-mon-t1) !important; text-shadow: 0 0 6px rgba(196,204,212,.5); }
+  .g-oni  { color: var(--g-mon-t3) !important; text-shadow: 0 0 9px rgba(229,138,69,.65); }
+  .g-boss { color: var(--g-boss) !important; text-shadow: 0 0 14px var(--g-boss), 0 0 30px rgba(255,60,200,.6); animation: pulse 1.05s ease-in-out infinite; }
+  .g-boss-heavy { color: #fff !important; text-shadow: 0 0 16px #ffb000, 0 0 34px rgba(255,120,0,.9); animation: bossheavy .42s ease-in-out infinite; }
+
+  @keyframes pulse { 50% { text-shadow: 0 0 16px rgba(159,216,207,1), 0 0 30px rgba(159,216,207,.4); } }
+  @keyframes danger { 50% { color: #fff1e0; text-shadow: 0 0 18px rgba(255,120,90,1); } }
+  @keyframes bossheavy { 50% { text-shadow: 0 0 22px #ffd060, 0 0 44px rgba(255,140,0,1); } }
+
+  /* 攻撃予告：自分のマスが討たれる＝赤い危険枠 */
+  .cell.tele-atk::after {
+    content: ""; position: absolute; inset: 1px; border-radius: 3px; pointer-events: none;
+    border: 2.5px solid rgba(255,79,60,.98); box-shadow: 0 0 14px rgba(255,79,60,.6) inset;
+    animation: tele .55s ease-in-out infinite;
+  }
+  @keyframes tele { 50% { border-color: rgba(255,79,60,.35); } }
+  /* 敵の移動先＝琥珀の床ハイライト */
+  .cell.hl-move::before {
+    content: ""; position: absolute; inset: 14%; border-radius: 4px; pointer-events: none;
+    background: rgba(224,180,90,.16); border: 1px solid rgba(224,180,90,.5);
+  }
+  /* ボスの形つき範囲予告＝橙 */
+  .cell.hl-boss::before {
+    content: ""; position: absolute; inset: 6%; border-radius: 3px; pointer-events: none;
+    background: rgba(255,140,40,.24); border: 1.5px solid rgba(255,150,50,.85);
+    box-shadow: 0 0 10px rgba(255,130,30,.4) inset; animation: telb .5s ease-in-out infinite;
+  }
+  @keyframes telb { 50% { background: rgba(255,140,40,.10); border-color: rgba(255,150,50,.4); } }
+  /* 【B】脅威の可視化：自分を予告している敵タイルに薄い赤枠 */
+  .cell.threat-src::after {
+    content: ""; position: absolute; inset: 2px; border-radius: 4px; pointer-events: none;
+    border: 1.5px dashed rgba(255,79,60,.6);
+  }
+  /* 見切り成立＝反撃の好機：@に金の波紋 */
+  .cell.tfx-ready::after {
+    content: ""; position: absolute; inset: 8%; border-radius: 50%; pointer-events: none;
+    border: 2px solid var(--gold-leaf); animation: ready .5s ease-out forwards;
+  }
+  @keyframes ready { 0% { opacity: 0; transform: scale(.5);} 25%{opacity:1;} 100% { opacity: 0; transform: scale(1.5);} }
+
+  /* ---- floats（数字ポップ） ---- */
+  #floats { position: absolute; inset: 0; pointer-events: none; z-index: 7; overflow: hidden; }
+  #floats .fl { position: absolute; transform: translate(-50%,-50%); font-weight: 700; font-size: 15px;
+    animation: flrise 0.7s ease-out forwards; text-shadow: 0 1px 2px rgba(0,0,0,.9); }
+  .fl-dmg  { color: var(--gold-leaf); }
+  .fl-hurt { color: var(--c-hp); }
+  .fl-crit { color: #fff; font-size: 21px; text-shadow: 0 0 12px rgba(230,198,106,1), 0 1px 2px rgba(0,0,0,.9); }
+  .fl-fall { color: var(--g-hazard); font-size: 18px; }
+  @keyframes flrise { 0% { opacity: 0; transform: translate(-50%,-30%); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%,-135%); } }
+  #board.shake { animation: shk .14s linear; }
+  @keyframes shk { 25% { transform: translate(2px,-1px); } 50% { transform: translate(-2px,1px); } 75% { transform: translate(1px,1px); } }
+
+  /* ---- ログ ---- */
+  #log { flex: none; height: 62px; overflow-y: auto; padding: 7px 12px; font-size: 12.5px; line-height: 1.55;
+    background: var(--bg-panel); border-top: 1px solid var(--line);
+    font-family: "Hiragino Mincho ProN","Yu Mincho",serif; color: var(--tx); }
+  #log .dim { color: var(--tx-meta); }
+  #log .cue { color: var(--c-buff); }
+  #log .warn { color: var(--c-warn); }
+
+  /* ---- 下部：D-pad＋ウェーブ ---- */
+  #bottom { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 12px 12px;
+    background: var(--bg-panel); border-top: 1px solid var(--line); }
+  #dpad { width: 132px; height: 132px; display: grid; grid-template: repeat(3,1fr)/repeat(3,1fr); gap: 3px; flex: none; }
+  #dpad button { background: var(--bg-btn); border: 1px solid var(--line-2); border-radius: 9px;
+    color: var(--tx-dim); font-size: 15px; display: flex; align-items: center; justify-content: center; }
+  #dpad button:active { background: var(--bg-btn-active); color: var(--tx-strong); }
+  #dpad button.wait { color: var(--gold-leaf); font-size: 13px; }
+  #sideCtl { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+  #sideCtl button { font-family: inherit; font-size: 13px; color: var(--tx); background: var(--bg-btn);
+    border: 1px solid var(--line-2); border-radius: 10px; padding: 11px 8px; }
+  #waveBtn { color: var(--gold-leaf); font-weight: 700; }
+  #sideNote { font-size: 10.5px; color: var(--tx-faint); line-height: 1.4; text-align: center; }
+
+  /* ---- オーバーレイ（設定・イントロ・死亡） ---- */
+  .ov { position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center;
+    background: rgba(5,6,8,.72); backdrop-filter: blur(2px); padding: 18px; }
+  .ov.show { display: flex; }
+  .sheet { width: 100%; max-width: 400px; max-height: 88vh; overflow-y: auto; background: var(--bg-sheet);
+    border: 1px solid var(--line-2); border-radius: 14px; padding: 18px 16px; }
+  .sheet h2 { font-size: 15px; color: var(--tx-strong); letter-spacing: .04em; margin-bottom: 4px; }
+  .sheet p.sub { font-size: 12px; color: var(--tx-dim); line-height: 1.6; margin-bottom: 12px; }
+  .toggle { display: flex; align-items: flex-start; gap: 10px; padding: 11px 10px; border-radius: 11px;
+    border: 1px solid var(--line); background: #120f0a; margin-bottom: 9px; cursor: pointer; }
+  .toggle.on { border-color: var(--gold-leaf); background: #1b160d; }
+  .toggle .sw { flex: none; width: 42px; height: 24px; border-radius: 999px; background: #2a2318;
+    border: 1px solid var(--line-2); position: relative; margin-top: 1px; transition: background .15s; }
+  .toggle.on .sw { background: #6b5a2c; border-color: var(--gold-leaf); }
+  .toggle .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+    border-radius: 50%; background: #cfc4a8; transition: left .15s; }
+  .toggle.on .sw::after { left: 20px; background: var(--gold-leaf); }
+  .toggle .tx b { display: block; font-size: 13.5px; color: var(--tx-strong); font-weight: 700; margin-bottom: 2px; }
+  .toggle .tx b .tag { font-size: 11px; color: var(--gold-leaf); margin-right: 5px; }
+  .toggle .tx span { font-size: 11.5px; color: var(--tx-dim); line-height: 1.5; }
+  .presetRow { display: flex; gap: 7px; margin: 4px 0 12px; }
+  .presetRow button { flex: 1; font-family: inherit; font-size: 12px; padding: 9px 4px; border-radius: 9px;
+    border: 1px solid var(--line); background: #120f0a; color: var(--tx-dim); }
+  .presetRow button.sel { border-color: var(--gold-leaf); background: #1b160d; color: var(--tx-strong); font-weight: 700; }
+  .sheet .close { width: 100%; margin-top: 6px; padding: 12px; border-radius: 11px; font-family: inherit;
+    font-size: 14px; font-weight: 700; color: var(--bg-app); background: var(--gold-leaf); border: none; }
+  .sheet .scene { font-size: 13.5px; line-height: 1.9; color: var(--tx); font-family: "Hiragino Mincho ProN",serif; }
+  .sheet .scene b { color: var(--gold-leaf); }
+  .legend { font-size: 11px; color: var(--tx-dim); line-height: 1.9; margin: 10px 0; }
+  .legend b { color: var(--tx-strong); }
+</style>
+</head>
+<body>
+<div id="frame">
+  <div id="top">
+    <span id="title">戦闘サンドボックス</span>
+    <div id="pills"></div>
+    <button id="gear" aria-label="設定">⚙</button>
+  </div>
+
+  <div id="hud">
+    <div id="hpWrap"><span style="color:var(--c-hp)">♥</span><div id="hpBar"><div id="hpFill"></div></div><span id="hpNum"></span></div>
+    <span id="counterPill">⟡ 反撃の好機</span>
+    <span id="threat"></span>
+  </div>
+
+  <div id="mapWrap">
+    <div id="board">
+      <div id="grid"></div>
+      <div id="floats"></div>
+    </div>
+  </div>
+
+  <div id="log"></div>
+
+  <div id="bottom">
+    <div id="dpad">
+      <button data-dx="-1" data-dy="-1">↖</button>
+      <button data-dx="0" data-dy="-1">↑</button>
+      <button data-dx="1" data-dy="-1">↗</button>
+      <button data-dx="-1" data-dy="0">←</button>
+      <button class="wait" data-dx="0" data-dy="0">待</button>
+      <button data-dx="1" data-dy="0">→</button>
+      <button data-dx="-1" data-dy="1">↙</button>
+      <button data-dx="0" data-dy="1">↓</button>
+      <button data-dx="1" data-dy="1">↘</button>
+    </div>
+    <div id="sideCtl">
+      <button id="waveBtn">↻ 次のウェーブ</button>
+      <button id="gear2">⚙ トグル設定</button>
+      <div id="sideNote">タップ＝D-pad／キー＝矢印・WASD・yubn・. 待機</div>
+    </div>
+  </div>
+</div>
+
+<!-- 設定 -->
+<div class="ov" id="settingsOv">
+  <div class="sheet">
+    <h2>戦闘トグル</h2>
+    <p class="sub">実装前の体験比較用。各要素を独立にON/OFFして手触りを確かめる。変更は即反映。</p>
+    <div style="font-size:12px;color:var(--tx-dim);margin-bottom:5px;font-weight:700;">【A】群れの規模</div>
+    <div class="presetRow" id="presetRow">
+      <button data-n="4">現行 4体</button>
+      <button data-n="8">多め 8体</button>
+      <button data-n="14">大群 14体</button>
+    </div>
+    <div id="toggles"></div>
+    <button class="close" id="closeSettings">閉じる</button>
+  </div>
+</div>
+
+<!-- イントロ -->
+<div class="ov show" id="introOv">
+  <div class="sheet">
+    <h2>戦闘サンドボックス</h2>
+    <p class="sub">『深蝕』の戦闘に検討中の <b style="color:var(--gold-leaf)">4＋1要素</b> を、トグルでON/OFFして体験比較するためのモックです。本体とは別の実験場。</p>
+    <div class="scene">
+      ・完全ターン制。あなた1手 → 敵全体1手（<b>予告した行動を実行 → 次を予告</b>）。<br>
+      ・攻撃は<b>確定命中</b>。予告マス（自マスの赤枠）から退けば空振り＝<b>見切り</b>。<br>
+      ・見切ると次の一撃が<b>会心（反撃の好機）</b>に。<br><br>
+      右上の <b>⚙</b> で5つのトグルを切り替えられます。<br>「↻ 次のウェーブ」で何度でも敵が湧きます。
+    </div>
+    <div class="legend">
+      <b>＠</b> あなた（金）　<b>鼠</b> 速く脆い　<b>鬼</b> 硬い　<b>主</b> ボス（大型）　<b style="color:var(--g-hazard)">裂</b> 深淵の裂け目（落ちれば即死）
+    </div>
+    <button class="close" id="closeIntro">はじめる</button>
+  </div>
+</div>
+
+<!-- 死亡 -->
+<div class="ov" id="deathOv">
+  <div class="sheet" style="text-align:center;">
+    <h2 style="color:var(--g-danger);">斃れた</h2>
+    <p class="sub" style="text-align:center;">深みはあなたを飲み込んだ。</p>
+    <button class="close" id="restartBtn">やり直す</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+// ============================================================
+//  盤面の生成（20×22・中央広間＋幅1通路＋小部屋＋ハザード）
+// ============================================================
+const W = 20, H = 22;
+let map = []; // 'wall'|'floor'|'hazard'
+function buildMap() {
+  map = Array.from({length: H}, () => Array.from({length: W}, () => "wall"));
+  const room = (x0,y0,x1,y1) => { for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++) map[y][x]="floor"; };
+  const cell = (x,y,t="floor") => { map[y][x]=t; };
+  room(6,7,13,14);    // 中央広間
+  room(7,1,12,4);     // 上の小部屋
+  room(7,16,12,20);   // 下の小部屋
+  room(1,8,4,13);     // 左の小部屋
+  room(15,8,18,13);   // 右の小部屋
+  // 幅1の通路（流入制御＝1体ずつ捌ける）
+  cell(9,5); cell(9,6);      // 上→広間
+  cell(10,15);               // 下→広間
+  cell(5,10);                // 左→広間
+  cell(14,11);               // 右→広間
+  // 地形ハザード（裂）— 広間の内側。周囲に回避余地あり
+  for (const [x,y] of [[8,9],[11,9],[8,12],[11,12]]) cell(x,y,"hazard");
+}
+buildMap();
+const inb = (x,y) => x>=0 && y>=0 && x<W && y<H;
+const isFloor = (x,y) => inb(x,y) && map[y][x]==="floor";
+const isHazard = (x,y) => inb(x,y) && map[y][x]==="hazard";
+const isWall = (x,y) => !inb(x,y) || map[y][x]==="wall";
+
+// ============================================================
+//  状態
+// ============================================================
+const feat = { B:false, C:false, D:false, E:false }; // A は preset で表現
+let density = 4;
+const player = { x:10, y:11, hp:40, maxHp:40 };
+let enemies = [];
+let counterTurns = 0;
+let nextId = 1;
+const KIND = {
+  rat:  { glyph:"鼠", cls:"g-rat",  hp:8,  dmg:3 },
+  oni:  { glyph:"鬼", cls:"g-oni",  hp:16, dmg:6 },
+  boss: { glyph:"主", cls:"g-boss", hp:60, dmg:10 },
+};
+const PLAYER_DMG = 6;
+
+function euclid(ax,ay,bx,by){ return Math.hypot(ax-bx, ay-by); }
+function adjacent(ax,ay,bx,by){ return euclid(ax,ay,bx,by) < 1.5 && !(ax===bx&&ay===by); }
+function enemyAt(x,y){ return enemies.find(e=>e.alive && e.x===x && e.y===y); }
+function occupied(x,y){ return (player.x===x&&player.y===y) || !!enemyAt(x,y); }
+
+// スポーン
+function spawnWave() {
+  enemies = [];
+  counterTurns = 0;
+  // ボスは常設（【D】ボス範囲の検証用）
+  addEnemy("boss", 9, 8);
+  // 雑魚を density 体、部屋/隅にばらまく
+  const spots = [];
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++) {
+    if (isFloor(x,y) && !occupied(x,y) && euclid(x,y,player.x,player.y) >= 4) spots.push([x,y]);
+  }
+  shuffle(spots);
+  let placed = 0;
+  for (const [x,y] of spots) {
+    if (placed >= density) break;
+    if (occupied(x,y)) continue;
+    const kind = Math.random() < 0.6 ? "rat" : "oni";
+    addEnemy(kind, x, y);
+    placed++;
+  }
+  planEnemies();
+  log(`ウェーブ湧出：雑魚 ${placed} 体＋ボス。`, "cue");
+  render();
+}
+function addEnemy(kind,x,y){
+  const k = KIND[kind];
+  enemies.push({ id:nextId++, kind, x, y, hp:k.hp, maxHp:k.hp, dmg:k.dmg, alive:true, intent:null });
+}
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; } }
+
+// ============================================================
+//  敵AI：plan（次を予告） / resolve（前手を実行）
+// ============================================================
+const DIRS8 = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
+function greedyStep(e){
+  // 8方向グリーディ・遠ざかる一歩は踏まない
+  const cur = euclid(e.x,e.y,player.x,player.y);
+  let best=null, bestD=cur;
+  for (const [dx,dy] of DIRS8) {
+    const nx=e.x+dx, ny=e.y+dy;
+    if (!isFloor(nx,ny) || occupied(nx,ny)) continue;
+    const d = euclid(nx,ny,player.x,player.y);
+    if (d < bestD - 1e-9) { bestD=d; best=[nx,ny]; }
+  }
+  return best; // null=動かない
+}
+function dominantDir(fromX,fromY,toX,toY){
+  return [Math.sign(toX-fromX), Math.sign(toY-fromY)];
+}
+function bossShapeCells(boss, idx){
+  const [dx,dy] = dominantDir(boss.x,boss.y,player.x,player.y);
+  const cells = [];
+  const add = (x,y) => { if (inb(x,y) && !isWall(x,y)) cells.push([x,y]); };
+  if (idx===0){ // 直線3マス（自分方向）
+    add(boss.x+dx, boss.y+dy); add(boss.x+2*dx, boss.y+2*dy); add(boss.x+3*dx, boss.y+3*dy);
+  } else if (idx===1){ // 扇（前方3方向×2マス）
+    const front = frontDirs(dx,dy);
+    for (const [fx,fy] of front){ add(boss.x+fx, boss.y+fy); add(boss.x+2*fx, boss.y+2*fy); }
+  } else { // 薙ぎ（周囲8マス）
+    for (const [ox,oy] of DIRS8) add(boss.x+ox, boss.y+oy);
+  }
+  return cells;
+}
+function frontDirs(dx,dy){
+  // dir とその左右45°
+  const order = [[-1,-1],[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0]];
+  let i = order.findIndex(d=>d[0]===dx && d[1]===dy);
+  if (i<0) i=0;
+  return [order[(i+7)%8], order[i], order[(i+1)%8]];
+}
+let bossShapeIdx = 0;
+function planEnemies(){
+  for (const e of enemies){
+    if (!e.alive){ e.intent=null; continue; }
+    if (e.kind==="boss" && feat.D){
+      const near = euclid(e.x,e.y,player.x,player.y) <= 3.6;
+      if (near){
+        const cells = bossShapeCells(e, bossShapeIdx);
+        e.intent = { type:"boss", cells, shape:bossShapeIdx };
+        continue;
+      }
+      // 遠ければ寄る
+      const step = greedyStep(e);
+      e.intent = step ? { type:"move", tx:step[0], ty:step[1] } : { type:"wait" };
+      continue;
+    }
+    if (adjacent(e.x,e.y,player.x,player.y)){
+      e.intent = { type:"attack", tx:player.x, ty:player.y };
+    } else {
+      const step = greedyStep(e);
+      e.intent = step ? { type:"move", tx:step[0], ty:step[1] } : { type:"wait" };
+    }
+  }
+}
+let veiled = false;
+function resolveEnemies(){
+  veiled = false;
+  for (const e of enemies){
+    if (!e.alive || !e.intent) continue;
+    const it = e.intent;
+    if (it.type==="attack"){
+      if (player.x===it.tx && player.y===it.ty){
+        hitPlayer(e, e.dmg);
+      } else {
+        veiled = true; // 予告マスから退いた＝空振り
+      }
+    } else if (it.type==="boss"){
+      const hit = it.cells.some(([x,y]) => x===player.x && y===player.y);
+      if (hit){ hitPlayer(e, Math.round(e.dmg*1.8), true); }
+      else { veiled = true; }
+    } else if (it.type==="move"){
+      if (isFloor(it.tx,it.ty) && !occupied(it.tx,it.ty)){ e.x=it.tx; e.y=it.ty; }
+    }
+    e.intent = null;
+  }
+}
+function hitPlayer(e, dmg, heavy){
+  player.hp = Math.max(0, player.hp - dmg);
+  floatFx(player.x, player.y, "-"+dmg, heavy?"fl-crit":"fl-hurt");
+  if (heavy){ log(`${KIND[e.kind].glyph}の${["直線","扇","薙ぎ"][e.intent?.shape ?? 0]||"大技"}が炸裂！ ${dmg} の痛打。`, "warn"); shake(); }
+  else log(`${KIND[e.kind].glyph}の攻撃。${dmg} を受けた。`, "dim");
+}
+
+// ============================================================
+//  プレイヤーの手番
+// ============================================================
+let busy = false;
+function playerTurn(dx,dy){
+  if (busy || player.hp<=0) return;
+  const hadCounter = counterTurns > 0;
+  let consumed = false;
+  let acted = true;
+
+  if (dx===0 && dy===0){
+    log("待機した。", "dim");
+  } else {
+    const nx = player.x+dx, ny = player.y+dy;
+    const tgt = enemyAt(nx,ny);
+    if (tgt){
+      consumed = meleeAttack(tgt, dx, dy, hadCounter);
+    } else if (isFloor(nx,ny)){
+      player.x=nx; player.y=ny;
+    } else if (isHazard(nx,ny)){
+      log("裂け目だ。踏み込めない。", "dim"); acted=false;
+    } else {
+      acted=false; // 壁
+    }
+  }
+  if (!acted) return;
+
+  // 敵の手番：resolve → plan
+  if (player.hp>0){
+    resolveEnemies();
+    if (enemies.some(e=>e.kind==="boss"&&e.alive)) bossShapeIdx = (bossShapeIdx+1)%3;
+    planEnemies();
+  }
+
+  // カウンター窓の更新
+  if (veiled){
+    if (counterTurns<=0) log("見切った。反撃の好機！", "cue");
+    counterTurns = 2;
+    readyFx();
+  } else if (counterTurns>0 && !consumed){
+    counterTurns--;
+  }
+
+  if (player.hp<=0) death();
+  render();
+}
+
+function meleeAttack(tgt, dx, dy, hadCounter){
+  let dmg = PLAYER_DMG;
+  let crit = false, consumed = false;
+  if (hadCounter){
+    dmg = Math.round(PLAYER_DMG*1.2);
+    crit = true; consumed = true; counterTurns = 0;
+  }
+  tgt.hp -= dmg;
+  floatFx(tgt.x, tgt.y, String(dmg), crit?"fl-crit":"fl-dmg");
+  if (crit){ shake(); log(`会心の一撃！ ${KIND[tgt.kind].glyph}に ${dmg}。`, "cue"); }
+  else log(`${KIND[tgt.kind].glyph}を打つ。${dmg}。`, "dim");
+
+  const ox = dx===0?tgt.x:player.x+Math.sign(dx); // 敵がいた（攻撃方向の隣）マス
+  const oy = dy===0?tgt.y:player.y+Math.sign(dy);
+
+  // 【C】見切り反撃＝押し出し（カウンター中のみ）
+  if (feat.C && crit && tgt.hp>0){
+    pushEnemy(tgt, dx, dy);
+  }
+
+  if (tgt.hp<=0){ tgt.alive=false; log(`${KIND[tgt.kind].glyph}を倒した。`, "cue"); }
+
+  // 【E】踏み込み攻撃：攻撃で敵が退いた/倒れた/貫ける空きがあれば1手で移動（予告マスから自動離脱）
+  if (feat.E){
+    const px = Math.sign(dx), py = Math.sign(dy);
+    const bx = ox+px, by = oy+py; // 敵の背後
+    if (isFloor(ox,oy) && !occupied(ox,oy)){
+      // 敵のいたマスが空いた（撃破 or 押し出しで退去）→ そこへ踏み込む
+      player.x=ox; player.y=oy; log("踏み込んで抜けた。", "dim");
+    } else if (tgt.alive && isFloor(bx,by) && !occupied(bx,by)){
+      // 敵は健在だが背後が空き → 貫いて背後へ（実験）
+      player.x=bx; player.y=by; log("敵を貫いて抜けた。", "dim");
+    }
+  }
+  return consumed;
+}
+
+function pushEnemy(e, dx, dy){
+  const px = Math.sign(dx), py = Math.sign(dy);
+  const nx = e.x+px, ny = e.y+py;
+  if (isHazard(nx,ny)){
+    e.alive=false; floatFx(nx,ny,"落","fl-fall");
+    log(`${KIND[e.kind].glyph}を裂け目へ突き落とした！`, "cue");
+  } else if (isWall(nx,ny)){
+    const extra = 4; e.hp -= extra;
+    floatFx(e.x,e.y,"+"+extra,"fl-dmg");
+    log(`壁に叩きつけた（追加 ${extra}）。`, "dim");
+    if (e.hp<=0){ e.alive=false; log(`${KIND[e.kind].glyph}を倒した。`, "cue"); }
+  } else {
+    const other = enemyAt(nx,ny);
+    if (other){
+      e.hp-=2; other.hp-=2;
+      floatFx(e.x,e.y,"2","fl-dmg"); floatFx(nx,ny,"2","fl-dmg");
+      log("敵同士がぶつかり詰まった。", "dim");
+      if (e.hp<=0) e.alive=false; if (other.hp<=0) other.alive=false;
+    } else if (isFloor(nx,ny)){
+      e.x=nx; e.y=ny; log("突き飛ばした。", "dim");
+    }
+  }
+}
+
+// ============================================================
+//  演出
+// ============================================================
+let cs = 18;
+function floatFx(x,y,text,cls){
+  const f = document.getElementById("floats");
+  const s = document.createElement("span");
+  s.className = "fl "+cls; s.textContent = text;
+  s.style.left = ((x+0.5)*cs)+"px";
+  s.style.top  = ((y+0.5)*cs)+"px";
+  f.appendChild(s);
+  setTimeout(()=>s.remove(), 720);
+}
+function shake(){ const b=document.getElementById("board"); b.classList.remove("shake"); void b.offsetWidth; b.classList.add("shake"); }
+let readyPending=false;
+function readyFx(){ readyPending=true; }
+
+// ============================================================
+//  描画
+// ============================================================
+const grid = document.getElementById("grid");
+function layout(){
+  const wrap = document.getElementById("mapWrap");
+  cs = Math.floor(Math.min(wrap.clientWidth / W, wrap.clientHeight / H));
+  cs = Math.max(12, cs);
+  grid.style.gridTemplateColumns = `repeat(${W}, ${cs}px)`;
+  document.documentElement.style.setProperty("--cs", cs+"px");
+  const board = document.getElementById("board");
+  board.style.width = (cs*W)+"px"; board.style.height=(cs*H)+"px";
+}
+const GLYPH = { wall:"▒", floor:"·", hazard:"裂" };
+function render(){
+  layout();
+  // 予告マップ
+  const teleAtk = new Set(), hlMove = new Set(), hlBoss = new Set(), threatSrc = new Set();
+  let threatN = 0;
+  for (const e of enemies){
+    if (!e.alive || !e.intent) continue;
+    const it = e.intent;
+    if (it.type==="attack"){
+      teleAtk.add(it.tx+","+it.ty);
+      if (it.tx===player.x && it.ty===player.y) threatN++;
+      if (feat.B) threatSrc.add(e.x+","+e.y);
+    } else if (it.type==="boss"){
+      for (const [x,y] of it.cells) hlBoss.add(x+","+y);
+      if (it.cells.some(([x,y])=>x===player.x&&y===player.y)) threatN++;
+      if (feat.B) threatSrc.add(e.x+","+e.y);
+    } else if (it.type==="move"){
+      hlMove.add(it.tx+","+it.ty);
+    }
+  }
+
+  let html = "";
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++){
+    const t = map[y][x];
+    let cls = "cell "+t;
+    let glyph = GLYPH[t] || "";
+    let gcls = "";
+    const key = x+","+y;
+    if (t==="floor" || t==="hazard"){
+      if (teleAtk.has(key)) cls += " tele-atk";
+      if (hlMove.has(key)) cls += " hl-move";
+      if (hlBoss.has(key)) cls += " hl-boss";
+    }
+    if (threatSrc.has(key)) cls += " threat-src";
+    // エンティティ
+    if (player.x===x && player.y===y){
+      glyph = "＠";
+      gcls = teleAtk.has(key) ? "g-player-danger" : "g-player";
+      if (readyPending) cls += " tfx-ready";
+    } else {
+      const e = enemyAt(x,y);
+      if (e){
+        const k = KIND[e.kind];
+        glyph = k.glyph;
+        gcls = k.cls;
+        if (e.kind==="boss" && e.intent && e.intent.type==="boss") gcls = "g-boss-heavy";
+      }
+    }
+    html += `<div class="${cls}" style="width:${cs}px;height:${cs}px"><span class="g ${gcls}">${glyph}</span></div>`;
+  }
+  grid.innerHTML = html;
+  readyPending = false;
+
+  // HUD
+  document.getElementById("hpFill").style.width = (player.hp/player.maxHp*100)+"%";
+  document.getElementById("hpNum").textContent = `${player.hp}/${player.maxHp}`;
+  const th = document.getElementById("threat");
+  if (feat.B){
+    th.className = threatN>0 ? "warn" : "safe";
+    th.textContent = threatN>0 ? `⚔ 殴れる敵：${threatN}体` : "✔ 安全";
+  } else {
+    th.className = "hidden"; th.textContent="";
+  }
+  document.getElementById("counterPill").className = counterTurns>0 ? "on" : "";
+  renderPills();
+}
+
+function renderPills(){
+  const p = document.getElementById("pills");
+  const on = [];
+  on.push(`A 群れ×${density}`);
+  if (feat.B) on.push("B 脅威可視化");
+  if (feat.C) on.push("C 押し出し");
+  if (feat.D) on.push("D ボス範囲");
+  if (feat.E) on.push("E 踏み込み");
+  p.innerHTML = on.map(t=>`<span class="pill">${t}</span>`).join("") || `<span class="pill none">トグルOFF（現行）</span>`;
+}
+
+// ============================================================
+//  ログ
+// ============================================================
+function log(msg, cls){
+  const el = document.getElementById("log");
+  const d = document.createElement("div");
+  if (cls) d.className = cls;
+  d.textContent = msg;
+  el.appendChild(d);
+  while (el.children.length > 30) el.removeChild(el.firstChild);
+  el.scrollTop = el.scrollHeight;
+}
+
+function death(){
+  document.getElementById("deathOv").classList.add("show");
+}
+function restart(){
+  player.hp = player.maxHp; player.x=10; player.y=11;
+  bossShapeIdx=0;
+  document.getElementById("deathOv").classList.remove("show");
+  spawnWave();
+}
+
+// ============================================================
+//  入力
+// ============================================================
+function move(dx,dy){ playerTurn(dx,dy); }
+document.querySelectorAll("#dpad button").forEach(b=>{
+  b.addEventListener("click", ()=> move(+b.dataset.dx, +b.dataset.dy));
+});
+const KEYMAP = {
+  ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0],
+  w:[0,-1], s:[0,1], a:[-1,0], d:[1,0],
+  k:[0,-1], j:[0,1], h:[-1,0], l:[1,0],
+  y:[-1,-1], u:[1,-1], b:[-1,1], n:[1,1],
+  ".":[0,0], " ":[0,0],
+};
+addEventListener("keydown", e=>{
+  if (document.querySelector(".ov.show")) {
+    if (e.key==="Escape") document.querySelectorAll(".ov.show").forEach(o=>o.classList.remove("show"));
+    return;
+  }
+  const m = KEYMAP[e.key];
+  if (m){ e.preventDefault(); move(m[0], m[1]); }
+});
+
+// ============================================================
+//  設定UI
+// ============================================================
+const TOGGLE_DEFS = [
+  ["B","脅威の可視化","この手番あなたを殴れる敵の数をHUDに常時表示。予告中の敵タイルに薄い赤枠。0なら「安全」。"],
+  ["C","見切り反撃＝押し出し","反撃の好機の近接が会心1.2倍に加え、敵を直線に1マス突き飛ばす。壁=追加ダメ／敵=詰まる／裂け目=即死。"],
+  ["D","ボスの形つき確定範囲","ボスの攻撃を「直線／扇／薙ぎ」の形にし、全マスを橙で1手前に予告。範囲に留まれば全弾ヒット、外なら確定安全。"],
+  ["E","踏み込み攻撃（実験）","近接で敵を倒す／押し出すと、そのマスへ貫き抜けて移動。攻撃＋離脱が1手に融合し、自分の予告マスから自動で外れる。"],
+];
+function buildToggles(){
+  const c = document.getElementById("toggles");
+  c.innerHTML = "";
+  for (const [k,title,desc] of TOGGLE_DEFS){
+    const div = document.createElement("div");
+    div.className = "toggle" + (feat[k]?" on":"");
+    div.innerHTML = `<div class="sw"></div><div class="tx"><b><span class="tag">【${k}】</span>${title}</b><span>${desc}</span></div>`;
+    div.addEventListener("click", ()=>{
+      feat[k] = !feat[k];
+      div.classList.toggle("on", feat[k]);
+      planEnemies(); render();
+    });
+    c.appendChild(div);
+  }
+}
+function buildPresets(){
+  document.querySelectorAll("#presetRow button").forEach(b=>{
+    b.classList.toggle("sel", +b.dataset.n===density);
+    b.onclick = ()=>{
+      density = +b.dataset.n;
+      document.querySelectorAll("#presetRow button").forEach(x=>x.classList.toggle("sel", +x.dataset.n===density));
+      spawnWave();
+    };
+  });
+}
+document.getElementById("gear").onclick = ()=> document.getElementById("settingsOv").classList.add("show");
+document.getElementById("gear2").onclick = ()=> document.getElementById("settingsOv").classList.add("show");
+document.getElementById("closeSettings").onclick = ()=> document.getElementById("settingsOv").classList.remove("show");
+document.getElementById("settingsOv").onclick = (e)=>{ if(e.target.id==="settingsOv") e.currentTarget.classList.remove("show"); };
+document.getElementById("closeIntro").onclick = ()=> document.getElementById("introOv").classList.remove("show");
+document.getElementById("restartBtn").onclick = restart;
+document.getElementById("waveBtn").onclick = spawnWave;
+
+addEventListener("resize", render);
+
+// ============================================================
+//  起動
+// ============================================================
+buildToggles();
+buildPresets();
+spawnWave();
+render();
+
+// テスト用フック
+window.__sandbox = {
+  state: ()=>({ player:{...player}, enemies: enemies.filter(e=>e.alive).map(e=>({id:e.id,kind:e.kind,x:e.x,y:e.y,hp:e.hp,intent:e.intent})), counterTurns, density, feat:{...feat}, bossShapeIdx }),
+  move, spawnWave,
+  setFeat: (k,v)=>{ feat[k]=v; buildToggles(); planEnemies(); render(); },
+  setDensity: (n)=>{ density=n; spawnWave(); },
+  hlBossCount: ()=> document.querySelectorAll(".cell.hl-boss").length,
+  threatText: ()=> document.getElementById("threat").textContent,
+  playerHp: ()=> player.hp,
+  // 検証用：決定論シナリオを組む（プレイヤー中央＋隣接に敵1体・counter任意）
+  rig: (opts={})=>{
+    enemies=[]; player.x=10; player.y=11; player.hp=player.maxHp;
+    counterTurns = opts.counter||0;
+    addEnemy(opts.kind||"rat", 10+(opts.ddx??1), 11+(opts.ddy??0));
+    if (opts.blockBehind){ addEnemy("oni", 10+(opts.ddx??1)*2, 11+(opts.ddy??0)*2); }
+    planEnemies(); render();
+    return window.__sandbox.state();
+  },
+};
+</script>
+</body>
+</html>

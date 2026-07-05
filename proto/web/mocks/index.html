@@ -30,6 +30,17 @@
   .caption { max-width: 560px; padding: 0 16px 10px; font-size: 12px; line-height: 1.7; color: #8b94a0; }
   .caption b { color: #cfd6dd; }
 
+  /* ---- 他モックへのリンクカード ---- */
+  .mockLink {
+    display: block; max-width: 560px; width: calc(100% - 24px); margin: 4px 12px 12px;
+    text-decoration: none; background: #14181e; border: 1px solid #2e3946; border-radius: 12px;
+    padding: 12px 14px; color: inherit;
+  }
+  .mockLink:hover { border-color: #c9a75a; background: #191d24; }
+  .mockLink .mt { font-size: 13.5px; font-weight: 700; color: #e8dfc2; letter-spacing: .03em; }
+  .mockLink .mt .arw { color: #c9a75a; float: right; }
+  .mockLink .md { font-size: 11.5px; color: #8b94a0; line-height: 1.6; margin-top: 5px; }
+
   /* ---- ゲーム画面フレーム ---- */
   #frame {
     width: min(96vw, 560px); border: 1px solid #232a33; border-radius: 14px;
@@ -180,6 +191,11 @@
 </nav>
 
 <div class="caption" id="caption"></div>
+
+<a class="mockLink" href="combat-sandbox.html">
+  <div class="mt">⚔ 戦闘サンドボックス<span class="arw">開く →</span></div>
+  <div class="md">検討中の戦闘4＋1要素（群れ増量・脅威可視化・押し出し反撃・ボス形範囲・踏み込み）をトグルでON/OFFして体験比較。iPhone縦持ち想定・敵が何度でも湧く実験場。</div>
+</a>
 
 <div id="frame" class="themeA">
   <div id="status">
