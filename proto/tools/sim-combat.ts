@@ -10,8 +10,10 @@
 //   指標B（副）＝**パック実戦**：実フロア相当の混成5体を回し WIN/DEATH/STALEMATE を分類。
 //     回復予算（resource economy のモデル）を1つだけ与え「下限プレイヤー」を「素手の床」から「素人」へ引き上げる。
 import { makeRng } from "../src/rng.ts";
-import { planMonsters, resolveMonsters, scaleKind, MONSTER_KINDS, regularHpAt, depthDmgBonus } from "../src/dungeon.ts";
+import { planMonsters, resolveMonsters, scaleKind, MONSTER_KINDS, regularHpAt, depthDmgBonus, genFloor, FODDER_MUL } from "../src/dungeon.ts";
 import { maxHp, meleeDmg, armorReduce } from "../src/progression.ts";
+import { newWorld } from "../src/world.ts";
+import type { Difficulty } from "../src/difficulty.ts";
 import type { Character } from "../src/types.ts";
 import type { Floor, Monster, MonsterKind, Pos } from "../src/dungeon.ts";
 
@@ -186,4 +188,82 @@ for (const comp of COMPS) {
   console.log(`  ${comp.label}  ${cells.join(" ")}`);
 }
 console.log("  ※平均HP損%が対照(近接3)より高い能力＝足止め戦で余計に削られる＝混成時に効く。(死N)=N%が死亡。");
+
+// ---------- 指標D：実フロア踏破（A｜群れ増量の検証）：genFloor 実フロアを stairsUp→stairsDown 踏破 ----------
+//   pack（固定5体arena）は「フロアの敵密度」を測れない。本指標は実 genFloor を fodderMul=0（対照）と
+//   fodderMul=FODDER_MUL（増量後）で生成し、下限プレイヤー（近接のみ・回復予算あり）に踏破させ、
+//   「1フロア踏破のHPコスト%」「DEATH率」「同時隣接ピーク（＝地形の流入制御）」を実測して比較する。
+//   合格基準：増量後のHPコスト%がベースライン比 +25% 以内・DEATH率が既存帯から逸脱しない。
+function bfsNext(f: Floor, from: Pos, to: Pos): Pos | null {
+  const W = f.w, H = f.h, prev = new Int32Array(W * H).fill(-1);
+  const si = from.y * W + from.x; prev[si] = si;
+  const q: Pos[] = [from];
+  for (let h = 0; h < q.length; h++) {
+    const c = q[h];
+    if (c.x === to.x && c.y === to.y) break;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      const nx = c.x + dx, ny = c.y + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const i = ny * W + nx;
+      if (prev[i] !== -1 || f.tiles[i] !== 1) continue;
+      prev[i] = c.y * W + c.x; q.push({ x: nx, y: ny });
+    }
+  }
+  const ti = to.y * W + to.x;
+  if (prev[ti] === -1) return null;
+  let cur = ti;
+  while (prev[cur] !== si && prev[cur] !== cur) cur = prev[cur];
+  return { x: cur % W, y: Math.floor(cur / W) };
+}
+interface Traverse { outcome: "REACH" | "DEATH" | "STALE"; hpLostPct: number; turns: number; kills: number; monsters: number; peakAdj: number; heals: number }
+function floorRun(diff: Difficulty, depth: number, fodderMul: number, seed: number, healBudget: number, healAmt: number): Traverse {
+  const w = newWorld((seed ^ 0xf0dde5) >>> 0); w.difficulty = diff; w.diveCount = (seed % 5);
+  const f = genFloor(w, depth, { fodderMul });
+  const monsters0 = f.monsters.length;
+  const ch = meleeChar(depth, GEAR(depth).w, GEAR(depth).a);
+  const hpMax = maxHp(ch), dmg = meleeDmg(ch), armor = armorReduce(ch);
+  let hp = hpMax, p: Pos = { ...f.stairsUp }, poison = 0, pd = 0, kills = 0, peakAdj = 0, heals = 0;
+  const rng = makeRng((seed ^ (depth * 40503) ^ 0x5a1d) >>> 0);
+  for (let turn = 1; turn <= 900; turn++) {
+    if (p.x === f.stairsDown.x && p.y === f.stairsDown.y)
+      return { outcome: "REACH", hpLostPct: Math.round(100 * (hpMax - hp) / hpMax), turns: turn, kills, monsters: monsters0, peakAdj, heals };
+    if (hp < hpMax * 0.35 && heals < healBudget) { hp = Math.min(hpMax, hp + Math.round(hpMax * healAmt)); heals++; }
+    const adj = f.monsters.filter((m) => m.hp > 0 && Math.max(Math.abs(m.x - p.x), Math.abs(m.y - p.y)) <= 1 && Math.hypot(m.x - p.x, m.y - p.y) <= 8);
+    const adjAll = f.monsters.filter((m) => m.hp > 0 && Math.max(Math.abs(m.x - p.x), Math.abs(m.y - p.y)) <= 1);
+    peakAdj = Math.max(peakAdj, adjAll.length);
+    if (adjAll.length) { // 隣接の生存敵（最小HP優先＝掃討）を殴る
+      const t = adjAll.reduce((a, b) => (b.hp < a.hp ? b : a));
+      t.hp -= dmg; if (t.hp <= 0) kills++;
+    } else { // stairsDown へ一歩（空きマスのみ）
+      const nx = bfsNext(f, p, f.stairsDown);
+      if (nx && !f.monsters.some((m) => m.hp > 0 && m.x === nx.x && m.y === nx.y)) p = nx;
+    }
+    planMonsters(f, p, rng);
+    const res = resolveMonsters(f, p);
+    for (const h of res.hits) { if (h.target !== "player") continue;
+      hp -= Math.max(1, h.dmg - armor); if (h.effect === "poison") { poison = VENOM_TURNS; pd = venomDmgAt(depth); } }
+    if (poison > 0) { poison--; hp -= pd; }
+    if (hp <= 0) return { outcome: "DEATH", hpLostPct: 100, turns: turn, kills, monsters: monsters0, peakAdj, heals };
+  }
+  return { outcome: "STALE", hpLostPct: Math.round(100 * (hpMax - hp) / hpMax), turns: 900, kills, monsters: monsters0, peakAdj, heals };
+}
+console.log(`\n【指標D】実フロア踏破（A｜群れ増量の検証）  FODDER_MUL=${FODDER_MUL}・回復予算=4回×40%・${SEEDS.length}seed`);
+console.log("  各セル: 敵数 / HP損% / DEATH% / 同時隣接ピーク  ＝『対照(fodder0)』→『増量(fodderX)』  ※HP損%の増分が+25%以内なら合格\n");
+const FDEPTHS = [3, 8, 15, 25, 35, 50];
+for (const diff of ["easy", "normal", "hard"] as Difficulty[]) {
+  console.log(`-- 難易度 ${diff} --`);
+  for (const d of FDEPTHS) {
+    const base = SEEDS.map((s) => floorRun(diff, d, 0, s, 4, 0.40));
+    const inc = SEEDS.map((s) => floorRun(diff, d, FODDER_MUL, s, 4, 0.40));
+    const hp0 = Math.round(avg(base.map((x) => x.hpLostPct))), hp1 = Math.round(avg(inc.map((x) => x.hpLostPct)));
+    const dth0 = Math.round(100 * base.filter((x) => x.outcome === "DEATH").length / base.length);
+    const dth1 = Math.round(100 * inc.filter((x) => x.outcome === "DEATH").length / inc.length);
+    const mon0 = Math.round(avg(base.map((x) => x.monsters))), mon1 = Math.round(avg(inc.map((x) => x.monsters)));
+    const pk0 = Math.max(...base.map((x) => x.peakAdj)), pk1 = Math.max(...inc.map((x) => x.peakAdj));
+    const delta = hp0 > 0 ? Math.round(100 * (hp1 - hp0) / hp0) : (hp1 > 0 ? 999 : 0);
+    const flag = delta > 25 ? " ⚠+25%超" : "";
+    console.log(`  D${String(d).padStart(2)} | 敵 ${String(mon0).padStart(2)}→${String(mon1).padStart(2)} | HP損 ${String(hp0).padStart(3)}%→${String(hp1).padStart(3)}%(Δ${delta >= 0 ? "+" : ""}${delta}%) | 死 ${String(dth0).padStart(3)}%→${String(dth1).padStart(3)}% | 隣接ピーク ${pk0}→${pk1}${flag}`);
+  }
+}
+console.log("  ※敵数は増えても『同時隣接ピーク』が1〜3に留まれば地形（幅1通路）の流入制御が効いている＝逃げ場あり。");
 

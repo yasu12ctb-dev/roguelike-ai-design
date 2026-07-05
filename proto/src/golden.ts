@@ -69,7 +69,10 @@ function gMonsterAI(): string {
     for (const depth of [10, 30, 42]) {
       const w = newWorld(seed >>> 0);
       createCharacter(w, "T", "delver", { relation: "none" });
-      const f = genFloor(w, depth);
+      // A｜群れ増量（v0.123.0）は genFloor に fodder を足す＝この AI 照合は「AI アルゴリズム」を測る器なので
+      // fodderMul:0 に固定＝fodder 追加前の基準フロアで従来どおり検査（monsterAI 指紋は不変を死守）。
+      // fodder 自体は tier<=2 の通常雑魚＝新しい AI 経路は無い（配置の網羅は gGenFloor が担う）。
+      const f = genFloor(w, depth, { fodderMul: 0 });
       const rng = makeRng((seed ^ (depth * 2654435761)) >>> 0);
       let p = { x: f.stairsUp.x, y: f.stairsUp.y };
       for (let turn = 0; turn < 24; turn++) {
@@ -145,11 +148,13 @@ const SCENARIOS: Record<string, () => string> = {
 
 // checked-in 期待値（--print で再生成して貼り替え）。Swift 移植はこの値を再現すべき正解データ。
 const EXPECTED: Record<string, string> = {
-  rng: "05bda7cc", progression: "cfe0c82f", genFloor: "1857a403",
+  rng: "05bda7cc", progression: "cfe0c82f", genFloor: "f3486769",
   monsterAI: "51d3744d", items: "f1e0de5d", worldLifecycle: "741659d6",
   spells: "0e91b2dc", variation: "54d9a151",
 };
-// 注：worldLifecycle は 4-14 初期シード化石 2→12 体で更新（純エンジンの決定論変化＝意図的）。genFloor/monsterAI 等は不変。
+// 注：worldLifecycle は 4-14 初期シード化石 2→12 体で更新（純エンジンの決定論変化＝意図的）。
+// 注：genFloor は A｜群れ増量（fodder・v0.123.0・FODDER_MUL=0.2）で再生成（1857a403→f3486769）＝設計変更＝Swift 照合の新基準。
+//     monsterAI は fodderMul:0 固定で fodder 追加前の基準フロアを検査＝指紋不変（他6指紋とも byte 一致を裏取り）。
 
 const printMode = process.argv.includes("--print");
 let fail = 0;
