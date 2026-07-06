@@ -20,7 +20,7 @@ export function grantConsumable(ch: Character, key: string, capacity: number): b
 // ---------- 基(base)＝テンプレ ----------
 interface Template {
   slot: ItemSlot; name: string; minDepth: number;
-  dmg?: number; reduce?: number; relic?: Item["relic"]; proc?: Item["proc"]; capacity?: number; exposurePerTurn?: number;
+  dmg?: number; reduce?: number; relic?: Item["relic"]; proc?: Item["proc"]; capacity?: number; reach?: number; exposurePerTurn?: number;
   oddity?: boolean; // 異物（必ず未鑑定）
   exclusive?: boolean; // 秘宝＝通常の宝箱/討伐/店頭抽選には出さない。深層レアドロップ／統治者の大命の褒賞でのみ入手（2026-07-03）。
 }
@@ -32,7 +32,7 @@ const TEMPLATES: Template[] = [
   { slot: "weapon", name: "手斧",     minDepth: 2,  dmg: 1 },
   { slot: "weapon", name: "長剣",     minDepth: 4,  dmg: 2 },
   { slot: "weapon", name: "曲刀",     minDepth: 6,  dmg: 2 },
-  { slot: "weapon", name: "刺突槍",   minDepth: 8,  dmg: 2 },
+  { slot: "weapon", name: "刺突槍",   minDepth: 8,  dmg: 2, reach: 2 }, // 槍＝十字直線・貫通・斜め不可・踏み込み不可（reach:2）
   { slot: "weapon", name: "戦鎚",     minDepth: 11, dmg: 3 },
   { slot: "weapon", name: "大剣",     minDepth: 13, dmg: 3 },
   { slot: "weapon", name: "双刃",     minDepth: 18, dmg: 4 },
@@ -41,8 +41,13 @@ const TEMPLATES: Template[] = [
   { slot: "weapon", name: "鋸刃刀",   minDepth: 7,  dmg: 2, proc: "rend" },   // 裂傷＝継続ダメ
   { slot: "weapon", name: "戦斧",     minDepth: 9,  dmg: 3, proc: "cleave" }, // 薙ぎ＝隣接にも余波
   { slot: "weapon", name: "鎖星",     minDepth: 12, dmg: 3, proc: "stun" },   // 当て止め（一定確率）
-  { slot: "weapon", name: "萎えの槍", minDepth: 15, dmg: 3, proc: "sap" },    // 目標の攻撃を弱める
+  { slot: "weapon", name: "萎えの槍", minDepth: 15, dmg: 2, reach: 2, proc: "sap" }, // 槍（reach:2）＋弱体。dmg 3→2＝槍の−1ペナルティに整合（proc が補償）
   { slot: "weapon", name: "断界刃",   minDepth: 22, dmg: 4, proc: "cleave" }, // 深層の薙ぎ（大）
+  // ── 武器クラス〈槍〉（reach:2・v0.124.0・2026-07-06 ユーザー承認）＝十字4方向・射程2・直線貫通・斜め不可・踏み込み不可。
+  //    攻撃力は同深度の剣より −1 目安（間合いと地形のチョークで真価／開所では弱い＝剣との二択）。
+  { slot: "weapon", name: "木槍",     minDepth: 2,  dmg: 1, reach: 2 }, // 序盤から槍を試せる入口
+  { slot: "weapon", name: "長槍",     minDepth: 12, dmg: 2, reach: 2 }, // 同深度の剣 鎖星/大剣=3 の −1
+  { slot: "weapon", name: "十文字槍", minDepth: 19, dmg: 3, reach: 2 }, // 同深度の剣 双刃=4 の −1
   // 防具（被ダメ-）＝武器と同数9種
   { slot: "armor",  name: "革鎧",     minDepth: 1,  reduce: 1 },
   { slot: "armor",  name: "外套",     minDepth: 2,  reduce: 1 },
@@ -175,6 +180,7 @@ function fromTemplate(t: Template, affix: Affix | null = null, enchant = 0): Ite
   if (reduce) item.reduce = reduce;
   if (t.relic) item.relic = t.relic;
   if (t.proc) item.proc = t.proc; // 発動効果は基テンプレ由来＝銘/+N と独立（往復で baseName から復元）
+  if (t.reach) item.reach = t.reach; // 射程（槍=2）も基テンプレ由来＝銘/+N と独立（proc と同じ流儀）
   if (cap) item.capacity = cap;
   if (exp) item.exposurePerTurn = exp;
   if (affix) item.affix = affix.key;
@@ -354,7 +360,7 @@ const PROC_DESC: Record<NonNullable<Item["proc"]>, string> = {
 /** 効果の説明（鑑定済み前提）。 */
 export function itemPower(it: Item): string {
   let s: string;
-  if (it.slot === "weapon") s = `攻＋${it.dmg}${it.proc ? `・${PROC_DESC[it.proc]}` : ""}`;
+  if (it.slot === "weapon") s = `攻＋${it.dmg}${it.reach && it.reach >= 2 ? "・十字2マス貫通（斜め・踏み込み不可）" : ""}${it.proc ? `・${PROC_DESC[it.proc]}` : ""}`;
   else if (it.slot === "armor") s = `被ダメ−${it.reduce}${it.proc ? `・${PROC_DESC[it.proc]}` : ""}`;
   else if (it.slot === "bag") s = `持てる量＋${it.capacity}`;
   else s = it.relic ? RELIC_DESC[it.relic] : "遺物";

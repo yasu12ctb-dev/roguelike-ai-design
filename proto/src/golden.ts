@@ -149,11 +149,12 @@ const SCENARIOS: Record<string, () => string> = {
 // checked-in 期待値（--print で再生成して貼り替え）。Swift 移植はこの値を再現すべき正解データ。
 const EXPECTED: Record<string, string> = {
   rng: "05bda7cc", progression: "cfe0c82f", genFloor: "f3486769",
-  monsterAI: "51d3744d", items: "f1e0de5d", worldLifecycle: "741659d6",
+  monsterAI: "51d3744d", items: "6577af88", worldLifecycle: "741659d6",
   spells: "0e91b2dc", variation: "54d9a151",
 };
 // 注：worldLifecycle は 4-14 初期シード化石 2→12 体で更新（純エンジンの決定論変化＝意図的）。
 // 注：genFloor は A｜群れ増量（fodder・v0.123.0・FODDER_MUL=0.2）で再生成（1857a403→f3486769）＝設計変更＝Swift 照合の新基準。
+// 注：items は武器クラス〈槍〉（v0.124.0・reach:2 の新基3種＋刺突槍/萎えの槍へ reach 付与・萎えの槍 dmg 3→2）で再生成（f1e0de5d→6577af88）＝設計変更＝Swift 照合の新基準（他7指紋は byte 一致を裏取り）。
 //     monsterAI は fodderMul:0 固定で fodder 追加前の基準フロアを検査＝指紋不変（他6指紋とも byte 一致を裏取り）。
 
 const printMode = process.argv.includes("--print");
