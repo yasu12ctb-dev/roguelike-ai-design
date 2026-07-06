@@ -18,7 +18,9 @@ function bad(m: string) { FAIL++; if (problems.length < 100) problems.push(m); }
 function ok(c: boolean, m: string) { CHECKS++; if (!c) bad(m); }
 const clone = (w: World): World => JSON.parse(JSON.stringify(w));
 
-const SPELL_POOL = ["ember", "mend", "homeward", "ward", "blink", "rend", "hush", "lure"];
+// ★実在の術キー（spells.ts SPELLS）で構成する。migrate/applyLineage は spellByKey で死にキーを弾く（術カタログ整理 2026-07-06）ため、
+// ここに架空キーを混ぜると継承時にフィルタで落ち、下の継承術数アサートが崩れる（＝正しい防御の副作用）。
+const SPELL_POOL = ["warp_strike", "heal", "homeward", "ironscale", "shadow_step", "corrode", "still_eye", "leech"];
 function lastCharFossil(w: World): Fossil | undefined {
   return [...w.fossils].reverse().find((f) => f.kind === "character");
 }
@@ -146,14 +148,14 @@ for (let seed = 1; seed <= 30; seed++) {
       id: "ch_prog", name: "歩いた者", archetype: "wanderer",
       lineage: { relation: "pupil", ancestorFossilId: collideId },
       traits: ["誰かの教え"], exposure: 0.5, depth: 9, bonds: [{ entityRef: collideId, value: 2, unfinished: true }], alive: true,
-      stats: { body: 5, power: 4, reason: 3, heart: 3 }, level: 9, xp: 5, spells: ["ember"], loadout: ["ember"],
+      stats: { body: 5, power: 4, reason: 3, heart: 3 }, level: 9, xp: 5, spells: ["warp_strike"], loadout: ["warp_strike"],
       equipment: { weapon: null, armor: null, relic: null, bag: null }, gold: 0, inventory: [], gearBag: [],
     };
     w.current = progressed;
     const healed = migrateWorld(clone(w));
     ok(!dupIds(healed), `seed${seed}: (d) 進行済みでも id 重複は解消する`);
     assertRefsResolve(healed, `seed${seed} (d) 進行済み修復後`);
-    ok(JSON.stringify(healed.current!.spells) === JSON.stringify(["ember"]), `seed${seed}: (d) 進行済みキャラの術が再導出で書き換わった`);
+    ok(JSON.stringify(healed.current!.spells) === JSON.stringify(["warp_strike"]), `seed${seed}: (d) 進行済みキャラの術が再導出で書き換わった`);
     // 参照追従は進行済みでも行われる（ancestorFossilId はシードでなく character を指す）。
     const ancNow = healed.fossils.find((f) => f.id === healed.current!.lineage.ancestorFossilId);
     ok(ancNow?.kind === "character", `seed${seed}: (d) 進行済みでも ancestorFossilId は character へ張替される`);

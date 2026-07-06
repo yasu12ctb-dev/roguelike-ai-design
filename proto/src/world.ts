@@ -6,6 +6,7 @@ import type {
 import { SEAL_KEYS, SEAL_LABEL } from "./types.ts";
 import { resolveTonePole } from "./variation.ts";
 import { BASE_STATS, STASH_INHERIT, STASH_INHERIT_MANOR, LOADOUT_CAP } from "./progression.ts";
+import { spellByKey } from "./spells.ts"; // 整理で削除された術キーの亡霊除去（migrate/applyLineage）。spells.ts は world.ts を import しない＝循環なし。
 import { worldPlayerGrade, worldAchievement } from "./companion.ts";
 import { diffMods } from "./difficulty.ts";
 import { syncQuestCounter } from "./quests.ts";
@@ -111,11 +112,13 @@ export function migrateWorld(w: World): World {
     if (typeof ch.level !== "number") ch.level = 1;
     if (typeof ch.xp !== "number") ch.xp = 0;
     if (!Array.isArray(ch.spells)) ch.spells = [];
+    else ch.spells = ch.spells.filter((k) => !!spellByKey(k)); // 術カタログ整理（2026-07-06）：削除された術キー（万象斬/微睡/霞足/廻刃 等）の亡霊を除去＝構え枠の食い潰し／継承での蘇りを防ぐ
     if (!Array.isArray(ch.loadout)) ch.loadout = ch.spells.slice(0, LOADOUT_CAP); // 構え（4-11F③）：旧セーブは習得順の先頭から補完
-    else ch.loadout = ch.loadout.filter((k) => ch.spells.includes(k)).slice(0, LOADOUT_CAP); // 整合（未習得/超過を除去）
+    else ch.loadout = ch.loadout.filter((k) => ch.spells.includes(k)).slice(0, LOADOUT_CAP); // 整合（未習得/超過/死にキーを除去）
     if (!ch.equipment) ch.equipment = { weapon: null, armor: null, relic: null };
     if (typeof ch.gold !== "number") ch.gold = 0; // v7：金貨
     if (!Array.isArray(ch.gearBag)) ch.gearBag = []; // 持ち物 Phase4：拾った装備の袋（非破壊バックフィル）
+    if (ch.lineage && Array.isArray(ch.lineage.chosenSpells)) ch.lineage.chosenSpells = ch.lineage.chosenSpells.filter((k) => !!spellByKey(k)); // 血縁が選んだ術も死にキーを除去（2026-07-06）
   }
   if (!Array.isArray(w.actors)) w.actors = []; // 生者NPC（4-12(G)）：欠落は常に補完
   if (w.companion && typeof (w.companion as Partial<Companion>).grade !== "number") {
@@ -310,12 +313,14 @@ function applyLineage(world: World, ch: Character, lineage: Lineage): void {
   if (!anc) return;
   ch.bonds.push({ entityRef: anc.id, value: 2, unfinished: true }); // 先代の未完を継ぐ（因縁は難易度に依らず継ぐ＝物語の連続性）
   ch.traits.push(`${anc.origin.name}の${lineage.relation === "blood" ? "血" : "教え"}`);
-  const learn = (key: string) => { if (!ch.spells.includes(key)) { ch.spells.push(key); if (ch.loadout!.length < LOADOUT_CAP) ch.loadout!.push(key); } };
+  const learn = (key: string) => { if (!spellByKey(key)) return; if (!ch.spells.includes(key)) { ch.spells.push(key); if (ch.loadout!.length < LOADOUT_CAP) ch.loadout!.push(key); } }; // 削除された術キーは継がない（亡霊対策・2026-07-06）
+  const ancSpells = (anc.spells ?? []).filter((k) => !!spellByKey(k)); // 先代の術から死にキー（整理で削除）を除いてから継ぐ
   const mLv = anc.level ?? anc.laidDepth ?? 1;        // 先代Lv（旧化石は深度を代用＝Lv≈深度）
   if (!diffMods(world.difficulty).lineage) { /* 難易度（death 等）が系譜ボーナス無効＝術/地力は継がない（因縁のみ） */ }
   else if (lineage.relation === "blood") {
     // 術：自分で選んだ2つ（UI 未指定＝CLI/旧経路は先頭2つ）。回復/帰還を最初から持てる質の継承。
-    const picks = (lineage.chosenSpells && lineage.chosenSpells.length ? lineage.chosenSpells : (anc.spells ?? [])).slice(0, BLOOD_SPELLS);
+    const chosen = (lineage.chosenSpells ?? []).filter((k) => !!spellByKey(k));
+    const picks = (chosen.length ? chosen : ancSpells).slice(0, BLOOD_SPELLS);
     for (const key of picks) learn(key);
     // 地力：恒久ベース加算（大器晩成）＝先代の得意ステへ寄せる。
     addLineageStats(ch.stats, clamp(Math.floor(mLv / 10), 1, BLOOD_STAT_CAP), anc.stats);
@@ -323,7 +328,7 @@ function applyLineage(world: World, ch: Character, lineage: Lineage): void {
     // 襲名（4-14G・層2）：退隠した先代の家督を継ぐ。死亡継承を上回る待遇＝「平穏な伝授は綺麗に渡せる」。
     // ★ボーナスは功績比例（雪だるま防止）＝駆け出しを退かせても殆ど継げない／伝説を退かせれば全継承。
     const ach = anc.achievementAtEnd ?? 0;
-    const known = anc.spells ?? [];
+    const known = ancSpells;
     const count = clamp(2 + Math.floor(ach / 2), BLOOD_SPELLS, known.length); // 継ぐ術数（功績で増える・最大は全術）
     for (const key of known.slice(0, count)) learn(key);
     // 地力＝恒久ベース（血縁＋α）＋ささやかな開始Lv（弟子の弱め）＝両者の良いとこ取り。
@@ -332,7 +337,7 @@ function applyLineage(world: World, ch: Character, lineage: Lineage): void {
     if (p > 0) { addLineageStats(ch.stats, p, anc.stats); ch.level = 1 + p; }
     // 装備の直接相続（散逸せず heir が継ぐ）は web の characterCreation で実装（itemByName 再構成）。
   } else { // pupil
-    for (const key of (anc.spells ?? []).slice(0, PUPIL_SPELLS)) learn(key);  // 術4つ自動（多芸・選べない）
+    for (const key of ancSpells.slice(0, PUPIL_SPELLS)) learn(key);  // 術4つ自動（多芸・選べない）
     // スタートダッシュ：開始レベル＝1+P＋Pぶんのステを即付与（先代の得意ステ寄せ）。前借り型＝Lv上限では無系譜と同地力。
     const p = clamp(Math.floor(mLv / 6), 0, PUPIL_LEVEL_CAP);
     if (p > 0) { addLineageStats(ch.stats, p, anc.stats); ch.level = 1 + p; }
