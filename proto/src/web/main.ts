@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.123.0";
+export const APP_VERSION = "0.124.0";
 export const APP_BUILD = "2026-07-04";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -3323,6 +3323,17 @@ function raidMoveOrAttack(nx: number, ny: number): boolean {
   const f = floor!;
   if (tileAt(f, nx, ny) !== 1) return false;
   const mon = f.monsters.find((m) => m.hp > 0 && m.x === nx && m.y === ny);
+  // 武器クラス〈槍〉（reach>=2・v0.124.0）：街防衛戦でも十字直線・貫通・斜め不可・踏み込み不可（dive と対称）。
+  if ((world.current?.equipment.weapon?.reach ?? 1) >= 2) {
+    const sdx = Math.sign(nx - player.x), sdy = Math.sign(ny - player.y);
+    if (sdx !== 0 && sdy !== 0) {
+      if (mon) { log("槍は斜めには突けない。", "dim"); return false; }
+    } else {
+      const bx = player.x + sdx * 2, by = player.y + sdy * 2;
+      const mon2 = f.monsters.find((m) => m.hp > 0 && m.x === bx && m.y === by);
+      if (mon || mon2) { spearStrike(mon, mon2, sdx, sdy); return true; }
+    }
+  }
   if (mon) {
     const ch = world.current!;
     const pdx = Math.sign(nx - player.x), pdy = Math.sign(ny - player.y);
@@ -4616,6 +4627,48 @@ function lungeThrough(mon: Monster, dx: number, dy: number): void {
   else log("貫き先が塞がっている。その場で打った。", "dim");
 }
 
+/** 武器クラス〈槍〉（reach>=2・v0.124.0）の突き：十字直線・貫通。
+ *  primary（mon ?? mon2）にフル補正（会心・挟撃・siphon・proc）、貫通の 2 体目（secondary）は基礎ダメージのみ。
+ *  raid では siphon/proc/reflect は使わず、撃破は raidKill（dive の bump と対称）。踏み込み不可（lunge=false 固定）。
+ *  ダメージ適用を全て終えてから push → downOrKill の順（pierce で死んだ secondary は障害物にならない＝玉突き衝突が成立）。 */
+function spearStrike(mon: Monster | undefined, mon2: Monster | undefined, pdx: number, pdy: number): void {
+  const ch = world.current!;
+  const raid = mode === "raid";
+  const kill = (m: Monster, line?: string) => { if (raid) raidKill(m); else downOrKill(m, line); };
+  const primary = (mon ?? mon2)!;                 // 手前に敵がいれば手前、いなければ奥（頭越しに突く）
+  const hitR = meleeWithPositioning(meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0), primary, { lunge: false });
+  primary.hp -= hitR.dmg;
+  sfx(primary.boss ? "crit" : "hit");
+  floatFx(primary.x, primary.y, String(hitR.dmg), hitR.crit ? "fl-crit" : "fl-dmg");
+  // 貫通の 2 体目＝基礎ダメージのみ（会心・挟撃・proc は乗らない）。手前と奥が両方いるときだけ。
+  const secondary = mon && mon2 && mon2 !== primary ? mon2 : null;
+  if (secondary) {
+    const base2 = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
+    secondary.hp -= base2;
+    floatFx(secondary.x, secondary.y, String(base2), "fl-dmg");
+    log(`槍が貫き、奥の${secondary.kind.name}にも${base2}届いた。`, "dim");
+  }
+  if (!raid) {
+    if (ch.equipment.relic?.relic === "siphon" && deathDoorTurns === 0 && hp < maxHp(ch)) { // 吸命は primary のみ
+      const drained = Math.max(1, Math.round(hitR.dmg * SIPHON_FRAC));
+      hp = Math.min(maxHp(ch), hp + drained);
+    }
+    applyWeaponProc(ch, primary, hitR.dmg); // proc は primary のみ（現行の槍テンプレは sap のみ＝非殺傷）
+  }
+  if (primary.hp > 0) {
+    log(`${primary.kind.name}に${hitR.dmg}の一撃。`);
+    if (!raid && primary.kind.ability === "reflect" && deathDoorTurns === 0) { // 棘＝近接を罰する（術/投擲が安全策）
+      const recoil = Math.max(1, Math.round(hitR.dmg * REFLECT_FRAC));
+      hp -= recoil; sfx("hurt"); flashFx("warp", { x: player.x, y: player.y });
+      floatFx(player.x, player.y, String(recoil), "fl-hurt");
+      log(`${primary.kind.name}の棘が反射する――${recoil}の傷。`, "warn");
+    }
+  }
+  if (primary.hp > 0 && hitR.crit) pushEnemy(primary, pdx, pdy); // C：会心のみ押し出し（全ダメージ適用後）
+  if (primary.hp <= 0) kill(primary);
+  if (secondary && secondary.hp <= 0) kill(secondary, `槍が${secondary.kind.name}を貫いた。`);
+}
+
 let abyssDivePending = false; // 次の潜行が「奉献の試練」（深淵帯への直下降）か
 let portalDivePending = false; // 次の startDive が「帰還の扉（街側・一回だけ）」＝駐機盤面の復元か
 
@@ -5063,7 +5116,7 @@ async function equipPrompt(item: Item) {
   } else if (r.pick === 2) {
     await gearBagPush(item);
   }
-  save();
+  save(); updateStatus(); // 装備変更を HUD に反映（槍⇔剣の踏み込みボタン表示など）
 }
 
 /** 袋から「同じ実体（参照）」の重複を除く防御。万一どこかで同一 Item オブジェクトが二重に入っても、
@@ -5733,6 +5786,19 @@ function moveOrInteract(nx: number, ny: number): boolean {
   if (tileAt(f, nx, ny) !== 1) return false;
 
   const mon = f.monsters.find((m) => m.hp > 0 && m.x === nx && m.y === ny);
+  // 武器クラス〈槍〉（reach>=2・v0.124.0）：十字4方向・射程2・直線貫通・斜め攻撃不可・踏み込み不可。
+  if ((world.current?.equipment.weapon?.reach ?? 1) >= 2) {
+    const sdx = Math.sign(nx - player.x), sdy = Math.sign(ny - player.y);
+    if (sdx !== 0 && sdy !== 0) {
+      // 斜めには突けない。敵がいても攻撃せず手番非消費（移動先が空いていれば下で普通に移動＝mon は null で bump を素通り）。
+      if (mon) { log("槍は斜めには突けない。", "dim"); return false; }
+    } else {
+      const bx = player.x + sdx * 2, by = player.y + sdy * 2; // 直線の 2 マス目（貫通対象）
+      const mon2 = f.monsters.find((m) => m.hp > 0 && m.x === bx && m.y === by);
+      if (mon || mon2) { spearStrike(mon, mon2, sdx, sdy); return true; }
+      // 直線上に敵なし＝下の通常移動/インタラクトへフォールスルー（mon は null）。
+    }
+  }
   if (mon) { // 攻撃（確定命中・確定ダメージ＝力依存＋焦躁バフ＋位置取り補正）
     const ch = world.current!;
     const pdx = Math.sign(nx - player.x), pdy = Math.sign(ny - player.y); // 攻撃方向（C 押し出し／E 貫きの向き）
@@ -6404,7 +6470,8 @@ const HELP_FLOW =
   "・盤面をタップ＝そのマスを調べる（敵の強さ・傷・能力が分かる。手番は使わない）\n" +
   "・敵は次の一手を予告する（テレグラフ）。退いて空振りさせるのが「見切り」。\n" +
   "・見切った直後は「反撃の好機」＝次の近接攻撃が会心になる。\n" +
-  "・相棒・召喚・共闘者と敵を挟むと「挟み撃ち」＝近接攻撃が増す。\n\n" +
+  "・相棒・召喚・共闘者と敵を挟むと「挟み撃ち」＝近接攻撃が増す。\n" +
+  "・武器には剣（8方向・隣接）と槍（十字4方向・2マス射程・直線の2体を貫く／斜めには突けず踏み込みも不可）がある。槍は幅1の通路で真価。\n\n" +
   "▍地図とねらい\n" +
   "地図ボタンでフロア全体を表示。地図をタップ→最寄りの床にマーカー→パッドで微調整→「移動」で自動で歩く。";
 const HELP_LEGEND =
@@ -6784,6 +6851,7 @@ async function manageBagGear(ch: Character, item: Item) {
     const idx = (ch.gearBag ?? []).indexOf(item);
     if (idx >= 0) { ch.gearBag!.splice(idx, 1); log(`「${itemLabel(item)}」を置いていった。`, "dim"); save(); }
   }
+  updateStatus(); // 装備変更を HUD に反映（槍⇔剣の踏み込みボタン表示など）
 }
 
 /** 1スロットだけを着け替える（袋の同スロット品から選ぶ／外す）。非戦闘（視界に敵なし）でのみ。 */
@@ -7287,7 +7355,9 @@ function applyChrome() {
 function updateLungeBtn() {
   const lb = document.getElementById("lungeBtn"); if (!lb) return;
   const combat = mode === "dive" || mode === "raid";
-  const show = lungeShow && !!world.current && combat;
+  const spear = (world.current?.equipment.weapon?.reach ?? 1) >= 2; // 槍は踏み込み不可＝ボタンを隠し、構えも解く
+  if (spear) lungeArm = 0; // 槍装備中は arm/構えを無効化（HUD ピルも消える・Shift+方向は spearStrike が lunge を見ないので自然に無効）
+  const show = lungeShow && !!world.current && combat && !spear;
   lb.classList.toggle("show", show);
   lb.classList.toggle("armed", show && lungeArm === 1);
   lb.classList.toggle("stance", show && lungeArm === 2);
