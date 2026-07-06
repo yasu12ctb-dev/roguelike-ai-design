@@ -12,7 +12,7 @@ function ok(cond: boolean, label: string, detail = "") {
 }
 const sig = (it: Item) =>
   JSON.stringify({ b: it.baseName, a: it.affix ?? null, e: it.enchant ?? 0,
-    d: it.dmg ?? 0, r: it.reduce ?? 0, x: it.exposurePerTurn ?? 0, c: it.capacity ?? 0, rel: it.relic ?? null, reach: it.reach ?? 0 });
+    d: it.dmg ?? 0, r: it.reduce ?? 0, x: it.exposurePerTurn ?? 0, c: it.capacity ?? 0, rel: it.relic ?? null, reach: it.reach ?? 0, sw: it.sweep ?? false });
 
 console.log("== 往復一致（合成名 → itemByName → 同一） ==");
 let combos = 0;
