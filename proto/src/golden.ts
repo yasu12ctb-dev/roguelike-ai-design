@@ -150,7 +150,7 @@ const SCENARIOS: Record<string, () => string> = {
 const EXPECTED: Record<string, string> = {
   rng: "05bda7cc", progression: "cfe0c82f", genFloor: "f3486769",
   monsterAI: "51d3744d", items: "3758573a", worldLifecycle: "741659d6",
-  spells: "14cdc14b", variation: "54d9a151",
+  spells: "19f291e8", variation: "54d9a151",
 };
 // 注：worldLifecycle は 4-14 初期シード化石 2→12 体で更新（純エンジンの決定論変化＝意図的）。
 // 注：genFloor は A｜群れ増量（fodder・v0.123.0・FODDER_MUL=0.2）で再生成（1857a403→f3486769）＝設計変更＝Swift 照合の新基準。
@@ -158,6 +158,7 @@ const EXPECTED: Record<string, string> = {
 //     monsterAI は fodderMul:0 固定で fodder 追加前の基準フロアを検査＝指紋不変（他6指紋とも byte 一致を裏取り）。
 // 注：items は武器クラス〈薙刀〉（v0.127.0・sweep:true の新基4種〔薙鎌/薙刀/大薙刀/夜叉薙〕）で再生成（d9a8e31b→3758573a）＝設計変更＝Swift 照合の新基準（他7指紋は byte 一致を裏取り）。
 // 注：spells は術カタログの整理（v0.129.0・削除4〔万象斬/微睡/霞足/廻刃〕＝36→32／haste 0.25→0.40・condemn 0.50→0.40 のコスト是正）で再生成（0e91b2dc→14cdc14b）＝設計変更＝Swift 照合の新基準（他7指紋は byte 一致を裏取り）。
+// 注：spells は魔法カタログ拡充（v0.130.0・新5種〔業火床/凍霧/弾き/先見/崩落を実地形化〕＝32→37／崩落の desc 更新）で再生成（14cdc14b→19f291e8）＝設計変更＝Swift 照合の新基準（他7指紋は byte 一致を裏取り＝地形変異/弾きは web 限定・engine 非改変）。
 
 const printMode = process.argv.includes("--print");
 let fail = 0;
