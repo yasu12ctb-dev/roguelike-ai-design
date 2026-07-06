@@ -279,6 +279,17 @@
       content: ""; position: absolute; inset: 2px; border-radius: 4px; pointer-events: none;
       border: 1.5px dashed rgba(255,79,60,.6);
     }
+    /* 地形ハザード（v0.128.0）：床の色で読ませる危険なマス（グリフは置かない・盤面を汚さない）。
+       敵を叩き込むのが本命＝控えめだが一目で分かる背景色＋淡い明滅。崩れ床は軋み中(hz-cracked)を強調。 */
+    .cell.hz-fire    { background: rgba(224,90,40,.30); box-shadow: inset 0 0 10px rgba(255,110,40,.45); animation: hzfire 1.3s ease-in-out infinite; }
+    @keyframes hzfire { 50% { background: rgba(240,120,50,.42); box-shadow: inset 0 0 16px rgba(255,140,50,.6); } }
+    .cell.hz-venom   { background: rgba(70,170,90,.26); box-shadow: inset 0 0 9px rgba(90,200,110,.4); animation: hzvenom 2.2s ease-in-out infinite; }
+    @keyframes hzvenom { 50% { background: rgba(90,190,110,.36); } }
+    .cell.hz-crumble { background: rgba(150,120,50,.24); box-shadow: inset 0 0 8px rgba(180,150,70,.35); }
+    .cell.hz-crumble.hz-cracked { animation: hzcrack .5s ease-in-out infinite; }
+    @keyframes hzcrack { 50% { background: rgba(220,170,70,.5); box-shadow: inset 0 0 16px rgba(255,190,80,.7); } }
+    .cell.hz-miasma  { background: rgba(150,90,210,.24); box-shadow: inset 0 0 10px rgba(160,100,220,.4); animation: hzmiasma 2.6s ease-in-out infinite; }
+    @keyframes hzmiasma { 50% { background: rgba(165,105,225,.34); } }
     /* 術のエフェクト：マップ全域をひと呼吸だけ色で点滅させる（4-11F③・エリア点滅） */
     #fx { position: absolute; inset: 0; pointer-events: none; opacity: 0; z-index: 6; }
     #fx.warp { animation: fxflash .42s ease-out; background: radial-gradient(circle at var(--fxx,50%) var(--fxy,50%), rgba(200,90,255,.55), rgba(150,40,220,.18) 45%, transparent 72%); }
