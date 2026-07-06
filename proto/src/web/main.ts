@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.130.0";
+export const APP_VERSION = "0.131.0";
 export const APP_BUILD = "2026-07-04";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -3456,9 +3456,9 @@ async function raidEndTurn(): Promise<void> {
         const a = allies.find((x) => x.hp > 0 && x.x === h.tx && x.y === h.ty);
         if (a) { a.hp -= h.dmg; floatFx(a.x, a.y, String(h.dmg), "fl-hurt"); log(`${h.monster.kind.name}の一撃が${a.name}を襲う！ ${h.dmg}の傷。`, "warn"); if (a.hp <= 0) log(`${a.name}が斃れた……。`, "warn"); }
       } else {
-        // 弾き（v0.130.0）：raid でも遠隔の狙撃を弾き返す（近接には無効）。
+        // 弾き（v0.130.0・v0.131.0で反射を半減にナーフ）：raid でも遠隔の狙撃を弾き返す（近接には無効）。
         if (parryTurns > 0 && h.monster.kind.ability === "ranged" && Math.max(Math.abs(h.monster.x - player.x), Math.abs(h.monster.y - player.y)) > 1) {
-          const back = h.dmg;
+          const back = Math.max(1, Math.ceil(h.dmg * 0.5));
           floatFx(player.x, player.y, "弾", "fl-miss");
           h.monster.hp -= back; floatFx(h.monster.x, h.monster.y, String(back), "fl-dmg"); tileFx(h.monster.x, h.monster.y, "tfx-slash");
           log(`飛来を弾き返した――${h.monster.kind.name}へ${back}。`, "cue");
@@ -5280,9 +5280,9 @@ async function endTurn() {
       floatFx(companion.x, companion.y, String(h.dmg), "fl-hurt");
       log(`${h.monster.kind.name}の一撃が${companionName()}を襲う！ ${h.dmg}の傷。`, "warn");
     } else {
-      // 弾き（移・v0.130.0）：持続中は遠隔の狙撃を0化し、射手へ同値を撃ち返す（近接には効かない＝時滑/死戸より前に判定）。
+      // 弾き（移・v0.130.0・v0.131.0で反射を半減にナーフ）：持続中は遠隔の狙撃を0化し、射手へ半減を撃ち返す（近接には効かない＝時滑/死戸より前に判定）。
       if (parryTurns > 0 && h.monster.kind.ability === "ranged" && Math.max(Math.abs(h.monster.x - player.x), Math.abs(h.monster.y - player.y)) > 1) {
-        const back = h.dmg;
+        const back = Math.max(1, Math.ceil(h.dmg * 0.5));
         floatFx(player.x, player.y, "弾", "fl-miss");
         h.monster.hp -= back; floatFx(h.monster.x, h.monster.y, String(back), "fl-dmg"); tileFx(h.monster.x, h.monster.y, "tfx-slash");
         log(`飛来を弾き返した――${h.monster.kind.name}へ${back}。`, "cue");
@@ -6001,10 +6001,10 @@ async function castSpell(key: string) {
     if (laid > 0) t.slowed = Math.max(t.slowed ?? 0, 2); // 中心の敵は即・鈍る（次手を待たず）
     sfx("spell_still"); flashFx("still", { x: t.x, y: t.y });
     log(laid > 0 ? `凍霧が漂う（${laid}マス・6手）。踏み入る者は鈍る。` : "霧を敷く隙間がない。");
-  } else if (key === "parry") { // 弾き＝数手 遠隔の狙撃を0化して射手へ撃ち返す（近接には無効）
-    parryTurns = 4;
+  } else if (key === "parry") { // 弾き＝数手 遠隔の狙撃を0化して射手へ半減を撃ち返す（近接には無効・v0.131.0：3手/半減にナーフ）
+    parryTurns = 3;
     sfx("spell_still"); flashFx("still", { x: player.x, y: player.y });
-    log("弾き――気を張り、飛来を弾く構え（4手・近接には効かない）。");
+    log("弾き――気を張り、飛来を弾く構え（3手・近接には効かない）。");
   } else if (key === "foresight") { // 先見＝次の階の気配を読む（genFloor を読み捨て＝world/rng を汚さない）
     busy = true;
     try { await foresightScene(ch); } finally { busy = false; }
