@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.125.0";
+export const APP_VERSION = "0.126.0";
 export const APP_BUILD = "2026-07-04";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -4647,13 +4647,16 @@ function spearStrike(mon: Monster | undefined, mon2: Monster | undefined, pdx: n
     secondary.hp -= base2;
     floatFx(secondary.x, secondary.y, String(base2), "fl-dmg");
     log(`槍が貫き、奥の${secondary.kind.name}にも${base2}届いた。`, "dim");
+    // 貫通の撃破は proc 適用より先に確定（cleave/blast の余波が secondary を倒すと proc 内の
+    // downOrKill と二重発火＝XP/ドロップ二重化するため。死んだ secondary は余波の hp>0 filter が除外）。
+    if (secondary.hp <= 0) kill(secondary, `槍が${secondary.kind.name}を貫いた。`);
   }
   if (!raid) {
     if (ch.equipment.relic?.relic === "siphon" && deathDoorTurns === 0 && hp < maxHp(ch)) { // 吸命は primary のみ
       const drained = Math.max(1, Math.round(hitR.dmg * SIPHON_FRAC));
       hp = Math.min(maxHp(ch), hp + drained);
     }
-    applyWeaponProc(ch, primary, hitR.dmg); // proc は primary のみ（現行の槍テンプレは sap のみ＝非殺傷）
+    applyWeaponProc(ch, primary, hitR.dmg); // proc は primary のみ（余波で倒れた敵は proc 側の downOrKill が一度だけ処理）
   }
   if (primary.hp > 0) {
     log(`${primary.kind.name}に${hitR.dmg}の一撃。`);
@@ -4666,7 +4669,6 @@ function spearStrike(mon: Monster | undefined, mon2: Monster | undefined, pdx: n
   }
   if (primary.hp > 0 && hitR.crit) pushEnemy(primary, pdx, pdy); // C：会心のみ押し出し（全ダメージ適用後）
   if (primary.hp <= 0) kill(primary);
-  if (secondary && secondary.hp <= 0) kill(secondary, `槍が${secondary.kind.name}を貫いた。`);
 }
 
 let abyssDivePending = false; // 次の潜行が「奉献の試練」（深淵帯への直下降）か

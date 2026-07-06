@@ -100,6 +100,8 @@ const TEMPLATES: Template[] = [
   { slot: "weapon", name: "氷結の魔杖",   minDepth: 20, dmg: 2, proc: "freeze", exclusive: true }, // 範囲凍結＋鈍化（無力化）
   { slot: "weapon", name: "吸命の魔剣",   minDepth: 20, dmg: 3, proc: "drain",  exposurePerTurn: 0.02, exclusive: true }, // 魔法吸収（回復）
   { slot: "weapon", name: "布都の神槍",   minDepth: 20, dmg: 4, reach: 2, proc: "stun", exposurePerTurn: -0.015, exclusive: true }, // 伝説槍＝荒ぶるものを鎮める神威（当て止め）＋携えるだけで深蝕を薄める浄性（魔剣系の蝕と対）
+  { slot: "weapon", name: "迦具土の焔槍", minDepth: 20, dmg: 3, reach: 2, proc: "blast", exposurePerTurn: 0.02, exclusive: true }, // 伝説槍＝母神を焼いた荒ぶる火（爆炎＝半径2の余波）＝業炎の魔刀の槍版・破壊の代償に蝕
+  { slot: "weapon", name: "天照の大御槍", minDepth: 20, dmg: 5, reach: 2, proc: "cleave", exposurePerTurn: -0.02, exclusive: true }, // 伝説槍＝主神の威光（攻5＝全武器最高の別格）・光の薙ぎ＋最も強い浄性＝闇を払う日輪
   { slot: "armor",  name: "反射結界の鎧", minDepth: 20, reduce: 3, proc: "reflectall", exposurePerTurn: 0.02, exclusive: true }, // 近接も遠距離も反射
   { slot: "armor",  name: "虚無の法衣",   minDepth: 20, reduce: 3, proc: "negate", exclusive: true }, // 一定確率で完全無効
   { slot: "armor",  name: "疾風の外套",   minDepth: 20, reduce: 3, proc: "hasten", exclusive: true }, // 進入時ヘイスト
