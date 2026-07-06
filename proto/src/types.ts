@@ -131,6 +131,7 @@ export interface Item {
   proc?: WeaponProc | ArmorProc; // 発動効果（武器=命中時／防具=被弾時。基テンプレ由来＝名前でなく base から導出）
   capacity?: number;        // 鞄：持ち物の枠+（持ち物システム Phase2）
   reach?: number;           // 武器：射程（槍=2＝十字4方向・射程2・直線貫通・斜め攻撃不可・踏み込み不可。未設定=1＝8方向隣接の剣）。基テンプレ由来＝銘/+N と独立
+  sweep?: boolean;          // 武器：薙刀＝弧の薙ぎ払い（bump方向±45度の3マス同時・射程1・斜め可・踏み込み可。side は基礎ダメのみ・会心で全員吹き飛ばし）。基テンプレ由来＝銘/+N と独立
   exposurePerTurn?: number; // 装備中の毎ターン深蝕（蝕=正／浄=負／異物の副作用）
   unidentified?: boolean;   // 未鑑定（装備すると判明）
   // ルートシステム（銘×基×+N）。旧セーブは未設定＝name と焼かれた値で従来どおり動く（非破壊）。

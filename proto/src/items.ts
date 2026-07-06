@@ -20,7 +20,7 @@ export function grantConsumable(ch: Character, key: string, capacity: number): b
 // ---------- 基(base)＝テンプレ ----------
 interface Template {
   slot: ItemSlot; name: string; minDepth: number;
-  dmg?: number; reduce?: number; relic?: Item["relic"]; proc?: Item["proc"]; capacity?: number; reach?: number; exposurePerTurn?: number;
+  dmg?: number; reduce?: number; relic?: Item["relic"]; proc?: Item["proc"]; capacity?: number; reach?: number; sweep?: boolean; exposurePerTurn?: number;
   oddity?: boolean; // 異物（必ず未鑑定）
   exclusive?: boolean; // 秘宝＝通常の宝箱/討伐/店頭抽選には出さない。深層レアドロップ／統治者の大命の褒賞でのみ入手（2026-07-03）。
 }
@@ -50,6 +50,13 @@ const TEMPLATES: Template[] = [
   { slot: "weapon", name: "十文字槍", minDepth: 19, dmg: 3, reach: 2 }, // 同深度の剣 双刃=4 の −1
   { slot: "weapon", name: "大身槍",   minDepth: 25, dmg: 3, reach: 2, proc: "rend" }, // 深層＝幅広の穂先が裂傷を刻む（断界刃=4 の −1・proc が補償）
   { slot: "weapon", name: "淵穿ち",   minDepth: 30, dmg: 4, reach: 2, exposurePerTurn: 0.02, oddity: true }, // 深淵の刃の槍版＝蝕む業物（−1 免除の代償に深蝕+）
+  // ── 武器クラス〈薙刀〉（sweep:true・v0.127.0・2026-07-06 ユーザー承認）＝弧の薙ぎ払い。bump方向とその左右隣（±45度）の計3マスを同時に薙ぐ。
+  //    primary（bump先）＝フル補正（会心・挟撃・proc・siphon）／side（最大2体）＝基礎ダメのみ。会心の薙ぎは生存中の primary＋side を全員 @ から離れる向きへ吹き飛ばす。
+  //    斜め攻撃可・射程1（剣と同じ入力感覚）・踏み込み可。攻撃力は同深度の剣より −1 目安（開所で囲まれた時に真価／単体には弱い＝剣・槍との三択）。
+  { slot: "weapon", name: "薙鎌",     minDepth: 3,  dmg: 1, sweep: true }, // 序盤から薙刀を試せる入口
+  { slot: "weapon", name: "薙刀",     minDepth: 10, dmg: 2, sweep: true }, // 同深度の剣 戦鎚=3 の −1
+  { slot: "weapon", name: "大薙刀",   minDepth: 17, dmg: 3, sweep: true }, // 同深度の剣 双刃=4 近辺の −1
+  { slot: "weapon", name: "夜叉薙",   minDepth: 26, dmg: 3, sweep: true, proc: "stun" }, // 深層＝当て止めが −1 を補償（大身槍と同じ流儀）
   // 防具（被ダメ-）＝武器と同数9種
   { slot: "armor",  name: "革鎧",     minDepth: 1,  reduce: 1 },
   { slot: "armor",  name: "外套",     minDepth: 2,  reduce: 1 },
@@ -186,6 +193,7 @@ function fromTemplate(t: Template, affix: Affix | null = null, enchant = 0): Ite
   if (t.relic) item.relic = t.relic;
   if (t.proc) item.proc = t.proc; // 発動効果は基テンプレ由来＝銘/+N と独立（往復で baseName から復元）
   if (t.reach) item.reach = t.reach; // 射程（槍=2）も基テンプレ由来＝銘/+N と独立（proc と同じ流儀）
+  if (t.sweep) item.sweep = t.sweep; // 薙ぎ払い（薙刀）も基テンプレ由来＝銘/+N と独立（reach と同じ流儀）
   if (cap) item.capacity = cap;
   if (exp) item.exposurePerTurn = exp;
   if (affix) item.affix = affix.key;
@@ -365,7 +373,7 @@ const PROC_DESC: Record<NonNullable<Item["proc"]>, string> = {
 /** 効果の説明（鑑定済み前提）。 */
 export function itemPower(it: Item): string {
   let s: string;
-  if (it.slot === "weapon") s = `攻＋${it.dmg}${it.reach && it.reach >= 2 ? "・十字2マス貫通（斜め・踏み込み不可）" : ""}${it.proc ? `・${PROC_DESC[it.proc]}` : ""}`;
+  if (it.slot === "weapon") s = `攻＋${it.dmg}${it.reach && it.reach >= 2 ? "・十字2マス貫通（斜め・踏み込み不可）" : ""}${it.sweep ? "・薙ぎ払い（左右も同時に斬る）" : ""}${it.proc ? `・${PROC_DESC[it.proc]}` : ""}`;
   else if (it.slot === "armor") s = `被ダメ−${it.reduce}${it.proc ? `・${PROC_DESC[it.proc]}` : ""}`;
   else if (it.slot === "bag") s = `持てる量＋${it.capacity}`;
   else s = it.relic ? RELIC_DESC[it.relic] : "遺物";
