@@ -199,6 +199,7 @@ export interface Floor {
   downed?: DownedActor | null;   // 手負いの冒険者（任意。enterFloor が稀に配置：4-14C）
   delver?: DelverActor | null;   // 同時に潜る生者の冒険者（任意。enterFloor が時々配置：すれ違いの軽イベント）
   aurelSite?: { x: number; y: number; kind: "mark" | "laila" } | null; // メインの縦糸（4-15）：始祖の遺構「痕」／ライラ・境（web が章に応じて配置＝engine は触らない・golden 安全）
+  hazards?: { x: number; y: number; kind: "fire" | "venom" | "crumble" | "miasma"; cracked?: number }[]; // 地形ハザード（v0.128.0）：web が enterFloor 初訪で seeded 配置＝engine 非使用＝golden 安全（aurelSite と同じパターン）。cracked＝崩れかけの床の崩落カウントダウン。
   diff?: DifficultyMods;         // このフロアの難易度係数（genFloor で焼き込む。動的スポーン＝追手/眷属が読む）。未設定＝easy。
 }
 

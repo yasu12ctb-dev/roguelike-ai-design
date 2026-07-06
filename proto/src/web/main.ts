@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.127.0";
+export const APP_VERSION = "0.128.0";
 export const APP_BUILD = "2026-07-04";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -450,6 +450,14 @@ function showPeek(x: number, y: number): void {
   // 階段は迷宮でのみ機能する（街防衛戦の戦場 genRaidField は装飾の階段を置くだけ＝raid では説明しない）。
   if (mode === "dive" && f.stairsDown.x === x && f.stairsDown.y === y) { setPeek("›　降り階段", "さらに深くへ。"); return; }
   if (mode === "dive" && f.stairsUp.x === x && f.stairsUp.y === y) { setPeek("‹　上り階段", f.depth === 1 ? "地上へ。ここから生還できる。" : "ひとつ浅い層へ。"); return; }
+  // 地形ハザード（v0.128.0）：床の色で読ませる危険なマス。調べると効果が分かる（敵を叩き込める＝武器になる）。
+  const hz = tileAt(f, x, y) === 1 ? hazardAt(f, x, y) : undefined;
+  if (hz) {
+    if (hz.kind === "fire") { setPeek("業火床", "赤く燃える床。踏むと灼かれ、上で手番を終えるたびに燃える。敵を突き飛ばして叩き込める。"); return; }
+    if (hz.kind === "venom") { setPeek("毒の沼", "緑に澱む沼。踏むと毒が回る。敵を突き落とせば毒が蝕む。"); return; }
+    if (hz.kind === "crumble") { setPeek("崩れかけの床", hz.cracked ? "軋んでいる――間もなく崩れ落ちる。乗っている者は退け。" : "亀裂の走る床。乗ると軋み、次の手番の終わりに崩落する。敵を乗せて崩せる。"); return; }
+    if (hz.kind === "miasma") { setPeek("蝕の霧だまり", "菫の霧が澱む。ここで手番を終えるたび、深蝕がじわりと濃くなる。"); return; }
+  }
   if (tileAt(f, x, y) === 1) setPeek("·　石畳", "何もない床。");
   else setPeek("▒　石壁", "崩れる気配はない。");
 }
@@ -586,6 +594,20 @@ let townPlayer: Pos = { ...townGrid.data.start };
 // 街の現在地/タイル格子/貴族街解禁状態を露出する。tools/playtest-noble.ts（クリア後貴族街の BFS ナビ・ファジング）専用。
 // 通常プレイヤーはフラグを立てないので未定義のまま＝副作用ゼロ。
 try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.dbg") === "1") (window as any).__dbg = () => ({ mode, townPlayer: { ...townPlayer }, ascended: world.ascended, nobleOpen: nobleQuarterOpen(), tile: townGrid.tiles[townPlayer.y]?.[townPlayer.x], ngate: townGrid.data.nobleGate, grid: townGrid.tiles, W: townGrid.data.width ?? townGrid.tiles[0].length, H: townGrid.tiles.length }); } catch {}
+// 地形ハザード QA フック（v0.128.0・"sekitsui.dbg"="1" のときだけ定義＝本番無害）。tools の実ブラウザ E2E 専用。
+// 盤面状態の読み取り＋（player 相対で）ハザード/弱い敵の設置・counterTurns 設定＝押し出し叩き込み（本命）を決定論的に検証する。
+try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.dbg") === "1") (window as any).__hazTest = {
+  state: () => {
+    const run = (dx: number, dy: number) => { let n = 0; for (let k = 1; k <= 6 && floor; k++) { const x = player.x + dx * k, y = player.y + dy * k; if (tileAt(floor, x, y) !== 1 || floor.monsters.some((m) => m.hp > 0 && m.x === x && m.y === y)) break; n++; } return n; };
+    return { mode, px: player.x, py: player.y, hp, maxHp: world.current ? maxHp(world.current) : 0, exposure: world.current?.exposure ?? 0, poisonTurns, counterTurns, depth: floor?.depth ?? 0, hazards: (floor?.hazards ?? []).map((h) => ({ ...h })), mons: (floor?.monsters ?? []).filter((m) => m.hp > 0).length, monList: (floor?.monsters ?? []).filter((m) => m.hp > 0).map((m) => ({ x: m.x, y: m.y, hp: m.hp })), openRun: { E: run(1, 0), W: run(-1, 0), N: run(0, -1), S: run(0, 1) } };
+  },
+  clearHaz: () => { if (floor) floor.hazards = []; },
+  putHaz: (dx: number, dy: number, kind: HazardKind) => { if (floor) (floor.hazards ??= []).push({ x: player.x + dx, y: player.y + dy, kind }); },
+  clearMons: () => { if (floor) floor.monsters = []; },
+  spawnMon: (dx: number, dy: number, hpv = 3) => { if (!floor) return; const kind = MONSTER_KINDS.find((k) => k.tier === 1) ?? MONSTER_KINDS[0]; floor.monsters.push({ id: `qa_${floor.monsters.length}`, kind, hp: hpv, awake: true, intent: null, x: player.x + dx, y: player.y + dy }); planMonsters(floor, player, rng, companion); },
+  setCounter: (n: number) => { counterTurns = n; },
+  redraw: () => draw(),
+}; } catch {}
 let crowd: CrowdActor[] = [];        // 街路の群衆（使い捨て・非永続）
 let interior: Interior | null = null; // 屋内シーン（null=街路）
 let townReturn: Pos | null = null;    // 屋内に入る直前の街路位置（出たら戻る）
@@ -748,7 +770,7 @@ function draw() {
     const t = tileAt(floor, x, y);
     const visible = inside && vis.has(mi), explored = inside && floor.explored[mi];
     c.classList.toggle("wall", t === 0 && explored);
-    if (!explored) { span.textContent = ""; c.style.filter = "brightness(0)"; c.classList.remove("tele-atk", "tele-move", "tele-boss", "threat-src"); continue; }
+    if (!explored) { span.textContent = ""; c.style.filter = "brightness(0)"; c.classList.remove("tele-atk", "tele-move", "tele-boss", "threat-src", "hz-fire", "hz-venom", "hz-crumble", "hz-miasma", "hz-cracked"); continue; }
 
     let glyph = t === 0 ? "▒" : "·";
     let cls = t === 0 ? "g-wall" : "g-floor";
@@ -793,6 +815,13 @@ function draw() {
     if (isPlayer) { glyph = "@"; cls = playerThreatened ? (playerHeavy ? "g-player-heavy" : "g-player-danger") : "g-player"; }
     c.classList.toggle("tele-atk", (isPlayer && playerThreatened) || (isCompanion && companionThreatened) || allyThreatened); // 攻撃予告の赤枠
     c.classList.toggle("threat-src", threatSrc.has(mi)); // B：@ を狙っている敵タイルに薄い赤枠
+    // 地形ハザード（v0.128.0）：床の色で読ませる（グリフは置かない）。崩れ床は軋み中=強調（hz-cracked）。
+    const hz = t === 1 ? hazardAt(floor, x, y) : undefined;
+    c.classList.toggle("hz-fire", !!hz && hz.kind === "fire");
+    c.classList.toggle("hz-venom", !!hz && hz.kind === "venom");
+    c.classList.toggle("hz-crumble", !!hz && hz.kind === "crumble");
+    c.classList.toggle("hz-miasma", !!hz && hz.kind === "miasma");
+    c.classList.toggle("hz-cracked", !!hz && hz.kind === "crumble" && !!hz.cracked);
     span.textContent = glyph;
     // 床むら（v0.99.0）：素の床「·」だけ座標決定論で濃淡3段（rng 非使用・石畳の風合い）。
     if (cls === "g-floor") { const v = (x * 7 + y * 13) % 3; span.className = v === 2 ? "g-floor" : `g-floor v${v}`; }
@@ -817,6 +846,8 @@ const MAP_BG = {
   fossil: "#26534c", fossilQuiet: "#1f433d", chest: "#54431a",
   player: "#5a4a1a", path: "#3d3423", aimOk: "#1f7a4a", aimNg: "#7a2f2f",
 } as const;
+// 地形ハザードの地図配色（v0.128.0）：業火=赤橙／毒沼=緑／崩れ床=琥珀／蝕の霧=菫。
+const MAP_HZ_BG: Record<HazardKind, string> = { fire: "#5a2413", venom: "#1f4a24", crumble: "#4a3a12", miasma: "#3a2450" };
 /** 地図ビューポートを算出（v0.109.0）：フロアが読めるサイズ（≥MAP_CELL_MIN px）で収まれば全体表示、
  *  収まらなければ最小サイズで @ 中心のカメラ窓（ドラッグでパン）。グリッドを組み直す。 */
 function layoutMapView(): void {
@@ -881,6 +912,7 @@ function drawMapMode() {
     if (!floor.explored[i]) { span.textContent = ""; c.style.background = MAP_BG.unexplored; continue; }
     const isFloor = floor.tiles[i] === 1;
     let bg: string = isFloor ? MAP_BG.floor : MAP_BG.wall; // 床=明るい / 壁=暗い
+    if (isFloor) { const hz = hazardAt(floor, x, y); if (hz) bg = MAP_HZ_BG[hz.kind]; } // 地形ハザードは地図でも色で読める（地物があれば下で上書き）
     let glyph = "", cls = "";
     if (pathIdx.has(i)) { bg = MAP_BG.path; glyph = "·"; cls = "g-aimpath"; } // 経路の点（地物があれば下で上書き）
     if (x === floor.stairsDown.x && y === floor.stairsDown.y) { bg = MAP_BG.stairs; glyph = "›"; cls = "g-down"; }
@@ -4042,6 +4074,8 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false, viaDoor = 
         log("岩壁のどこかに、呼吸の気配がある。生きて、待っている。", "cue");
       }
     }
+    // 地形ハザード（v0.128.0）：初訪のみ配置（floorCache に乗り同一潜行内で決定論）。深淵帯・街防衛戦には置かない。
+    if (!abyss) placeHazards(floor, rng, player);
   }
   // 同行（4-14C）：相棒がいれば @ の隣に展開（階段は隣接で同行降下）。ephemeral＝再訪でも再展開。
   companion = null;
@@ -4573,6 +4607,170 @@ function meleeWithPositioning(base: number, mon: Monster, opts?: { lunge?: boole
   return { dmg, crit, flank };
 }
 
+// ── 地形ハザード（v0.128.0・web限定＝engine 非改変・golden 安全）：踏むと危険なマス。位置取りの通貨
+//   （挟撃/見切り/押し出し/薙刀の吹き飛ばし）に「敵をハザードに叩き込む」新しい使い道を足す（Into the Breach の方程式）。
+//   ★敵AIはハザードを避けない（単純さ維持・プレイヤーだけが地形を武器にできる非対称）。数値はテスト調整候補。
+type HazardKind = "fire" | "venom" | "crumble" | "miasma";
+type Hazard = { x: number; y: number; kind: HazardKind; cracked?: number };
+const HAZARD_FIRE_DMG = (depth: number) => Math.max(2, Math.round(2 + depth * 0.25));    // 業火床：進入＋滞在の燃焼ダメ（プレイヤー/敵とも同式）
+const HAZARD_CRUMBLE_DMG = (depth: number) => Math.max(4, Math.round(4 + depth * 0.5));  // 崩れかけの床：崩落の大ダメ
+const HAZARD_MIASMA_EXP = 0.02;   // 蝕の霧だまり：手番終了ごと深蝕（addExp 経由＝難易度係数が乗る・プレイヤーのみ）
+const HAZARD_VENOM_TURNS = 3;     // 毒の沼：プレイヤー進入時の毒手数（毒ダメは venomDmgAt でキャップ尊重）
+let steppedOnHazard = false;      // この moveOrInteract でハザードに進入したか（autoTravel/dpadStep の連続移動を止める）
+
+/** マップ座標 (x,y) のハザードを返す（無ければ undefined）。 */
+function hazardAt(f: Floor, x: number, y: number): Hazard | undefined {
+  return f.hazards?.find((h) => h.x === x && h.y === y);
+}
+/** 崩れかけの床を軋ませる（テレグラフ）：この手番終了で cracked→1、次の手番終了で崩落。 */
+function armCrumble(hz: Hazard): void {
+  if (hz.cracked && hz.cracked > 0) return; // 既に軋んでいる（多重予約しない）
+  hz.cracked = 2;
+  log("足元の床が軋んだ――間もなく崩れる。", "warn");
+}
+/** 移動してハザード上に来た敵へ効果を適用（fromPush＝押し出しで叩き込んだ＝即時＋専用ログ＝本命シナジー）。
+ *  ★移動していない敵には呼ばない（配置直後の敵が勝手に死なない＝呼び側で移動判定）。miasma は敵に無効。 */
+function applyHazardToEnemy(mon: Monster, fromPush = false): void {
+  if (!floor || mon.hp <= 0) return;
+  const hz = hazardAt(floor, mon.x, mon.y);
+  if (!hz) return;
+  const depth = floor.depth;
+  if (hz.kind === "fire") {
+    const d = HAZARD_FIRE_DMG(depth);
+    mon.hp -= d;
+    floatFx(mon.x, mon.y, String(d), "fl-dmg"); if (fromPush) tileFx(mon.x, mon.y, "tfx-slash");
+    log(fromPush ? `${mon.kind.name}を業火に叩き込んだ！（${d}）` : `${mon.kind.name}が業火に灼かれる（${d}）。`, fromPush ? "cue" : "dim");
+    if (mon.hp <= 0) { if (mode === "raid") raidKill(mon); else downOrKill(mon, `${mon.kind.name}は業火に灼き尽くされた。`); }
+  } else if (hz.kind === "venom") {
+    mon.poison = Math.max(mon.poison ?? 0, 3); // 既存 Monster.poison（腐喰＝毎手ダメ）を流用
+    mon.poisonDmg = Math.max(mon.poisonDmg ?? 0, venomDmgAt(depth));
+    log(fromPush ? `${mon.kind.name}を毒沼へ突き落とした！` : `${mon.kind.name}が毒沼に沈む。`, fromPush ? "cue" : "dim");
+  } else if (hz.kind === "crumble") {
+    armCrumble(hz);
+  }
+}
+/** プレイヤーが今立っているハザードの毎手効果（業火＝ダメ／蝕の霧＝深蝕）。進入時/崩落は別処理。 */
+function resolvePlayerHazard(): void {
+  if (!floor) return;
+  const hz = hazardAt(floor, player.x, player.y);
+  if (!hz) return;
+  if (hz.kind === "fire") {
+    const d = HAZARD_FIRE_DMG(floor.depth);
+    hp -= d; sfx("drain"); floatFx(player.x, player.y, String(d), "fl-hurt");
+    log(`業火に灼かれる（HP -${d}）。`, "warn");
+  } else if (hz.kind === "miasma") {
+    addExp(HAZARD_MIASMA_EXP);
+    log("蝕の霧が肺を満たす……深蝕がじわりと濃くなる。", "warn");
+  }
+}
+/** 崩れかけの床のカウントダウン＋崩落（毎手末に1回。cracked を減らし 0 で崩落＝その上の者へ大ダメ・以後は普通の床）。 */
+function tickCrumble(): void {
+  if (!floor?.hazards) return;
+  for (let i = floor.hazards.length - 1; i >= 0; i--) {
+    const hz = floor.hazards[i];
+    if (hz.kind !== "crumble" || !hz.cracked) continue;
+    hz.cracked--;
+    if (hz.cracked > 0) continue;
+    const d = HAZARD_CRUMBLE_DMG(floor.depth);
+    floor.hazards.splice(i, 1); // 崩落後は普通の床（一回きり）
+    tileFx(hz.x, hz.y, "tfx-slash");
+    if (player.x === hz.x && player.y === hz.y) {
+      hp -= d; sfx("hurt"); floatFx(hz.x, hz.y, String(d), "fl-hurt");
+      log(`床が崩れ落ちた！ 足を取られ ${d} の傷。`, "warn");
+    }
+    const m = floor.monsters.find((mm) => mm.hp > 0 && mm.x === hz.x && mm.y === hz.y);
+    if (m) {
+      m.hp -= d; floatFx(hz.x, hz.y, String(d), "fl-dmg");
+      log(`崩落が${m.kind.name}を呑んだ（${d}）。`, "cue");
+      if (m.hp <= 0) { if (mode === "raid") raidKill(m); else downOrKill(m); }
+    }
+  }
+}
+/** プレイヤーが移動でハザードに進入した瞬間の効果（業火＝即燃焼／毒沼＝毒付与／崩れ床＝軋み）。miasma は進入時無効。
+ *  moveOrInteract の移動確定直後に呼ぶ。連続移動（autoTravel/dpadStep）はこの進入を検知して止める。 */
+function onPlayerEnterHazard(): void {
+  if (!floor) return;
+  const hz = hazardAt(floor, player.x, player.y);
+  if (!hz) return;
+  steppedOnHazard = true;
+  if (hz.kind === "fire") {
+    const d = HAZARD_FIRE_DMG(floor.depth);
+    hp -= d; sfx("drain"); floatFx(player.x, player.y, String(d), "fl-hurt");
+    log(`業火の床に踏み込んだ――灼ける（HP -${d}）。`, "warn");
+  } else if (hz.kind === "venom") {
+    poisonTurns = Math.max(poisonTurns, HAZARD_VENOM_TURNS);
+    poisonDmg = Math.max(poisonDmg, venomDmgAt(floor.depth));
+    sfx("drain");
+    log(`毒の沼に足を取られた――毒が回る（毒${HAZARD_VENOM_TURNS}手）。`, "warn");
+  } else if (hz.kind === "crumble") {
+    armCrumble(hz);
+  }
+}
+/** ハザードの配置（v0.128.0・enterFloor 初訪のみ・web の rng＝floorCache に乗り同一潜行内で決定論）。
+ *  深度4以上・約45%のフロアに 1〜2 クラスタ（3〜6 マスの連結塊）。fire/venom=d4+／crumble=d8+／miasma=d25+。
+ *  階段/ノード/宝箱/化石/帰還扉/縦糸/スポーンとその隣接には置かず、部屋の内部（8近傍に床6+）を優先＝通路を塞がない。 */
+function placeHazards(f: Floor, rng: Rng, spawn: Pos): void {
+  f.hazards = [];
+  const depth = f.depth;
+  if (depth < 4 || rng.next() >= 0.45) return;
+  const kinds: HazardKind[] = ["fire", "venom"];
+  if (depth >= 8) kinds.push("crumble");
+  if (depth >= 25) kinds.push("miasma");
+  const banned = new Set<number>();
+  const banAround = (x: number, y: number) => {
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const bx = x + dx, by = y + dy;
+      if (inBounds(f, bx, by)) banned.add(mapIdx(f, bx, by));
+    }
+  };
+  banAround(spawn.x, spawn.y);
+  banAround(f.stairsUp.x, f.stairsUp.y);
+  banAround(f.stairsDown.x, f.stairsDown.y);
+  for (const s of f.shrines) banAround(s.x, s.y);
+  for (const c of f.chests) banAround(c.x, c.y);
+  for (const e of f.fossils) banAround(e.x, e.y);
+  if (f.returnDoor) banAround(f.returnDoor.x, f.returnDoor.y);
+  if (f.aurelSite) banAround(f.aurelSite.x, f.aurelSite.y);
+  // 部屋の内部＝周囲8近傍に床が6以上（通路や部屋の縁を避ける＝幅1通路を完全に塞がない）。
+  const isInterior = (x: number, y: number): boolean => {
+    if (tileAt(f, x, y) !== 1) return false;
+    let n = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      if (tileAt(f, x + dx, y + dy) === 1) n++;
+    }
+    return n >= 6;
+  };
+  const occupied = new Set<number>();
+  const clusters = 1 + (rng.next() < Math.min(0.7, (depth - 4) / 30) ? 1 : 0); // 深いほど2クラスタになりやすい
+  for (let ci = 0; ci < clusters; ci++) {
+    const kind = kinds[rng.int(kinds.length)];
+    let seed: Pos | null = null;
+    for (let tries = 0; tries < 80 && !seed; tries++) {
+      const x = 1 + rng.int(f.w - 2), y = 1 + rng.int(f.h - 2);
+      const i = mapIdx(f, x, y);
+      if (banned.has(i) || occupied.has(i) || !isInterior(x, y)) continue;
+      seed = { x, y };
+    }
+    if (!seed) continue;
+    const target = 3 + rng.int(4); // 3〜6 マス
+    const frontier: Pos[] = [seed];
+    let placed = 0;
+    while (placed < target && frontier.length) {
+      const p = frontier.splice(rng.int(frontier.length), 1)[0];
+      const i = mapIdx(f, p.x, p.y);
+      if (banned.has(i) || occupied.has(i) || !isInterior(p.x, p.y)) continue;
+      occupied.add(i);
+      f.hazards.push({ x: p.x, y: p.y, kind });
+      placed++;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const nx = p.x + dx, ny = p.y + dy;
+        if (inBounds(f, nx, ny)) frontier.push({ x: nx, y: ny });
+      }
+    }
+  }
+}
+
 /** そのマスが押し出しの行き先として塞がっているか（壁・盤外＝true は呼び側で別扱い）。 */
 function pushBlocker(x: number, y: number): "wall" | "enemy" | "clear" {
   if (!floor || tileAt(floor, x, y) !== 1) return "wall";
@@ -4609,6 +4807,7 @@ function pushEnemy(mon: Monster, dx: number, dy: number): void {
   } else {
     mon.x = nx; mon.y = ny; tileFx(nx, ny, "tfx-press");
     log(`${mon.kind.name}を突き飛ばした。`, "dim");
+    applyHazardToEnemy(mon, true); // ★着地点がハザードなら即・叩き込む（位置取りの通貨×地形の本命シナジー）
   }
 }
 
@@ -4949,6 +5148,7 @@ async function endTurn() {
   }
 
   // 敵の手番：予告した一手を実行（退いた予告は空振り＝見切り。静止中はwait）。標的は @ or 相棒。
+  const preHazPos = new Map(floor.monsters.map((m) => [m.id, `${m.x},${m.y}`])); // 地形ハザード：移動した敵だけに効かせる（配置直後は無効）
   const res = resolveMonsters(floor, player, companion);
   // 被弾音は少し遅らせる＝自分の攻撃音(hit/術)と同時に潰れず「攻撃→（間）→反撃を食らう」と順次に聞こえる。
   if (res.hits.length) sfx("hurt", 0.14);
@@ -5004,7 +5204,15 @@ async function endTurn() {
     counterTurns = COUNTER_WINDOW;
   }
   if (companion && companion.hp <= 0) companionDies(); // 相棒の戦死＝化石化
+  // 地形ハザード：この手番で位置が変わった敵がハザード上なら適用（fire=灼く／venom=毒／crumble=軋み）。
+  for (const m of floor.monsters) {
+    if (m.hp <= 0) continue;
+    if (preHazPos.get(m.id) !== `${m.x},${m.y}`) applyHazardToEnemy(m, false);
+  }
   } // end if(!hasted)
+  // 地形ハザード（毎手・hasted でも）：@ が今立つハザードの効果（業火＝ダメ／蝕の霧＝深蝕）＋崩れ床のカウントダウン/崩落。
+  resolvePlayerHazard();
+  tickCrumble();
   // 敵図鑑：視界内の生存敵を記録（遭遇＝図鑑に編む。web限定・決定論）。
   recordBestiary();
   // 次の一手を予告する（プレイヤーが見て動けるように。相棒は連帯深蝕で erratic にぶれる）
@@ -5720,8 +5928,10 @@ async function autoTravel(dest: Pos) {
     const px = player.x, py = player.y;
     if (!moveOrInteract(player.x + dx, player.y + dy)) break; // 壁
     if (busy) { draw(); break; } // 宝箱/化石/階段の場面が開いた＝そこで止める
+    const hitHazard = steppedOnHazard; // 地形ハザードに踏み込んだ＝この手を終えたら止める（火の中を走り抜けない）
     await endTurn();
     if (hp <= 0 || (player.x === px && player.y === py)) break; // 死亡 or 進めず
+    if (hitHazard) { log("危険な地形。自動移動を止めた。", "warn"); break; }
     await sleep(70);
   }
 }
@@ -5855,6 +6065,7 @@ function rollKillLoot(mon: Monster): void {
 /** 移動 or 体当たり。falseなら手番を消費しない（壁） */
 function moveOrInteract(nx: number, ny: number): boolean {
   const f = floor!;
+  steppedOnHazard = false; // 地形ハザード：この一手で進入したか（連続移動の停止判定用）。毎回リセット。
   if (tileAt(f, nx, ny) !== 1) return false;
 
   const mon = f.monsters.find((m) => m.hp > 0 && m.x === nx && m.y === ny);
@@ -5940,6 +6151,7 @@ function moveOrInteract(nx: number, ny: number): boolean {
 
   player = { x: nx, y: ny };
   sfx("move");
+  onPlayerEnterHazard(); // 地形ハザード：進入時の即効果（業火＝即燃焼／毒沼＝毒付与／崩れ床＝軋み）。steppedOnHazard も立つ。
 
   // 階段
   if (nx === f.stairsDown.x && ny === f.stairsDown.y) void stairsPrompt("down");
@@ -6560,7 +6772,8 @@ const HELP_LEGEND =
   "敵＝記号×色（上位の色ほど強い）\n" +
   "ψ ‡ Ψ 菫＝あなたが召喚した一時の味方\n" +
   "泉 青緑＝回復の泉（HP回復）／安 緑＝安息所（深蝕を祓う）\n" +
-  "扉 金＝帰還の扉／> ＝下り階段／< ＝上り階段\n\n" +
+  "扉 金＝帰還の扉／> ＝下り階段／< ＝上り階段\n" +
+  "危険な床（色で読む）＝業火(赤)／毒沼(緑)／崩れ床(琥珀)／蝕の霧(菫)。敵を突き飛ばして叩き込める\n\n" +
   "▍街\n" +
   "漢字の看板＝店・施設（入って話す）\n" +
   "ラテン文字＝街の人々：c 町民／$ 商人／n 貴族／t ならず者／f 冒険者\n" +
@@ -7545,8 +7758,10 @@ async function dpadStep(dx: number, dy: number): Promise<boolean> {
   const px = player.x, py = player.y, hpBefore = hp;
   if (!moveOrInteract(player.x + dx, player.y + dy)) return false; // 壁
   if (busy) { draw(); return false; } // 宝箱/化石/階段/帰還扉の場面が開いた＝そこで止める
+  const hitHazard = steppedOnHazard; // 地形ハザードに踏み込んだ＝この手で連続移動を止める
   await endTurn();
   if (hp <= 0 || hp < hpBefore || (player.x === px && player.y === py)) return false; // 死/被ダメ/進めず
+  if (hitHazard) { log("危険な地形。連続移動を止めた。", "warn"); return false; }
   return true;
 }
 /** 押しっぱなしの間、同じ方向へ歩き続ける（dpadStep が false を返すまで）。 */
