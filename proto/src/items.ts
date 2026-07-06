@@ -48,6 +48,8 @@ const TEMPLATES: Template[] = [
   { slot: "weapon", name: "木槍",     minDepth: 2,  dmg: 1, reach: 2 }, // 序盤から槍を試せる入口
   { slot: "weapon", name: "長槍",     minDepth: 12, dmg: 2, reach: 2 }, // 同深度の剣 鎖星/大剣=3 の −1
   { slot: "weapon", name: "十文字槍", minDepth: 19, dmg: 3, reach: 2 }, // 同深度の剣 双刃=4 の −1
+  { slot: "weapon", name: "大身槍",   minDepth: 25, dmg: 3, reach: 2, proc: "rend" }, // 深層＝幅広の穂先が裂傷を刻む（断界刃=4 の −1・proc が補償）
+  { slot: "weapon", name: "淵穿ち",   minDepth: 30, dmg: 4, reach: 2, exposurePerTurn: 0.02, oddity: true }, // 深淵の刃の槍版＝蝕む業物（−1 免除の代償に深蝕+）
   // 防具（被ダメ-）＝武器と同数9種
   { slot: "armor",  name: "革鎧",     minDepth: 1,  reduce: 1 },
   { slot: "armor",  name: "外套",     minDepth: 2,  reduce: 1 },
