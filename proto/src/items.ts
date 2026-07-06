@@ -99,6 +99,7 @@ const TEMPLATES: Template[] = [
   { slot: "weapon", name: "貫きの長刀",   minDepth: 20, dmg: 4, proc: "pierce", exclusive: true }, // 直線の遠距離リーチ
   { slot: "weapon", name: "氷結の魔杖",   minDepth: 20, dmg: 2, proc: "freeze", exclusive: true }, // 範囲凍結＋鈍化（無力化）
   { slot: "weapon", name: "吸命の魔剣",   minDepth: 20, dmg: 3, proc: "drain",  exposurePerTurn: 0.02, exclusive: true }, // 魔法吸収（回復）
+  { slot: "weapon", name: "布都の神槍",   minDepth: 20, dmg: 4, reach: 2, proc: "stun", exposurePerTurn: -0.015, exclusive: true }, // 伝説槍＝荒ぶるものを鎮める神威（当て止め）＋携えるだけで深蝕を薄める浄性（魔剣系の蝕と対）
   { slot: "armor",  name: "反射結界の鎧", minDepth: 20, reduce: 3, proc: "reflectall", exposurePerTurn: 0.02, exclusive: true }, // 近接も遠距離も反射
   { slot: "armor",  name: "虚無の法衣",   minDepth: 20, reduce: 3, proc: "negate", exclusive: true }, // 一定確率で完全無効
   { slot: "armor",  name: "疾風の外套",   minDepth: 20, reduce: 3, proc: "hasten", exclusive: true }, // 進入時ヘイスト
