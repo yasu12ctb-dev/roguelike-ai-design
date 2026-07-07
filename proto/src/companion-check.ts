@@ -4,7 +4,7 @@ import {
   GRADE_LABELS, LIVING_GRADE_CAP, playerGrade, playerAchievement, rankLabel, companionGradeFor,
   hireFee, effectiveHireGrade, companionCut,
 } from "./companion.ts";
-import { companionMaxHp, companionDmg } from "./dungeon.ts";
+import { companionMaxHp, companionDmg, companionReduce } from "./dungeon.ts";
 
 let pass = 0, fail = 0;
 function eq(label: string, got: unknown, want: unknown) {
@@ -59,6 +59,8 @@ eq("HP 等級別(深度0)", [0, 1, 2, 3, 4].map((g) => companionMaxHp(g)), [10, 
 eq("攻撃 等級別(深度0)", [0, 1, 2, 3, 4].map((g) => companionDmg(g)), [2, 3, 4, 5, 6]);
 eq("HP 深度連動(白金@d50)", companionMaxHp(4, 50), 22 + 60); // 深部で壁役が成立（旧 22 固定→紙）
 eq("攻撃 深度連動(白金@d50)", companionDmg(4, 50), 6 + 8);
+eq("軽減 等級別(深度0)", [0, 1, 2, 3, 4].map((g) => companionReduce(g)), [0, 1, 2, 3, 4]);
+eq("軽減 深度連動(白金@d50)", companionReduce(4, 50), 6 + 4);
 
 // --- 契約シナリオ（再雇用で昇格が継続するか＝生者NPC蓄積の意味づけ） ---
 console.log("== 契約シナリオ：雇用→生還で昇格→解散→再雇用で再開 ==");

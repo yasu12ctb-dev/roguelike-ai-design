@@ -586,6 +586,13 @@ export function companionDmg(grade: number, depth = 0): number {
   return 2 + Math.max(0, Math.min(5, grade)) + Math.round(depth * 0.15);
 }
 
+/** 相棒の被ダメ軽減＝金属等級（基礎）＋潜行深度（v0.132.0・「すぐ死ぬ」是正）。
+ *  プレイヤーは防具軽減を持つが相棒は生ダメージ丸受けだった（実効耐久が本体の約半分）。
+ *  等級＋深度で緩くスケールし、被弾を max(1, dmg-reduce) にして実効耐久を約2倍へ（下限1＝無敵化しない）。 */
+export function companionReduce(grade: number, depth = 0): number {
+  return Math.round(depth * 0.12) + Math.max(0, Math.min(5, grade));
+}
+
 // 移動先が他者で塞がっているか（モンスター同士・化石・味方・手負いと重ならない）。
 // friends＝味方エンティティ（相棒1体／街防衛戦の複数の冒険者）。空なら従来どおり（相棒なし＝golden 不変）。
 const occupiedBy = (f: Floor, x: number, y: number, self: Monster | null, friends?: readonly Pos[] | null) =>
