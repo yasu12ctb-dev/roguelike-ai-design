@@ -60,8 +60,8 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.132.0";
-export const APP_BUILD = "2026-07-04";
+export const APP_VERSION = "0.133.0";
+export const APP_BUILD = "2026-07-07";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
 const db = makeContentDb(
@@ -841,6 +841,15 @@ function draw() {
     const d = Math.hypot(x - player.x, y - player.y);
     const b = visible ? Math.max(0.35, 1 - d / 11) : 0.16; // 記憶は薄暗く
     c.style.filter = `brightness(${b.toFixed(2)})`;
+  }
+  // 投擲照準（v0.133.0）：クロスヘア（着弾中心）＋着弾3×3の予告ハイライト。throwActive のときだけ点す（他は毎フレーム消す）。
+  for (let vy = 0; vy < VIEW_H; vy++) for (let vx = 0; vx < VIEW_W; vx++) {
+    const c = cells[vy * VIEW_W + vx];
+    const x = camX + vx, y = camY + vy;
+    const center = throwActive && !!throwAim && x === throwAim.x && y === throwAim.y;
+    const blast = throwActive && !!throwAim && Math.max(Math.abs(x - throwAim.x), Math.abs(y - throwAim.y)) <= 1;
+    c.classList.toggle("throw-aim", center);
+    c.classList.toggle("throw-blast", blast && !center);
   }
   // 光源は @ のビュー内位置
   lightEl.style.setProperty("--px", ((player.x - camX + 0.5) / VIEW_W * 100) + "%");
@@ -1942,7 +1951,7 @@ function consumeOne(ch: Character, key: string) {
 function isCombatConsumable(def: ConsumableDef | undefined): boolean {
   if (!def) return false;
   const u = def.use;
-  return !!(u.healFrac || u.curePoison || u.atkBuff || u.armBuff || u.haste || u.burst);
+  return !!(u.healFrac || u.curePoison || u.atkBuff || u.armBuff || u.haste || u.throw);
 }
 /** 消耗品の効果を適用（深蝕−／HP回復／戦術系。hp はモジュール変数＝潜行中の現在HP）。戻り＝表示用。 */
 function applyConsumable(ch: Character, key: string): string {
@@ -1968,18 +1977,7 @@ function applyConsumable(ch: Character, key: string): string {
   if (u.atkBuff) { attackBuffTurns = Math.max(attackBuffTurns, u.atkBuff); parts.push(`近接強化 ${u.atkBuff}手`); }
   if (u.armBuff) { armorBuffTurns = Math.max(armorBuffTurns, u.armBuff); parts.push(`防御強化 ${u.armBuff}手`); }
   if (u.haste)   { hasteTurns = Math.max(hasteTurns, u.haste); parts.push(`疾走 ${u.haste}手`); }
-  if (u.burst && floor) { // 投擲＝周囲（半径1・Chebyshev）の敵に一括ダメージ。撃破は downOrKill（ボスは決着へ）。
-    const dmg = u.burst;
-    let hitN = 0;
-    for (const m of floor.monsters) {
-      if (m.hp <= 0) continue;
-      if (Math.max(Math.abs(m.x - player.x), Math.abs(m.y - player.y)) > 1) continue;
-      m.hp -= dmg; hitN++; flashFx("warp", { x: m.x, y: m.y });
-      if (m.hp <= 0) downOrKill(m, `${def.name}が${m.kind.name}を焼いた。`);
-    }
-    sfx("spell_warp");
-    parts.push(hitN ? `${hitN}体を焼く（各${dmg}）` : "周囲に敵がいない");
-  }
+  // 投擲壺（u.throw）はここでは処理しない＝手動照準の非同期フロー throwConsumable→resolveThrow で解決する。
   if (u.identify) { // 手持ち（装備＋袋）の未鑑定をすべて見極める
     const gear: Item[] = [...Object.values(ch.equipment).filter((g): g is Item => !!g), ...(ch.gearBag ?? [])];
     let n = 0;
@@ -5631,11 +5629,121 @@ $("bagBtn").onclick = async () => {
   busy = false;
   if (i < 0 || i >= inv.length) return;
   const s = inv[i], def = consumableByKey(s.key);
+  if (def?.use.throw) { // 投擲壺＝手動照準（盤上クロスヘア）へ。投げたら消費＆一手、やめたら非消費・非手番。
+    const thrown = await throwConsumable(ch, s.key);
+    if (thrown) { consumeOne(ch, s.key); await turnPass(); }
+    return;
+  }
   const msg = applyConsumable(ch, s.key); consumeOne(ch, s.key);
   sfx("consume");
   log(`${def?.name} を使った（${msg}）。`, "warn");
   await turnPass(); // 一手経過＝敵の手番（迷宮／街防衛戦）
 };
+
+// ── 投擲壺（v0.133.0・web限定）：手動照準で離れたマスへ投げ、着弾3×3にAoE＋地形ハザードを残す。
+//   火炎瓶/業火の壺（fire）・毒の壺（venom）・凍てつく壺（frost）。深蝕ゼロ＝術の業火床/凍霧との住み分け。
+//   照準＝盤上のクロスヘア（地図モードは使わない）。射程 Chebyshev≤THROW_RANGE・視界内・壁不可（山なりで壁越し可）。
+const THROW_RANGE = 4;
+let throwActive = false;               // 投擲照準モード中（true の間は移動入力がクロスヘアを動かす）
+let throwAim: Pos | null = null;       // クロスヘアの現在位置（着弾中心）
+let throwKey: string | null = null;    // 投げる品のキー
+let throwVis: Set<number> | null = null; // 照準開始時の視界（プレイヤーは動かないので固定でよい）
+let throwResolve: ((thrown: boolean) => void) | null = null;
+
+/** 視界内の最寄りの生存敵（初期照準の候補）。 */
+function nearestVisibleMon(): Monster | null {
+  if (!floor || !throwVis) return null;
+  const seen = floor.monsters.filter((m) => m.hp > 0 && throwVis!.has(mapIdx(floor!, m.x, m.y)));
+  if (!seen.length) return null;
+  return seen.reduce((a, b) => Math.hypot(a.x - player.x, a.y - player.y) <= Math.hypot(b.x - player.x, b.y - player.y) ? a : b);
+}
+/** そのマスに投げられるか＝射程内（Chebyshev≤THROW_RANGE）・視界内・床（壁不可）。 */
+function throwAimValid(x: number, y: number): boolean {
+  if (!floor || !throwVis || !inBounds(floor, x, y)) return false;
+  if (Math.max(Math.abs(x - player.x), Math.abs(y - player.y)) > THROW_RANGE) return false;
+  if (tileAt(floor, x, y) !== 1) return false;   // 壁には落とせない
+  return throwVis.has(mapIdx(floor, x, y));       // 見えているマスのみ
+}
+function updateThrowBar(): void {
+  const el = document.getElementById("throwMsg");
+  if (el) el.textContent = `投げる先を方向パッド／タップで選ぶ（射程${THROW_RANGE}）`;
+}
+function setThrowAim(x: number, y: number): void {
+  throwAim = { x, y };
+  updateThrowBar(); draw();
+}
+function moveThrowAim(dx: number, dy: number): void {
+  if (!throwAim) return;
+  const nx = throwAim.x + dx, ny = throwAim.y + dy;
+  if (throwAimValid(nx, ny)) setThrowAim(nx, ny);
+  else sfx("deny"); // 射程/視界/壁の外＝clamp（動かさず不可音）
+}
+/** 投擲を終える（thrown＝投げたか）。UI/状態を戻し、待っていた Promise を解決。 */
+function endThrow(thrown: boolean): void {
+  throwActive = false; throwAim = null; throwVis = null; busy = false;
+  $("throwBar").hidden = true;
+  const r = throwResolve; throwResolve = null; throwKey = null;
+  draw();
+  if (r) r(thrown);
+}
+function confirmThrow(): void {
+  if (!throwActive || !throwAim || !throwKey || !world.current) { endThrow(false); return; }
+  const key = throwKey, tx = throwAim.x, ty = throwAim.y;
+  resolveThrow(world.current, key, tx, ty);
+  endThrow(true);
+}
+function cancelThrow(): void { log("投げるのをやめた。", "dim"); endThrow(false); }
+
+/** 投擲照準モードに入り、投げる（true）／やめる（false）を返す。busy=true で他UIを止める＝入力は throwActive 分岐が先取り。 */
+function throwConsumable(ch: Character, key: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (!floor || (mode !== "dive" && mode !== "raid")) { resolve(false); return; }
+    void ch;
+    throwVis = computeFov(floor, player);
+    // 初期照準＝視界内の最寄りの敵、なければ前方（上優先）の投げられるマス、最後は足元（自爆の読み合い）。
+    const nm = nearestVisibleMon();
+    let aimP: Pos | null = nm && throwAimValid(nm.x, nm.y) ? { x: nm.x, y: nm.y } : null;
+    if (!aimP) for (const [dx, dy] of [[0, -1], [0, 1], [1, 0], [-1, 0], [1, -1], [-1, -1], [1, 1], [-1, 1]] as const) {
+      if (throwAimValid(player.x + dx, player.y + dy)) { aimP = { x: player.x + dx, y: player.y + dy }; break; }
+    }
+    throwAim = aimP ?? { x: player.x, y: player.y };
+    throwKey = key; throwActive = true; busy = true; throwResolve = resolve;
+    $("throwBar").hidden = false;
+    updateThrowBar(); draw();
+  });
+}
+/** 着弾＝(tx,ty) 中心の3×3（Chebyshev半径1）にAoE＋地形ハザードを残す。着弾は必ず成立（敵ゼロでもハザードは残る）。 */
+function resolveThrow(ch: Character, key: string, tx: number, ty: number): void {
+  void ch;
+  if (!floor) return;
+  const def = consumableByKey(key), th = def?.use.throw;
+  if (!th) return;
+  const depth = floor.depth; // raid では pseudoDepth が floor.depth に入っている
+  const inBlast = (x: number, y: number) => Math.max(Math.abs(x - tx), Math.abs(y - ty)) <= 1;
+  let hitN = 0;
+  for (const m of floor.monsters) {
+    if (m.hp <= 0 || !inBlast(m.x, m.y)) continue;
+    if (th.kind === "fire") {
+      const d = th.dmg ?? 0;
+      m.hp -= d; hitN++; floatFx(m.x, m.y, String(d), "fl-dmg"); flashFx("warp", { x: m.x, y: m.y });
+      if (m.hp <= 0) { if (mode === "raid") raidKill(m); else downOrKill(m, `${def!.name}が${m.kind.name}を焼いた。`); }
+    } else if (th.kind === "venom") {
+      m.poison = Math.max(m.poison ?? 0, VENOM_TURNS); m.poisonDmg = Math.max(m.poisonDmg ?? 0, venomDmgAt(depth));
+      hitN++; floatFx(m.x, m.y, "毒", "fl-dmg");
+    } else if (th.kind === "frost") {
+      m.slowed = Math.max(m.slowed ?? 0, th.slow ?? 4); hitN++; floatFx(m.x, m.y, "鈍", "fl-heal");
+    }
+  }
+  // fire は着弾3×3にプレイヤーがいれば自分も焼ける（足元へ投げたら読み合い＝生ダメージ）。
+  if (th.kind === "fire" && inBlast(player.x, player.y)) {
+    const d = th.dmg ?? 0; hp -= d; sfx("drain"); floatFx(player.x, player.y, String(d), "fl-hurt");
+    log(`自らも業火に巻かれた（HP -${d}）。`, "warn");
+  }
+  const laid = layHazardField(floor, tx, ty, 1, th.kind, th.turns, true);
+  sfx(th.kind === "fire" ? "spell_warp" : "spell_still");
+  const word = th.kind === "fire" ? "業火" : th.kind === "venom" ? "毒沼" : "凍霧";
+  log(`${def!.name}を投げた――${hitN ? `${hitN}体を巻き込み、` : "敵はいなかったが、"}${word}が残る（${laid}マス・${th.turns}手）。`, hitN ? "cue" : "dim");
+}
 
 /** 視界内の最寄りの敵。 */
 function nearestMon(list: Monster[]): Monster {
@@ -6917,7 +7025,8 @@ const HELP_FLOW =
   "・敵は次の一手を予告する（テレグラフ）。退いて空振りさせるのが「見切り」。\n" +
   "・見切った直後は「反撃の好機」＝次の近接攻撃が会心になる。\n" +
   "・相棒・召喚・共闘者と敵を挟むと「挟み撃ち」＝近接攻撃が増す。\n" +
-  "・武器には剣（8方向・隣接）／槍（十字4方向・2マス射程・直線の2体を貫く／斜め・踏み込み不可＝幅1の通路で真価）／薙刀（振った方向とその左右も同時に斬る＝開所で囲まれた時に真価。見切り反撃の会心はまとめて吹き飛ばす）がある。\n\n" +
+  "・武器には剣（8方向・隣接）／槍（十字4方向・2マス射程・直線の2体を貫く／斜め・踏み込み不可＝幅1の通路で真価）／薙刀（振った方向とその左右も同時に斬る＝開所で囲まれた時に真価。見切り反撃の会心はまとめて吹き飛ばす）がある。\n" +
+  "・壺＝離れたマスへ投げてAoE＋地形を残す（火＝焼く／毒＝毒沼／凍＝鈍らせる凍霧）。方向パッド／タップで狙い、「投げる」で放つ（射程4）。\n\n" +
   "▍地図とねらい\n" +
   "地図ボタンでフロア全体を表示。地図をタップ→最寄りの床にマーカー→パッドで微調整→「移動」で自動で歩く。";
 const HELP_LEGEND =
@@ -7836,9 +7945,13 @@ $("mapBtn").onclick = () => { if (mode !== "dive") return; setMapMode(!mapMode);
 $("aimGo").onclick = () => confirmAim();
 $("aimCancel").onclick = () => cancelAim();
 $("mapOverviewBtn").onclick = () => toggleMapOverview();
+// 投擲照準バー（v0.133.0）：ボタンは盤面のタップ/スワイプ判定から隔離。
+$("throwGo").onclick = () => confirmThrow();
+$("throwCancel").onclick = () => cancelThrow();
 for (const ev of ["touchstart", "touchend", "pointerdown"]) {
   $("aimBar").addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
   $("mapOverviewBtn").addEventListener(ev, (e) => e.stopPropagation(), { passive: true }); // 地図のタップ/パン判定へ伝播させない
+  $("throwBar").addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
 }
 // ステータスタブ＝身上・装備・術・進行中・年代記・敵図鑑（旧「冒険の記録」を統合）。
 $("statBtn").onclick = () => { if (!busy) void charScreen(); };
@@ -7868,6 +7981,7 @@ function recordBestiary() {
 
 /** 移動入力の合流点（キー／スワイプ／D-pad）。8方向＋待機。mode と図モードの面倒を見る。 */
 function dirMove(dx: number, dy: number) {
+  if (throwActive) { ensureAudio(); if (dx === 0 && dy === 0) confirmThrow(); else moveThrowAim(dx, dy); return; } // 投擲照準：方向でクロスヘア調整／中央で投げる
   if (busy || overlayEl.classList.contains("show")) return; // シート表示中は盤面を動かさない（街と同じ＝確認等の入れ子シート裏での誤操作・再入防止）
   ensureAudio();
   if (mode === "town" || mode === "interior") { if (dx === 0 && dy === 0) return; townAct(dx, dy); return; }
@@ -7902,7 +8016,7 @@ let dpadRunning = false;
 
 /** 連続移動の1歩。続行可なら true。安全停止（敵が視界／被ダメ／場面/壁/死/モード変化）で false。 */
 async function dpadStep(dx: number, dy: number): Promise<boolean> {
-  if (busy || overlayEl.classList.contains("show") || mapMode) return false;
+  if (throwActive || busy || overlayEl.classList.contains("show") || mapMode) return false;
   if (mode === "town") { // 街：壁/NPC/景物（動けない）と場面オープンで停止
     const before = `${townPlayer.x},${townPlayer.y}`;
     townAct(dx, dy);
@@ -8005,6 +8119,10 @@ const DIR_CODES: Record<string, [number, number]> = {
 };
 addEventListener("keydown", (e) => {
   ensureAudio();
+  if (throwActive) { // 投擲照準：Enter/Space=投げる、Esc=やめる、方向=クロスヘア調整
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); confirmThrow(); return; }
+    if (e.key === "Escape") { e.preventDefault(); cancelThrow(); return; }
+  }
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   const dir = DIR_KEYS[k] ?? DIR_CODES[e.code];
   if (!dir) return;
@@ -8039,6 +8157,14 @@ $("mapWrap").addEventListener("touchend", (e) => {
   touchStart = null; mapPanLast = null;
   const tap = Math.hypot(dx, dy) < 24;
   if (mapPanned) { mapPanned = false; return; } // ドラッグでパンした＝タップ/スワイプ扱いしない
+
+  if (throwActive) { // 投擲照準：盤上タップ＝その（投げられる）マスへクロスヘアを置く
+    if (tap) {
+      const h = hitCell(tx, ty);
+      if (h) { const wx = cam.x + h.x, wy = cam.y + h.y; if (throwAimValid(wx, wy)) setThrowAim(wx, wy); else sfx("deny"); }
+    }
+    return;
+  }
 
   if (mode === "town" || mode === "interior") {
     if (!tap) { // スワイプ＝8方向移動

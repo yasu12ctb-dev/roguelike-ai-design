@@ -322,15 +322,23 @@ export interface ConsumableDef {
   key: string; name: string; desc: string; price: number;
   minLevel?: number; // この等級未満では店頭に並ばない（深部向け上位品を序盤の棚に出さない）
   // 効果（web の applyConsumable が解釈）。exposure/healFrac＝街でも使える基本品。
-  // curePoison/atkBuff/armBuff/haste/burst＝戦術系（潜行中限定）。identify＝持ち物の未鑑定を見極める。
+  // curePoison/atkBuff/armBuff/haste/throw＝戦術系（潜行中限定）。identify＝持ち物の未鑑定を見極める。
   use: {
     exposure?: number; healFrac?: number;
     curePoison?: boolean;  // 巡る毒（敵 venom）を中和（poisonTurns→0）
     atkBuff?: number;      // 近接強化を n 手（深蝕ゼロ＝術の clean 版・量は ATTACK_BUFF）
     armBuff?: number;      // 被ダメ軽減を n 手（量は ARMOR_BUFF）
     haste?: number;        // 疾走を n 手（離脱に）
-    burst?: number;        // 投擲＝周囲（半径1）の敵に一括ダメージ
     identify?: boolean;    // 手持ちの未鑑定の装備をすべて鑑定
+    // 投擲壺（v0.133.0）：手動照準で離れたマス（射程 THROW_RANGE）へ投げ、着弾3×3にAoE＋地形ハザードを残す。
+    // 深蝕ゼロ＝術の業火床/凍霧（深蝕コスト）との住み分け＝「清いが有限」。web の throwConsumable/resolveThrow が解釈。
+    throw?: {
+      kind: "fire" | "venom" | "frost"; // 敷くハザード種＝業火床／毒の沼／凍霧
+      dmg?: number;      // fire＝着弾の敵（＋巻き込まれたプレイヤー）への即ダメージ
+      turns: number;     // 残す地形ハザードの寿命（手数）
+      slow?: number;     // frost＝着弾の敵を鈍らせる手数
+      poison?: boolean;  // venom＝着弾の敵に毒を回す（VENOM_TURNS・venomDmgAt）
+    };
   };
 }
 export const CONSUMABLES: ConsumableDef[] = [
@@ -344,11 +352,13 @@ export const CONSUMABLES: ConsumableDef[] = [
   // すべて深蝕ゼロ＝術（深蝕コスト）に対する「清いが有限」の対。潜行中限定（街では空振り＝使用ガード）。
   { key: "antidote", name: "解毒の丸薬", desc: "巡る毒を中和する（潜行中）",                price: 14, minLevel: 6,  use: { curePoison: true } },
   { key: "idscroll", name: "鑑定の巻物", desc: "手持ちの未鑑定の装備をすべて見極める",      price: 24, use: { identify: true } },
-  { key: "firebomb", name: "火炎瓶",     desc: "周囲の敵を炎で焼く（投擲・潜行中）",        price: 28, minLevel: 8,  use: { burst: 8 } },
+  { key: "firebomb", name: "火炎瓶",     desc: "離れたマスへ投げ、着弾を炎で焼き業火床を残す（投擲・潜行中）",   price: 28, minLevel: 8,  use: { throw: { kind: "fire", dmg: 8, turns: 4 } } },
   { key: "fury",     name: "戦狂いの薬", desc: "数手のあいだ近接が冴える（潜行中）",        price: 36, minLevel: 12, use: { atkBuff: 5 } },
   { key: "aegis",    name: "守魂の薬",   desc: "数手のあいだ受ける傷が和らぐ（潜行中）",    price: 36, minLevel: 12, use: { armBuff: 5 } },
   { key: "swift",    name: "疾風の薬",   desc: "数手のあいだ駆け抜ける（離脱に・潜行中）",  price: 44, minLevel: 16, use: { haste: 3 } },
-  { key: "firebomb2",name: "業火の壺",   desc: "周囲の敵を業火で焼き尽くす（投擲・潜行中）",price: 72, minLevel: 28, use: { burst: 16 } },
+  { key: "venomjar", name: "毒の壺",     desc: "投げて着弾の敵に毒を回し、毒の沼を残す（投擲・潜行中）",       price: 34, minLevel: 12, use: { throw: { kind: "venom", poison: true, turns: 5 } } },
+  { key: "frostjar", name: "凍てつく壺", desc: "投げて着弾の敵を凍てつかせ、凍霧を残す（投擲・潜行中）",       price: 40, minLevel: 16, use: { throw: { kind: "frost", slow: 4, turns: 5 } } },
+  { key: "firebomb2",name: "業火の壺",   desc: "離れたマスへ投げ、着弾を業火で焼き尽くし業火床を残す（投擲・潜行中）", price: 72, minLevel: 28, use: { throw: { kind: "fire", dmg: 16, turns: 4 } } },
 ];
 export const consumableByKey = (key: string): ConsumableDef | undefined => CONSUMABLES.find((c) => c.key === key);
 
