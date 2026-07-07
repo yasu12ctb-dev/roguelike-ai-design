@@ -50,7 +50,7 @@ import {
 } from "./audio.ts";
 import {
   genFloor, genRaidField, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx, spawnPursuer,
-  planCompanion, resolveCompanion, randomFloorAway, inBounds, companionMaxHp, companionDmg, scaleKind,
+  planCompanion, resolveCompanion, randomFloorAway, inBounds, companionMaxHp, companionDmg, companionReduce, scaleKind,
   bfsPath, reachableSet, nearestReachable,
   VIEW_W, VIEW_H, MONSTER_KINDS, type Floor, type Pos, type Chest, type Monster, type CompanionEntity, type DownedActor, type DelverActor, type Shrine,
 } from "../dungeon.ts";
@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.131.0";
+export const APP_VERSION = "0.132.0";
 export const APP_BUILD = "2026-07-04";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -2450,7 +2450,7 @@ async function companionSheet(): Promise<void> {
       { label: "絆（生還）", value: String(c.bond), note: "共に生還で深まる" },
       { label: "偉業", value: String(c.feats ?? 0), note: "ボス撃破・山場" },
       { label: "連帯深蝕", value: c.exposure.toFixed(2), cls: "exp", note: "潜行で上がる" },
-      { label: "強さの目安", value: `HP ${companionMaxHp(c.grade)}・攻 ${companionDmg(c.grade)}`, note: "等級と深さで増す" },
+      { label: "強さの目安", value: `HP ${companionMaxHp(c.grade)}・攻 ${companionDmg(c.grade)}・受け ${companionReduce(c.grade)}`, note: "等級と深さで増す" },
     ];
     if (c.escortQuestId) rows.push({ text: "護衛の依頼人として同行中（別れると依頼は失敗）", cls: "warn" });
     const sections: SheetSection[] = [{ rows }];
@@ -3454,7 +3454,7 @@ async function raidEndTurn(): Promise<void> {
     for (const h of res.hits) {
       if (h.target === "companion") {
         const a = allies.find((x) => x.hp > 0 && x.x === h.tx && x.y === h.ty);
-        if (a) { a.hp -= h.dmg; floatFx(a.x, a.y, String(h.dmg), "fl-hurt"); log(`${h.monster.kind.name}の一撃が${a.name}を襲う！ ${h.dmg}の傷。`, "warn"); if (a.hp <= 0) log(`${a.name}が斃れた……。`, "warn"); }
+        if (a) { const rd = Math.max(1, h.dmg - companionReduce(a.grade, raid?.pseudoDepth ?? 10)); a.hp -= rd; floatFx(a.x, a.y, String(rd), "fl-hurt"); log(`${h.monster.kind.name}の一撃が${a.name}を襲う！ ${rd}の傷。`, "warn"); if (a.hp <= 0) log(`${a.name}が斃れた……。`, "warn"); }
       } else {
         // 弾き（v0.130.0・v0.131.0で反射を半減にナーフ）：raid でも遠隔の狙撃を弾き返す（近接には無効）。
         if (parryTurns > 0 && h.monster.kind.ability === "ranged" && Math.max(Math.abs(h.monster.x - player.x), Math.abs(h.monster.y - player.y)) > 1) {
@@ -5276,9 +5276,10 @@ async function endTurn() {
   if (res.hits.length) sfx("hurt", 0.14);
   for (const h of res.hits) {
     if (h.target === "companion" && companion) {
-      companion.hp -= h.dmg; // 相棒は防具軽減なし（v1）
-      floatFx(companion.x, companion.y, String(h.dmg), "fl-hurt");
-      log(`${h.monster.kind.name}の一撃が${companionName()}を襲う！ ${h.dmg}の傷。`, "warn");
+      const cRd = Math.max(1, h.dmg - companionReduce(world.companion?.grade ?? 0, floor.depth)); // 等級＋深度で被ダメ軽減（v0.132.0・「すぐ死ぬ」是正）
+      companion.hp -= cRd;
+      floatFx(companion.x, companion.y, String(cRd), "fl-hurt");
+      log(`${h.monster.kind.name}の一撃が${companionName()}を襲う！ ${cRd}の傷。`, "warn");
     } else {
       // 弾き（移・v0.130.0・v0.131.0で反射を半減にナーフ）：持続中は遠隔の狙撃を0化し、射手へ半減を撃ち返す（近接には効かない＝時滑/死戸より前に判定）。
       if (parryTurns > 0 && h.monster.kind.ability === "ranged" && Math.max(Math.abs(h.monster.x - player.x), Math.abs(h.monster.y - player.y)) > 1) {
