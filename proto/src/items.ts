@@ -234,6 +234,18 @@ export function itemByName(name: string): Item | null {
   return null;
 }
 
+/** 旧セーブ移行：保存された武器 Item に reach/sweep（武器クラスのフラグ）が欠けていれば baseName（無ければ name）から再導出して補完。
+ *  v0.124（槍 reach:2）／v0.127（薙刀 sweep）より前のセーブに入っていた武器は当該フラグを持たず、槍/薙刀として機能しない
+ *  （距離2へ突けず前進・貫通なし／薙ぎ払いなし）不具合の修正。冪等（既にどちらか設定済みなら触らない）・武器以外は no-op。 */
+export function backfillWeaponClass(it: Item): void {
+  if (it.slot !== "weapon" || it.reach !== undefined || it.sweep !== undefined) return;
+  const t = it.baseName ? TEMPLATES.find((tt) => tt.name === it.baseName) : undefined;
+  const src: { reach?: number; sweep?: boolean } | null = t ?? (it.name ? itemByName(it.name) : null); // baseName で引けなければ name から復元を試みる（超旧 Item）
+  if (!src) return;
+  if (src.reach) it.reach = src.reach;
+  if (src.sweep) it.sweep = src.sweep;
+}
+
 /** 強化(+N)を1段上げた新 Item を返す（武具屋の打ち直し）。武器/防具のみ意味を持つ。失敗で null。 */
 export function enchantUp(it: Item): Item | null {
   const baseName = it.baseName ?? null;

@@ -7,6 +7,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "./types.ts";
 import { resolveTonePole } from "./variation.ts";
 import { BASE_STATS, STASH_INHERIT, STASH_INHERIT_MANOR, LOADOUT_CAP } from "./progression.ts";
 import { spellByKey } from "./spells.ts"; // 整理で削除された術キーの亡霊除去（migrate/applyLineage）。spells.ts は world.ts を import しない＝循環なし。
+import { backfillWeaponClass } from "./items.ts"; // 旧セーブの武器 reach/sweep を baseName から再導出（v0.124/0.127 前のセーブで槍/薙刀が機能しない不具合の修正）。items.ts は world.ts を import しない＝循環なし。
 import { worldPlayerGrade, worldAchievement } from "./companion.ts";
 import { diffMods } from "./difficulty.ts";
 import { syncQuestCounter } from "./quests.ts";
@@ -116,8 +117,10 @@ export function migrateWorld(w: World): World {
     if (!Array.isArray(ch.loadout)) ch.loadout = ch.spells.slice(0, LOADOUT_CAP); // 構え（4-11F③）：旧セーブは習得順の先頭から補完
     else ch.loadout = ch.loadout.filter((k) => ch.spells.includes(k)).slice(0, LOADOUT_CAP); // 整合（未習得/超過/死にキーを除去）
     if (!ch.equipment) ch.equipment = { weapon: null, armor: null, relic: null };
+    if (ch.equipment.weapon) backfillWeaponClass(ch.equipment.weapon); // 旧セーブの装備武器に reach/sweep を再導出（v0.124/0.127 前のセーブ対応）
     if (typeof ch.gold !== "number") ch.gold = 0; // v7：金貨
     if (!Array.isArray(ch.gearBag)) ch.gearBag = []; // 持ち物 Phase4：拾った装備の袋（非破壊バックフィル）
+    else ch.gearBag.forEach(backfillWeaponClass); // 袋の中の旧武器にも reach/sweep を再導出
     if (ch.lineage && Array.isArray(ch.lineage.chosenSpells)) ch.lineage.chosenSpells = ch.lineage.chosenSpells.filter((k) => !!spellByKey(k)); // 血縁が選んだ術も死にキーを除去（2026-07-06）
   }
   if (!Array.isArray(w.actors)) w.actors = []; // 生者NPC（4-12(G)）：欠落は常に補完
@@ -136,6 +139,7 @@ export function migrateWorld(w: World): World {
   syncQuestCounter(w); // クエストID採番を既存 q_N の最大値までバンプ＝再読込での id 衝突を根治（化石 idCounter と同型）
   if (!Array.isArray(w.stash)) w.stash = [];       // 自宅の保管庫・消耗品（持ち物 Phase3）：欠落は空で補完
   if (!Array.isArray(w.stashGear)) w.stashGear = []; // 自宅の保管庫・装備：欠落は空で補完
+  else w.stashGear.forEach(backfillWeaponClass); // 武具庫の旧武器にも reach/sweep を再導出
   if (w.homeUnlocked === undefined) w.homeUnlocked = true; // 旧セーブは自宅所持済み＝grandfather（新規 world は newWorld で false 明示ゆえ undefined にならず未解禁を保つ）
   if (!Array.isArray(w.arcs)) w.arcs = [];         // 長尺アーク（4-12(I)）：欠落は空で補完
   if (!Array.isArray(w.tracked)) w.tracked = [];   // 追跡対象（4-6）：欠落は空で補完
