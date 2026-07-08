@@ -5,7 +5,7 @@ import type {
 } from "./types.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "./types.ts";
 import { resolveTonePole } from "./variation.ts";
-import { BASE_STATS, STASH_INHERIT, STASH_INHERIT_MANOR, LOADOUT_CAP } from "./progression.ts";
+import { BASE_STATS, LOADOUT_CAP } from "./progression.ts";
 import { spellByKey } from "./spells.ts"; // 整理で削除された術キーの亡霊除去（migrate/applyLineage）。spells.ts は world.ts を import しない＝循環なし。
 import { backfillWeaponClass } from "./items.ts"; // 旧セーブの武器 reach/sweep を baseName から再導出（v0.124/0.127 前のセーブで槍/薙刀が機能しない不具合の修正）。items.ts は world.ts を import しない＝循環なし。
 import { worldPlayerGrade, worldAchievement } from "./companion.ts";
@@ -402,11 +402,10 @@ export function fossilizeCurrent(world: World, manner: DeathManner, finalAct: Fi
   // 依頼（回収業 4-10G）は受注したキャラ個人の契約＝死とともに失効。次代は引き継がない
   // （旧世代の受注が world.quests に残り、次代のギルドで「受注中」と表示される不具合の修正）。
   if (Array.isArray(world.quests)) world.quests = world.quests.filter((q) => (q.issuedGeneration ?? 0) >= world.generation);
-  // 自宅の保管庫は世代を越えて残るが、遺せるのは各 STASH_INHERIT 枠まで（残りは歳月とともに失われる）。
-  // 貴族街の館（4-14G 層4）に格上げ済みなら相続枠が広がる（家が栄えるほど多くを次代へ遺せる）。
-  const inheritCap = world.manorUnlocked ? STASH_INHERIT_MANOR : STASH_INHERIT;
-  if (Array.isArray(world.stash) && world.stash.length > inheritCap) world.stash = world.stash.slice(0, inheritCap);
-  if (Array.isArray(world.stashGear) && world.stashGear.length > inheritCap) world.stashGear = world.stashGear.slice(0, inheritCap);
+  // 自宅の保管庫（消耗品 world.stash／装備 world.stashGear）は世代を越えて【全て】受け継がれる
+  // （v0.136.0・H&S 収集重視・ユーザー承認＝(A) 全引き継ぎ）。旧来の相続枠切詰め（STASH_INHERIT）は撤去＝
+  // 貯めた財産は死んでも次代へ全て残る。保管上限（STASH_CAP）は預け入れ時に別途担保／キャラ本体の
+  // ステ・術・Lv の継承は applyLineage 側＝功績比例の雪だるま防止は不変（保管庫の永続とは別軸）。
   // 運命の弧（4-6）：世代がひとつビートを刻む＝目を離した隙に tracked の弧が進む。
   advanceArcs(world);
   return fossil;
