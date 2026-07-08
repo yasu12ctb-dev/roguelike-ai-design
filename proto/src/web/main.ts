@@ -15,7 +15,7 @@ import {
 import { computeVariation, exposureGain, QUIRK_THRESHOLDS } from "../variation.ts";
 import {
   maxHp, meleeDmg, heartFactor, xpToNext, xpForKill, statsLine,
-  STAT_KEYS, STAT_LABEL, HP_PER, packCapacity, STASH_CAP, STASH_CAP_MANOR, STASH_INHERIT, STASH_INHERIT_MANOR, LOADOUT_CAP, BASE_STATS,
+  STAT_KEYS, STAT_LABEL, HP_PER, packCapacity, STASH_CAP, STASH_CAP_MANOR, LOADOUT_CAP, BASE_STATS,
   armorReduce, effectiveReason, equipExposure,
   DEPTH_SEAL_AT, ABYSS_DEPTH, RELIC_EXPOSURE_PER_TURN, RELIC_PURSUER_EVERY, RELIC_PURSUER_CAP,
 } from "../progression.ts";
@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.135.0";
+export const APP_VERSION = "0.136.0";
 export const APP_BUILD = "2026-07-08";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -2058,10 +2058,9 @@ async function storeManage() {
   busy = false;
 }
 // ---------- 自宅の保管庫＝武具庫（持ち物 Phase3）。World.stash(消耗品)/stashGear(装備) に置く＝世代を越えて残る ----------
-// 総容量は消耗品スタック＋装備の合計で STASH_CAP（収集の楽しみ）。世代交代で次代へ残るのは各 STASH_INHERIT 枠（world.ts で切詰め）。
+// 総容量は消耗品スタック＋装備の合計で STASH_CAP（収集の楽しみ）。保管したものは世代を越えて全て次代へ残る（v0.136.0・(A) 全引き継ぎ・world.ts で切詰め撤去）。
 const homeUsed = () => (world.stash?.length ?? 0) + (world.stashGear?.length ?? 0);
 const stashCap = () => (world.manorUnlocked ? STASH_CAP_MANOR : STASH_CAP);           // 貴族街の館で保管庫拡張（4-14G 層4）
-const stashInherit = () => (world.manorUnlocked ? STASH_INHERIT_MANOR : STASH_INHERIT); // 相続枠も拡張
 const homeFull = () => homeUsed() >= stashCap();
 function stashAdd(key: string): boolean {
   world.stash ??= [];
@@ -2094,7 +2093,7 @@ async function homeDeposit() {
     ];
     if (!opts.length) { await sheet({ text: "預けられる持ち物も装備もない。", options: ["閉じる"] }); break; }
     const r = await sheet({
-      text: `わが家の物入れ＝代々の武具庫。保管 ${homeUsed()}/${stashCap()} 枠（世代を越えて遺せるのは消耗品${stashInherit()}・装備${stashInherit()}枠まで）。\n何を預ける？`,
+      text: `わが家の物入れ＝代々の武具庫。保管 ${homeUsed()}/${stashCap()} 枠（預けたものは世代を越えて全て次代へ受け継がれる）。\n何を預ける？`,
       meta: "自宅 ── 預ける",
       options: [...opts, "やめる"],
     });
@@ -2165,7 +2164,7 @@ async function homeView() {
   const consRows: SheetRow[] = st.length ? st.map((s) => ({ label: consumableByKey(s.key)?.name ?? s.key, value: `×${s.qty}` })) : [{ text: "（なし）", dim: true }];
   const armoryRows: SheetRow[] = gear.length ? gear.map((it) => ({ label: SLOT_LABEL[it.slot], value: itemLabel(it) })) : [{ text: "（なし）", dim: true }];
   await sheet({
-    text: `代々の物入れ。世代を越えて遺せるのは消耗品${stashInherit()}・装備${stashInherit()}枠まで。`,
+    text: `代々の物入れ。預けたものは世代を越えて全て次代へ受け継がれる（H&S の蓄え）。`,
     sections: [{ header: "消耗品", rows: consRows }, { header: "武具庫", rows: armoryRows }],
     meta: `${world.manorUnlocked ? "貴族街の館" : "自宅"} ── 保管 ${homeUsed()}/${stashCap()}`, options: ["閉じる"],
   });
