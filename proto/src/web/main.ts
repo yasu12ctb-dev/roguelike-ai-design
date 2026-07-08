@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.137.0";
+export const APP_VERSION = "0.138.0";
 export const APP_BUILD = "2026-07-08";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -2353,7 +2353,8 @@ function legendMerit(f: Fossil): number {
   return lvl + Math.floor(st / 6) + spellN;
 }
 function legendEligible(f: Fossil): boolean {
-  return f.tonePole === "myth"                                     // 神話の極で逝った
+  return isOwnLineFossil(f)                                        // 自分の血統のみ（死んだ相棒/縁NPCは対象外＝バグ修正 2026-07-08）
+    && f.tonePole === "myth"                                       // 神話の極で逝った
     && f.death.generationCreated >= 1                              // 自分の過去世代（シード化石=gen0 は対象外）
     && (f.death.depth ?? f.laidDepth ?? 0) >= LEGEND_MIN_DEPTH     // 深く潜った証（深度25+）
     && legendMerit(f) >= LEGEND_MERIT_MIN                          // 実力＋到達実績（レベル・育ち）
