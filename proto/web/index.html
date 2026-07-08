@@ -394,6 +394,14 @@
     #lungeBtn.stance { color: #ffe9b0; border-color: var(--gold-leaf); background: #2e2410;
       box-shadow: 0 0 14px rgba(201,167,90,.75), inset 0 0 4px rgba(201,167,90,.9); animation: lungeGlow 1.1s ease-in-out infinite; }
     @keyframes lungeGlow { 50% { box-shadow: 0 0 20px rgba(230,198,106,.95), inset 0 0 6px rgba(230,198,106,1); } }
+    /* 受け流しボタン（剣）：踏み込みボタンと同枠・青銀の守勢色。 */
+    #guardBtn {
+      display: none; flex: none; width: 52px; min-height: 52px; align-self: center;
+      font-family: inherit; font-size: 17px; font-weight: 700; letter-spacing: .12em; line-height: 1;
+      color: #bcd0e0; background: rgba(18,24,31,.95); border: 1px solid var(--line-2); border-radius: 8px;
+      user-select: none; -webkit-user-select: none; touch-action: manipulation;
+    }
+    #guardBtn.show { display: flex; align-items: center; justify-content: center; }
     /* D-pad（帯内・サイズ可変） */
     #dpad { display: none; grid-template-columns: repeat(3,46px); grid-template-rows: repeat(3,42px); gap: 6px; flex: none; }
     #dpad.show { display: grid; }
@@ -610,6 +618,8 @@
       </div>
       <!-- 踏み込みボタン（E）：タップ=次の一撃だけ／長押し=構え固定。D-pad の隣＝親指で届く位置 -->
       <button id="lungeBtn" type="button" aria-label="踏み込み">踏</button>
+      <!-- 受け流しボタン（剣）：タップ=一手消費で構え。次の隣接近接1撃を無効化＋反撃の好機 -->
+      <button id="guardBtn" type="button" aria-label="受け流し">受</button>
     </div>
   </div>
 
