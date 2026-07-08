@@ -39,6 +39,15 @@ export const MONSTER_HARDCAP = 60;  // フロアの敵総数の上限（breeder 
 export const FODDER_MUL = 0.2;      // 通常配置数に対する追加割合（sim 指標D 実測で 0.5→0.2 に採用＝全深度×難易度でHPコスト+25%以内・テスト調整候補）
 export const FODDER_MIN_DEPTH = 3;  // これ未満の深度は増量しない
 const FODDER_MAX_TIER = 2;          // 追加するのは tier<=2 の低級種のみ（fodder＝低HP/低火力）
+// ───── 部屋クラスタ配置（案C・v0.140.0・2026-07-08・ユーザー承認）─────
+//   ★武器バリエーション（薙刀の弧の薙ぎ／剣の受け流し）は「複数体が同時に隣接する開所」でこそ輝く。
+//   だが幅1通路のチョークが同時隣接を2〜3に固定するため、fodder を全域に散らすだけでは通路が渋滞するだけで
+//   開所の同時遭遇は生まれない（Sonnet 定量検討＝真のレバーは“数”でなく“配置”）。そこで fodder 総数は変えず
+//   （＝終始シビアの総ダメージ収支は不変）、その一部を「部屋の中心に固めて」配置する＝薙刀/パリィが活きる場面を狙って作る。
+//   開始部屋・ボス/下り部屋は除外（開幕蒸発/階段前の理不尽を避ける）。総数は MONSTER_HARDCAP を厳守。
+const FODDER_CLUSTER_FRAC = 0.6;    // fodder 総数のうちクラスタに回す割合（残りは従来どおり全域に散布）＝配置の形だけ変える
+const FODDER_CLUSTER_SIZE = 3;      // 1クラスタあたりの最大 fodder 数（薙刀の薙ぎが丁度3マス＝3体クラスタが最適標的／sim 指標D の+25%帯も維持）
+const FODDER_CLUSTER_RADIUS = 2;    // 部屋中心からこの範囲（Chebyshev）に固める
 // エリアボスの戦術化（4-11G Phase 3・B・web限定／全て m.boss==="area" ゲート＝通常敵・golden 不変）。
 //   ①溜め大技＝隣接時に「渾身の一撃」を予告（テレグラフ）→退けば空振り・受ければ BOSS_HEAVY_MULT 倍。CD 併用。
 //   ②怒りフェーズ＝HP が BOSS_ENRAGE_AT 以下で一度きり覚醒＝攻撃 +BOSS_ENRAGE_DMG_FRAC・大技 CD 短縮。
@@ -372,21 +381,43 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean; 
     floor.chests.push({ id: "relic", x: rp.x, y: rp.y, opened: false, relic: true });
   }
 
-  // ---------- 群れ増量（fodder・A｜v0.123.0）：低tier雑魚を通常配置数×FODDER_MUL だけ末尾に追加 ----------
-  //   末尾で rng を消費＝既存の敵/ボス/宝箱/回復ノードの配置は不変（genFloor 指紋の差分は fodder ぶんだけ）。
-  //   randomFloorAway がマップ全域に散らす＝1部屋に固まらない。総数は MONSTER_HARDCAP を厳守。
+  // ---------- 群れ増量（fodder・A｜v0.123.0／部屋クラスタ配置 案C｜v0.140.0）：低tier雑魚を通常配置数×FODDER_MUL だけ末尾に追加 ----------
+  //   末尾で rng を消費＝既存の敵/ボス/宝箱/回復ノードの配置は不変（genFloor 指紋の差分は fodder ぶんだけ＝意図的再生成）。
+  //   ★総数は従来と同じ（配置の形だけ変える）＝一部を「部屋の中心」に固め（クラスタ）、残りは全域に散布。
   //   opts.fodderMul で上書き（sim 対照/golden monsterAI 据置＝0）。0 なら rng を一切消費せず従来と byte 一致。
   const fodderMul = opts?.fodderMul ?? FODDER_MUL;
   if (depth >= FODDER_MIN_DEPTH && fodderMul > 0) {
     const fodderPool = pool.filter((k) => k.tier <= FODDER_MAX_TIER);
     if (fodderPool.length) {
-      const room = MONSTER_HARDCAP - floor.monsters.length; // 総数の絶対上限（60）まで
-      const fodderExtra = Math.max(0, Math.min(Math.round(count * fodderMul), room));
-      for (let i = 0; i < fodderExtra; i++) {
+      const roomLeft = MONSTER_HARDCAP - floor.monsters.length; // 総数の絶対上限（60）まで
+      let budget = Math.max(0, Math.min(Math.round(count * fodderMul), roomLeft));
+      let fi = 0;
+      const placeFodderAt = (p: Pos | null): boolean => {
+        if (!p) return false;
         const kind = scaleKind(fodderPool[rng.int(fodderPool.length)], depth, mods); // 深度＋難易度を焼き込む（HP/dmg/XP連動）
-        const p = randomFloorAway(floor, rng, stairsUp, 5);
-        if (p) floor.monsters.push({ id: `f${depth}_${i}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: false, intent: null });
+        floor.monsters.push({ id: `f${depth}_${fi++}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: false, intent: null });
+        return true;
+      };
+      // クラスタ：開始部屋(0)・ボス/下り部屋(farIdx)を除く、塊が収まる広さ(≥12)の部屋を決定論シャッフルして中心に固める。
+      let clusterBudget = Math.round(budget * FODDER_CLUSTER_FRAC);
+      const candRooms = rooms.filter((r, i) => i !== 0 && i !== farIdx && r.w * r.h >= 12);
+      for (let a = candRooms.length - 1; a > 0; a--) { const b = rng.int(a + 1); const t = candRooms[a]; candRooms[a] = candRooms[b]; candRooms[b] = t; }
+      for (const rm of candRooms) {
+        if (clusterBudget <= 0 || budget <= 0) break;
+        const c = center(rm);
+        let placed = 0;
+        for (let dy = -FODDER_CLUSTER_RADIUS; dy <= FODDER_CLUSTER_RADIUS && placed < FODDER_CLUSTER_SIZE && clusterBudget > 0; dy++) {
+          for (let dx = -FODDER_CLUSTER_RADIUS; dx <= FODDER_CLUSTER_RADIUS && placed < FODDER_CLUSTER_SIZE && clusterBudget > 0; dx++) {
+            const x = c.x + dx, y = c.y + dy;
+            if (tileAt(floor, x, y) !== 1) continue;
+            if (floor.monsters.some((m) => m.x === x && m.y === y)) continue;
+            if (Math.hypot(x - stairsUp.x, y - stairsUp.y) < 5) continue; // 開始からは離す
+            if (placeFodderAt({ x, y })) { placed++; clusterBudget--; budget--; }
+          }
+        }
       }
+      // 残りは従来どおり全域に散布（randomFloorAway＝マップ全域・開始から5マス以上）。
+      while (budget > 0) { if (!placeFodderAt(randomFloorAway(floor, rng, stairsUp, 5))) break; budget--; }
     }
   }
   return floor;
