@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.136.0";
+export const APP_VERSION = "0.137.0";
 export const APP_BUILD = "2026-07-08";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -2173,6 +2173,9 @@ async function homeView() {
 
 // ---------- 家系図（系譜の間・4-14G 層3：自宅）：多世代の重みを見える化する ----------
 const VARIATION_JP: Record<string, string> = { weathered: "風化", twisting: "歪み", alien: "異形" };
+/** 自分の血統（歴代当主）の化石か＝`fossilizeCurrent`（死亡/退隠）由来のみ。死んだ相棒（wasCompanion）・縁を結んだ生者NPC（wasAlly）は
+ *  同じ kind:"character" だが自分の血統ではない＝系譜の間／襲名・血縁・弟子の継承候補から除外する（バグ修正 2026-07-08）。 */
+const isOwnLineFossil = (f: Fossil): boolean => f.kind === "character" && !f.wasCompanion && !f.wasAlly;
 /** 家格（4-14G 層3）＝家系の誉れ。退隠2＋クリア3＋伝説1 で score、5段に丸める。次代開始の微小な恩恵に効く。 */
 function houseRank(): { tier: number; label: string; score: number } {
   const retirees = world.fossils.filter((f) => f.retired).length;
@@ -2189,7 +2192,7 @@ const POLE_COLOR: Record<string, string> = { myth: "#ffd87a", loss: "#9fd8cf", g
 async function lineageHallScene() {
   busy = true;
   const wt = worldTime(world);
-  const line = world.fossils.filter((f) => f.kind === "character"); // 歴代当主（死者＋退隠した先代）
+  const line = world.fossils.filter(isOwnLineFossil); // 歴代当主＝自分の血統のみ（死んだ相棒・縁NPCは kind:character でも除外＝バグ修正）
   const ordered = [...line].sort((a, b) => a.death.generationCreated - b.death.generationCreated);
   const hr = houseRank();
   const hall = (world.manorUnlocked
@@ -3027,7 +3030,7 @@ async function characterCreation() {
     options: ["この名で始める"], input: "名前",
   })).text.trim() || `名無し${world.generation}`;
 
-  const ancestors = world.fossils.filter((f) => f.kind === "character").slice(-4).reverse();
+  const ancestors = world.fossils.filter(isOwnLineFossil).slice(-4).reverse(); // 自分の血統のみ（死んだ相棒/縁NPCを継承候補にしない＝バグ修正）
   const heirs = ancestors.filter((f) => f.retired).slice(0, 2);   // 退隠した先代＝襲名候補（4-14G）
   const dead = ancestors.filter((f) => !f.retired).slice(0, 3);   // 斃れた先代＝血縁/弟子候補
   let lineage: Character["lineage"] = { relation: "none" };
