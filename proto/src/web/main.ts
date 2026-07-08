@@ -60,8 +60,8 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.134.0";
-export const APP_BUILD = "2026-07-07";
+export const APP_VERSION = "0.135.0";
+export const APP_BUILD = "2026-07-08";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
 const db = makeContentDb(
@@ -7026,7 +7026,8 @@ const HELP_FLOW =
   "・見切った直後は「反撃の好機」＝次の近接攻撃が会心になる。\n" +
   "・相棒・召喚・共闘者と敵を挟むと「挟み撃ち」＝近接攻撃が増す。\n" +
   "・武器には剣（8方向・隣接）／槍（十字4方向・2マス射程・直線の2体を貫く／斜め・踏み込み不可＝幅1の通路で真価）／薙刀（振った方向とその左右も同時に斬る＝開所で囲まれた時に真価。見切り反撃の会心はまとめて吹き飛ばす）がある。\n" +
-  "・壺＝離れたマスへ投げてAoE＋地形を残す（火＝焼く／毒＝毒沼／凍＝鈍らせる凍霧）。方向パッド／タップで狙い、「投げる」で放つ（射程4）。\n\n" +
+  "・壺＝離れたマスへ投げてAoE＋地形を残す（火＝焼く／毒＝毒沼／凍＝鈍らせる凍霧）。方向パッド／タップで狙い、「投げる」で放つ（射程4）。\n" +
+  "・装備は安全なら自由に持ち替え／戦闘中も持ち替えられるが一手かかる（敵が動く）。術の構えは安全時のみ。\n\n" +
   "▍地図とねらい\n" +
   "地図ボタンでフロア全体を表示。地図をタップ→最寄りの床にマーカー→パッドで微調整→「移動」で自動で歩く。";
 const HELP_LEGEND =
@@ -7291,7 +7292,9 @@ async function charScreen() {
     });
     busy = false;
     const label = optLabel(opts[r.pick - 1] ?? "");
-    if (label === "装備・持ち物を見る") await gearSheet(ch);
+    // 装備・荷物＝戦闘中の持ち替えは一手消費（v0.135.0）。gearSheet が true を返したら
+    // メニューを畳んで（overlay は最後の確認シートの解決で既に閉じている）turnPass で敵の手番へ。
+    if (label === "装備・持ち物を見る") { if (await gearSheet(ch)) { await turnPass(); break; } }
     else if (label === "術（構え・図鑑）") await spellMenu(ch);
     else if (label === "進行中（依頼・因縁・印）") await eventsScreen();
     else if (label === "人物と年代記") await chronicleScene();
@@ -7340,7 +7343,9 @@ function nameWithSigils(it: Item, equipped: boolean): string {
   const mark = (!it.unidentified && it.proc) ? `<span class="mark">〔${PROC_MARK[it.proc]}〕</span>` : "";
   return `${pre}${name}${mark}`;
 }
-async function gearSheet(ch: Character) {
+/** 装備・荷物のカード一覧。武器/防具/遺物の持ち替えは非戦闘なら無償、戦闘中は確認のうえ一手消費（v0.135.0）。
+ *  戻り値＝一手消費したら true（ループを抜けて呼び元＝charScreen が turnPass する）。 */
+async function gearSheet(ch: Character): Promise<boolean> {
   dedupeGearBag(ch); // 防御：袋の参照重複を除いてから表示
   const eqSlots: ItemSlot[] = ["weapon", "armor", "relic", "bag"];
   for (;;) {
@@ -7368,65 +7373,93 @@ async function gearSheet(ch: Character) {
     const lo = activeLoadout(ch);
     const loNames = lo.map((k) => spellByKey(k)?.name ?? k).join("、");
     const lead = (ch.spells.length ? `構え ${lo.length}/${LOADOUT_CAP}：${loNames || "なし"}\n` : "") +
-      "★=装備中／？=未鑑定／〔…〕=発動効果。装備枠＝着け替え／薬＝使う・捨てる（街）／武具＝装備・置く。";
+      "★=装備中／？=未鑑定／〔…〕=発動効果。装備枠＝着け替え／薬＝使う・捨てる（街）／武具＝装備・置く。\n" +
+      "武器・防具・遺物は戦闘中も持ち替えられるが一手かかる（敵が動く）。術の構えは安全な間合いでのみ。";
     const i = await chooseGrid({
       title: `装備・荷物 ── 荷物 ${packUsed(ch)}/${packCapacity(ch)} 枠`,
       lead, cells, cancel: "閉じる", cols: 1,
     });
     busy = false;
     if (i < 0) break;
-    if (i < eqSlots.length) await swapSlot(ch, eqSlots[i]);
+    if (i < eqSlots.length) { if (await swapSlot(ch, eqSlots[i])) return true; }
     else if (i < eqSlots.length + inv.length) { const s = inv[i - eqSlots.length]; if (s) await useOrDropConsumable(ch, s.key); }
-    else { const g = bag[i - eqSlots.length - inv.length]; if (g) await manageBagGear(ch, g); }
+    else { const g = bag[i - eqSlots.length - inv.length]; if (g) { if (await manageBagGear(ch, g)) return true; } }
   }
+  return false;
 }
 
-/** 荷物の中の拾った武具を操作（装備する／置いていく）。装備すると今の装備は荷物へ戻る。 */
-async function manageBagGear(ch: Character, item: Item) {
+/** その ItemSlot が「戦闘中は一手コスト」の対象か＝武器/防具/遺物のみ。鞄(bag)は容量スロットで戦闘無関係＝常に無償。 */
+function isCombatGearSlot(slot: ItemSlot): boolean { return slot === "weapon" || slot === "armor" || slot === "relic"; }
+
+/** 荷物の中の拾った武具を操作（装備する／置いていく）。装備すると今の装備は荷物へ戻る。
+ *  非戦闘＝従来どおり無償。戦闘中（inCombatNow）に武器/防具/遺物を装備すると確認のうえ一手消費（v0.135.0）。
+ *  戻り値＝一手消費したら true（呼び元はメニューを畳んで turnPass する）。 */
+async function manageBagGear(ch: Character, item: Item): Promise<boolean> {
   busy = true;
+  const combat = inCombatNow() && isCombatGearSlot(item.slot);
   const label = item.unidentified ? `見知らぬ${SLOT_LABEL[item.slot]}（未鑑定）` : `${item.name}（${itemPower(item)}）`;
   const r = await sheet({
-    text: `荷物の中の${SLOT_LABEL[item.slot]}：${label}${item.unidentified ? "\n（装備すれば正体が分かる）" : ""}`,
+    text: `荷物の中の${SLOT_LABEL[item.slot]}：${label}${item.unidentified ? "\n（装備すれば正体が分かる）" : ""}`
+      + (combat ? "\n※戦闘中――持ち替えると一手かかる（敵が動く）。" : ""),
     meta: "荷物 ── 武具",
     options: ["装備する", "置いていく（捨てる）", "戻る"],
   });
   busy = false;
   if (r.pick === 1) {
+    if (combat) {
+      busy = true;
+      const c = await sheet({ text: "この持ち替えは一手かかる（敵が動く）。持ち替える？", meta: "荷物 ── 武具", options: ["持ち替える", "やめる"] });
+      busy = false;
+      if (c.pick !== 1) return false;
+    }
     const idx = (ch.gearBag ?? []).indexOf(item);
-    if (idx < 0) return;
+    if (idx < 0) return false;
     ch.gearBag!.splice(idx, 1); // 先に荷物から取り出す（容量の二重計上を避ける）
     const cur = ch.equipment[item.slot];
     item.unidentified = false; // 装備で鑑定
     ch.equipment[item.slot] = item;
     sfx("equip");
-    log(`${item.name} を装備した（${itemPower(item)}）。`);
+    log(`${item.name} を装備した（${itemPower(item)}）。${combat ? "――一手かけた。" : ""}`);
     if (item.exposurePerTurn) log("……身につけた途端、深みがじわりと滲む。", "warn");
     if (cur) { (ch.gearBag ??= []).push(cur); log(`外した「${itemLabel(cur)}」は荷物へ。`, "dim"); }
     save();
+    updateStatus(); // 装備変更を HUD に反映（槍⇔剣の踏み込みボタン表示など）
+    return combat;
   } else if (r.pick === 2) {
     const idx = (ch.gearBag ?? []).indexOf(item);
     if (idx >= 0) { ch.gearBag!.splice(idx, 1); log(`「${itemLabel(item)}」を置いていった。`, "dim"); save(); }
   }
   updateStatus(); // 装備変更を HUD に反映（槍⇔剣の踏み込みボタン表示など）
+  return false;
 }
 
-/** 1スロットだけを着け替える（袋の同スロット品から選ぶ／外す）。非戦闘（視界に敵なし）でのみ。 */
-async function swapSlot(ch: Character, slot: ItemSlot) {
+/** 1スロットだけを着け替える（袋の同スロット品から選ぶ／外す）。
+ *  非戦闘＝従来どおり無償で自由。戦闘中（inCombatNow）は武器/防具/遺物を解禁するが確認のうえ一手消費、
+ *  鞄(bag)スロットは戦闘無関係＝常に無償（v0.135.0）。
+ *  戻り値＝一手消費したら true（呼び元はメニューを畳んで turnPass する）。 */
+async function swapSlot(ch: Character, slot: ItemSlot): Promise<boolean> {
   busy = true;
-  if (!canSwapNow()) { await sheet({ text: "敵が近い。装備は戦いの最中には換えられない。", meta: "装備", options: ["わかった"] }); busy = false; return; }
+  const combat = inCombatNow() && isCombatGearSlot(slot);
   const bag = (ch.gearBag ??= []);
   const cur = ch.equipment[slot] ?? null;
   const matches = bag.map((it, idx) => ({ it, idx })).filter((o) => o.it.slot === slot);
   if (!matches.length && !cur) {
     await sheet({ text: `袋に${SLOT_LABEL[slot]}がない。迷宮で拾うと、ここで着け替えられる。`, meta: `装備 ── ${SLOT_LABEL[slot]}`, options: ["閉じる"] });
-    busy = false; return;
+    busy = false; return false;
   }
   const cells = matches.map((o) => ({ html: `<span class="chip ${GEAR_SLOT_CLS[slot]}">${SLOT_LABEL[slot]}</span><div class="nm">${itemLabel(o.it)}</div>` }));
   if (cur) cells.push({ html: `<div class="nm" style="color:var(--tx-dim)">外して袋へしまう</div>` });
-  const lead = cur ? `今の${SLOT_LABEL[slot]}：${itemLabel(cur)}` : `今は${SLOT_LABEL[slot]}を着けていない。`;
+  const lead = (cur ? `今の${SLOT_LABEL[slot]}：${itemLabel(cur)}` : `今は${SLOT_LABEL[slot]}を着けていない。`)
+    + (combat ? "\n※戦闘中――持ち替えると一手かかる（敵が動く）。" : "");
   const i = await chooseGrid({ title: `${SLOT_LABEL[slot]}を換える`, lead, cells, cancel: "やめる", cols: 1 });
   busy = false;
-  if (i < 0) return;
+  if (i < 0) return false;
+  if (combat) {
+    busy = true;
+    const c = await sheet({ text: "この持ち替えは一手かかる（敵が動く）。持ち替える？", meta: `装備 ── ${SLOT_LABEL[slot]}`, options: ["持ち替える", "やめる"] });
+    busy = false;
+    if (c.pick !== 1) return false;
+  }
   if (i < matches.length) {
     const chosen = matches[i];
     chosen.it.unidentified = false; // 装備＝鑑定（拾い物フローと同じ）
@@ -7434,15 +7467,16 @@ async function swapSlot(ch: Character, slot: ItemSlot) {
     bag.splice(chosen.idx, 1);
     if (cur) bag.push(cur);
     sfx("equip");
-    log(`${chosen.it.name} を装備した（${itemPower(chosen.it)}）。`, "cue");
+    log(`${chosen.it.name} を装備した（${itemPower(chosen.it)}）。${combat ? "――一手かけた。" : ""}`, "cue");
     if (chosen.it.exposurePerTurn) log("……身につけた途端、深みがじわりと滲む。", "warn");
   } else {
-    if (!cur) return;
+    if (!cur) return false;
     bag.push(cur); ch.equipment[slot] = null;
     sfx("equip");
-    log(`${cur.name} を外して袋にしまった。`, "dim");
+    log(`${cur.name} を外して袋にしまった。${combat ? "――一手かけた。" : ""}`, "dim");
   }
   save(); updateStatus();
+  return combat;
 }
 
 /** 持ち物（消耗品）を使う／捨てる。潜行中の「使う」は一手かかる＝下部の『持ち物』ボタンに誘導（手番処理の再入を避ける）。 */
@@ -7966,8 +8000,16 @@ function inSight(): boolean {
   const vis = computeFov(floor, player);
   return floor.monsters.some((m) => m.hp > 0 && vis.has(mapIdx(floor!, m.x, m.y)));
 }
-/** 術の構え替え・装備換装が可能か＝街/安全地帯、または迷宮でも視界に敵がいなければ可（4-11F③ 緩和）。 */
+/** 術の構え替えが可能か＝街/安全地帯、または迷宮でも視界に敵がいなければ可（4-11F③ 緩和）。
+ *  ★構えは据え置き＝安全時のみ（v0.135.0 の装備換装の一手コスト化とは別軸・変更しない）。 */
 function canSwapNow(): boolean { return mode !== "dive" || !inSight(); }
+/** 戦闘中か＝装備（武器/防具/遺物）の持ち替えに一手コストを課す判定（v0.135.0）。
+ *  dive＝視界内に生存敵がいれば戦闘中。raid（街防衛戦）は波が尽きるまで常に戦場＝常時戦闘中とみなす
+ *  （raidEndTurn は敵が全滅した瞬間に次波を出すかvictoryへ抜けるため、raid中は必ず敵がいる）。 */
+function inCombatNow(): boolean {
+  if (mode === "raid") return true;
+  return mode === "dive" && inSight();
+}
 /** 敵図鑑：視界内の生存敵の種名を World に蓄積（世代越え）。 */
 function recordBestiary() {
   if (mode !== "dive" || !floor) return;
