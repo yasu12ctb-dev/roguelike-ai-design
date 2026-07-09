@@ -24,8 +24,13 @@ interface MonsterKind {
 //   leech  ＝命中ぶん自己回復（しぶとい）／breeder ＝たまに隣に弱い眷属を湧かす（数の圧・総数上限）。
 //   reflect ＝近接で殴られると一部を反射（術/投擲を促す・深淵帯／PR2 2026-06-28）／
 //   curse  ＝命中でプレイヤーの深蝕を上塗り（深淵帯の侵蝕・PR2）。reflect/curse は minDepth>50 限定＝golden(≤42)不変。
-export type MonsterAbility = "ranged" | "venom" | "leech" | "breeder" | "reflect" | "curse";
+//   charge ＝直線上の間合い（距離2〜CHARGE_MAX）から「突進＋一撃」を予告→隣接まで一気に詰める（フェーズ1・2026-07-09）。
+//           ＝槍のカイト（後退で間合いを保つ）を封じる“詰め手”。予告（テレグラフ）を見て直線から退けば空振り（見切り）だが、
+//           突進側は着地点まで移動する＝距離は詰められる＝距離1で弱い槍を近距離戦に引きずり込む。
+export type MonsterAbility = "ranged" | "venom" | "leech" | "breeder" | "reflect" | "curse" | "charge";
 export const RANGED_MAX = 4;        // 狙撃の最大射程（これ以遠は間合いを詰める）
+export const CHARGE_MAX = 4;        // 突進の最大射程（直線でこの距離まで一気に詰める）
+const CHARGE_CD = 3;                // 突進後のクールダウン（毎手 charge せず・間に通常追跡/攻撃を挟む）
 export const BREED_CHANCE = 0.16;   // breeder が1手に眷属を湧かす確率（クールダウン併用）
 export const BREED_CD = 6;          // 眷属を湧かしたあとの待機手数
 export const MONSTER_HARDCAP = 60;  // フロアの敵総数の上限（breeder の暴走防止）
@@ -92,6 +97,8 @@ export const MONSTER_KINDS: MonsterKind[] = [
   { key: "hound",   glyph: "h", name: "影狼",     hp: 6,  dmg: 3, minDepth: 10, erratic: 0.25, tier: 3 }, // 俊敏で詰めが速い
   { key: "brute",   glyph: "B", name: "鉄腕鬼",   hp: 16, dmg: 3, minDepth: 13, erratic: 0.05, tier: 4 }, // 硬い壁役
   { key: "reaver",  glyph: "e", name: "斬鬼",     hp: 10, dmg: 4, minDepth: 20, erratic: 0.2,  tier: 4 }, // 高火力近接
+  { key: "charger", glyph: "d", name: "突貫獣",   hp: 8,  dmg: 3, minDepth: 7,  erratic: 0.05, tier: 3, ability: "charge" }, // 直線から突進＝カイト封じ（詰め手）
+  { key: "lancer",  glyph: "K", name: "鉄蹄の兵", hp: 16, dmg: 5, minDepth: 24, erratic: 0.05, tier: 4, ability: "charge" }, // 深部の突進兵（硬く痛い詰め手）
   { key: "golem",   glyph: "F", name: "石塊兵",   hp: 20, dmg: 4, minDepth: 24, erratic: 0.03, tier: 5 }, // 鈍重だが頑強
   { key: "gloom",   glyph: "G", name: "闇塊",     hp: 22, dmg: 5, minDepth: 27, erratic: 0.1,  tier: 5 },
   { key: "phantom", glyph: "P", name: "惑影",     hp: 18, dmg: 6, minDepth: 38, erratic: 0.4,  tier: 4 }, // 不規則で読みにくい
@@ -138,7 +145,7 @@ export const scaleKind = (k: MonsterKind, depth: number, mods: DifficultyMods = 
 
 /** 敵の次手のテレグラフ（4-11A 読める盤面）。move=ここへ動く / attack=このマスを討つ */
 export type MonsterIntent =
-  | { type: "attack"; x: number; y: number; ranged?: boolean; heavy?: boolean; cells?: Pos[]; shape?: number } // ranged=遠隔の狙撃／heavy=ボスの渾身の一撃（B・テレグラフ・退けば空振り）／cells=形つき確定範囲（D・area ボス限定・全マス橙予告）／shape=形の種別（0直線/1扇/2薙ぎ）
+  | { type: "attack"; x: number; y: number; ranged?: boolean; heavy?: boolean; charge?: boolean; dest?: Pos; cells?: Pos[]; shape?: number } // ranged=遠隔の狙撃／heavy=ボスの渾身の一撃（B・テレグラフ・退けば空振り）／charge=突進（dest=着地点まで直線を詰めてから討つ）／cells=形つき確定範囲（D・area ボス限定・全マス橙予告）／shape=形の種別（0直線/1扇/2薙ぎ）
   | { type: "move"; x: number; y: number }
   | { type: "wait" };
 
@@ -156,6 +163,7 @@ export interface Monster extends Pos {
   boss?: "elite" | "area";       // 中ボス（奥の強敵）／エリアボス（節目の山場）：4-11F
   fossilId?: string;             // 出自の化石（敵性化した探索者）。⑤鎮め筋の対象（4-11D）
   breedCd?: number;              // breeder：眷属を湧かしたあとの待機手数（4-11G）
+  chargeCd?: number;             // charge：突進後のクールダウン（毎手 charge しない）
   enraged?: boolean;             // ボス（area）：HP 半減で覚醒済み（B・攻撃↑＋大技CD短縮）
   bigCd?: number;                // ボス（area）：渾身の一撃のクールダウン（B・溜め大技）
   bigShape?: number;             // ボス（area）：次の大技の形（D・0直線/1扇/2薙ぎを大技ごとに巡回）
@@ -592,7 +600,7 @@ export function genRaidField(seed: number, scale: "small" | "medium" | "large", 
 }
 
 // ---------- モンスターのターン（テレグラフ＝予告 → 実行の2段：4-11A） ----------
-interface MonsterHit { monster: Monster; dmg: number; target: "player" | "companion"; effect?: "poison" | "heavy" | "curse"; tx?: number; ty?: number; } // tx/ty=被弾マス（街防衛戦で複数味方の誰が撃たれたかを web 側が特定するため。dive/golden では未使用）
+interface MonsterHit { monster: Monster; dmg: number; target: "player" | "companion"; effect?: "poison" | "heavy" | "curse" | "charge"; tx?: number; ty?: number; } // tx/ty=被弾マス（街防衛戦で複数味方の誰が撃たれたかを web 側が特定するため。dive/golden では未使用）
 interface Resolution { hits: MonsterHit[]; dodges: Monster[]; }
 /** 相棒の一手の結果（プレイヤー手番末に解決）。 */
 interface CompanionResolution { hit: Monster | null; dmg: number; }
@@ -653,6 +661,23 @@ function bossShapeCells(f: Floor, bx: number, by: number, tx: number, ty: number
   else if (idx === 1) { for (const [ax, ay] of frontDirs(dx, dy)) { add(bx + ax, by + ay); add(bx + ax * 2, by + ay * 2); } } // 扇
   else { for (const [ax, ay] of DIRS8) add(bx + ax, by + ay); } // 薙ぎ（周囲8）
   return cells;
+}
+
+/** 突進（charge）：m から target への 8方向直線上・距離 2..CHARGE_MAX で、間の床が全て空きなら target 手前（隣接）の着地点を返す。無ければ null。 */
+function chargeDest(f: Floor, m: Monster, target: Pos, friends: readonly CompanionEntity[]): Pos | null {
+  const dx = target.x - m.x, dy = target.y - m.y;
+  const adx = Math.abs(dx), ady = Math.abs(dy);
+  if (!(dx === 0 || dy === 0 || adx === ady)) return null; // 縦・横・斜めの直線のみ
+  const dist = Math.max(adx, ady);
+  if (dist < 2 || dist > CHARGE_MAX) return null;
+  const sx = Math.sign(dx), sy = Math.sign(dy);
+  let cx = m.x, cy = m.y;
+  for (let step = 1; step < dist; step++) { // target 手前まで（target 自身＝プレイヤー位置は走査しない）
+    cx += sx; cy += sy;
+    if (tileAt(f, cx, cy) !== 1) return null;         // 壁で塞がれた直線は突進しない
+    if (occupiedBy(f, cx, cy, m, friends)) return null; // 途中に他者が居れば突進しない
+  }
+  return { x: cx, y: cy }; // target の隣接（着地点）
 }
 
 /** 各モンスターの次手を決め、intent に予告として書く（プレイヤーが見て動ける）。
@@ -756,6 +781,17 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
       }
       // d > RANGED_MAX → 通常追跡で間合いを詰める（下へ落ちる）
     }
+    if (m.kind.ability === "charge") { // 突進（フェーズ1）：直線の間合いから一気に詰める＝カイト封じ。CD 中や非直線・隣接では下の通常ロジックへ。
+      if (m.chargeCd && m.chargeCd > 0) m.chargeCd--;
+      else if (d >= 1.5) {
+        const dest = chargeDest(f, m, target, friends);
+        if (dest) {
+          m.intent = { type: "attack", x: target.x, y: target.y, charge: true, dest };
+          m.chargeCd = CHARGE_CD;
+          continue;
+        }
+      }
+    }
     if (d < 1.5) { // 隣接 → 標的の現在マスを討つと予告（退けば空振り＝見切り）
       if (m.boss === "area" && (m.bigCd ?? 0) <= 0) { // ①溜め大技：渾身の一撃を予告（退けば空振り＝読み合い）。D＝形つき確定範囲へ発展
         const shape = (m.bigShape ?? 0) % 3; // 直線→扇→薙ぎを大技ごとに巡回
@@ -800,6 +836,16 @@ export function resolveMonsters(f: Floor, player: Pos, companion?: CompanionEnti
     if (m.hp <= 0 || !m.intent) continue;
     if (m.intent.type === "attack") {
       const ix = m.intent.x, iy = m.intent.y; // 局所化（クロージャ内では m.intent の絞り込みが失われるため）
+      // 突進（フェーズ1）：予告どおり直線を詰めて着地点へ（塞がれたら手前で止まる）。移動後に通常の命中判定＝退かれていれば空振り（見切り）。
+      const charging = m.intent.charge === true;
+      if (charging && m.intent.dest) {
+        const sx = Math.sign(m.intent.dest.x - m.x), sy = Math.sign(m.intent.dest.y - m.y);
+        while (!(m.x === m.intent.dest.x && m.y === m.intent.dest.y)) {
+          const nx = m.x + sx, ny = m.y + sy;
+          if (tileAt(f, nx, ny) !== 1 || (nx === player.x && ny === player.y) || occupiedBy(f, nx, ny, m, friends)) break;
+          m.x = nx; m.y = ny;
+        }
+      }
       const cells = m.intent.cells; // D＝形つき確定範囲（area ボス限定・cells 有りのときだけ集合判定）。通常敵は undefined＝単点判定（golden 不変）。
       let onPlayer: boolean, onComp: boolean;
       if (cells) {
@@ -820,6 +866,7 @@ export function resolveMonsters(f: Floor, player: Pos, companion?: CompanionEnti
         else if (cells && onPlayer) { tx = player.x; ty = player.y; }
         const hit: MonsterHit = { monster: m, dmg, target: onPlayer ? "player" : "companion", tx, ty };
         if (heavy) hit.effect = "heavy"; // web 側の演出（強い被弾）
+        else if (charging && onPlayer) hit.effect = "charge"; // 突進の一撃（web 側の演出・突き飛ばしはしない）
         else if (m.kind.ability === "venom" && onPlayer) hit.effect = "poison"; // 毒はプレイヤーのみ（相棒に毒tickの器が無い）
         else if (m.kind.ability === "curse" && onPlayer) hit.effect = "curse"; // 深蝕の上塗り（プレイヤーのみ・深淵帯 minDepth>50＝golden 不変）
         hits.push(hit);

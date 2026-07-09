@@ -283,6 +283,13 @@
       box-shadow: 0 0 10px rgba(255,130,30,.4) inset; animation: teleboss .5s ease-in-out infinite;
     }
     @keyframes teleboss { 50% { background: rgba(255,140,40,.10); border-color: rgba(255,150,50,.4); } }
+    /* 突進の突入ライン（フェーズ1）＝黄の点線で「この直線を突っ込んでくる」を予告（直線から退けば空振り） */
+    .cell.tele-charge::before {
+      content: ""; position: absolute; inset: 14%; border-radius: 2px; pointer-events: none;
+      background: rgba(240,200,60,.16); border: 1px dashed rgba(245,205,70,.75);
+      animation: telecharge .45s ease-in-out infinite;
+    }
+    @keyframes telecharge { 50% { background: rgba(240,200,60,.05); border-color: rgba(245,205,70,.35); } }
     /* B：脅威の可視化＝@ を殴れる敵タイルに薄い赤の破線枠 */
     .cell.threat-src::after {
       content: ""; position: absolute; inset: 2px; border-radius: 4px; pointer-events: none;

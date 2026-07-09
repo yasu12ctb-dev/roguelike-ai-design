@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.140.0";
+export const APP_VERSION = "0.141.0";
 export const APP_BUILD = "2026-07-08";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -621,6 +621,9 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   forceDive: () => { if (world.current) { abyssDivePending = false; portalDivePending = false; void startDive(); } return !!world.current; },
   setHp: (v: number) => { hp = v; },
   getHp: () => hp,
+  spawnKind: (dx: number, dy: number, key: string, hpv?: number) => { if (!floor) return; const kind = MONSTER_KINDS.find((k) => k.key === key); if (!kind) return; floor.monsters.push({ id: `qk_${floor.monsters.length}`, kind, hp: hpv ?? kind.hp, x: player.x + dx, y: player.y + dy, awake: true, intent: null }); planMonsters(floor, player, rng, companion); }, // 突進 E2E：種を指定して湧かす
+  monAt: (dx: number, dy: number) => { const m = floor?.monsters.find((mm) => mm.hp > 0 && mm.x === player.x + dx && mm.y === player.y + dy); return m ? { key: m.kind.key, hp: m.hp, intent: m.intent?.type ?? null, charge: (m.intent as { charge?: boolean } | null)?.charge ?? false } : null; },
+  nearestMon: () => { if (!floor) return null; let best: Monster | null = null, bd = 1e9; for (const m of floor.monsters) { if (m.hp <= 0) continue; const d = Math.max(Math.abs(m.x - player.x), Math.abs(m.y - player.y)); if (d < bd) { bd = d; best = m; } } return best ? { dx: best.x - player.x, dy: best.y - player.y, cheb: bd, hp: best.hp, key: best.kind.key } : null; },
   bump: (dx: number, dy: number) => { void playerAct(dx, dy); }, // 近接（会心薙ぎ検証）
   step: () => { void endTurn(); },
   dump: () => floor ? { w: floor.w, h: floor.h, px: player.x, py: player.y, hp, su: { ...floor.stairsUp }, sd: { ...floor.stairsDown }, tiles: [...floor.tiles], hazards: (floor.hazards ?? []).map((h) => ({ ...h })), mons: floor.monsters.filter((m) => m.hp > 0).map((m) => ({ x: m.x, y: m.y, hp: m.hp, slowed: m.slowed ?? 0, ranged: m.kind.ability === "ranged" })) } : null,
@@ -757,6 +760,7 @@ function draw() {
   // 討たれる→ @ が赤く明滅。抽象的な枠・点はやめ「敵がどこへ来るか」「自分が危ない」を直接見せる。
   const teleMove = new Set<number>();        // 敵が踏み込む先の床マス（背景ハイライト）
   const bossShape = new Set<number>();       // D：ボスの形つき確定範囲（橙の全マス予告）
+  const teleCharge = new Set<number>();      // 突進の突入ライン（フェーズ1・m→着地点の直線＝予告）
   const threatSrc = new Set<number>();       // B：この手番あなたを殴れる敵のタイル（薄い赤枠）
   let threatN = 0;                           // B：この手番あなたを殴れる敵の数（HUD 常時表示）
   let playerThreatened = false;              // 自分のマスが攻撃予告されている
@@ -767,6 +771,11 @@ function draw() {
     if (m.hp <= 0 || !m.intent || !vis.has(mapIdx(floor, m.x, m.y))) continue;
     if (m.intent.type === "attack") {
       const ix = m.intent.x, iy = m.intent.y; // 局所化（クロージャ内で intent の絞り込みが失われるため）
+      if (m.intent.charge && m.intent.dest) { // 突進の突入ライン＝m→着地点の直線を予告（プレイヤーが読んで直線から退ける）
+        const sx = Math.sign(m.intent.dest.x - m.x), sy = Math.sign(m.intent.dest.y - m.y);
+        let lx = m.x, ly = m.y;
+        for (let k = 0; k <= 5; k++) { teleCharge.add(mapIdx(floor, lx, ly)); if (lx === m.intent.dest.x && ly === m.intent.dest.y) break; lx += sx; ly += sy; }
+      }
       const cells = m.intent.cells;           // D：形つき確定範囲（area ボス限定）。あれば集合で判定・橙予告
       if (cells) {
         let hitsPlayer = false;
@@ -790,7 +799,7 @@ function draw() {
     const t = tileAt(floor, x, y);
     const visible = inside && vis.has(mi), explored = inside && floor.explored[mi];
     c.classList.toggle("wall", t === 0 && explored);
-    if (!explored) { span.textContent = ""; c.style.filter = "brightness(0)"; c.classList.remove("tele-atk", "tele-move", "tele-boss", "threat-src", "hz-fire", "hz-venom", "hz-crumble", "hz-miasma", "hz-frost", "hz-cracked"); continue; }
+    if (!explored) { span.textContent = ""; c.style.filter = "brightness(0)"; c.classList.remove("tele-atk", "tele-move", "tele-charge", "tele-boss", "threat-src", "hz-fire", "hz-venom", "hz-crumble", "hz-miasma", "hz-frost", "hz-cracked"); continue; }
 
     let glyph = t === 0 ? "▒" : "·";
     let cls = t === 0 ? "g-wall" : "g-floor";
@@ -819,6 +828,7 @@ function draw() {
     }
     // 移動予告：敵が踏み込む先の「何も無い床マス」を背景色でハイライト（グリフは出さない）
     c.classList.toggle("tele-move", visible && cls === "g-floor" && teleMove.has(mi));
+    c.classList.toggle("tele-charge", visible && teleCharge.has(mi)); // 突進の突入ライン（フェーズ1・詰め手の予告）
     c.classList.toggle("tele-boss", visible && bossShape.has(mi)); // D：ボスの形つき確定範囲＝橙の全マス予告
     // 相棒（4-14C）：青系の @。攻撃予告中は明滅、被攻撃予告中は危険色。
     const isCompanion = !!companion && x === companion.x && y === companion.y;
@@ -3487,6 +3497,7 @@ async function raidEndTurn(): Promise<void> {
         if (deathDoorTurns > 0) dmg = 0;
         if (dmg > 0 && shadowGuard > 0) { shadowGuard--; dmg = 0; log(`${h.monster.kind.name}の一撃を、影が引き受けた。`, "dim"); }
         else if (h.effect === "heavy") { hp -= dmg; sfx("boss", 0.16); flashFx("warp"); floatFx(player.x, player.y, String(dmg), "fl-hurt"); log(`${h.monster.kind.name}の渾身の一撃！ ${dmg}の大ダメージ。`, "warn"); }
+        else if (h.effect === "charge") { hp -= dmg; sfx("hurt", 0.14); flashFx("warp"); floatFx(player.x, player.y, String(dmg), "fl-hurt"); log(`${h.monster.kind.name}が突進してきた！ ${dmg}の突き。`, "warn"); }
         else { hp -= dmg; floatFx(player.x, player.y, String(dmg), "fl-hurt"); log(`${h.monster.kind.name}の一撃！ ${dmg}の傷。`, "warn"); if (h.effect === "poison") { poisonTurns = Math.max(poisonTurns, VENOM_TURNS); poisonDmg = Math.max(poisonDmg, venomDmgAt(raid.pseudoDepth)); log("牙に毒が仕込まれていた。", "warn"); } }
       }
     }
@@ -4982,6 +4993,7 @@ function lungeThrough(mon: Monster, dx: number, dy: number): void {
   else log("貫き先が塞がっている。その場で打った。", "dim");
 }
 
+const SPEAR_ADJ_MUL = 0.5; // フェーズ1：槍の距離1（隣接）ダメージ倍率＝近距離で弱い（距離2は満額）。テスト調整候補。
 /** 武器クラス〈槍〉（reach>=2・v0.124.0）の突き：十字直線・貫通。
  *  primary（mon ?? mon2）にフル補正（会心・挟撃・siphon・proc）、貫通の 2 体目（secondary）は基礎ダメージのみ。
  *  raid では siphon/proc/reflect は使わず、撃破は raidKill（dive の bump と対称）。踏み込み不可（lunge=false 固定）。
@@ -4992,6 +5004,9 @@ function spearStrike(mon: Monster | undefined, mon2: Monster | undefined, pdx: n
   const kill = (m: Monster, line?: string) => { if (raid) raidKill(m); else downOrKill(m, line); };
   const primary = (mon ?? mon2)!;                 // 手前に敵がいれば手前、いなければ奥（頭越しに突く）
   const hitR = meleeWithPositioning(meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0), primary, { lunge: false });
+  // フェーズ1（2026-07-09・NetHackモデル）：槍は隣接（距離1）の敵に弱い＝手前(mon)が primary のとき威力減衰。
+  //   距離2から一方的に突く（primary=奥 mon2）のは満額＝「間合いを保てば強い／詰められると脆い」。減衰は proc/siphon/log にも波及。
+  if (mon && primary === mon) hitR.dmg = Math.max(1, Math.round(hitR.dmg * SPEAR_ADJ_MUL));
   primary.hp -= hitR.dmg;
   sfx(primary.boss ? "crit" : "hit");
   floatFx(primary.x, primary.y, String(hitR.dmg), hitR.crit ? "fl-crit" : "fl-dmg");
@@ -5347,6 +5362,11 @@ async function endTurn() {
         hp -= dmg; sfx("boss", 0.16); flashFx("warp");
         floatFx(player.x, player.y, String(dmg), "fl-hurt");
         log(`${h.monster.kind.name}の渾身の一撃が炸裂した！ ${dmg}の大ダメージ。`, "warn");
+      }
+      else if (h.effect === "charge") { // 突進（フェーズ1）：間合いを詰めて突き込む。通常ダメだが「詰められた」手応え
+        hp -= dmg; sfx("hurt", 0.14); flashFx("warp", { x: player.x, y: player.y });
+        floatFx(player.x, player.y, String(dmg), "fl-hurt");
+        log(`${h.monster.kind.name}が突進してきた！ ${dmg}の突き。`, "warn");
       }
       else {
         hp -= dmg; log(`${h.monster.kind.name}の一撃！ ${dmg}の傷。`, "warn");
@@ -7796,7 +7816,7 @@ async function eventsScreen() {
 }
 
 // 能力の説明＋対処のヒント（図鑑の詳細・図鑑拡充）。ラベルは盤面/図鑑共通。
-const ABILITY_LABEL: Record<string, string> = { ranged: "遠隔", venom: "毒", leech: "吸命", breeder: "増殖", reflect: "反射", curse: "侵蝕" };
+const ABILITY_LABEL: Record<string, string> = { ranged: "遠隔", venom: "毒", leech: "吸命", breeder: "増殖", reflect: "反射", curse: "侵蝕", charge: "突進" };
 const ABILITY_INFO: Record<string, string> = {
   ranged: "射程の外から狙撃する。接近されると間合いを取り直す＝詰め寄れば弱い。",
   venom:  "命中で毒を盛り、次手から継続ダメージ。解毒の丸薬・遺物〈澄心〉が効く。",
@@ -7804,6 +7824,7 @@ const ABILITY_INFO: Record<string, string> = {
   breeder:"ときおり眷属を湧かす。数で圧される前に、母体を断て。",
   reflect:"近接で殴ると一部を返す。術・投擲が安全。遺物〈茨〉で対抗できる。",
   curse:  "命中で深蝕を上塗りする。深追いは禁物。遺物〈澄心〉で半減。",
+  charge: "直線から一気に間合いを詰めて突く。突入ラインから横へ退けば空振り＝だが距離は詰められる（槍のカイト封じ）。",
 };
 // モンスター寸評（博物誌風・1行・純フレーバー＝ゲーム性ゼロ）。key は MONSTER_KINDS の key。
 const MONSTER_LORE: Record<string, string> = {
@@ -7827,6 +7848,8 @@ const MONSTER_LORE: Record<string, string> = {
   hound: "影を駆け、瞬く間に懐へ飛び込む。",
   brute: "鉄の腕で殴りつける、硬い壁役。",
   reaver: "鋭い刃をふるう高火力の近接。受ければ深く斬られる。",
+  charger: "直線に狙いを定め、地を蹴って一気に間合いを詰める。横へ退けば突き抜けるが、離れて戦う者には天敵。",
+  lancer: "深みに堕ちた騎兵の名残。長柄を構えて直線を疾駆し、間合いを許さない。",
   golem: "石を寄せ集めた鈍重な兵。崩すのに骨が折れる。",
   gloom: "蠢く闇の塊。深層で群れをなす。",
   phantom: "実在の定かでない影。不規則に揺らぎ、狙いが定まらない。",
