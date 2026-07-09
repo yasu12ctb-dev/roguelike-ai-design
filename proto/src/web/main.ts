@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.143.0";
+export const APP_VERSION = "0.144.0";
 export const APP_BUILD = "2026-07-08";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -6566,7 +6566,7 @@ async function returnViaDoor() {
   const ch = world.current!;
   const depth = floor!.depth;
   const r = await sheet({
-    text: `帰還の扉が、静かに口を開けている。\nここから街へ一度戻れる。あの階（深度${depth}）への帰り道は、街の慰霊碑の傍にもう一度だけ開く。\n（潜行は続く＝盤面はそのまま・ボスは討たれたまま。傷は街で癒えるが、深みは残る）`,
+    text: `帰還の扉が、静かに口を開けている。\nここから街へ戻り、またこの扉から あの階（深度${depth}）へ戻ってこられる。街とここを行き来して、態勢を立て直せる。\n（潜行は続く＝盤面はそのまま・ボスは討たれたまま。傷は街で癒えるが、深みは残る。街で新しく潜り直すと、この帰り道は閉じる）`,
     meta: "帰還の扉 ── 街へ戻る", options: ["扉をくぐる（街へ）", "とどまる"],
   });
   if (r.pick !== 1) { busy = false; draw(); return; }
@@ -6577,7 +6577,7 @@ async function returnViaDoor() {
   save();
   sfx("stairs_up"); flashFx("warp");
   log("帰還の扉をくぐる――束の間の地上。慰霊碑の傍に、あの階へ戻る扉が待っている。", "cue");
-  log("（街の慰霊碑（碑）の傍に開いた「帰還の扉（扉）」から、一度だけ あの階へ戻れる）", "dim");
+  log("（慰霊碑（碑）の傍の「帰還の扉（扉）」から あの階へ戻れる。新しく潜り直すまで、街と行き来できる）", "dim");
   busy = false;
   await townLoop();
   await startDive(); // 街の「迷宮の口」から潜った＝新規潜行（startDive が駐機 portal を破棄＝checkpoint を諦めた）
@@ -6592,7 +6592,7 @@ async function useReturnPortal() {
   busy = true;
   const depth = portal.depth;
   const r = await sheet({
-    text: `慰霊碑の傍に、ほのかな光の門が開いている――帰還の扉。\nくぐれば、討ち倒した相手のいた あの階（深度${depth}）へ戻る。潜行の続きだ。\n（この扉は一度きり。くぐれば閉じる。傷は街で癒えたが、深みは残ったまま）`,
+    text: `慰霊碑の傍に、ほのかな光の門が開いている――帰還の扉。\nくぐれば、討ち倒した相手のいた あの階（深度${depth}）へ戻る。潜行の続きだ。\n（あの階の扉から、また街へ戻ってこられる。街で新しく潜り直すと、この帰り道は閉じる。傷は街で癒えたが、深みは残ったまま）`,
     meta: "帰還の扉 ── あの階へ戻る", options: [`扉をくぐる（深度${depth}へ）`, "とどまる"],
   });
   busy = false;
