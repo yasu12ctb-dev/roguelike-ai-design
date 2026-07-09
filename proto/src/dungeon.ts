@@ -18,6 +18,7 @@ interface MonsterKind {
   tier: number; // 強さの段（1=雑魚 … 5=最危険）。記号=種類／色=tier で可視化（4-11F）。
   maxDepth?: number; // この深度を超えると出現しない（最弱種の深層フェードアウト：2026-06-23）。
   ability?: MonsterAbility; // 特殊能力（テレグラフ準拠・web限定＝planMonsters/resolveMonsters で実装。未指定＝素の近接）。
+  reach?: number; // 攻撃射程（フェーズ2・2026-07-09）。未指定=1（隣接）。≥2＝直線の距離2から突く長柄型＝1マス押し出しても届く（押し出しの読み合い④）。
 }
 // モンスター特殊能力（4-11G・2026-06-23）：すべてテレグラフ準拠・決定論。素の dmg は据え置きテクスチャを足す方針。
 //   ranged ＝射程から狙撃（接近で間合いを取り直す＝接近が弱点）／venom ＝命中でプレイヤーに毒（継続ダメ）／
@@ -99,6 +100,8 @@ export const MONSTER_KINDS: MonsterKind[] = [
   { key: "reaver",  glyph: "e", name: "斬鬼",     hp: 10, dmg: 4, minDepth: 20, erratic: 0.2,  tier: 4 }, // 高火力近接
   { key: "charger", glyph: "d", name: "突貫獣",   hp: 8,  dmg: 3, minDepth: 7,  erratic: 0.05, tier: 3, ability: "charge" }, // 直線から突進＝カイト封じ（詰め手）
   { key: "lancer",  glyph: "K", name: "鉄蹄の兵", hp: 16, dmg: 5, minDepth: 24, erratic: 0.05, tier: 4, ability: "charge" }, // 深部の突進兵（硬く痛い詰め手）
+  { key: "thruster",glyph: "p", name: "刺突鬼",   hp: 9,  dmg: 3, minDepth: 11, erratic: 0.1,  tier: 3, reach: 2 }, // 長柄＝射程2で突く。1マス押しても届く（押し出しの読み合い④）
+  { key: "pikeman", glyph: "L", name: "長柄鬼",   hp: 18, dmg: 5, minDepth: 30, erratic: 0.05, tier: 4, reach: 2 }, // 深部の長柄＝射程2の壁
   { key: "golem",   glyph: "F", name: "石塊兵",   hp: 20, dmg: 4, minDepth: 24, erratic: 0.03, tier: 5 }, // 鈍重だが頑強
   { key: "gloom",   glyph: "G", name: "闇塊",     hp: 22, dmg: 5, minDepth: 27, erratic: 0.1,  tier: 5 },
   { key: "phantom", glyph: "P", name: "惑影",     hp: 18, dmg: 6, minDepth: 38, erratic: 0.4,  tier: 4 }, // 不規則で読みにくい
@@ -663,6 +666,21 @@ function bossShapeCells(f: Floor, bx: number, by: number, tx: number, ty: number
   return cells;
 }
 
+/** 敵の攻撃射程判定（フェーズ2）：(mx,my) から (tx,ty) を reach で討てるか。
+ *  reach<=1＝隣接（8方向 Chebyshev≤1）。reach>=2＝8方向直線・距離1..reach・間の床が壁でない（頭越しに突ける）。
+ *  planMonsters の遠間攻撃条件／web の押し出しキャンセル判定（③④）／突入ライン描画で共用＝挙動を一元化。 */
+export function monsterCanReach(f: Floor, mx: number, my: number, tx: number, ty: number, reach: number): boolean {
+  const dx = tx - mx, dy = ty - my, adx = Math.abs(dx), ady = Math.abs(dy);
+  const cheb = Math.max(adx, ady);
+  if (reach <= 1) return cheb <= 1;
+  if (cheb < 1 || cheb > reach) return false;
+  if (!(dx === 0 || dy === 0 || adx === ady)) return false; // 8方向直線のみ
+  const sx = Math.sign(dx), sy = Math.sign(dy);
+  let cx = mx, cy = my;
+  for (let s = 1; s < cheb; s++) { cx += sx; cy += sy; if (tileAt(f, cx, cy) !== 1) return false; } // 間に壁があれば届かない（敵は貫通しない）
+  return true;
+}
+
 /** 突進（charge）：m から target への 8方向直線上・距離 2..CHARGE_MAX で、間の床が全て空きなら target 手前（隣接）の着地点を返す。無ければ null。 */
 function chargeDest(f: Floor, m: Monster, target: Pos, friends: readonly CompanionEntity[]): Pos | null {
   const dx = target.x - m.x, dy = target.y - m.y;
@@ -791,6 +809,11 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
           continue;
         }
       }
+    }
+    if ((m.kind.reach ?? 1) >= 2 && monsterCanReach(f, m.x, m.y, target.x, target.y, m.kind.reach!)) {
+      // 長柄（フェーズ2）：直線の距離1..reach なら「その場から突く」と予告（隣接でなくても討てる）。届かない/非直線なら下の通常追跡で間合いを詰める。
+      m.intent = { type: "attack", x: target.x, y: target.y };
+      continue;
     }
     if (d < 1.5) { // 隣接 → 標的の現在マスを討つと予告（退けば空振り＝見切り）
       if (m.boss === "area" && (m.bigCd ?? 0) <= 0) { // ①溜め大技：渾身の一撃を予告（退けば空振り＝読み合い）。D＝形つき確定範囲へ発展

@@ -51,7 +51,7 @@ import {
 import {
   genFloor, genRaidField, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx, spawnPursuer,
   planCompanion, resolveCompanion, randomFloorAway, inBounds, companionMaxHp, companionDmg, companionReduce, scaleKind,
-  bfsPath, reachableSet, nearestReachable,
+  bfsPath, reachableSet, nearestReachable, monsterCanReach,
   VIEW_W, VIEW_H, MONSTER_KINDS, type Floor, type Pos, type Chest, type Monster, type CompanionEntity, type DownedActor, type DelverActor, type Shrine,
 } from "../dungeon.ts";
 import type { Actor, Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, LivingActor, Quest, RosterActor, SetPiece, Storylet, TownContext, World } from "../types.ts";
@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.141.0";
+export const APP_VERSION = "0.142.0";
 export const APP_BUILD = "2026-07-08";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -625,6 +625,7 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   monAt: (dx: number, dy: number) => { const m = floor?.monsters.find((mm) => mm.hp > 0 && mm.x === player.x + dx && mm.y === player.y + dy); return m ? { key: m.kind.key, hp: m.hp, intent: m.intent?.type ?? null, charge: (m.intent as { charge?: boolean } | null)?.charge ?? false } : null; },
   nearestMon: () => { if (!floor) return null; let best: Monster | null = null, bd = 1e9; for (const m of floor.monsters) { if (m.hp <= 0) continue; const d = Math.max(Math.abs(m.x - player.x), Math.abs(m.y - player.y)); if (d < bd) { bd = d; best = m; } } return best ? { dx: best.x - player.x, dy: best.y - player.y, cheb: bd, hp: best.hp, key: best.kind.key } : null; },
   bump: (dx: number, dy: number) => { void playerAct(dx, dy); }, // 近接（会心薙ぎ検証）
+  push: (dx: number, dy: number) => { const m = floor?.monsters.find((mm) => mm.hp > 0 && mm.x === player.x + dx && mm.y === player.y + dy); if (m) pushEnemy(m, dx, dy); }, // フェーズ2③④：押し出しキャンセルの検証
   step: () => { void endTurn(); },
   dump: () => floor ? { w: floor.w, h: floor.h, px: player.x, py: player.y, hp, su: { ...floor.stairsUp }, sd: { ...floor.stairsDown }, tiles: [...floor.tiles], hazards: (floor.hazards ?? []).map((h) => ({ ...h })), mons: floor.monsters.filter((m) => m.hp > 0).map((m) => ({ x: m.x, y: m.y, hp: m.hp, slowed: m.slowed ?? 0, ranged: m.kind.ability === "ranged" })) } : null,
   setTile: (dx: number, dy: number, t: 0 | 1) => { if (floor) { const x = player.x + dx, y = player.y + dy; if (inBounds(floor, x, y)) { floor.tiles[mapIdx(floor, x, y)] = t; floor.explored[mapIdx(floor, x, y)] = true; } } },
@@ -761,6 +762,7 @@ function draw() {
   const teleMove = new Set<number>();        // 敵が踏み込む先の床マス（背景ハイライト）
   const bossShape = new Set<number>();       // D：ボスの形つき確定範囲（橙の全マス予告）
   const teleCharge = new Set<number>();      // 突進の突入ライン（フェーズ1・m→着地点の直線＝予告）
+  const teleReach = new Set<number>();       // 長柄（フェーズ2）：射程2で突く敵の突き線（m→@ の間のマス＝予告）
   const threatSrc = new Set<number>();       // B：この手番あなたを殴れる敵のタイル（薄い赤枠）
   let threatN = 0;                           // B：この手番あなたを殴れる敵の数（HUD 常時表示）
   let playerThreatened = false;              // 自分のマスが攻撃予告されている
@@ -775,6 +777,11 @@ function draw() {
         const sx = Math.sign(m.intent.dest.x - m.x), sy = Math.sign(m.intent.dest.y - m.y);
         let lx = m.x, ly = m.y;
         for (let k = 0; k <= 5; k++) { teleCharge.add(mapIdx(floor, lx, ly)); if (lx === m.intent.dest.x && ly === m.intent.dest.y) break; lx += sx; ly += sy; }
+      }
+      if ((m.kind.reach ?? 1) >= 2 && ix === player.x && iy === player.y) { // 長柄（フェーズ2）：突き線＝m→@ の間のマスを予告（1マス押しても届くのが読める）
+        const sx = Math.sign(ix - m.x), sy = Math.sign(iy - m.y);
+        let lx = m.x + sx, ly = m.y + sy;
+        while (!(lx === ix && ly === iy)) { teleReach.add(mapIdx(floor, lx, ly)); lx += sx; ly += sy; }
       }
       const cells = m.intent.cells;           // D：形つき確定範囲（area ボス限定）。あれば集合で判定・橙予告
       if (cells) {
@@ -799,7 +806,7 @@ function draw() {
     const t = tileAt(floor, x, y);
     const visible = inside && vis.has(mi), explored = inside && floor.explored[mi];
     c.classList.toggle("wall", t === 0 && explored);
-    if (!explored) { span.textContent = ""; c.style.filter = "brightness(0)"; c.classList.remove("tele-atk", "tele-move", "tele-charge", "tele-boss", "threat-src", "hz-fire", "hz-venom", "hz-crumble", "hz-miasma", "hz-frost", "hz-cracked"); continue; }
+    if (!explored) { span.textContent = ""; c.style.filter = "brightness(0)"; c.classList.remove("tele-atk", "tele-move", "tele-charge", "tele-reach", "tele-boss", "threat-src", "hz-fire", "hz-venom", "hz-crumble", "hz-miasma", "hz-frost", "hz-cracked"); continue; }
 
     let glyph = t === 0 ? "▒" : "·";
     let cls = t === 0 ? "g-wall" : "g-floor";
@@ -829,6 +836,7 @@ function draw() {
     // 移動予告：敵が踏み込む先の「何も無い床マス」を背景色でハイライト（グリフは出さない）
     c.classList.toggle("tele-move", visible && cls === "g-floor" && teleMove.has(mi));
     c.classList.toggle("tele-charge", visible && teleCharge.has(mi)); // 突進の突入ライン（フェーズ1・詰め手の予告）
+    c.classList.toggle("tele-reach", visible && teleReach.has(mi)); // 長柄の突き線（フェーズ2・射程2の予告）
     c.classList.toggle("tele-boss", visible && bossShape.has(mi)); // D：ボスの形つき確定範囲＝橙の全マス予告
     // 相棒（4-14C）：青系の @。攻撃予告中は明滅、被攻撃予告中は危険色。
     const isCompanion = !!companion && x === companion.x && y === companion.y;
@@ -4945,8 +4953,8 @@ function pushBlocker(x: number, y: number): "wall" | "enemy" | "clear" {
 }
 
 /** C. 見切り反撃の押し出し：会心命中で生存中の敵を @ から見た直線方向へ1マス突き飛ばす。
- *  空き床＝移動／壁・盤外＝叩きつけ追加ダメ／他の敵＝両者に小ダメ・詰まる。ハザード地形は現迷宮に無いので流用対象なし。
- *  ※押しても敵の予告した一撃は確定命中の契約どおりこの手番に解決される（intent は温存＝退けば見切り）。
+ *  空き床＝移動／壁・盤外＝叩きつけ追加ダメ／他の敵＝両者に小ダメ・詰まる。ハザード地形は着地点に適用。
+ *  ★フェーズ2③④：押し出して敵をその攻撃射程の外へ出せたら、末尾で予告一撃をキャンセル（無傷）。射程内なら温存＝反撃を受ける。
  *  押した敵（mon）本体の撃破は呼び側の死亡判定に委ねる（二重報酬を避ける）。巻き込んだ他の敵はここで撃破処理。 */
 function pushEnemy(mon: Monster, dx: number, dy: number): void {
   if (!floor) return;
@@ -4970,6 +4978,15 @@ function pushEnemy(mon: Monster, dx: number, dy: number): void {
     mon.x = nx; mon.y = ny; tileFx(nx, ny, "tfx-press");
     log(`${mon.kind.name}を突き飛ばした。`, "dim");
     applyHazardToEnemy(mon, true); // ★着地点がハザードなら即・叩き込む（位置取りの通貨×地形の本命シナジー）
+  }
+  // フェーズ2③④（2026-07-09）：押し出しで敵をその攻撃射程の外へ出したら、予告していた一撃をキャンセル（無傷の取引）。
+  //   まだ届く＝reach≥2 の長柄で1マス押しても距離内 or 壁で押せず隣接のまま＝intent 温存＝反撃を受ける（④）。
+  //   ＝剣の見切り→反撃（会心で押し出し）が「押し出して射程外に出せた時だけ」無傷になる。標的が @ の攻撃予告のみ対象。
+  if (mon.hp > 0 && mon.intent?.type === "attack" && mon.intent.x === player.x && mon.intent.y === player.y
+      && !monsterCanReach(floor, mon.x, mon.y, player.x, player.y, mon.kind.reach ?? 1)) {
+    mon.intent = { type: "wait" };
+    tileFx(player.x, player.y, "tfx-ready");
+    log(`${mon.kind.name}を射程の外へ弾き出した――反撃を無効化！`, "cue");
   }
 }
 
@@ -7850,6 +7867,8 @@ const MONSTER_LORE: Record<string, string> = {
   reaver: "鋭い刃をふるう高火力の近接。受ければ深く斬られる。",
   charger: "直線に狙いを定め、地を蹴って一気に間合いを詰める。横へ退けば突き抜けるが、離れて戦う者には天敵。",
   lancer: "深みに堕ちた騎兵の名残。長柄を構えて直線を疾駆し、間合いを許さない。",
+  thruster: "長柄で一歩引いた間合いから突く。1マス押し返しても、まだ穂先が届く。横へ弾き出すか、間合いを断て。",
+  pikeman: "深部に立ち塞がる長柄の壁。射程の内では、押し返しても突きが止まらない。",
   golem: "石を寄せ集めた鈍重な兵。崩すのに骨が折れる。",
   gloom: "蠢く闇の塊。深層で群れをなす。",
   phantom: "実在の定かでない影。不規則に揺らぎ、狙いが定まらない。",
@@ -7899,6 +7918,7 @@ async function bestiaryScreen() {
       { label: "体力", value: String(k.hp), note: "基礎値" },
       { label: "攻撃", value: String(k.dmg), note: "深く潜るほど増す" },
       { label: "動き", value: erraticWord(k.erratic) },
+      { label: "間合い", value: (k.reach ?? 1) >= 2 ? `射程${k.reach}（長柄＝直線を突く）` : "隣接（射程1）" },
       { label: "能力", value: k.ability ? `〔${ABILITY_LABEL[k.ability]}〕` : "なし（素の近接）" },
     ];
     if (k.ability && ABILITY_INFO[k.ability]) rows.push({ text: ABILITY_INFO[k.ability], dim: true });
