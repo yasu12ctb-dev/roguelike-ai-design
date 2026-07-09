@@ -148,14 +148,15 @@ const SCENARIOS: Record<string, () => string> = {
 
 // checked-in 期待値（--print で再生成して貼り替え）。Swift 移植はこの値を再現すべき正解データ。
 const EXPECTED: Record<string, string> = {
-  rng: "05bda7cc", progression: "cfe0c82f", genFloor: "ee9324b1",
-  monsterAI: "c2d84c16", items: "3758573a", worldLifecycle: "741659d6",
+  rng: "05bda7cc", progression: "cfe0c82f", genFloor: "e8e1a978",
+  monsterAI: "d6fddf2a", items: "3758573a", worldLifecycle: "741659d6",
   spells: "19f291e8", variation: "54d9a151",
 };
 // 注：worldLifecycle は 4-14 初期シード化石 2→12 体で更新（純エンジンの決定論変化＝意図的）。
 // 注：genFloor は A｜群れ増量（fodder・v0.123.0・FODDER_MUL=0.2）で再生成（1857a403→f3486769）＝設計変更＝Swift 照合の新基準。
 // 注：genFloor は 部屋クラスタ配置（案C・v0.140.0＝fodder 総数は不変・一部を部屋中心に固める）で再生成（f3486769→c448d215）＝配置の形の変更＝Swift 照合の新基準（monsterAI＝fodderMul:0 固定で不変・他6指紋も byte 一致を裏取り）。
 // 注：genFloor＋monsterAI は 突進する敵〈突貫獣/鉄蹄の兵・ability:charge〉追加（フェーズ1・v0.141.0＝槍カイト封じ）で再生成（genFloor c448d215→ee9324b1／monsterAI 51d3744d→c2d84c16）＝新エネミー＋新AI経路＝Swift 照合の新基準（他6指紋は byte 一致を裏取り＝charge は engine の plan/resolve に閉じる）。
+// 注：genFloor＋monsterAI は 長柄の敵〈刺突鬼/長柄鬼・reach:2〉追加（フェーズ2・v0.142.0＝射程2で突く＝押し出しの読み合い④）で再生成（genFloor ee9324b1→e8e1a978／monsterAI c2d84c16→d6fddf2a）＝新エネミー＋遠間攻撃AI＝Swift 照合の新基準（他6指紋は byte 一致を裏取り＝押し出しキャンセル③は web 側）。
 // 注：items は武器クラス〈槍〉（v0.124.0・reach:2 の新基5種〔木槍/長槍/十文字槍/大身槍/淵穿ち〕＋刺突槍/萎えの槍へ reach 付与・萎えの槍 dmg 3→2）で再生成（f1e0de5d→d9a8e31b）＝設計変更＝Swift 照合の新基準（他7指紋は byte 一致を裏取り）。
 //     monsterAI は fodderMul:0 固定で fodder 追加前の基準フロアを検査＝指紋不変（他6指紋とも byte 一致を裏取り）。
 // 注：items は武器クラス〈薙刀〉（v0.127.0・sweep:true の新基4種〔薙鎌/薙刀/大薙刀/夜叉薙〕）で再生成（d9a8e31b→3758573a）＝設計変更＝Swift 照合の新基準（他7指紋は byte 一致を裏取り）。
