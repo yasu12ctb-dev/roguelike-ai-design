@@ -15,6 +15,7 @@ import type { Character } from "../src/types.ts";
 import type { Floor, Monster, MonsterKind, Pos } from "../src/dungeon.ts";
 
 const COUNTER_MULT = 1.2, COUNTER_WINDOW = 2, PUSH_WALL_DMG = 4;
+function mkRnd(seed: number) { let s = seed >>> 0; return () => { s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const cheb = (ax: number, ay: number, bx: number, by: number) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
 const isFloor = (f: Floor, x: number, y: number) => x >= 0 && y >= 0 && x < f.w && y < f.h && f.tiles[y * f.w + x] === 1;
 const occ = (f: Floor, x: number, y: number, exceptId?: string) => f.monsters.some((m) => m.hp > 0 && m.id !== exceptId && m.x === x && m.y === y);
@@ -26,11 +27,12 @@ function meleeChar(L: number): Character {
   return { name: "Sim", level: L, stats: { body, power, reason: 2, heart: 2 }, depth: L,
     equipment: { weapon: { dmg: w }, armor: { reduce: a }, relic: null, bag: null } } as unknown as Character;
 }
-/** 壁縁つきの開けた部屋（押し出し/カイトが最も効く best-case）。 */
-function arena(size = 11): Floor {
+/** 壁縁つきの部屋。wallFrac>0 で内部に柱（障害物）を撒く＝実ダンジョンの壁/角/通路を再現（押し出しキャンセルが失敗しうる）。 */
+function arena(size: number, wallFrac: number, rng: () => number): Floor {
   const w = size, h = size, tiles = new Array(w * h).fill(1);
   for (let x = 0; x < w; x++) { tiles[x] = 0; tiles[(h - 1) * w + x] = 0; }
   for (let y = 0; y < h; y++) { tiles[y * w] = 0; tiles[y * w + w - 1] = 0; }
+  if (wallFrac > 0) for (let y = 2; y < h - 2; y++) for (let x = 2; x < w - 2; x++) { if (rng() < wallFrac) tiles[y * w + x] = 0; } // 内部に柱を撒く（開始まわりは呼び側でクリア）
   return { w, h, tiles, monsters: [], fossils: [], chests: [], shrines: [], returnDoor: null, depth: 0, explored: new Array(w * h).fill(true), stairsUp: { x: 1, y: 1 }, stairsDown: { x: w - 2, y: h - 2 } } as unknown as Floor;
 }
 
@@ -61,16 +63,18 @@ function realPush(f: Floor, E: Monster, px: number, py: number): void {
 }
 
 interface Run { cleared: boolean; died: boolean; hpLostPct: number; noDamage: boolean }
-/** arena で pack を掃討し切るまで戦う守勢の剣プレイヤー。テレグラフ1手先読みで被弾最小＋敵へ接近。 */
-function swordArena(diff: Difficulty, depth: number, pack: MonsterKind[], seed: number): Run {
-  const f = arena(11);
+/** arena で pack を掃討し切るまで戦う守勢の剣プレイヤー。テレグラフ1手先読みで被弾最小＋敵へ接近。wallFrac>0=障害物あり。 */
+function swordArena(diff: Difficulty, depth: number, pack: MonsterKind[], seed: number, wallFrac: number): Run {
+  const arng = mkRnd((seed ^ 0xa5e4) >>> 0);
+  const f = arena(13, wallFrac, arng);
   const ch = meleeChar(depth);
   const hpMax = maxHp(ch), baseDmg = meleeDmg(ch), armor = armorReduce(ch);
-  let hp = hpMax, px = 5, py = 5, counter = 0, dmgTotal = 0;
+  let hp = hpMax, px = 6, py = 6, counter = 0, dmgTotal = 0;
   const rng = makeRng((seed ^ (depth * 40503) ^ 0x5c0d) >>> 0);
-  // pack をリング状に配置
-  const ring: Pos[] = []; for (let r = 2; r <= 4; r++) for (let a = 0; a < 8; a++) { const x = 5 + Math.round(r * Math.cos(a * Math.PI / 4)), y = 5 + Math.round(r * Math.sin(a * Math.PI / 4)); if (isFloor(f, x, y) && !(x === 5 && y === 5)) ring.push({ x, y }); }
-  pack.forEach((k, i) => { const p = ring[(i * 3) % ring.length] ?? { x: 6, y: 5 }; f.monsters.push({ id: `m${i}`, kind: k, hp: k.hp, x: p.x, y: p.y, awake: true, intent: null } as Monster); });
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) f.tiles[(py + dy) * f.w + (px + dx)] = 1; // 開始マス＋周囲は床（柱で即詰みを避ける）
+  // pack を中心の周囲の床マスへ配置（障害物ありでも有効な床のみ）
+  const ring: Pos[] = []; for (let r = 2; r <= 5; r++) for (let a = 0; a < 12; a++) { const x = px + Math.round(r * Math.cos(a * Math.PI / 6)), y = py + Math.round(r * Math.sin(a * Math.PI / 6)); if (isFloor(f, x, y) && !(x === px && y === py) && !ring.some((q) => q.x === x && q.y === y)) ring.push({ x, y }); }
+  pack.forEach((k, i) => { const p = ring[(i * 2) % Math.max(1, ring.length)] ?? { x: px + 1, y: py }; if (!f.monsters.some((m) => m.x === p.x && m.y === p.y)) f.monsters.push({ id: `m${i}`, kind: k, hp: k.hp, x: p.x, y: p.y, awake: true, intent: null } as Monster); });
 
   planMonsters(f, { x: px, y: py }, rng);
   for (let turn = 1; turn <= 300; turn++) {
@@ -113,39 +117,43 @@ function swordArena(diff: Difficulty, depth: number, pack: MonsterKind[], seed: 
   return { cleared: false, died: false, hpLostPct: Math.round(100 * (hpMax - hp) / hpMax), noDamage: dmgTotal === 0 }; // STALE（掃討し切れず）
 }
 
-/** 深度 D で出現する種から pack を組む（scaleKind で深度＋難易度スケール）。size 体。 */
+/** 深度 D で出現する種から pack を組む（scaleKind で深度＋難易度スケール）。全 tier（ボスは MONSTER_KINDS に無い＝含まれない）。 */
 function makePack(depth: number, diff: Difficulty, size: number, rng: () => number): MonsterKind[] {
   const mods = diffMods(diff);
-  const pool = MONSTER_KINDS.filter((k) => k.minDepth <= depth && (k.maxDepth === undefined || depth <= k.maxDepth) && k.tier <= 3); // 序盤帯＝雑魚〜中位（ボス級は除外）
+  const pool = MONSTER_KINDS.filter((k) => k.minDepth <= depth && (k.maxDepth === undefined || depth <= k.maxDepth));
   const use = pool.length ? pool : MONSTER_KINDS.filter((k) => k.minDepth <= depth);
   const out: MonsterKind[] = [];
   for (let i = 0; i < size; i++) out.push(scaleKind(use[Math.floor(rng() * use.length)], depth, mods));
   return out;
 }
 
-// ---------- 実行：序盤〜中盤（d1〜24）を「1対1（開所＝剣の best-case）」と「3体の群れ」で ----------
-const SEEDS = Array.from({ length: 40 }, (_, i) => i + 1);
-const DEPTHS = [2, 4, 6, 8, 11, 14, 18, 24];
-const DIFFS: Difficulty[] = ["easy", "normal", "hard"];
-function mkRnd(seed: number) { let s = seed >>> 0; return () => { s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+// ---------- 実行：round2＝caveat を潰す（障害物あり geometry・pack サイズ掃引 1〜5・深層 d40・全 tier） ----------
+const SEEDS = Array.from({ length: 60 }, (_, i) => i + 1);
+const DEPTHS = [2, 4, 6, 8, 11, 14, 18, 24, 30, 40];
+const DIFF: Difficulty = "normal"; // 標準難易度で代表（easy/hard は round1 で傾向確認済み）
 
-console.log("守勢の剣シム＝テレグラフ1手先読みで被弾最小化する“最適プレイヤー”が、開所(arena)で pack を掃討。");
-console.log("  ★arena は壁縁つきの開けた部屋＝押し出し/カイトに最も有利な best-case（ここで無傷なら実ダンジョンでも無傷）。");
-console.log("  各セル: 掃討% / 死亡% / 無傷掃討% / 平均HP損%  ＝『剣は序盤の戦闘を被弾ゼロで捌けるか（死んで継承の核が崩れるか）』\n");
-for (const scen of [{ name: "1対1（開所＝best-case）", size: 1 }, { name: "3体の群れ", size: 3 }]) {
-  console.log(`================ シナリオ：${scen.name} ================`);
-  for (const diff of DIFFS) {
-    console.log(`-- 難易度 ${diff} --`);
-    for (const depth of DEPTHS) {
-      const runs = SEEDS.map((s) => { const rnd = mkRnd((s ^ (depth << 8) ^ (scen.size << 16)) >>> 0); return swordArena(diff, depth, makePack(depth, diff, scen.size, rnd), s); });
-      const clr = runs.filter((r) => r.cleared).length, died = runs.filter((r) => r.died).length;
-      const noDmg = runs.filter((r) => r.cleared && r.noDamage).length;
-      const avgHp = Math.round(runs.reduce((a, r) => a + r.hpLostPct, 0) / runs.length);
-      const pct = (n: number) => `${Math.round(100 * n / runs.length)}%`.padStart(4);
-      console.log(`  D${String(depth).padStart(2)} | 掃討 ${pct(clr)} | 死亡 ${pct(died)} | 無傷掃討 ${pct(noDmg)} | 平均HP損 ${String(avgHp).padStart(3)}%`);
-    }
-  }
+function cell(diff: Difficulty, depth: number, size: number, wallFrac: number): { noDmg: number; avgHp: number; clr: number } {
+  const runs = SEEDS.map((s) => { const rnd = mkRnd((s ^ (depth << 8) ^ (size << 16) ^ (Math.round(wallFrac * 100) << 22)) >>> 0); return swordArena(diff, depth, makePack(depth, diff, size, rnd), s, wallFrac); });
+  const clr = runs.filter((r) => r.cleared).length;
+  const noDmg = runs.filter((r) => r.cleared && r.noDamage).length;
+  const avgHp = runs.reduce((a, r) => a + r.hpLostPct, 0) / runs.length;
+  return { noDmg: Math.round(100 * noDmg / runs.length), avgHp: Math.round(avgHp), clr: Math.round(100 * clr / runs.length) };
 }
-console.log("\n  ※1対1で『無傷掃討%』が高い＝開所の単体戦は被弾ゼロで捌ける（剣の位置取りの狙いどおり・想定内）。");
-console.log("  ※群れで『無傷掃討%』が低い/『HP損』が残る＝複数同時攻撃は消し切れない＝群れ・クラスタが難易度を保つ。");
-console.log("  ※死亡% がゼロでも、群れで HP を削られるなら“消耗→回復資源→いずれ事故死”＝死んで継承の核は残る。");
+
+console.log("守勢の剣シム round2＝テレグラフ1手先読みで被弾最小化する“最適プレイヤー”（上限）。60seed・難易度normal・全tier。");
+console.log("  ★caveat を潰す：①障害物あり arena（壁/角/通路を再現＝押し出しキャンセルが失敗しうる）②pack 1〜5体 ③深層 d40 まで。\n");
+
+for (const geo of [{ name: "開所（障害物なし＝best-case）", wall: 0 }, { name: "障害物あり（wall12%＝実ダンジョン寄り）", wall: 0.12 }]) {
+  console.log(`================ ${geo.name} ================`);
+  console.log("  無傷掃討% ＝ 被弾ゼロで掃討できた割合（高い＝剣で無双）。［平均HP損%］。掃討し切れず(STALE)は割愛。");
+  console.log("  深度 \\ 敵数   1体      2体      3体      4体      5体");
+  for (const depth of DEPTHS) {
+    const cols = [1, 2, 3, 4, 5].map((sz) => { const c = cell(DIFF, depth, sz, geo.wall); return `${String(c.noDmg).padStart(3)}%[${String(c.avgHp).padStart(2)}]`; });
+    console.log(`  D${String(depth).padStart(2)}      ${cols.join("  ")}`);
+  }
+  console.log("");
+}
+console.log("  読み方：数字=無傷掃討%（被弾ゼロ率）／[]=平均HP損%。");
+console.log("  ・1体列が高い＝開所の単体戦は剣で無傷（想定内）。障害物ありで下がる＝壁際は反撃を喰らう。");
+console.log("  ・敵数が増える/深いほど無傷%が落ちHP損が増える＝群れ・深部は位置取りでは消し切れない＝終始シビアが効く。");
+console.log("  ・これは“最適に読む上限”＝実プレイヤーはここまで完璧でない＝この上限で群れ/深部が崩れるなら実プレイはより厳しい。");
