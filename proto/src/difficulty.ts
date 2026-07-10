@@ -16,16 +16,19 @@ export interface DifficultyMods {
   xpTether: number;   // XPの深度係留＝格下狩り逓減の強さ。倍率 = 1/(1 + xpTether×max(0, Lv−深度−2))。0=無効。
   greedMul: number;   // 遺物 greed（XP増加）の実効倍率。easy=1.5（従来）／normal+=1.2（単一遺物で恒常+3Lvは過大）。
   chipFrac: number;   // 被ダメの比例下限＝max(1, ceil(素の攻×chipFrac), 攻−軽減−バフ)。防具飽和（軽減が攻を打ち消し被ダメ1固定）対策。0=従来の固定下限1。
+  // ── 敵密度の難易度スケール（PR2・v0.146.0・2026-07-10・ユーザー承認＝「囲まれる状況」の実体化）──
+  fodderMul: number;  // fodder（低tier雑魚）の追加割合。dungeon.ts genFloor の FODDER_MUL を難易度別に置換。
+                       // easy=0.2＝現行 FODDER_MUL と同値＝据え置き（golden 完全不変）。normal/hard/death のみ増量。
 }
 
 // death は「枠だけ」用意（中身は後日調整・UI 未選択）。easy=1.0 基準＝golden 不変。
 // easy＝「丁寧に進めると気持ちよく無双できる」快適モード（2026-07-05 ユーザー確定＝オーバーレベルを容認する公式仕様＝新3係数は全て無効）。
 // normal/hard＝終始シビア＝XP係留＋比例チップで「成長の追い越し」を封じ、全深度で手応えを保つ。
 export const DIFFICULTY: Record<Difficulty, DifficultyMods> = {
-  easy:   { enemyHp: 1.0,  enemyDmg: 1.0, dmgFloor: 0, exposure: 1.0, xp: 1.0,  townHeal: 1.0, lineage: true,  xpTether: 0,    greedMul: 1.5, chipFrac: 0 },
-  normal: { enemyHp: 1.25, enemyDmg: 1.25, dmgFloor: 1, exposure: 1.2, xp: 0.9,  townHeal: 1.0, lineage: true,  xpTether: 0.35, greedMul: 1.2, chipFrac: 0.15 },
-  hard:   { enemyHp: 1.5,  enemyDmg: 1.4, dmgFloor: 2, exposure: 1.4, xp: 0.85, townHeal: 0.8, lineage: true,  xpTether: 0.4,  greedMul: 1.2, chipFrac: 0.18 },
-  death:  { enemyHp: 1.8,  enemyDmg: 1.6, dmgFloor: 2, exposure: 1.7, xp: 0.8,  townHeal: 0.0, lineage: false, xpTether: 0.45, greedMul: 1.2, chipFrac: 0.2 },
+  easy:   { enemyHp: 1.0,  enemyDmg: 1.0, dmgFloor: 0, exposure: 1.0, xp: 1.0,  townHeal: 1.0, lineage: true,  xpTether: 0,    greedMul: 1.5, chipFrac: 0,    fodderMul: 0.2 },
+  normal: { enemyHp: 1.25, enemyDmg: 1.25, dmgFloor: 1, exposure: 1.2, xp: 0.9,  townHeal: 1.0, lineage: true,  xpTether: 0.35, greedMul: 1.2, chipFrac: 0.15, fodderMul: 0.35 },
+  hard:   { enemyHp: 1.5,  enemyDmg: 1.4, dmgFloor: 2, exposure: 1.4, xp: 0.85, townHeal: 0.8, lineage: true,  xpTether: 0.4,  greedMul: 1.2, chipFrac: 0.18, fodderMul: 0.45 },
+  death:  { enemyHp: 1.8,  enemyDmg: 1.6, dmgFloor: 2, exposure: 1.7, xp: 0.8,  townHeal: 0.0, lineage: false, xpTether: 0.45, greedMul: 1.2, chipFrac: 0.2,  fodderMul: 0.5 },
 };
 
 export const EASY_MODS = DIFFICULTY.easy;

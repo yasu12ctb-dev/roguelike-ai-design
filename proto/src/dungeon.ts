@@ -57,7 +57,8 @@ export const MONSTER_HARDCAP = 60;  // フロアの敵総数の上限（breeder 
 //   ④golden(genFloor) は意図的に再生成／⑤sim（tools/sim-combat.ts の floorRun）でHPコストが既存帯に収まることを実測。
 //   深度1〜2は増やさない（序盤の手触り・チュートリアル性）。総数は MONSTER_HARDCAP を厳守。
 //   FODDER_MUL は genFloor の opts.fodderMul で上書き可（sim の対照＝0／golden monsterAI の据置＝0）。
-export const FODDER_MUL = 0.2;      // 通常配置数に対する追加割合（sim 指標D 実測で 0.5→0.2 に採用＝全深度×難易度でHPコスト+25%以内・テスト調整候補）
+export const FODDER_MUL = 0.2;      // 通常配置数に対する追加割合（sim 指標D 実測で 0.5→0.2 に採用＝全深度×難易度でHPコスト+25%以内・テスト調整候補）。
+                                     // ★PR2（v0.146.0）以降は easy 専用の既定値＝実際の割合は difficulty.ts の DifficultyMods.fodderMul（easy=この値のまま・normal/hard/death のみ増量）。
 export const FODDER_MIN_DEPTH = 3;  // これ未満の深度は増量しない
 const FODDER_MAX_TIER = 2;          // 追加するのは tier<=2 の低級種のみ（fodder＝低HP/低火力）
 // ───── 部屋クラスタ配置（案C・v0.140.0・2026-07-08・ユーザー承認）─────
@@ -77,6 +78,27 @@ const FODDER_CLUSTER_RADIUS = 2;    // 部屋中心からこの範囲（Chebyshe
 //   ★easy 据え置き＝golden(genFloor＝diffMods(undefined)=easy) も完全不変（scale=false で従来経路）。
 const FODDER_CLUSTER_MID_DEPTH = 10;  // これ以上でクラスタを大きくし始める（d<10 は完全不変＝序盤の手触り）
 const FODDER_CLUSTER_DEEP_DEPTH = 20; // これ以上で最大（5体）
+// ───── クラスタ護衛（PR2・v0.146.0・2026-07-10・ユーザー承認）─────
+//   fodder クラスタは「囲まれる状況」の器だが、幅1通路のチョークに逃げ込めば結局クラスタ全体が渋滞して脅威にならない。
+//   そこでクラスタが成立した部屋ごとに、チョーク破りの能力（突進/形つき/長柄）を持つ護衛を1体増設し、
+//   「chokeに引き込んでも追い詰められる／通路の先から薙がれる」状況を作る。normal/hard 限定（bigCluster ゲート内）＝
+//   easy は escortPool を作らず rng も一切消費しない（golden 完全不変）。総数は MONSTER_HARDCAP を厳守（超えたら諦める）。
+const CLUSTER_ESCORT_ABILITIES = new Set<MonsterAbility>(["charge", "arc", "slam", "beam"]);
+/** クラスタ成立部屋1つあたりの護衛数（仕様どおり1体）。dodgefloor（最適ダッジ・ボット）実測でクラスタ内の
+ *  護衛数を増やしても「経路上に現れる確率」自体は変わらない（クラスタは大マップの一部屋に限られるため）と
+ *  判明＝護衛数を積む効果は下の scatterEscortCount（全域散布）に譲る。テスト調整候補。 */
+function clusterEscortCount(depth: number): number {
+  return 1;
+}
+/** 散布護衛数：クラスタは大マップのうちごく一部の部屋（決定論シャッフルの先頭数室）に限られ、
+ *  @の最短経路（stairsUp→stairsDown）がそこを通らないことが多い（dodgefloor 実測で確認）＝
+ *  クラスタ内護衛の数を増やしても「経路上に現れる確率」は変わらない。マップ全域に散る fodder 同様、
+ *  護衛の一部も randomFloorAway で全域散布し、経路との交差率を上げる（PR2 sim実測で確定・テスト調整候補）。 */
+function scatterEscortCount(depth: number): number {
+  if (depth < FODDER_CLUSTER_MID_DEPTH) return 0;
+  if (depth < FODDER_CLUSTER_DEEP_DEPTH) return 1;
+  return 3;
+}
 /** クラスタ最大サイズ（scale=normal/hard のみ深度スケール）：序盤3（不変）→中盤4→深部5。easy は常に3。 */
 function fodderClusterSize(depth: number, scale: boolean): number {
   if (!scale || depth < FODDER_CLUSTER_MID_DEPTH) return FODDER_CLUSTER_SIZE;
@@ -443,26 +465,41 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean; 
   //   末尾で rng を消費＝既存の敵/ボス/宝箱/回復ノードの配置は不変（genFloor 指紋の差分は fodder ぶんだけ＝意図的再生成）。
   //   ★総数は従来と同じ（配置の形だけ変える）＝一部を「部屋の中心」に固め（クラスタ）、残りは全域に散布。
   //   opts.fodderMul で上書き（sim 対照/golden monsterAI 据置＝0）。0 なら rng を一切消費せず従来と byte 一致。
-  const fodderMul = opts?.fodderMul ?? FODDER_MUL;
+  //   ★PR2（v0.146.0）：easy 未指定時は mods.fodderMul（=FODDER_MUL と同値・golden 不変）／normal/hard/death は難易度別に増量。
+  const fodderMul = opts?.fodderMul ?? mods.fodderMul;
   if (depth >= FODDER_MIN_DEPTH && fodderMul > 0) {
     const fodderPool = pool.filter((k) => k.tier <= FODDER_MAX_TIER);
     if (fodderPool.length) {
-      const roomLeft = MONSTER_HARDCAP - floor.monsters.length; // 総数の絶対上限（60）まで
-      let budget = Math.max(0, Math.min(Math.round(count * fodderMul), roomLeft));
+      // cap＝この末尾ブロック（fodder＋護衛）が使える残り枠。fodder/escort 両方の push で必ず1ずつ減らす＝
+      // 総数の絶対上限（MONSTER_HARDCAP）を両者合算で厳守（PR2：護衛を budget と別枠にしたことで超過しうる穴を防ぐ）。
+      let cap = MONSTER_HARDCAP - floor.monsters.length;
+      // クラスタ深度スケール（v0.143.0）はここで先に決める（easy 据え置き・normal/hard 限定＝golden 不変）。
+      const bigCluster = (world.difficulty ?? "easy") !== "easy"; // easy 据え置き（快適無双／golden 不変）＝normal/hard 限定
+      // 護衛の取り分を先に予約（PR2 sim実測で判明＝fodder が cap を使い切ると護衛（特に散布護衛）が入らず、
+      // せっかくの「経路と交差しやすい」散布護衛が feature として機能しなくなる）。予約分は fodder budget に含めない。
+      const escortReserveWanted = bigCluster ? clusterEscortCount(depth) * 2 + scatterEscortCount(depth) : 0; // クラスタ最大2部屋分＋散布ぶんを目安に予約
+      const escortReserve = Math.min(cap, escortReserveWanted);
+      cap -= escortReserve;
+      let budget = Math.max(0, Math.min(Math.round(count * fodderMul), cap));
+      cap += escortReserve; // fodder budget は予約分を除いた枠で確定済み＝ここで枠を戻して護衛に回す（fodder はこの後 budget を超えては置かない）
       let fi = 0;
       const placeFodderAt = (p: Pos | null): boolean => {
-        if (!p) return false;
+        if (!p || cap <= 0) return false;
         const kind = scaleKind(fodderPool[rng.int(fodderPool.length)], depth, mods); // 深度＋難易度を焼き込む（HP/dmg/XP連動）
         floor.monsters.push({ id: `f${depth}_${fi++}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: false, intent: null });
+        cap--;
         return true;
       };
       // クラスタ：開始部屋(0)・ボス/下り部屋(farIdx)を除く、塊が収まる広さ(≥12)の部屋を決定論シャッフルして中心に固める。
       // ★深度スケール（v0.143.0）：normal/hard は中盤以降クラスタを大きく（size 3→4→5）・より固める（frac 0.6→0.85）＝“数”のレバーを中盤だけ効かせる。序盤 d<10・easy は不変。
-      const bigCluster = (world.difficulty ?? "easy") !== "easy"; // easy 据え置き（快適無双／golden 不変）＝normal/hard 限定
       const clusterSize = fodderClusterSize(depth, bigCluster);
       let clusterBudget = Math.round(budget * fodderClusterFrac(depth, bigCluster));
       const candRooms = rooms.filter((r, i) => i !== 0 && i !== farIdx && r.w * r.h >= 12);
       for (let a = candRooms.length - 1; a > 0; a--) { const b = rng.int(a + 1); const t = candRooms[a]; candRooms[a] = candRooms[b]; candRooms[b] = t; }
+      // クラスタ護衛（PR2）：normal/hard のみ・この深度で出現可能なチョーク破り種（charge/arc/slam/beam/reach>=2）から抽選。
+      // 候補が居ない浅い深度（護衛種の minDepth 未到達）では自然に見送られる＝easy と同じく rng を消費しない。
+      const escortPool = bigCluster ? pool.filter((k) => (k.ability && CLUSTER_ESCORT_ABILITIES.has(k.ability)) || (k.reach ?? 1) >= 2) : [];
+      let ei = 0;
       for (const rm of candRooms) {
         if (clusterBudget <= 0 || budget <= 0) break;
         const c = center(rm);
@@ -476,9 +513,30 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean; 
             if (placeFodderAt({ x, y })) { placed++; clusterBudget--; budget--; }
           }
         }
+        if (placed > 0 && escortPool.length) {
+          const escortCount = clusterEscortCount(depth);
+          for (let ec = 0; ec < escortCount && cap > 0; ec++) {
+            const ep = freeFloorNear(floor, c);
+            if (!ep) break;
+            const ek = scaleKind(escortPool[rng.int(escortPool.length)], depth, mods);
+            floor.monsters.push({ id: `esc${depth}_${ei++}`, kind: ek, hp: ek.hp, x: ep.x, y: ep.y, awake: false, intent: null });
+            cap--;
+          }
+        }
       }
       // 残りは従来どおり全域に散布（randomFloorAway＝マップ全域・開始から5マス以上）。
       while (budget > 0) { if (!placeFodderAt(randomFloorAway(floor, rng, stairsUp, 5))) break; budget--; }
+      // 散布護衛（PR2）：クラスタに限らずマップ全域へ数体＝@の実際の経路と交差する確率を確保。
+      if (escortPool.length) {
+        const scatterCount = scatterEscortCount(depth);
+        for (let ec = 0; ec < scatterCount && cap > 0; ec++) {
+          const ep = randomFloorAway(floor, rng, stairsUp, 5);
+          if (!ep) break;
+          const ek = scaleKind(escortPool[rng.int(escortPool.length)], depth, mods);
+          floor.monsters.push({ id: `esc${depth}_${ei++}`, kind: ek, hp: ek.hp, x: ep.x, y: ep.y, awake: false, intent: null });
+          cap--;
+        }
+      }
     }
   }
   return floor;
