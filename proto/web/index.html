@@ -283,6 +283,13 @@
       box-shadow: 0 0 10px rgba(255,130,30,.4) inset; animation: teleboss .5s ease-in-out infinite;
     }
     @keyframes teleboss { 50% { background: rgba(255,140,40,.10); border-color: rgba(255,150,50,.4); } }
+    /* PR1：一般敵の形つき確定範囲（旋刃鬼＝弧／震地鬼＝周囲8／射抜きの眼＝直線）＝赤橙で全マスを1手前に予告（範囲外へ退けば確定安全） */
+    .cell.tele-shape::before {
+      content: ""; position: absolute; inset: 8%; border-radius: 3px; pointer-events: none;
+      background: rgba(255,96,48,.24); border: 1.5px solid rgba(255,110,55,.9);
+      box-shadow: 0 0 9px rgba(255,90,40,.42) inset; animation: teleshape .5s ease-in-out infinite;
+    }
+    @keyframes teleshape { 50% { background: rgba(255,96,48,.10); border-color: rgba(255,110,55,.45); } }
     /* 突進の突入ライン（フェーズ1）＝黄の点線で「この直線を突っ込んでくる」を予告（直線から退けば空振り） */
     .cell.tele-charge::before {
       content: ""; position: absolute; inset: 14%; border-radius: 2px; pointer-events: none;

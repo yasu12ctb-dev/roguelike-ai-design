@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.144.0";
+export const APP_VERSION = "0.145.0";
 export const APP_BUILD = "2026-07-08";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -627,6 +627,9 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   bump: (dx: number, dy: number) => { void playerAct(dx, dy); }, // 近接（会心薙ぎ検証）
   push: (dx: number, dy: number) => { const m = floor?.monsters.find((mm) => mm.hp > 0 && mm.x === player.x + dx && mm.y === player.y + dy); if (m) pushEnemy(m, dx, dy); }, // フェーズ2③④：押し出しキャンセルの検証
   step: () => { void endTurn(); },
+  movePlayer: (dx: number, dy: number) => { if (floor) { const x = player.x + dx, y = player.y + dy; if (tileAt(floor, x, y) === 1 && !floor.monsters.some((m) => m.hp > 0 && m.x === x && m.y === y)) { player.x = x; player.y = y; } } return { px: player.x, py: player.y }; }, // 形つき E2E：手番を消費せず@を動かして「予告マス外へ退く」検証
+  cellsAt: (dx: number, dy: number) => { const m = floor?.monsters.find((mm) => mm.hp > 0 && mm.x === player.x + dx && mm.y === player.y + dy); const c = (m?.intent as { cells?: Pos[] } | null | undefined)?.cells; return c ? c.map((p) => ({ x: p.x, y: p.y })) : null; }, // 形つき E2E：予告 cells を直接読む
+  playerAt: () => ({ x: player.x, y: player.y }),
   dump: () => floor ? { w: floor.w, h: floor.h, px: player.x, py: player.y, hp, su: { ...floor.stairsUp }, sd: { ...floor.stairsDown }, tiles: [...floor.tiles], hazards: (floor.hazards ?? []).map((h) => ({ ...h })), mons: floor.monsters.filter((m) => m.hp > 0).map((m) => ({ x: m.x, y: m.y, hp: m.hp, slowed: m.slowed ?? 0, ranged: m.kind.ability === "ranged" })) } : null,
   setTile: (dx: number, dy: number, t: 0 | 1) => { if (floor) { const x = player.x + dx, y = player.y + dy; if (inBounds(floor, x, y)) { floor.tiles[mapIdx(floor, x, y)] = t; floor.explored[mapIdx(floor, x, y)] = true; } } },
   setStairs: (sux: number, suy: number, sdx: number, sdy: number) => { if (floor) { floor.stairsUp = { x: player.x + sux, y: player.y + suy }; floor.stairsDown = { x: player.x + sdx, y: player.y + sdy }; } },
@@ -761,6 +764,7 @@ function draw() {
   // 討たれる→ @ が赤く明滅。抽象的な枠・点はやめ「敵がどこへ来るか」「自分が危ない」を直接見せる。
   const teleMove = new Set<number>();        // 敵が踏み込む先の床マス（背景ハイライト）
   const bossShape = new Set<number>();       // D：ボスの形つき確定範囲（橙の全マス予告）
+  const shapeTele = new Set<number>();       // PR1：一般敵の形つき確定範囲（arc/slam/beam＝赤橙の全マス予告）
   const teleCharge = new Set<number>();      // 突進の突入ライン（フェーズ1・m→着地点の直線＝予告）
   const teleReach = new Set<number>();       // 長柄（フェーズ2）：射程2で突く敵の突き線（m→@ の間のマス＝予告）
   const threatSrc = new Set<number>();       // B：この手番あなたを殴れる敵のタイル（薄い赤枠）
@@ -783,11 +787,20 @@ function draw() {
         let lx = m.x + sx, ly = m.y + sy;
         while (!(lx === ix && ly === iy)) { teleReach.add(mapIdx(floor, lx, ly)); lx += sx; ly += sy; }
       }
-      const cells = m.intent.cells;           // D：形つき確定範囲（area ボス限定）。あれば集合で判定・橙予告
+      const cells = m.intent.cells;           // 形つき確定範囲：ボスの渾身の一撃(heavy)＝橙 tele-boss／一般敵(arc/slam/beam)＝赤橙 tele-shape。あれば集合で判定。
       if (cells) {
-        let hitsPlayer = false;
-        for (const c of cells) { bossShape.add(mapIdx(floor, c.x, c.y)); if (c.x === player.x && c.y === player.y) hitsPlayer = true; }
-        if (hitsPlayer) { playerThreatened = true; playerHeavy = true; threatN++; threatSrc.add(mapIdx(floor, m.x, m.y)); }
+        const heavy = m.intent.heavy === true;
+        const dest = heavy ? bossShape : shapeTele;
+        let hitsPlayer = false, hitsComp = false, hitFriend = -1;
+        for (const c of cells) {
+          dest.add(mapIdx(floor, c.x, c.y));
+          if (c.x === player.x && c.y === player.y) hitsPlayer = true;
+          else if (companion && c.x === companion.x && c.y === companion.y) hitsComp = true;
+          else { const fa = allies.find((a) => a.hp > 0 && c.x === a.x && c.y === a.y); if (fa) hitFriend = mapIdx(floor, fa.x, fa.y); }
+        }
+        if (hitsPlayer) { playerThreatened = true; if (heavy) playerHeavy = true; threatN++; threatSrc.add(mapIdx(floor, m.x, m.y)); }
+        else if (hitsComp) companionThreatened = true;
+        else if (hitFriend >= 0) friendThreat.add(hitFriend);
       } else if (ix === player.x && iy === player.y) {
         playerThreatened = true; if (m.intent.heavy) playerHeavy = true;
         threatN++; threatSrc.add(mapIdx(floor, m.x, m.y));
@@ -806,7 +819,7 @@ function draw() {
     const t = tileAt(floor, x, y);
     const visible = inside && vis.has(mi), explored = inside && floor.explored[mi];
     c.classList.toggle("wall", t === 0 && explored);
-    if (!explored) { span.textContent = ""; c.style.filter = "brightness(0)"; c.classList.remove("tele-atk", "tele-move", "tele-charge", "tele-reach", "tele-boss", "threat-src", "hz-fire", "hz-venom", "hz-crumble", "hz-miasma", "hz-frost", "hz-cracked"); continue; }
+    if (!explored) { span.textContent = ""; c.style.filter = "brightness(0)"; c.classList.remove("tele-atk", "tele-move", "tele-charge", "tele-reach", "tele-boss", "tele-shape", "threat-src", "hz-fire", "hz-venom", "hz-crumble", "hz-miasma", "hz-frost", "hz-cracked"); continue; }
 
     let glyph = t === 0 ? "▒" : "·";
     let cls = t === 0 ? "g-wall" : "g-floor";
@@ -838,6 +851,7 @@ function draw() {
     c.classList.toggle("tele-charge", visible && teleCharge.has(mi)); // 突進の突入ライン（フェーズ1・詰め手の予告）
     c.classList.toggle("tele-reach", visible && teleReach.has(mi)); // 長柄の突き線（フェーズ2・射程2の予告）
     c.classList.toggle("tele-boss", visible && bossShape.has(mi)); // D：ボスの形つき確定範囲＝橙の全マス予告
+    c.classList.toggle("tele-shape", visible && shapeTele.has(mi)); // PR1：一般敵の形つき確定範囲（arc/slam/beam）＝赤橙の全マス予告
     // 相棒（4-14C）：青系の @。攻撃予告中は明滅、被攻撃予告中は危険色。
     const isCompanion = !!companion && x === companion.x && y === companion.y;
     if (isCompanion && visible) {
@@ -7833,7 +7847,7 @@ async function eventsScreen() {
 }
 
 // 能力の説明＋対処のヒント（図鑑の詳細・図鑑拡充）。ラベルは盤面/図鑑共通。
-const ABILITY_LABEL: Record<string, string> = { ranged: "遠隔", venom: "毒", leech: "吸命", breeder: "増殖", reflect: "反射", curse: "侵蝕", charge: "突進" };
+const ABILITY_LABEL: Record<string, string> = { ranged: "遠隔", venom: "毒", leech: "吸命", breeder: "増殖", reflect: "反射", curse: "侵蝕", charge: "突進", arc: "薙ぎ", slam: "全周撃", beam: "貫き" };
 const ABILITY_INFO: Record<string, string> = {
   ranged: "射程の外から狙撃する。接近されると間合いを取り直す＝詰め寄れば弱い。",
   venom:  "命中で毒を盛り、次手から継続ダメージ。解毒の丸薬・遺物〈澄心〉が効く。",
@@ -7842,6 +7856,9 @@ const ABILITY_INFO: Record<string, string> = {
   reflect:"近接で殴ると一部を返す。術・投擲が安全。遺物〈茨〉で対抗できる。",
   curse:  "命中で深蝕を上塗りする。深追いは禁物。遺物〈澄心〉で半減。",
   charge: "直線から一気に間合いを詰めて突く。突入ラインから横へ退けば空振り＝だが距離は詰められる（槍のカイト封じ）。",
+  arc:    "前方の弧（正面＋左右斜め）をまとめて薙ぐ。予告の外＝弧の後ろ（斜め後ろ等）へ退け。",
+  slam:   "隣接すると周囲すべてを叩きつける。張り付いて殴り合うな＝一歩離して間合いを断て（叩いた直後は隙）。",
+  beam:   "直線を撃ち抜く。線から横へ外れれば当たらない＝だが幅1の通路では逃げ場がない（1手おきに撃つ）。",
 };
 // モンスター寸評（博物誌風・1行・純フレーバー＝ゲーム性ゼロ）。key は MONSTER_KINDS の key。
 const MONSTER_LORE: Record<string, string> = {
@@ -7880,6 +7897,9 @@ const MONSTER_LORE: Record<string, string> = {
   wailer: "嘆きながら毒を振りまく、深部の哀しき種。",
   drainer: "命を喰らって傷を埋める。深部の、しぶとい吸血種。",
   mother: "蠢く母体。絶えず眷属を産み落とし続ける。",
+  whirl: "湾曲した双刃を回し、正面と左右をまとめて薙ぐ。正面から退いても、弧が横まで届く。斜め後ろへ抜けよ。",
+  quaker: "岩の拳で地を叩き、周囲すべてを震わす。鈍く重いが、張り付いて殴り合えば必ず巻き込まれる。一歩離せ。",
+  piercer: "宙に浮く一つ目。見据えた直線を光条で撃ち抜く。開けた場では横へ逃げられるが、通路では逃げ場がない。",
   voiddrake: "深淵帯の竜。理を失い、ただ巨大で、苛烈。",
   thornward: "全身を棘で覆う番人。近づいて殴る者を、確かに罰する。",
   defiler: "触れた者へ深みを上塗りする影。傷より、侵蝕が怖い。",

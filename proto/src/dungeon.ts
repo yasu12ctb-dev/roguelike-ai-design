@@ -28,10 +28,25 @@ interface MonsterKind {
 //   charge ＝直線上の間合い（距離2〜CHARGE_MAX）から「突進＋一撃」を予告→隣接まで一気に詰める（フェーズ1・2026-07-09）。
 //           ＝槍のカイト（後退で間合いを保つ）を封じる“詰め手”。予告（テレグラフ）を見て直線から退けば空振り（見切り）だが、
 //           突進側は着地点まで移動する＝距離は詰められる＝距離1で弱い槍を近距離戦に引きずり込む。
-export type MonsterAbility = "ranged" | "venom" | "leech" | "breeder" | "reflect" | "curse" | "charge";
+//   ───── 形つき予告の一般敵展開（PR1・2026-07-10・ユーザー承認）＝ボス限定だった「複数マスを覆う確定範囲」を一般敵へ。
+//   単点予告（@の今いるマス）は1歩ずれれば全空振り＝逃げマスが常在するのが無被弾の根＝形つきで逃げマスを消す。全て 1手前テレグラフ・確定命中・予告マス全描画（4-11A 可読性契約）。
+//   arc  ＝隣接時、@のマス＋左右±45度の前方弧3マスを薙ぐ（毎手・通常攻撃の形版）＝弧の外（斜め後ろ等）へ退けば空振り。
+//   slam ＝@隣接で周囲8マス全部を叩きつける（CD 2＝叩き後2手は通常追跡＝この間に殴り込める）＝隣接張り付き（各個撃破）を罰す＝距離2へ離れよ。
+//   beam ＝直線8方向・距離1〜BEAM_MAX に@が居るとき、敵の隣から@までの直線を撃ち抜く（CD 1＝1手おき）＝幅1通路の天敵（直線から外れられない）。接近されてもその場で撃つ（退避しない）。
+export type MonsterAbility = "ranged" | "venom" | "leech" | "breeder" | "reflect" | "curse" | "charge" | "arc" | "slam" | "beam";
 export const RANGED_MAX = 4;        // 狙撃の最大射程（これ以遠は間合いを詰める）
 export const CHARGE_MAX = 4;        // 突進の最大射程（直線でこの距離まで一気に詰める）
 const CHARGE_CD = 3;                // 突進後のクールダウン（毎手 charge せず・間に通常追跡/攻撃を挟む）
+export const BEAM_MAX = 3;          // ビーム（beam）の最大射程（直線でこの距離まで貫く）
+const SLAM_CD = 2;                  // 叩きつけ（slam）後のクールダウン（2手は通常追跡＝殴り込む窓）
+const BEAM_CD = 1;                  // ビーム（beam）のクールダウン（1手おき＝撃たれない手番に接近できる＝詰み回避）
+// 形つき敵（arc/slam/beam）の spawn 重み（PR1）。一様抽選だと pool の~10%＝薄く、最適プレイヤーは孤立した形つき敵を捌けてしまう。
+// spawn 時のみ重み付けして密度を上げる＝形つきの予告が重なり「逃げマスが本当に消える」局面を作る。★総配置数は不変（composition をシフトするだけ＝
+// 通常敵を形つき敵に置き換える＝終始シビアの総ダメージ収支は概ね中立・実際の被弾は上がる＝それが本 PR の狙い）。sim で d30 normal の無被弾を目標帯へ合わせ込む。
+const SHAPED_ABILITIES = new Set<MonsterAbility>(["arc", "slam", "beam"]);
+export const SHAPED_WEIGHT = 4;     // 各形つき種を spawn プールに何倍で積むか。sim（tools/dodgefloor＝最適ダッジボット）実測で決定＝
+                                    // d30 normal traverse 無被弾 93%(単点予告)→61%(重み4)＝逃げマスを消せた／d15 normal 88%(中盤は緩やか)／easy d30 69%(快適無双を過度に崩さない)／
+                                    // CLEAR率は全深度 ≥45%。重み6+は normal を目標帯へさらに沈めるが easy と CLEAR を過度に削るため 4 を採用。テスト調整候補。
 export const BREED_CHANCE = 0.16;   // breeder が1手に眷属を湧かす確率（クールダウン併用）
 export const BREED_CD = 6;          // 眷属を湧かしたあとの待機手数
 export const MONSTER_HARDCAP = 60;  // フロアの敵総数の上限（breeder の暴走防止）
@@ -136,6 +151,10 @@ export const MONSTER_KINDS: MonsterKind[] = [
   // 吸命（leech）／増殖（breeder）の深部版。
   { key: "drainer", glyph: "H", name: "喰命鬼",   hp: 18, dmg: 5, minDepth: 26, erratic: 0.1,  tier: 4, ability: "leech" },
   { key: "mother",  glyph: "M", name: "母胎",     hp: 24, dmg: 3, minDepth: 32, erratic: 0.05, tier: 4, ability: "breeder" }, // 深部の数の圧
+  // ───── 形つき予告の一般敵（PR1・2026-07-10）＝複数マスを覆う確定範囲で「逃げマス」を消す。中盤〜深部に分散。─────
+  { key: "whirl",   glyph: "X", name: "旋刃鬼",   hp: 10, dmg: 3, minDepth: 12, erratic: 0.1,  tier: 3, ability: "arc" },  // 隣接で前方弧3マスを薙ぐ＝弧の外へ退け
+  { key: "quaker",  glyph: "N", name: "震地鬼",   hp: 20, dmg: 4, minDepth: 18, erratic: 0.03, tier: 4, ability: "slam" }, // 隣接で周囲8マスを叩く＝間合いを離せ（鈍重・高HP）
+  { key: "piercer", glyph: "y", name: "射抜きの眼", hp: 13, dmg: 5, minDepth: 24, erratic: 0.1, tier: 4, ability: "beam" }, // 直線を撃ち抜く＝線から外れよ（通路の天敵）
   // ───── 深淵帯（深度50超）の専用種＝真のエンドゲーム（PR2・2026-06-28・abyssalScale と相乗）─────
   //   minDepth>50 ゆえ golden 指紋深度(≤42)のスポーンプールに入らない＝genFloor/monsterAI 不変（裏取り済み）。
   //   2つの新能力（reflect/curse）を投入し、深部が「数値スケールのみ」でなく挙動でも変わるようにする。
@@ -168,7 +187,7 @@ export const scaleKind = (k: MonsterKind, depth: number, mods: DifficultyMods = 
 
 /** 敵の次手のテレグラフ（4-11A 読める盤面）。move=ここへ動く / attack=このマスを討つ */
 export type MonsterIntent =
-  | { type: "attack"; x: number; y: number; ranged?: boolean; heavy?: boolean; charge?: boolean; dest?: Pos; cells?: Pos[]; shape?: number } // ranged=遠隔の狙撃／heavy=ボスの渾身の一撃（B・テレグラフ・退けば空振り）／charge=突進（dest=着地点まで直線を詰めてから討つ）／cells=形つき確定範囲（D・area ボス限定・全マス橙予告）／shape=形の種別（0直線/1扇/2薙ぎ）
+  | { type: "attack"; x: number; y: number; ranged?: boolean; heavy?: boolean; charge?: boolean; dest?: Pos; cells?: Pos[]; shape?: number } // ranged=遠隔の狙撃／heavy=ボスの渾身の一撃（B・テレグラフ・退けば空振り）／charge=突進（dest=着地点まで直線を詰めてから討つ）／cells=形つき確定範囲（D・area ボス／PR1 の一般敵 arc/slam/beam・全マス予告）／shape=形の種別（0直線/1扇/2薙ぎ・ボス大技のみ）
   | { type: "move"; x: number; y: number }
   | { type: "wait" };
 
@@ -187,6 +206,8 @@ export interface Monster extends Pos {
   fossilId?: string;             // 出自の化石（敵性化した探索者）。⑤鎮め筋の対象（4-11D）
   breedCd?: number;              // breeder：眷属を湧かしたあとの待機手数（4-11G）
   chargeCd?: number;             // charge：突進後のクールダウン（毎手 charge しない）
+  slamCd?: number;               // slam：叩きつけ後のクールダウン（PR1・毎手 slam しない＝殴り込む窓）
+  beamCd?: number;               // beam：ビームのクールダウン（PR1・1手おき＝撃たれない手番に接近できる）
   enraged?: boolean;             // ボス（area）：HP 半減で覚醒済み（B・攻撃↑＋大技CD短縮）
   bigCd?: number;                // ボス（area）：渾身の一撃のクールダウン（B・溜め大技）
   bigShape?: number;             // ボス（area）：次の大技の形（D・0直線/1扇/2薙ぎを大技ごとに巡回）
@@ -252,7 +273,7 @@ export const tileAt = (f: Floor, x: number, y: number): Tile => (inBounds(f, x, 
 interface Room { x: number; y: number; w: number; h: number; }
 const center = (r: Room): Pos => ({ x: r.x + (r.w >> 1), y: r.y + (r.h >> 1) });
 
-export function genFloor(world: World, depth: number, opts?: { abyss?: boolean; fodderMul?: number }): Floor {
+export function genFloor(world: World, depth: number, opts?: { abyss?: boolean; fodderMul?: number; shapedWeight?: number }): Floor {
   // seed に潜行回数(diveCount)を混ぜる＝同一世代でも潜行ごとに別ダンジョン（生還→再潜行での宝箱/XP farm を根絶）。
   const rng = makeRng((world.seed ^ (depth * 2654435761) ^ (world.generation * 97) ^ ((world.diveCount ?? 0) * 40503) ^ (opts?.abyss ? 0x5eed : 0)) >>> 0);
   const mods = diffMods(world.difficulty); // 難易度係数（4-11H）。easy＝×1.0＝従来値（golden 不変）。
@@ -348,10 +369,16 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean; 
 
   // ---------- モンスター配置（マップ面積＋深度でスケール。大マップでも密度を確保） ----------
   const pool = MONSTER_KINDS.filter((k) => k.minDepth <= depth && (k.maxDepth === undefined || depth <= k.maxDepth));
+  // 形つき敵（arc/slam/beam）を重み付けした spawn プール（PR1）。総配置数（count）は不変＝通常敵を形つき敵に置き換えるだけ。
+  // elite 基（最上位 tier 抽出）と fodder は素の pool を使う（下）＝影響を主 count ループに閉じる。
+  // ★easy は重み1（自然頻度・種は出るが薄い）＝「快適無双」据え置きの確立方針（v0.121/v0.143 と同じ easy 除外ゲート）＝golden（easy 基準）も重み経路を踏まない。
+  const shapedWeight = Math.max(1, opts?.shapedWeight ?? ((world.difficulty ?? "easy") !== "easy" ? SHAPED_WEIGHT : 1));
+  const spawnPool: MonsterKind[] = [];
+  for (const k of pool) { const w = k.ability && SHAPED_ABILITIES.has(k.ability) ? shapedWeight : 1; for (let j = 0; j < w; j++) spawnPool.push(k); }
   const countCap = depth > 50 ? 42 + Math.min(18, depth - 50) : 42; // 深淵帯ギア：深度50超は包囲も増す（depth≤50＝42＝golden 不変）
   const count = Math.min(Math.round((W * H) / 120) + Math.floor(depth / 3), countCap); // 出現率・上限を拡張面積に追従（20→42→深部60）
   for (let i = 0; i < count; i++) {
-    const kind = scaleKind(pool[rng.int(pool.length)], depth, mods); // 深度係数＋難易度を焼き込む（HP/dmg/XP連動）
+    const kind = scaleKind(spawnPool[rng.int(spawnPool.length)], depth, mods); // 深度係数＋難易度を焼き込む（HP/dmg/XP連動）
     const p = randomFloorAway(floor, rng, stairsUp, 5);
     if (p) floor.monsters.push({ id: `m${depth}_${i}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: false, intent: null });
   }
@@ -689,6 +716,33 @@ function bossShapeCells(f: Floor, bx: number, by: number, tx: number, ty: number
   return cells;
 }
 
+/** 旋刃鬼（arc・PR1）：隣接時、@方向の前方弧3マス（@のマス＋左右±45度・床のみ）。bossShapeCells の扇の距離1版。 */
+function arcCells(f: Floor, mx: number, my: number, tx: number, ty: number): Pos[] {
+  let dx = Math.sign(tx - mx), dy = Math.sign(ty - my);
+  if (dx === 0 && dy === 0) dx = 1;
+  const cells: Pos[] = [];
+  for (const [ax, ay] of frontDirs(dx, dy)) { const x = mx + ax, y = my + ay; if (tileAt(f, x, y) === 1) cells.push({ x, y }); }
+  return cells;
+}
+/** 震地鬼（slam・PR1）：周囲8マス（床のみ）を叩きつける。 */
+function slamCells(f: Floor, mx: number, my: number): Pos[] {
+  const cells: Pos[] = [];
+  for (const [ax, ay] of DIRS8) { const x = mx + ax, y = my + ay; if (tileAt(f, x, y) === 1) cells.push({ x, y }); }
+  return cells;
+}
+/** 射抜きの眼（beam・PR1）：8方向直線・距離1..BEAM_MAX に target が居て間の床が通るとき、敵の隣から target マスまでの直線（床のみ）を返す。届かなければ null。 */
+function beamCells(f: Floor, mx: number, my: number, tx: number, ty: number): Pos[] | null {
+  const dx = tx - mx, dy = ty - my, adx = Math.abs(dx), ady = Math.abs(dy);
+  const cheb = Math.max(adx, ady);
+  if (cheb < 1 || cheb > BEAM_MAX) return null;
+  if (!(dx === 0 || dy === 0 || adx === ady)) return null; // 8方向直線のみ
+  const sx = Math.sign(dx), sy = Math.sign(dy);
+  const cells: Pos[] = [];
+  let cx = mx, cy = my;
+  for (let s = 1; s <= cheb; s++) { cx += sx; cy += sy; if (tileAt(f, cx, cy) !== 1) return null; cells.push({ x: cx, y: cy }); } // 壁で止まる＝@に届かない
+  return cells;
+}
+
 /** 敵の攻撃射程判定（フェーズ2）：(mx,my) から (tx,ty) を reach で討てるか。
  *  reach<=1＝隣接（8方向 Chebyshev≤1）。reach>=2＝8方向直線・距離1..reach・間の床が壁でない（頭越しに突ける）。
  *  planMonsters の遠間攻撃条件／web の押し出しキャンセル判定（③④）／突入ライン描画で共用＝挙動を一元化。 */
@@ -831,6 +885,25 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
           m.chargeCd = CHARGE_CD;
           continue;
         }
+      }
+    }
+    if (m.kind.ability === "arc" && d < 1.5) { // 旋刃鬼（PR1）：隣接時、前方弧3マスを薙ぐ（毎手・CD なし＝通常攻撃の形版）。非隣接は下の通常追跡で詰める。
+      m.intent = { type: "attack", x: target.x, y: target.y, cells: arcCells(f, m.x, m.y, target.x, target.y) };
+      continue;
+    }
+    if (m.kind.ability === "slam") { // 震地鬼（PR1）：@隣接で周囲8マスを叩きつける。CD 中や非隣接は下へ落ちる＝通常追跡/単点攻撃（この間に殴り込める）。
+      if (m.slamCd && m.slamCd > 0) m.slamCd--;
+      else if (d < 1.5) {
+        m.intent = { type: "attack", x: target.x, y: target.y, cells: slamCells(f, m.x, m.y) };
+        m.slamCd = SLAM_CD;
+        continue;
+      }
+    }
+    if (m.kind.ability === "beam") { // 射抜きの眼（PR1）：直線1..BEAM_MAX に標的が居れば撃ち抜く。CD 中は下へ落ちる＝1手おきに接近／非直線なら通常追跡で線に乗せにいく。
+      if (m.beamCd && m.beamCd > 0) m.beamCd--;
+      else {
+        const beam = beamCells(f, m.x, m.y, target.x, target.y);
+        if (beam) { m.intent = { type: "attack", x: target.x, y: target.y, cells: beam }; m.beamCd = BEAM_CD; continue; }
       }
     }
     if ((m.kind.reach ?? 1) >= 2 && monsterCanReach(f, m.x, m.y, target.x, target.y, m.kind.reach!)) {
