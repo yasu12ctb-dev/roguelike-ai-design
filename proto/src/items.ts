@@ -395,7 +395,7 @@ const PROC_DESC: Record<NonNullable<Item["proc"]>, string> = {
 /** 効果の説明（鑑定済み前提）。 */
 export function itemPower(it: Item): string {
   let s: string;
-  if (it.slot === "weapon") s = `攻＋${it.dmg}${it.reach && it.reach >= 2 ? "・十字2マス貫通（斜め・踏み込み不可）" : ""}${it.sweep ? "・薙ぎ払い（左右も同時に斬り、正面は2マス先まで届く）" : ""}${it.proc ? `・${PROC_DESC[it.proc]}` : ""}`;
+  if (it.slot === "weapon") s = `攻＋${it.dmg}${it.reach && it.reach >= 2 ? "・十字2マス貫通（斜め・踏み込み不可）" : ""}${it.sweep ? "・薙ぎ払い（2マス先の横3マスを薙ぐ・十字4方向・隣接は死角）" : ""}${it.proc ? `・${PROC_DESC[it.proc]}` : ""}`;
   else if (it.slot === "armor") s = `被ダメ−${it.reduce}${it.proc ? `・${PROC_DESC[it.proc]}` : ""}`;
   else if (it.slot === "bag") s = `持てる量＋${it.capacity}`;
   else s = it.relic ? RELIC_DESC[it.relic] : "遺物";

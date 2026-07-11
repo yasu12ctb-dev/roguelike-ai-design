@@ -16,14 +16,14 @@ import type { Difficulty, DifficultyMods } from "../src/difficulty.ts";
 import type { Character } from "../src/types.ts";
 import type { Floor, Monster, MonsterKind, Pos } from "../src/dungeon.ts";
 
-const COUNTER_MULT = 1.2, COUNTER_WINDOW = 2, PUSH_WALL_DMG = 4, PUSH_COLLIDE_DMG = 2, SPEAR_ADJ_MUL = 0.5, NAGINATA_STAGGER = 1;
-type WeaponKind = "sword" | "spear" | "naginata_cur" | "naginata_ext" | "naginata_new";
+const COUNTER_MULT = 1.2, COUNTER_WINDOW = 2, PUSH_WALL_DMG = 4, PUSH_COLLIDE_DMG = 2, SPEAR_ADJ_MUL = 0.5, NAGINATA_STAGGER = 1, NAG_SHOULDER = 0.8;
+type WeaponKind = "sword" | "spear" | "naginata_cur" | "naginata_bar";
 type LogicalWeapon = "sword" | "spear" | "naginata";
 type GuardMode = "full" | "half" | "none";
 type PushMode = "all" | "swordOnly";
-interface Variant { name: string; guard: GuardMode; push: PushMode; naginata: "cur" | "ext" | "new"; swordCritMult?: number; swordShock?: boolean }
-/** 論理武器「薙刀」を variant.naginata から実挙動へ解決（cur=隣接3マス弧／ext=弧+正面距離2／new=十字距離2）。 */
-function resolveWeapon(k: LogicalWeapon, v: Variant): WeaponKind { return k !== "naginata" ? k : v.naginata === "ext" ? "naginata_ext" : v.naginata === "new" ? "naginata_new" : "naginata_cur"; }
+interface Variant { name: string; guard: GuardMode; push: PushMode; naginata: "cur" | "bar"; swordCritMult?: number; swordShock?: boolean }
+/** 論理武器「薙刀」を variant.naginata から実挙動へ解決（cur=旧・隣接3マス弧／bar=v0.150.0・距離2の横3マスバー・隣接は死角）。 */
+function resolveWeapon(k: LogicalWeapon, v: Variant): WeaponKind { return k !== "naginata" ? k : v.naginata === "bar" ? "naginata_bar" : "naginata_cur"; }
 
 function mkRnd(seed: number) { let s = seed >>> 0; return () => { s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const cheb = (ax: number, ay: number, bx: number, by: number) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
@@ -106,26 +106,17 @@ function applyAttack(f: Floor, px: number, py: number, counterRef: { v: number }
     E.hp -= cdmg; if (crit) counterRef.v = 0;
     for (const sm of sides) sm.hp -= base;
     if (crit && pushOn) for (const m of [E, ...sides]) if (m.hp > 0) { realPush(f, m, px, py); m.stunned = Math.max(m.stunned ?? 0, NAGINATA_STAGGER); }
-  } else if (weapon === "naginata_ext") { // C：現行の隣接3マス弧＋正面距離2の敵に基礎ダメ（proc/会心補正なし）。始動は隣接bumpのみ。
-    const E = monAt(f, px + dx, py + dy); if (!E) return; // 始動は隣接に敵がいる時だけ（空きマスの先へ始動できるのは槍のみ）
-    const ci = SWEEP_RING.findIndex(([rx, ry]) => rx === dx && ry === dy);
-    const sides: Monster[] = [];
-    if (ci >= 0) for (const off of [-1, 1]) { const [sx, sy] = SWEEP_RING[(ci + off + 8) % 8]; const sm = monAt(f, px + sx, py + sy); if (sm && sm !== E) sides.push(sm); }
-    const far = monAt(f, px + 2 * dx, py + 2 * dy); // 正面（bump方向）の距離2＝main.ts naginataSweep の far（単一マス・m!==mon）
-    E.hp -= cdmg; if (crit) counterRef.v = 0;
-    for (const sm of sides) sm.hp -= base;
-    if (far && far !== E) far.hp -= base;
-    if (crit && pushOn) for (const m of [E, ...sides, ...(far && far !== E ? [far] : [])]) if (m.hp > 0) { realPush(f, m, px, py); m.stunned = Math.max(m.stunned ?? 0, NAGINATA_STAGGER); }
-  } else { // naginata_new：十字距離2のみ（距離1は死角）。中央＝primary＋左右perp＝side（dist2横並び3マス）
-    if (!isFloor(f, px + dx, py + dy) || !isFloor(f, px + 2 * dx, py + 2 * dy)) return;
-    const cx = px + 2 * dx, cy = py + 2 * dy, perp: [number, number] = [dy, dx];
+  } else { // naginata_bar（v0.150.0）：振った十字方向の距離2に横3マスバー。中央=100%（会心/proc）／肩=×0.8（会心なし）。距離1は完全死角。
+    // main.ts naginataSweep 忠実：発火は3バーセルのいずれかに敵がいる時のみ（隣接=距離1には一切触れない）。LOS/床ゲートなし（敵は必ず床上）。
+    const cx = px + 2 * dx, cy = py + 2 * dy;
+    const [ox, oy] = dx === 0 ? [1, 0] : [0, 1];               // 進行方向に垂直な肩オフセット
     const primary = monAt(f, cx, cy);
-    const s1 = monAt(f, cx + perp[0], cy + perp[1]), s2 = monAt(f, cx - perp[0], cy - perp[1]);
-    const sides = [s1, s2].filter((s): s is Monster => !!s);
-    if (!primary && sides.length === 0) return;
-    if (crit) counterRef.v = 0;
-    if (primary) primary.hp -= cdmg;
-    for (const sm of sides) sm.hp -= base;
+    const s1 = monAt(f, cx + ox, cy + oy), s2 = monAt(f, cx - ox, cy - oy);
+    const sides = [s1, s2].filter((s): s is Monster => !!s && s !== primary);
+    if (!primary && sides.length === 0) return;               // バーに敵なし＝薙げない（隣接の敵は斬れない）
+    const sd = Math.max(1, Math.round(base * NAG_SHOULDER));   // 肩＝基礎ダメ80%（会心・proc なし）
+    for (const sm of sides) sm.hp -= sd;
+    if (primary) { primary.hp -= cdmg; if (crit) counterRef.v = 0; }
     if (crit && pushOn) for (const m of [primary, ...sides]) if (m && m.hp > 0) { realPush(f, m, px, py); m.stunned = Math.max(m.stunned ?? 0, NAGINATA_STAGGER); }
   }
 }
@@ -141,7 +132,7 @@ function threatAt(f: Floor, px: number, py: number, armor: number, chip: number,
   return sum;
 }
 
-interface Run { cleared: boolean; died: boolean; hpLostPct: number; noDamage: boolean; turns: number }
+interface Run { cleared: boolean; died: boolean; hpLostPct: number; noDamage: boolean; turns: number; atkless: number }
 function fight(depth: number, weapon: WeaponKind, variant: Variant, pack: MonsterKind[], seed: number, wallFrac: number, mods: DifficultyMods): Run {
   const arng = mkRnd((seed ^ 0xa5e4) >>> 0);
   const f = arena(13, wallFrac, arng);
@@ -150,7 +141,7 @@ function fight(depth: number, weapon: WeaponKind, variant: Variant, pack: Monste
   const hpMax = maxHp(ch), base = meleeDmg(ch), armor = armorReduce(ch), chip = mods.chipFrac;
   const canGuard = weapon === "sword" && variant.guard !== "none";
   const pushOn = variant.push === "all" || weapon === "sword"; // swordOnly＝剣のみ押し出し（薙刀は stagger も失う）
-  let hp = hpMax, px = 6, py = 6, counter = 0, dmgTotal = 0;
+  let hp = hpMax, px = 6, py = 6, counter = 0, dmgTotal = 0, atkless = 0;
   const rng = makeRng((seed ^ (depth * 40503) ^ 0x5c0d) >>> 0);
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) f.tiles[(py + dy) * f.w + (px + dx)] = 1;
   const ring: Pos[] = []; for (let r = 2; r <= 5; r++) for (let a = 0; a < 12; a++) { const x = px + Math.round(r * Math.cos(a * Math.PI / 6)), y = py + Math.round(r * Math.sin(a * Math.PI / 6)); if (isFloor(f, x, y) && !(x === px && y === py) && !ring.some((q) => q.x === x && q.y === y)) ring.push({ x, y }); }
@@ -158,15 +149,24 @@ function fight(depth: number, weapon: WeaponKind, variant: Variant, pack: Monste
 
   planMonsters(f, { x: px, y: py }, rng);
   for (let turn = 1; turn <= 200; turn++) {
-    if (!f.monsters.some((m) => m.hp > 0)) return { cleared: true, died: false, hpLostPct: Math.round(100 * (hpMax - hp) / hpMax), noDamage: dmgTotal === 0, turns: turn };
+    if (!f.monsters.some((m) => m.hp > 0)) return { cleared: true, died: false, hpLostPct: Math.round(100 * (hpMax - hp) / hpMax), noDamage: dmgTotal === 0, turns: turn, atkless };
     if (counter > 0) counter--;
     const alive = f.monsters.filter((m) => m.hp > 0);
     let nearD = Infinity; for (const m of alive) nearD = Math.min(nearD, cheb(px, py, m.x, m.y));
 
-    type Cand = { kind: "attack" | "move" | "wait" | "guard"; dx: number; dy: number; dmg: number; kill: number; closer: number; isAtk: number };
+    type Cand = { kind: "attack" | "move" | "wait" | "guard"; dx: number; dy: number; dmg: number; kill: number; closer: number; setup: number; isAtk: number };
     const cands: Cand[] = [];
     const beforeAlive = alive.length;
-    const dirs = (weapon === "spear" || weapon === "naginata_new") ? CROSS4 : DIR8; // 槍・新薙刀は十字4方向のみ
+    const isBar = weapon === "naginata_bar";
+    const dirs = (weapon === "spear" || isBar) ? CROSS4 : DIR8; // 槍・距離2薙刀は十字4方向のみ
+    // 薙刀の間合い取り直しヒューリスティック：隣接（死角＋被弾源）を嫌い、距離2直線（次に薙げる）を好む。
+    const naginataSetup = (nx: number, ny: number): number => {
+      if (!isBar) return 0;
+      let s = 0;
+      for (const m of alive) { const dd = cheb(nx, ny, m.x, m.y); const card = nx === m.x || ny === m.y;
+        if (dd <= 1) s -= 3; else if (dd === 2 && card) s += 3; else if (dd === 2) s += 1; }
+      return s;
+    };
     for (const [dx, dy] of dirs) {
       // 攻撃候補：クローンに適用し、掃討後の被弾見込みと撃破数を評価
       const cf = cloneFloor(f);
@@ -176,18 +176,20 @@ function fight(depth: number, weapon: WeaponKind, variant: Variant, pack: Monste
       const origDead = f.monsters.filter((m) => m.hp <= 0).length;
       if (killedNow === origDead && sameHp(f, cf)) continue; // この方向は何も起きない＝非攻撃（無効）
       const kills = killedNow - origDead;
-      cands.push({ kind: "attack", dx, dy, dmg: threatAt(cf, px, py, armor, chip, "off"), kill: kills, closer: 0, isAtk: 1 });
+      cands.push({ kind: "attack", dx, dy, dmg: threatAt(cf, px, py, armor, chip, "off"), kill: kills, closer: 0, setup: 5, isAtk: 1 });
     }
+    if (!cands.some((c) => c.kind === "attack")) atkless++; // 敵は生存中なのに一手も攻撃できない＝薙刀のストレス指標（間合い取り直しに費やす手番）
     if (canGuard && alive.some((m) => intentHits(m, px, py) && cheb(px, py, m.x, m.y) <= 1)) {
-      cands.push({ kind: "guard", dx: 0, dy: 0, dmg: threatAt(f, px, py, armor, chip, variant.guard), kill: 0, closer: 0, isAtk: 0 });
+      cands.push({ kind: "guard", dx: 0, dy: 0, dmg: threatAt(f, px, py, armor, chip, variant.guard), kill: 0, closer: 0, setup: 0, isAtk: 0 });
     }
     for (const [dx, dy] of [[0, 0], ...DIR8] as [number, number][]) {
       const nx = px + dx, ny = py + dy;
       if (!(dx === 0 && dy === 0)) { if (!isFloor(f, nx, ny) || occ(f, nx, ny)) continue; }
       let nd = Infinity; for (const m of alive) nd = Math.min(nd, cheb(nx, ny, m.x, m.y));
-      cands.push({ kind: dx === 0 && dy === 0 ? "wait" : "move", dx, dy, dmg: threatAt(f, nx, ny, armor, chip, "off"), kill: 0, closer: nearD - nd, isAtk: 0 });
+      cands.push({ kind: dx === 0 && dy === 0 ? "wait" : "move", dx, dy, dmg: threatAt(f, nx, ny, armor, chip, "off"), kill: 0, closer: nearD - nd, setup: naginataSetup(nx, ny), isAtk: 0 });
     }
-    cands.sort((a, b) => a.dmg - b.dmg || b.kill - a.kill || b.closer - a.closer || b.isAtk - a.isAtk);
+    // 薙刀は setup（距離2直線を作る／隣接を避ける）を closer より優先＝敵に張り付かれても間合いを取り直す割り切り。
+    cands.sort((a, b) => a.dmg - b.dmg || b.kill - a.kill || b.setup - a.setup || b.closer - a.closer || b.isAtk - a.isAtk);
     const act = cands[0];
 
     let guardArmed = false;
@@ -210,11 +212,11 @@ function fight(depth: number, weapon: WeaponKind, variant: Variant, pack: Monste
       hp -= d; dmgTotal += d;
     }
     if (res.dodges.length > 0 && hp > 0) counter = COUNTER_WINDOW;
-    if (hp <= 0) return { cleared: false, died: true, hpLostPct: 100, noDamage: false, turns: turn };
+    if (hp <= 0) return { cleared: false, died: true, hpLostPct: 100, noDamage: false, turns: turn, atkless };
     planMonsters(f, { x: px, y: py }, rng);
     if (beforeAlive === 0) break;
   }
-  return { cleared: false, died: false, hpLostPct: Math.round(100 * (hpMax - hp) / hpMax), noDamage: dmgTotal === 0, turns: 200 };
+  return { cleared: false, died: false, hpLostPct: Math.round(100 * (hpMax - hp) / hpMax), noDamage: dmgTotal === 0, turns: 200, atkless };
 }
 function sameHp(a: Floor, b: Floor): boolean { for (let i = 0; i < a.monsters.length; i++) if (a.monsters[i].hp !== b.monsters[i].hp || a.monsters[i].x !== b.monsters[i].x || a.monsters[i].y !== b.monsters[i].y) return false; return true; }
 
@@ -249,11 +251,11 @@ const WEAPONS: { k: LogicalWeapon; label: string }[] = [
   { k: "sword", label: "剣    " }, { k: "spear", label: "槍    " },
   { k: "naginata", label: "薙刀  " },
 ];
-// FINAL＝ユーザー承認・main.ts 実装済みの最終仕様（guard=half・push=all・swordShock=true・薙刀=ext）。V0＝現行ライブとの対照。
+// LIVE＝ユーザー承認・main.ts 実装済みの v0.150.0 仕様（剣:受half+会心衝撃波／薙刀:距離2の横3マスバー・肩80%・隣接死角）。
+// 参考＝薙刀だけ旧仕様(隣接3マス弧)に差し替えた対照（剣・槍は LIVE と同一）＝改定の delta を見る。
 const VARIANTS: Variant[] = [
-  { name: "V0 現行ライブ(受full/押all/衝撃波なし/薙刀現)", guard: "full", push: "all", naginata: "cur" },
-  { name: "FINAL 最終仕様(受half/押all/剣衝撃波/薙刀ext)", guard: "half", push: "all", naginata: "ext", swordShock: true },
-  { name: "FINAL' 受full版(受full/押all/剣衝撃波/薙刀ext)", guard: "full", push: "all", naginata: "ext", swordShock: true },
+  { name: "LIVE v0.150(剣:受half+会心衝撃波／薙刀:距離2バー・肩80%・隣接死角)", guard: "half", push: "all", naginata: "bar", swordShock: true },
+  { name: "参考:旧薙刀(隣接3マス弧／剣・槍は LIVE と同一)", guard: "half", push: "all", naginata: "cur", swordShock: true },
 ];
 
 function cell(depth: number, wk: LogicalWeapon, variant: Variant, size: number, wallFrac: number) {
@@ -269,13 +271,16 @@ function cell(depth: number, wk: LogicalWeapon, variant: Variant, size: number, 
   const death = Math.round(100 * runs.filter((r) => r.died).length / n);
   const cleared = runs.filter((r) => r.cleared);
   const clrT = cleared.length ? Math.round(cleared.reduce((a, r) => a + r.turns, 0) / cleared.length) : 0;
-  return { noDmg, avgHp, death, clrT, clr: Math.round(100 * cleared.length / n) };
+  const totTurns = runs.reduce((a, r) => a + r.turns, 0);
+  const stall = Math.round(100 * runs.reduce((a, r) => a + r.atkless, 0) / Math.max(1, totTurns)); // 攻撃不能手番の割合(%)
+  return { noDmg, avgHp, death, clrT, clr: Math.round(100 * cleared.length / n), stall };
 }
 
 console.log("武器比較シム＝テレグラフ1手先読みで被弾最小化する“最適プレイヤー”（上限値）。60seed・難易度normal・注目種(形/突進/長柄/炸裂)を必ず混入。");
-console.log("  剣=万能8方向(受け半減+会心衝撃波=全隣接押出)／槍=十字距離1-2貫通(距離1×0.5・剣比dmg-1)／薙刀=variant依存(現=隣接3マス弧／ext=弧+正面距離2に基礎ダメ・会心はfarも押出+stagger)。");
+console.log("  剣=万能8方向(受け半減+会心衝撃波=全隣接押出)／槍=十字距離1-2貫通(距離1×0.5・剣比dmg-1)／薙刀(v0.150 bar)=十字距離2の横3マスバー・中央100%/肩80%・隣接(距離1)は完全死角・剣比dmg-1。");
+console.log("  ★薙刀 bot：隣接の敵は斬れず被弾源＝『間合いを取り直す』割り切りを実装（setup ヒューリスティックで距離2直線を作り隣接を避ける・攻撃不能なら退く一手を使う）。");
 console.log("  被ダメ=normal式 max(1, ceil(rawDmg×0.20), rawDmg-防具)。会心=見切り×1.2＋押出（射程外に出せば予告一撃キャンセル）。\n");
-console.log("  各セル表記＝ 無傷%|HP損%|死%|掃討% （無傷=被弾ゼロ掃討率／HP損=maxHp比平均／死=死亡率／掃討=クリア率。掃討低＋HP損低＝カイト放置で倒し切れずSTALE）\n");
+console.log("  各セル表記＝ 無傷%|HP損%|死%|掃討% （無傷=被弾ゼロ掃討率／HP損=maxHp比平均／死=死亡率／掃討=クリア率。掃討低＋HP損低＝間合いを作れず倒し切れずSTALE）\n");
 
 for (const v of VARIANTS) {
   console.log(`\n############ ${v.name} ############`);
@@ -301,3 +306,16 @@ for (const v of VARIANTS) {
 }
 console.log("\n読み方：無傷%高＝その武器で被弾ゼロで捌ける（=強い）。HP損%・死%高＝崩れやすい（=弱い）。掃討%低＝倒し切れない。");
 console.log("bot は情報完全＝実プレイヤーより上手い＝無傷%は上限。相対（武器間の優劣）を見る。");
+
+// ── 薙刀ストレス指標（答え(d)）＝『距離2を作れず一手も薙げない』手番の割合(%)。高い＝間合い取り直しで手を空費＝ストレス ──
+console.log("\n\n======== 薙刀(bar)ストレス＝攻撃不能手番の割合(%)〔敵生存中に一手も薙げなかった手番/総手番〕========");
+console.log("  ※高いほど『隣接に張り付かれ間合いを作れない』＝ストレス。地形×深度×pack別（LIVE v0.150 の薙刀のみ）。");
+for (const t of TERRAIN) {
+  console.log(`  ── ${t.name} ──   pack:  1体    2体    3体    5体`);
+  for (const depth of DEPTHS) {
+    const cols = PACKS.map((sz) => `${String(cell(depth, "naginata", VARIANTS[0], sz, t.wall).stall).padStart(3)}%`);
+    console.log(`     D${String(depth).padStart(2)}                ${cols.join("   ")}`);
+  }
+}
+console.log("\n★シムの限界：bot は全 intent 既知＝無傷%は上限（人間はもっと被弾）／障害物地形は幅1通路のチョークを再現せず＝通路で薙刀/槍が刺さる場面を過小評価／");
+console.log("  持ち替え・押し出しの読み合い・押し出しキャンセルの妙手は近似（bot は薙刀では持ち替えず『退く』でのみ間合いを取る）。");

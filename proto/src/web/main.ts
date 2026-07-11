@@ -61,7 +61,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.149.0";
+export const APP_VERSION = "0.150.0";
 export const APP_BUILD = "2026-07-08";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -3432,10 +3432,17 @@ function raidMoveOrAttack(nx: number, ny: number): boolean {
       if (mon || mon2) { spearStrike(mon, mon2, sdx, sdy); return true; }
     }
   }
-  // 武器クラス〈薙刀〉（sweep:true・v0.127.0）：街防衛戦でも弧の薙ぎ払い（dive と対称）。
-  if (mon && world.current?.equipment.weapon?.sweep) {
-    naginataSweep(mon, Math.sign(nx - player.x), Math.sign(ny - player.y));
-    return true;
+  // 武器クラス〈薙刀〉（sweep:true・v0.150.0 改定＝距離2の横3マスバー・隣接は死角）：街防衛戦でも dive と対称。
+  if (world.current?.equipment.weapon?.sweep) {
+    const sdx = Math.sign(nx - player.x), sdy = Math.sign(ny - player.y);
+    if (sdx !== 0 && sdy !== 0) {
+      if (mon) { log("薙刀は斜めには薙げない。", "dim"); return false; }
+    } else {
+      const cx = player.x + sdx * 2, cy = player.y + sdy * 2, [ox, oy] = sdx === 0 ? [1, 0] : [0, 1];
+      const bar: [number, number][] = [[cx, cy], [cx + ox, cy + oy], [cx - ox, cy - oy]];
+      if (bar.some(([bx, by]) => f.monsters.some((m) => m.hp > 0 && m.x === bx && m.y === by))) { naginataSweep(sdx, sdy); return true; }
+      if (mon) { log("薙刀は懐（隣接）の敵を薙げない――退くか間合いを取れ。", "dim"); return false; }
+    }
   }
   if (mon) {
     const ch = world.current!;
@@ -5119,88 +5126,77 @@ function spearStrike(mon: Monster | undefined, mon2: Monster | undefined, pdx: n
   if (primary.hp <= 0) kill(primary);
 }
 
-// 8近傍リング（時計回り・上始点）。薙刀の側方セル算出＝bump方向の index±1（mod 8）。
-const SWEEP_RING: [number, number][] = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
-/** 武器クラス〈薙刀〉（sweep:true・v0.127.0）の薙ぎ払い：bump方向とその左右隣（±45度）の計3マスを同時に薙ぐ。
- *  primary（bump先＝mon）にフル補正（会心・挟撃・siphon・proc・reflect反動）、side（最大2体）は基礎ダメージのみ。
- *  ★会心の薙ぎ＝生き残った primary と side を全員 @ から離れる向きへ吹き飛ばす（C の原則＝会心限定・通常時は押し出さない）。
- *  斜め攻撃可・射程1（剣と同じ入力感覚）・踏み込み可（lunge 中は会心が乗らない＝吹き飛ばしも発動しない）。
- *  side のダメージ適用→撃破確定を proc 適用より先に（cleave/blast が side を巻き込んでも二重発火しない＝spearStrike と同一の流儀）。 */
-function naginataSweep(mon: Monster, pdx: number, pdy: number): void {
+const NAG_SHOULDER = 0.8; // 薙刀の肩（距離2±1）＝基礎ダメの割合（中央100%／肩80%・図の△）
+/** 武器クラス〈薙刀〉（sweep:true・v0.150.0 改定＝距離2の横3マスバー・隣接は死角・十字4方向）の薙ぎ払い。
+ *  振った十字方向 (sdx,sdy) の距離2に横3マスの弧を薙ぐ＝中央（距離2直線）＝100%（会心・挟撃・siphon・proc・reflect の対象）／
+ *  左右の肩（距離2±1・進行方向に垂直）＝基礎ダメ NAG_SHOULDER(80%)。隣接（距離1）は完全な死角＝斬れない（呼び側が担保）。
+ *  ★会心の薙ぎ＝生存者を @ から離れる向きへ吹き飛ばし＋体勢崩し（会心限定・見切りの前提投資が要る）。踏み込み・受けはなし。
+ *  肩のダメージ適用→撃破確定を中央 proc 適用より先に（cleave/blast が肩を巻き込んでも二重発火しない＝spearStrike と同一流儀）。 */
+function naginataSweep(sdx: number, sdy: number): void {
   const ch = world.current!;
   const raid = mode === "raid";
   const f = floor!;
   const kill = (m: Monster, line?: string) => { if (raid) raidKill(m); else downOrKill(m, line); };
-  const lunge = lungeActive();
-  // primary＝bump 先（フル補正＝会心・挟撃・踏み込み）
-  const hitR = meleeWithPositioning(meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0), mon, { lunge });
-  mon.hp -= hitR.dmg;
-  sfx(mon.boss ? "crit" : "hit");
-  floatFx(mon.x, mon.y, String(hitR.dmg), hitR.crit ? "fl-crit" : "fl-dmg");
-  // side＝bump方向の左右隣（±45度）に居る敵。基礎ダメのみ。撃破は proc 適用より先に確定（余波の二重発火を予防）。
-  const ci = SWEEP_RING.findIndex(([rx, ry]) => rx === pdx && ry === pdy);
-  const sides: Monster[] = [];
-  if (ci >= 0) {
-    for (const off of [-1, 1]) {
-      const [sx, sy] = SWEEP_RING[(ci + off + 8) % 8];
-      const cx = player.x + sx, cy = player.y + sy;
-      const sm = f.monsters.find((m) => m.hp > 0 && m.x === cx && m.y === cy && m !== mon);
-      if (sm) sides.push(sm);
+  const cx = player.x + sdx * 2, cy = player.y + sdy * 2;      // 中央＝距離2直線（○=100%）
+  const [ox, oy] = sdx === 0 ? [1, 0] : [0, 1];               // 進行方向に垂直な肩オフセット（△=80%）
+  const base = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
+  const center = f.monsters.find((m) => m.hp > 0 && m.x === cx && m.y === cy) ?? null;
+  const shoulders: Monster[] = [];
+  for (const [bx, by] of [[cx + ox, cy + oy], [cx - ox, cy - oy]] as [number, number][]) {
+    const sm = f.monsters.find((m) => m.hp > 0 && m.x === bx && m.y === by && m !== center);
+    if (sm) shoulders.push(sm);
+  }
+  // 肩＝基礎ダメ 80%（会心・proc なし）。撃破は中央 proc 適用より先に確定（余波の二重発火を予防）。
+  const sd = Math.max(1, Math.round(base * NAG_SHOULDER));
+  const shoulderNames: string[] = [];
+  for (const sm of shoulders) {
+    sm.hp -= sd;
+    floatFx(sm.x, sm.y, String(sd), "fl-dmg");
+    shoulderNames.push(sm.kind.name);
+    if (sm.hp <= 0) kill(sm);
+  }
+  // 中央＝primary（フル補正＝会心・挟撃／siphon・proc・reflect の対象）。
+  let crit = false;
+  if (center) {
+    const hitR = meleeWithPositioning(base, center); // 100%（会心・挟撃・踏み込みは薙刀では無効＝lunge 渡さず）
+    crit = hitR.crit;
+    center.hp -= hitR.dmg;
+    sfx(center.boss ? "crit" : "hit");
+    floatFx(center.x, center.y, String(hitR.dmg), hitR.crit ? "fl-crit" : "fl-dmg");
+    if (!raid) {
+      if (ch.equipment.relic?.relic === "siphon" && deathDoorTurns === 0 && hp < maxHp(ch)) { // 吸命は中央のみ
+        const drained = Math.max(1, Math.round(hitR.dmg * SIPHON_FRAC));
+        hp = Math.min(maxHp(ch), hp + drained);
+      }
+      applyWeaponProc(ch, center, hitR.dmg); // proc は中央のみ（余波で倒れた敵は proc 側の downOrKill が一度だけ処理）
     }
-  }
-  const base2 = meleeDmg(ch) + (attackBuffTurns > 0 ? ATTACK_BUFF : 0);
-  const sideNames: string[] = [];
-  for (const sm of sides) {
-    sm.hp -= base2;
-    floatFx(sm.x, sm.y, String(base2), "fl-dmg");
-    sideNames.push(sm.kind.name);
-    if (sm.hp <= 0) kill(sm); // side の撃破は proc 適用より先に確定（cleave/blast 二重発火を予防）
-  }
-  if (sideNames.length) log(`薙ぎ払い！ ${sideNames.join("と")}を巻き込んだ。`, "cue");
-  // ★長柄の届き（v0.149.0・テストプレイFB「長柄なのに間合いが武器とマッチしない」）：薙ぎは正面の奥＝bump方向の
-  //   距離2マスにも届く（基礎ダメのみ＝side と同格・proc/会心補正なし）。隣接に敵がいる時の薙ぎの一部であり、
-  //   素の間合いは1のまま＝「空きマスの先の敵に攻撃を始動できる」のは槍だけ（reach2）＝槍の間合いの独自性は侵さない。
-  const fx2 = player.x + pdx * 2, fy2 = player.y + pdy * 2;
-  const far = f.monsters.find((m) => m.hp > 0 && m.x === fx2 && m.y === fy2 && m !== mon) ?? null;
-  if (far) {
-    far.hp -= base2;
-    floatFx(far.x, far.y, String(base2), "fl-dmg");
-    log(`長柄が奥まで届く――${far.kind.name}に${base2}。`, "cue");
-    if (far.hp <= 0) kill(far); // side と同じ＝proc 適用より先に確定（余波の二重発火を予防）
-  }
-  // primary の siphon/proc/reflect（spearStrike と同じ扱い＝primary のみ）
-  if (!raid) {
-    if (ch.equipment.relic?.relic === "siphon" && deathDoorTurns === 0 && hp < maxHp(ch)) { // 吸命は primary のみ
-      const drained = Math.max(1, Math.round(hitR.dmg * SIPHON_FRAC));
-      hp = Math.min(maxHp(ch), hp + drained);
+    if (center.hp > 0) {
+      log(`長柄が薙ぐ――${center.kind.name}に${hitR.dmg}。`, "cue");
+      if (!raid && center.kind.ability === "reflect" && deathDoorTurns === 0) { // 棘＝近接を罰する
+        const recoil = Math.max(1, Math.round(hitR.dmg * REFLECT_FRAC));
+        hp -= recoil; sfx("hurt"); flashFx("warp", { x: player.x, y: player.y });
+        floatFx(player.x, player.y, String(recoil), "fl-hurt");
+        log(`${center.kind.name}の棘が反射する――${recoil}の傷。`, "warn");
+      }
     }
-    applyWeaponProc(ch, mon, hitR.dmg); // proc は primary のみ（余波で倒れた敵は proc 側の downOrKill が一度だけ処理）
+  } else {
+    sfx("hit"); // 中央に敵なし（肩だけヒット）でも薙ぎ音
   }
-  if (mon.hp > 0) {
-    log(`${mon.kind.name}に${hitR.dmg}の一撃。`);
-    if (!raid && mon.kind.ability === "reflect" && deathDoorTurns === 0) { // 棘＝近接を罰する
-      const recoil = Math.max(1, Math.round(hitR.dmg * REFLECT_FRAC));
-      hp -= recoil; sfx("hurt"); flashFx("warp", { x: player.x, y: player.y });
-      floatFx(player.x, player.y, String(recoil), "fl-hurt");
-      log(`${mon.kind.name}の棘が反射する――${recoil}の傷。`, "warn");
-    }
-  }
-  // ★会心の薙ぎ＝生き残った primary と side を全員 @ から離れる向きへ吹き飛ばす＋体勢崩し（会心限定）。
-  //   吹き飛ばした敵は次の N 手 wait（stunned 流用＝planMonsters が消費）＝「囲まれても一度のカウンターで群れごと制圧する」薙刀 idiom。
-  //   ※既に予告された今手番の攻撃は消せない（確定命中）が、次の安全窓を作る。会心＝見切りの前提投資が要る＝ばら撒けない（難易度維持）。
-  if (hitR.crit) {
+  if (shoulderNames.length) log(`薙ぎ払い！ ${shoulderNames.join("と")}を巻き込んだ。`, "cue");
+  // ★会心の薙ぎ＝生存者を @ から離れる向きへ吹き飛ばし＋体勢崩し（会心限定・図の「吹き飛ばしあり」）。
+  //   吹き飛ばした敵は次の N 手 wait（stunned 流用）＝「囲まれても一度のカウンターで距離2の群れを弾く」薙刀 idiom。
+  if (crit) {
     let staggered = 0;
-    for (const m of [mon, ...sides, ...(far ? [far] : [])]) {
-      if (m.hp > 0) {
+    for (const m of [center, ...shoulders]) {
+      if (m && m.hp > 0) {
         pushEnemy(m, Math.sign(m.x - player.x), Math.sign(m.y - player.y));
-        if (m.hp <= 0) { if (m !== mon) kill(m); continue; } // 壁叩きつけで斃れた巻き込みはここで確定（旧版は kill 漏れ＝XP/ドロップ無しの潜在バグ・primary は末尾の kill に委ねる）
+        if (m.hp <= 0) { if (m !== center) kill(m); continue; } // 壁叩きつけ死＝撃破処理（中央は末尾の kill に委ねる＝二重発火防止）
         m.stunned = Math.max(m.stunned ?? 0, NAGINATA_STAGGER); staggered++;
       }
     }
     if (staggered > 1) log("薙ぎ払いが体勢を崩す――崩れた者は次の一手が遅れる。", "cue");
   }
-  if (mon.hp <= 0) kill(mon);
-  if (lunge) { if (lungeArm === 1) lungeArm = 0; lungeThrough(mon, pdx, pdy); } // E：踏み込みの貫き移動（primary を貫く）
+  if (center && center.hp <= 0) kill(center); // 中央の撃破は最後に一度（proc/余波の後）
 }
 
 let abyssDivePending = false; // 次の潜行が「奉献の試練」（深淵帯への直下降）か
@@ -6528,10 +6524,19 @@ function moveOrInteract(nx: number, ny: number): boolean {
       // 直線上に敵なし＝下の通常移動/インタラクトへフォールスルー（mon は null）。
     }
   }
-  // 武器クラス〈薙刀〉（sweep:true・v0.127.0）：bump方向±45度の3マスを同時に薙ぐ（斜め可・踏み込み可）。
-  if (mon && world.current?.equipment.weapon?.sweep) {
-    naginataSweep(mon, Math.sign(nx - player.x), Math.sign(ny - player.y));
-    return true;
+  // 武器クラス〈薙刀〉（sweep:true・v0.150.0 改定＝距離2の横3マスバー・隣接は死角・十字4方向）：
+  //   方向入力で距離2バーに敵がいれば「その場で薙ぐ」（移動しない）。懐（隣接）の敵は斬れない＝退く/押し出す/持ち替えで対処。
+  if (world.current?.equipment.weapon?.sweep) {
+    const sdx = Math.sign(nx - player.x), sdy = Math.sign(ny - player.y);
+    if (sdx !== 0 && sdy !== 0) {
+      if (mon) { log("薙刀は斜めには薙げない。", "dim"); return false; } // 斜めは薙げず、空きなら下で移動
+    } else {
+      const cx = player.x + sdx * 2, cy = player.y + sdy * 2, [ox, oy] = sdx === 0 ? [1, 0] : [0, 1];
+      const bar: [number, number][] = [[cx, cy], [cx + ox, cy + oy], [cx - ox, cy - oy]];
+      if (bar.some(([bx, by]) => f.monsters.some((m) => m.hp > 0 && m.x === bx && m.y === by))) { naginataSweep(sdx, sdy); return true; }
+      if (mon) { log("薙刀は懐（隣接）の敵を薙げない――退くか間合いを取れ。", "dim"); return false; } // 距離2に敵なし＋隣接は死角
+      // 距離2に敵なし＝下の通常移動へフォールスルー（mon なし＝空きマス）
+    }
   }
   if (mon) { // 攻撃（確定命中・確定ダメージ＝力依存＋焦躁バフ＋位置取り補正）
     const ch = world.current!;
@@ -7207,7 +7212,7 @@ const HELP_FLOW =
   "・敵は次の一手を予告する（テレグラフ）。退いて空振りさせるのが「見切り」。\n" +
   "・見切った直後は「反撃の好機」＝次の近接攻撃が会心になる。\n" +
   "・相棒・召喚・共闘者と敵を挟むと「挟み撃ち」＝近接攻撃が増す。\n" +
-  "・武器には剣（8方向・隣接。「受」ボタン（キー g）で一手構えると、来る隣接一撃を受け流して半減＋反撃の好機。さらに会心の一撃は周囲の敵をまとめて弾き飛ばす「衝撃波」＝囲まれても空間を作れる）／槍（十字4方向・2マス射程・直線の2体を貫く／斜め・踏み込み不可＝幅1の通路で真価）／薙刀（振った方向とその左右も同時に斬り、正面は2マス先まで届く＝開所で囲まれた時に真価。見切り反撃の会心はまとめて吹き飛ばし、崩れた敵は次の一手が遅れる）がある。\n" +
+  "・武器には剣（8方向・隣接。「受」ボタン（キー g）で一手構えると、来る隣接一撃を受け流して半減＋反撃の好機。さらに会心の一撃は周囲の敵をまとめて弾き飛ばす「衝撃波」＝囲まれても空間を作れる）／槍（十字4方向・2マス射程・直線の2体を貫く／斜め・踏み込み不可＝幅1の通路で真価）／薙刀（長柄＝2マス先の横3列を薙ぐ・十字4方向・隣接は死角＝懐に潜られると斬れないので間合いを保て。見切り反撃の会心はまとめて吹き飛ばし、崩れた敵は次の一手が遅れる）がある。\n" +
   "・壺＝離れたマスへ投げてAoE＋地形を残す（火＝焼く／毒＝毒沼／凍＝鈍らせる凍霧）。方向パッド／タップで狙い、「投げる」で放つ（射程4）。\n" +
   "・装備は安全なら自由に持ち替え／戦闘中も持ち替えられるが一手かかる（敵が動く）。術の構えは安全時のみ。\n\n" +
   "▍地図とねらい\n" +
@@ -8157,9 +8162,10 @@ function applyChrome() {
 function updateLungeBtn() {
   const lb = document.getElementById("lungeBtn"); if (!lb) return;
   const combat = mode === "dive" || mode === "raid";
-  const spear = (world.current?.equipment.weapon?.reach ?? 1) >= 2; // 槍は踏み込み不可＝ボタンを隠し、構えも解く
-  if (spear) lungeArm = 0; // 槍装備中は arm/構えを無効化（HUD ピルも消える・Shift+方向は spearStrike が lunge を見ないので自然に無効）
-  const show = lungeShow && !!world.current && combat && !spear;
+  const w = world.current?.equipment.weapon;
+  const noLunge = (w?.reach ?? 1) >= 2 || !!w?.sweep; // 槍・薙刀は踏み込み不可＝ボタンを隠し、構えも解く（v0.150.0：薙刀も距離2攻撃ゆえ貫き移動しない）
+  if (noLunge) lungeArm = 0; // 装備中は arm/構えを無効化（HUD ピルも消える・Shift+方向は spear/naginata が lunge を見ないので自然に無効）
+  const show = lungeShow && !!world.current && combat && !noLunge;
   lb.classList.toggle("show", show);
   lb.classList.toggle("armed", show && lungeArm === 1);
   lb.classList.toggle("stance", show && lungeArm === 2);
