@@ -24,11 +24,15 @@ export interface DifficultyMods {
 // death は「枠だけ」用意（中身は後日調整・UI 未選択）。easy=1.0 基準＝golden 不変。
 // easy＝「丁寧に進めると気持ちよく無双できる」快適モード（2026-07-05 ユーザー確定＝オーバーレベルを容認する公式仕様＝新3係数は全て無効）。
 // normal/hard＝終始シビア＝XP係留＋比例チップで「成長の追い越し」を封じ、全深度で手応えを保つ。
+// ── 攻撃力の外科的強化（①・PR4・v0.148.0・2026-07-11 ユーザー承認＝「敵の被ダメが軽い」FB対応）──
+//   burst 導入（PR3）で確定ダメージの脅威は増したが、chipFrac（軽減の比例下限）はまだ防具飽和を許す帯が残る。
+//   normal/hard/death の chipFrac を底上げ＋生 enemyDmg をごく小幅に（easy は完全据え置き＝golden 不変）。
+//   数値は sim（tools/dodgefloor 系）で「HP損/フロアは増えるが CLEAR≥45% を維持（死の博打化なし）」を確認して採用。
 export const DIFFICULTY: Record<Difficulty, DifficultyMods> = {
   easy:   { enemyHp: 1.0,  enemyDmg: 1.0, dmgFloor: 0, exposure: 1.0, xp: 1.0,  townHeal: 1.0, lineage: true,  xpTether: 0,    greedMul: 1.5, chipFrac: 0,    fodderMul: 0.2 },
-  normal: { enemyHp: 1.25, enemyDmg: 1.25, dmgFloor: 1, exposure: 1.2, xp: 0.9,  townHeal: 1.0, lineage: true,  xpTether: 0.35, greedMul: 1.2, chipFrac: 0.15, fodderMul: 0.35 },
-  hard:   { enemyHp: 1.5,  enemyDmg: 1.4, dmgFloor: 2, exposure: 1.4, xp: 0.85, townHeal: 0.8, lineage: true,  xpTether: 0.4,  greedMul: 1.2, chipFrac: 0.18, fodderMul: 0.45 },
-  death:  { enemyHp: 1.8,  enemyDmg: 1.6, dmgFloor: 2, exposure: 1.7, xp: 0.8,  townHeal: 0.0, lineage: false, xpTether: 0.45, greedMul: 1.2, chipFrac: 0.2,  fodderMul: 0.5 },
+  normal: { enemyHp: 1.25, enemyDmg: 1.30, dmgFloor: 1, exposure: 1.2, xp: 0.9,  townHeal: 1.0, lineage: true,  xpTether: 0.35, greedMul: 1.2, chipFrac: 0.20, fodderMul: 0.35 },
+  hard:   { enemyHp: 1.5,  enemyDmg: 1.45, dmgFloor: 2, exposure: 1.4, xp: 0.85, townHeal: 0.8, lineage: true,  xpTether: 0.4,  greedMul: 1.2, chipFrac: 0.24, fodderMul: 0.45 },
+  death:  { enemyHp: 1.8,  enemyDmg: 1.6, dmgFloor: 2, exposure: 1.7, xp: 0.8,  townHeal: 0.0, lineage: false, xpTether: 0.45, greedMul: 1.2, chipFrac: 0.26, fodderMul: 0.5 },
 };
 
 export const EASY_MODS = DIFFICULTY.easy;
