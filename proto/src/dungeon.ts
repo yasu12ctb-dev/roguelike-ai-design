@@ -578,6 +578,43 @@ export function spawnPursuer(f: Floor, rng: Rng, player: Pos, depth: number, n: 
   return m;
 }
 
+// ───── 経路湧き増援（wandering reinforcements・④・PR4・v0.148.0・2026-07-11 ユーザー承認）─────
+//   PR2 で判明＝静的配置（fodder クラスタ＋護衛）は大マップで @ の経路と交差しないことがある／
+//   MONSTER_HARDCAP で瞬間密度が頭打ち＝「配置」だけでは足りない。時間経過での増援＝流量で補い、
+//   無限カイト/放置に緩い時間圧をかける（診断で無被弾を崩す2軸＝数と時間、の後者）。
+//   ★「じっくり攻略を罰しない」原則は死守＝緩い間隔(WANDER_EVERY)＋フロア総数上限(WANDER_FLOOR_CAP)＝
+//     通常の探索・戦闘では気にならず、居座り続けた時だけ数体増える程度に留める（死の螺旋にしない）。
+//   ★可読性（4-11A）契約も死守＝@の視界外（computeFov）にのみ湧く＝画面内に突然ポップしない。
+//     awake=true で湧く（spawnPursuer と同様）＝視界外で静かに接近し、視界に入った時にはもう迫っている。
+//   normal/hard/death 限定（web endTurn 側で `(world.difficulty ?? "easy") !== "easy"` ゲート）＝easy は不変。
+//   endTurn（web ランタイム）から都度呼ぶ＝golden 非関与（genFloor の指紋に影響しない）。
+export const WANDER_EVERY = 35;         // この手数ごとに1体（フロア滞在カウンタ・enterFloor でリセット）。sim実測で25→35に調整（下記参照）。テスト調整候補。
+export const WANDER_FLOOR_CAP = 6;      // 1フロアあたりの累計湧き数の上限（無限に増えない＝じっくり攻略を罰しない）。テスト調整候補。
+export const WANDER_SHAPED_CHANCE = 0.25; // 湧きが形つき/burst 系になる確率（残りは fodder）。テスト調整候補。
+/** @の視界外・距離6+の床を探してモンスターを1体湧かせる（決定論・純粋）。見つからなければ null。
+ *  構成＝主に fodder（tier<=2）、WANDER_SHAPED_CHANCE で形つき/burst 系（この深度で出現可能なもの）。 */
+export function spawnWanderer(f: Floor, rng: Rng, player: Pos, depth: number, n: number): Monster | null {
+  const vis = computeFov(f, player);
+  let p: Pos | null = null;
+  for (let tries = 0; tries < 40; tries++) {
+    const cand = randomFloorAway(f, rng, player, 6);
+    if (!cand) break;
+    if (!vis.has(mapIdx(f, cand.x, cand.y))) { p = cand; break; }
+  }
+  if (!p) return null;
+  const mods = f.diff ?? EASY_MODS;
+  const pool = MONSTER_KINDS.filter((k) => k.minDepth <= depth && (k.maxDepth === undefined || depth <= k.maxDepth));
+  if (!pool.length) return null;
+  const fodderPool = pool.filter((k) => k.tier <= FODDER_MAX_TIER);
+  const shapedPool = pool.filter((k) => k.ability && (SHAPED_ABILITIES.has(k.ability) || k.ability === "burst"));
+  const useShaped = shapedPool.length > 0 && rng.next() < WANDER_SHAPED_CHANCE;
+  const srcPool = useShaped ? shapedPool : (fodderPool.length ? fodderPool : pool);
+  const kind = scaleKind(srcPool[rng.int(srcPool.length)], depth, mods);
+  const m: Monster = { id: `wander${depth}_${n}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: true, intent: null };
+  f.monsters.push(m);
+  return m;
+}
+
 /** エリアボスの出自＝「縁ある相手の成れの果て」へ寄せて抽選（4-6/⑤鎮め筋）。
  *  絆・未完の因縁・doom/fall 弧の終端・元相棒を加重し、見知らぬ他人（基礎重み1）も残す＝
  *  「知っていた者が深みに堕ちて怪物となり還る」情緒を発火させる（純粋・決定論）。 */
