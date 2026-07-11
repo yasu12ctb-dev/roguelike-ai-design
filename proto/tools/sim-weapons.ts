@@ -17,10 +17,13 @@ import type { Character } from "../src/types.ts";
 import type { Floor, Monster, MonsterKind, Pos } from "../src/dungeon.ts";
 
 const COUNTER_MULT = 1.2, COUNTER_WINDOW = 2, PUSH_WALL_DMG = 4, PUSH_COLLIDE_DMG = 2, SPEAR_ADJ_MUL = 0.5, NAGINATA_STAGGER = 1;
-type WeaponKind = "sword" | "spear" | "naginata_cur" | "naginata_new";
+type WeaponKind = "sword" | "spear" | "naginata_cur" | "naginata_ext" | "naginata_new";
+type LogicalWeapon = "sword" | "spear" | "naginata";
 type GuardMode = "full" | "half" | "none";
 type PushMode = "all" | "swordOnly";
-interface Variant { name: string; guard: GuardMode; push: PushMode; naginata: "cur" | "new"; swordCritMult?: number; swordShock?: boolean }
+interface Variant { name: string; guard: GuardMode; push: PushMode; naginata: "cur" | "ext" | "new"; swordCritMult?: number; swordShock?: boolean }
+/** 論理武器「薙刀」を variant.naginata から実挙動へ解決（cur=隣接3マス弧／ext=弧+正面距離2／new=十字距離2）。 */
+function resolveWeapon(k: LogicalWeapon, v: Variant): WeaponKind { return k !== "naginata" ? k : v.naginata === "ext" ? "naginata_ext" : v.naginata === "new" ? "naginata_new" : "naginata_cur"; }
 
 function mkRnd(seed: number) { let s = seed >>> 0; return () => { s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const cheb = (ax: number, ay: number, bx: number, by: number) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
@@ -103,6 +106,16 @@ function applyAttack(f: Floor, px: number, py: number, counterRef: { v: number }
     E.hp -= cdmg; if (crit) counterRef.v = 0;
     for (const sm of sides) sm.hp -= base;
     if (crit && pushOn) for (const m of [E, ...sides]) if (m.hp > 0) { realPush(f, m, px, py); m.stunned = Math.max(m.stunned ?? 0, NAGINATA_STAGGER); }
+  } else if (weapon === "naginata_ext") { // C：現行の隣接3マス弧＋正面距離2の敵に基礎ダメ（proc/会心補正なし）。始動は隣接bumpのみ。
+    const E = monAt(f, px + dx, py + dy); if (!E) return; // 始動は隣接に敵がいる時だけ（空きマスの先へ始動できるのは槍のみ）
+    const ci = SWEEP_RING.findIndex(([rx, ry]) => rx === dx && ry === dy);
+    const sides: Monster[] = [];
+    if (ci >= 0) for (const off of [-1, 1]) { const [sx, sy] = SWEEP_RING[(ci + off + 8) % 8]; const sm = monAt(f, px + sx, py + sy); if (sm && sm !== E) sides.push(sm); }
+    const far = monAt(f, px + 2 * dx, py + 2 * dy); // 正面（bump方向）の距離2＝main.ts naginataSweep の far（単一マス・m!==mon）
+    E.hp -= cdmg; if (crit) counterRef.v = 0;
+    for (const sm of sides) sm.hp -= base;
+    if (far && far !== E) far.hp -= base;
+    if (crit && pushOn) for (const m of [E, ...sides, ...(far && far !== E ? [far] : [])]) if (m.hp > 0) { realPush(f, m, px, py); m.stunned = Math.max(m.stunned ?? 0, NAGINATA_STAGGER); }
   } else { // naginata_new：十字距離2のみ（距離1は死角）。中央＝primary＋左右perp＝side（dist2横並び3マス）
     if (!isFloor(f, px + dx, py + dy) || !isFloor(f, px + 2 * dx, py + 2 * dy)) return;
     const cx = px + 2 * dx, cy = py + 2 * dy, perp: [number, number] = [dy, dx];
@@ -232,20 +245,19 @@ const PACKS = [1, 2, 3, 5];
 const DIFF: Difficulty = "normal";
 const MODS = diffMods(DIFF);
 const TERRAIN = [{ name: "開所", wall: 0 }, { name: "障害物", wall: 0.18 }];
-const WEAPONS: { k: WeaponKind; label: string }[] = [
+const WEAPONS: { k: LogicalWeapon; label: string }[] = [
   { k: "sword", label: "剣    " }, { k: "spear", label: "槍    " },
-  { k: "naginata_cur", label: "薙刀現" }, { k: "naginata_new", label: "薙刀新" },
+  { k: "naginata", label: "薙刀  " },
 ];
+// FINAL＝ユーザー承認・main.ts 実装済みの最終仕様（guard=half・push=all・swordShock=true・薙刀=ext）。V0＝現行ライブとの対照。
 const VARIANTS: Variant[] = [
-  { name: "V0 現行(受full/押all)", guard: "full", push: "all", naginata: "cur" },
-  { name: "V1 受half/押all（①A受け半減）", guard: "half", push: "all", naginata: "cur" },
-  { name: "V3 押剣専/受half（②押し出し剣専用）", guard: "half", push: "swordOnly", naginata: "new" },
-  { name: "V4 押剣専/受full", guard: "full", push: "swordOnly", naginata: "new" },
-  { name: "L1 現行+剣のみ会心×1.6", guard: "full", push: "all", naginata: "cur", swordCritMult: 1.6 },
-  { name: "L2 現行+剣のみ会心=全隣接押し出し(衝撃波)", guard: "full", push: "all", naginata: "cur", swordShock: true },
+  { name: "V0 現行ライブ(受full/押all/衝撃波なし/薙刀現)", guard: "full", push: "all", naginata: "cur" },
+  { name: "FINAL 最終仕様(受half/押all/剣衝撃波/薙刀ext)", guard: "half", push: "all", naginata: "ext", swordShock: true },
+  { name: "FINAL' 受full版(受full/押all/剣衝撃波/薙刀ext)", guard: "full", push: "all", naginata: "ext", swordShock: true },
 ];
 
-function cell(depth: number, weapon: WeaponKind, variant: Variant, size: number, wallFrac: number) {
+function cell(depth: number, wk: LogicalWeapon, variant: Variant, size: number, wallFrac: number) {
+  const weapon = resolveWeapon(wk, variant);
   const runs = SEEDS.map((s) => {
     const rnd = mkRnd((s ^ (depth << 8) ^ (size << 16) ^ (Math.round(wallFrac * 100) << 22)) >>> 0);
     const pack = makePack(depth, MODS, size, rnd);
@@ -261,7 +273,7 @@ function cell(depth: number, weapon: WeaponKind, variant: Variant, size: number,
 }
 
 console.log("武器比較シム＝テレグラフ1手先読みで被弾最小化する“最適プレイヤー”（上限値）。60seed・難易度normal・注目種(形/突進/長柄/炸裂)を必ず混入。");
-console.log("  剣=万能8方向／槍=十字距離1-2貫通(距離1×0.5・剣比dmg-1)／薙刀現=隣接3マス薙ぎ(会心押出+stagger)／薙刀新=十字距離2の横3マス(距離1死角)。");
+console.log("  剣=万能8方向(受け半減+会心衝撃波=全隣接押出)／槍=十字距離1-2貫通(距離1×0.5・剣比dmg-1)／薙刀=variant依存(現=隣接3マス弧／ext=弧+正面距離2に基礎ダメ・会心はfarも押出+stagger)。");
 console.log("  被ダメ=normal式 max(1, ceil(rawDmg×0.20), rawDmg-防具)。会心=見切り×1.2＋押出（射程外に出せば予告一撃キャンセル）。\n");
 console.log("  各セル表記＝ 無傷%|HP損%|死%|掃討% （無傷=被弾ゼロ掃討率／HP損=maxHp比平均／死=死亡率／掃討=クリア率。掃討低＋HP損低＝カイト放置で倒し切れずSTALE）\n");
 
@@ -279,7 +291,7 @@ for (const v of VARIANTS) {
 }
 // ── 全セル平均の武器序列（2地形×3深度×4pack=24セル平均・pack1〜5込み）──
 console.log("\n\n======== 武器序列＝全24セル(2地形×3深度×4pack)平均 ========");
-for (const v of [VARIANTS[0], VARIANTS[4], VARIANTS[5]]) {
+for (const v of VARIANTS) {
   console.log(`\n[${v.name}]  武器 :  無傷%平均 / HP損%平均 / 死%平均 / 掃討%平均`);
   for (const w of WEAPONS) {
     let nd = 0, hp = 0, dt = 0, cl = 0, n = 0;
