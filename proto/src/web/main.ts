@@ -51,7 +51,7 @@ import {
 import {
   genFloor, genRaidField, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx, spawnPursuer,
   planCompanion, resolveCompanion, randomFloorAway, inBounds, companionMaxHp, companionDmg, companionReduce, scaleKind,
-  bfsPath, reachableSet, nearestReachable, monsterCanReach,
+  bfsPath, reachableSet, nearestReachable, monsterCanReach, canBurstReach,
   VIEW_W, VIEW_H, MONSTER_KINDS, type Floor, type Pos, type Chest, type Monster, type CompanionEntity, type DownedActor, type DelverActor, type Shrine,
 } from "../dungeon.ts";
 import type { Actor, Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, LivingActor, Quest, RosterActor, SetPiece, Storylet, TownContext, World } from "../types.ts";
@@ -60,7 +60,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.146.0";
+export const APP_VERSION = "0.147.0";
 export const APP_BUILD = "2026-07-08";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -618,6 +618,7 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   monStun: (i: number) => floor?.monsters.filter((m) => m.hp > 0)[i]?.stunned ?? 0, // 薙刀 stagger E2E：会心薙ぎ後に敵が stunned になったか
   monIntents: () => (floor?.monsters.filter((m) => m.hp > 0) ?? []).map((m) => m.intent?.type ?? null), // stagger は planMonsters で intent="wait" に変換される＝それを直接観測
   giveWeapon: (baseName: string) => { const it = forgeItem(baseName, null, 0) ?? itemByName(baseName); if (it && world.current) { world.current.equipment.weapon = it; updateStatus(); } return world.current?.equipment.weapon?.name ?? null; },
+  giveRelic: (baseName: string) => { const it = forgeItem(baseName, null, 0) ?? itemByName(baseName); if (it && world.current) { world.current.equipment.relic = it; updateStatus(); } return world.current?.equipment.relic?.relic ?? null; }, // mending E2E（PR3・案Y）：遺物を装備して自然回復の挙動を検証
   forceDive: () => { if (world.current) { abyssDivePending = false; portalDivePending = false; void startDive(); } return !!world.current; },
   setHp: (v: number) => { hp = v; },
   getHp: () => hp,
@@ -4470,6 +4471,7 @@ const PITY_BOND_AT = 2;       // 凪が PITY_BOND_AT 降下続き、未完の絆
 let setPieceCooldown = 0;     // >0 の間、山場（legend_return/grudge_hunt）演出を抑え通常遭遇へ。endTurn で毎手減算。
 let mendTick = 0;             // 遺物 mending の回復タイマー（endTurn で加算・MEND_EVERY 手ごとに +1HP）。
 const MEND_EVERY = 5;        // mending：この手数ごとに +1HP（要テストプレイ調整）。
+const MEND_CAP_FRAC = 0.6;   // mending（案Y・PR3）：自然回復の上限＝最大HPのこの割合まで（満タンには戻さない・交戦中は停止）。テスト調整候補。
 let quietDescents = 0;        // 直近の降下からイベントが一度も起きていない回数（イベント発火で 0 に戻す）。
 // 何らかのイベント（迷宮の気配/行商人/化石遭遇/宝箱）が起きたらピティを解除＝凪カウンタをリセット。
 function markEventFired(): void { quietDescents = 0; }
@@ -4996,11 +4998,17 @@ function pushEnemy(mon: Monster, dx: number, dy: number): void {
   // フェーズ2③④（2026-07-09）：押し出しで敵をその攻撃射程の外へ出したら、予告していた一撃をキャンセル（無傷の取引）。
   //   まだ届く＝reach≥2 の長柄で1マス押しても距離内 or 壁で押せず隣接のまま＝intent 温存＝反撃を受ける（④）。
   //   ＝剣の見切り→反撃（会心で押し出し）が「押し出して射程外に出せた時だけ」無傷になる。標的が @ の攻撃予告のみ対象。
-  if (mon.hp > 0 && mon.intent?.type === "attack" && mon.intent.x === player.x && mon.intent.y === player.y
-      && !monsterCanReach(floor, mon.x, mon.y, player.x, player.y, mon.kind.reach ?? 1)) {
-    mon.intent = { type: "wait" };
-    tileFx(player.x, player.y, "tfx-ready");
-    log(`${mon.kind.name}を射程の外へ弾き出した――反撃を無効化！`, "cue");
+  if (mon.hp > 0 && mon.intent?.type === "attack" && mon.intent.x === player.x && mon.intent.y === player.y) {
+    // burst（PR3）は 3×3 の回避不能炸裂ゆえ「射程」が距離2＝monsterCanReach(reach1) だと dist2 でも誤ってキャンセルしてしまう。
+    // burst 専用に canBurstReach（Chebyshev≤2＋視線）で判定＝dist>2 へ押し出せた時だけキャンセル（dist2 は依然として炸裂＝無傷にならない）。
+    const stillReaches = mon.kind.ability === "burst"
+      ? canBurstReach(floor, mon.x, mon.y, player.x, player.y)
+      : monsterCanReach(floor, mon.x, mon.y, player.x, player.y, mon.kind.reach ?? 1);
+    if (!stillReaches) {
+      mon.intent = { type: "wait" };
+      tileFx(player.x, player.y, "tfx-ready");
+      log(`${mon.kind.name}を射程の外へ弾き出した――反撃を無効化！`, "cue");
+    }
   }
 }
 
@@ -5265,9 +5273,13 @@ async function endTurn() {
   const ch = world.current;
 
   if (setPieceCooldown > 0) setPieceCooldown--; // 4-10H 第二層：山場クールダウンの毎手減算（フロアを跨ぐ）
-  // 遺物 mending：潜行中、数手ごとに最大HPまでゆっくり回復（持久の遺物）。数値はテストプレイ調整候補。
-  if (ch.equipment.relic?.relic === "mending" && hp < maxHp(ch) && (++mendTick % MEND_EVERY === 0)) {
-    hp = Math.min(maxHp(ch), hp + 1);
+  // 遺物 mending（案Y・PR3・2026-07-11）：潜行中ゆっくり回復するが、①回復上限は最大HPの MEND_CAP_FRAC（6割）まで
+  //   ＝満タンには戻さない（薬/レベルで6割超なら回復しない・押し下げもしない）／②視界内に起きた敵が居る間は回復も mendTick も止める
+  //   ＝交戦中に自然回復でチクチク被弾を打ち消すリークを塞ぐ（＝安全に離脱した後の“休息”回復に限定）。数値はテストプレイ調整候補。
+  if (ch.equipment.relic?.relic === "mending") {
+    const cap = Math.floor(MEND_CAP_FRAC * maxHp(ch));
+    const engaged = (() => { const vis = computeFov(floor, player); return floor.monsters.some((m) => m.hp > 0 && m.awake && vis.has(mapIdx(floor!, m.x, m.y))); })();
+    if (!engaged && hp < cap && (++mendTick % MEND_EVERY === 0)) hp = Math.min(cap, hp + 1);
   }
   // 術バフの計時（毎手減算。疾走中はこの手番の敵を飛ばす。死戸は明けに揺り戻し）。
   if (armorBuffTurns > 0) armorBuffTurns--;

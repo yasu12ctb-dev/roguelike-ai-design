@@ -33,17 +33,28 @@ interface MonsterKind {
 //   arc  ＝隣接時、@のマス＋左右±45度の前方弧3マスを薙ぐ（毎手・通常攻撃の形版）＝弧の外（斜め後ろ等）へ退けば空振り。
 //   slam ＝@隣接で周囲8マス全部を叩きつける（CD 2＝叩き後2手は通常追跡＝この間に殴り込める）＝隣接張り付き（各個撃破）を罰す＝距離2へ離れよ。
 //   beam ＝直線8方向・距離1〜BEAM_MAX に@が居るとき、敵の隣から@までの直線を撃ち抜く（CD 1＝1手おき）＝幅1通路の天敵（直線から外れられない）。接近されてもその場で撃つ（退避しない）。
-export type MonsterAbility = "ranged" | "venom" | "leech" | "breeder" | "reflect" | "curse" | "charge" | "arc" | "slam" | "beam";
+//   ───── 回避不能の炸裂（burst・PR3・2026-07-11・ユーザー承認）＝arc/slam/beam は「1歩ずれれば逃げマスがある」dodge可能な形だが、burst は逃げマスを完全に消す。
+//   burst ＝@が Chebyshev≤BURST_RANGE(2) かつ視線が通るとき、@の現在マスを中心とした3×3（本人＋周囲8マスの床）を予告→次手で炸裂（CD BURST_CD=3）。
+//          3×3が全隣接を覆う＝1手でどこへ動いても範囲内＝移動では避けられない。解答は資源＝(a)炸裂前に倒す（1手猶予・低HP）／
+//          (b)押し出しで詠唱者を dist>2 の外へ出す（pushEnemy が予告をキャンセル）／(c)ブリンク術で@自身が抜ける。★easy には出さない（normal/hard 限定＝golden 完全不変）。
+export type MonsterAbility = "ranged" | "venom" | "leech" | "breeder" | "reflect" | "curse" | "charge" | "arc" | "slam" | "beam" | "burst";
 export const RANGED_MAX = 4;        // 狙撃の最大射程（これ以遠は間合いを詰める）
 export const CHARGE_MAX = 4;        // 突進の最大射程（直線でこの距離まで一気に詰める）
 const CHARGE_CD = 3;                // 突進後のクールダウン（毎手 charge せず・間に通常追跡/攻撃を挟む）
 export const BEAM_MAX = 3;          // ビーム（beam）の最大射程（直線でこの距離まで貫く）
 const SLAM_CD = 2;                  // 叩きつけ（slam）後のクールダウン（2手は通常追跡＝殴り込む窓）
 const BEAM_CD = 1;                  // ビーム（beam）のクールダウン（1手おき＝撃たれない手番に接近できる＝詰み回避）
+export const BURST_RANGE = 2;       // 炸裂（burst・PR3）：@が Chebyshev この距離以内＋視線が通るとき 3×3 を予告する最大射程（＝距離1・2から回避不能の炸裂）
+const BURST_CD = 3;                 // 炸裂（burst・PR3）のクールダウン（毎手 burst しない＝倒す/押し出す/離す猶予を挟む）。テスト調整候補
 // 形つき敵（arc/slam/beam）の spawn 重み（PR1）。一様抽選だと pool の~10%＝薄く、最適プレイヤーは孤立した形つき敵を捌けてしまう。
 // spawn 時のみ重み付けして密度を上げる＝形つきの予告が重なり「逃げマスが本当に消える」局面を作る。★総配置数は不変（composition をシフトするだけ＝
 // 通常敵を形つき敵に置き換える＝終始シビアの総ダメージ収支は概ね中立・実際の被弾は上がる＝それが本 PR の狙い）。sim で d30 normal の無被弾を目標帯へ合わせ込む。
 const SHAPED_ABILITIES = new Set<MonsterAbility>(["arc", "slam", "beam"]);
+// burst（回避不能・PR3）は arc/slam/beam（dodge可能）よりはるかに罰が重い＝同じ重み4だと過剰（sim 実測で d30 normal 無被弾 22%・CLEAR 30%＝死の博打化）。
+// 別枠の低い重みで積む＝「たまに混じる回避不能」に留める。normal/hard 限定（pool から easy は除外済み＝golden 不変）。sim で d30 normal 無被弾を目標帯（40〜55%）へ合わせ込む。
+export const BURST_WEIGHT = 1;      // 爆ぜ胞子を spawn プールに何倍で積むか（normal/hard）。sim 実測で決定＝自然頻度(重み1)が最適＝
+                                    // d30 normal traverse 無被弾 72%→43%（目標帯 40〜55%に着地）・CLEAR 57%→53%（≥45% 維持）／d25 無73%→48%・CL57%→42%（>40% の死の博打化を回避）。
+                                    // 重み2以上は CLEAR を 40% 未満へ沈める（D25 で 35%＝死の博打化）ため 1 を採用。テスト調整候補。
 export const SHAPED_WEIGHT = 4;     // 各形つき種を spawn プールに何倍で積むか。sim（tools/dodgefloor＝最適ダッジボット）実測で決定＝
                                     // d30 normal traverse 無被弾 93%(単点予告)→61%(重み4)＝逃げマスを消せた／d15 normal 88%(中盤は緩やか)／easy d30 69%(快適無双を過度に崩さない)／
                                     // CLEAR率は全深度 ≥45%。重み6+は normal を目標帯へさらに沈めるが easy と CLEAR を過度に削るため 4 を採用。テスト調整候補。
@@ -83,7 +94,7 @@ const FODDER_CLUSTER_DEEP_DEPTH = 20; // これ以上で最大（5体）
 //   そこでクラスタが成立した部屋ごとに、チョーク破りの能力（突進/形つき/長柄）を持つ護衛を1体増設し、
 //   「chokeに引き込んでも追い詰められる／通路の先から薙がれる」状況を作る。normal/hard 限定（bigCluster ゲート内）＝
 //   easy は escortPool を作らず rng も一切消費しない（golden 完全不変）。総数は MONSTER_HARDCAP を厳守（超えたら諦める）。
-const CLUSTER_ESCORT_ABILITIES = new Set<MonsterAbility>(["charge", "arc", "slam", "beam"]);
+const CLUSTER_ESCORT_ABILITIES = new Set<MonsterAbility>(["charge", "arc", "slam", "beam", "burst"]);
 /** クラスタ成立部屋1つあたりの護衛数（仕様どおり1体）。dodgefloor（最適ダッジ・ボット）実測でクラスタ内の
  *  護衛数を増やしても「経路上に現れる確率」自体は変わらない（クラスタは大マップの一部屋に限られるため）と
  *  判明＝護衛数を積む効果は下の scatterEscortCount（全域散布）に譲る。テスト調整候補。 */
@@ -177,6 +188,7 @@ export const MONSTER_KINDS: MonsterKind[] = [
   { key: "whirl",   glyph: "X", name: "旋刃鬼",   hp: 10, dmg: 3, minDepth: 12, erratic: 0.1,  tier: 3, ability: "arc" },  // 隣接で前方弧3マスを薙ぐ＝弧の外へ退け
   { key: "quaker",  glyph: "N", name: "震地鬼",   hp: 20, dmg: 4, minDepth: 18, erratic: 0.03, tier: 4, ability: "slam" }, // 隣接で周囲8マスを叩く＝間合いを離せ（鈍重・高HP）
   { key: "piercer", glyph: "y", name: "射抜きの眼", hp: 13, dmg: 5, minDepth: 24, erratic: 0.1, tier: 4, ability: "beam" }, // 直線を撃ち抜く＝線から外れよ（通路の天敵）
+  { key: "burster", glyph: "*", name: "爆ぜ胞子", hp: 16, dmg: 4, minDepth: 20, erratic: 0.1, tier: 4, ability: "burst" }, // 3×3を回避不能に炸裂＝倒す/押し出す/離すで凌ぐ（normal/hard 限定・easy 除外＝golden 不変）
   // ───── 深淵帯（深度50超）の専用種＝真のエンドゲーム（PR2・2026-06-28・abyssalScale と相乗）─────
   //   minDepth>50 ゆえ golden 指紋深度(≤42)のスポーンプールに入らない＝genFloor/monsterAI 不変（裏取り済み）。
   //   2つの新能力（reflect/curse）を投入し、深部が「数値スケールのみ」でなく挙動でも変わるようにする。
@@ -230,6 +242,7 @@ export interface Monster extends Pos {
   chargeCd?: number;             // charge：突進後のクールダウン（毎手 charge しない）
   slamCd?: number;               // slam：叩きつけ後のクールダウン（PR1・毎手 slam しない＝殴り込む窓）
   beamCd?: number;               // beam：ビームのクールダウン（PR1・1手おき＝撃たれない手番に接近できる）
+  burstCd?: number;              // burst：炸裂のクールダウン（PR3・毎手 burst しない＝倒す/押し出す猶予）
   enraged?: boolean;             // ボス（area）：HP 半減で覚醒済み（B・攻撃↑＋大技CD短縮）
   bigCd?: number;                // ボス（area）：渾身の一撃のクールダウン（B・溜め大技）
   bigShape?: number;             // ボス（area）：次の大技の形（D・0直線/1扇/2薙ぎを大技ごとに巡回）
@@ -295,7 +308,7 @@ export const tileAt = (f: Floor, x: number, y: number): Tile => (inBounds(f, x, 
 interface Room { x: number; y: number; w: number; h: number; }
 const center = (r: Room): Pos => ({ x: r.x + (r.w >> 1), y: r.y + (r.h >> 1) });
 
-export function genFloor(world: World, depth: number, opts?: { abyss?: boolean; fodderMul?: number; shapedWeight?: number }): Floor {
+export function genFloor(world: World, depth: number, opts?: { abyss?: boolean; fodderMul?: number; shapedWeight?: number; burstWeight?: number }): Floor {
   // seed に潜行回数(diveCount)を混ぜる＝同一世代でも潜行ごとに別ダンジョン（生還→再潜行での宝箱/XP farm を根絶）。
   const rng = makeRng((world.seed ^ (depth * 2654435761) ^ (world.generation * 97) ^ ((world.diveCount ?? 0) * 40503) ^ (opts?.abyss ? 0x5eed : 0)) >>> 0);
   const mods = diffMods(world.difficulty); // 難易度係数（4-11H）。easy＝×1.0＝従来値（golden 不変）。
@@ -390,13 +403,21 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean; 
   };
 
   // ---------- モンスター配置（マップ面積＋深度でスケール。大マップでも密度を確保） ----------
-  const pool = MONSTER_KINDS.filter((k) => k.minDepth <= depth && (k.maxDepth === undefined || depth <= k.maxDepth));
-  // 形つき敵（arc/slam/beam）を重み付けした spawn プール（PR1）。総配置数（count）は不変＝通常敵を形つき敵に置き換えるだけ。
+  // ★burst（回避不能・PR3）は easy から完全除外＝easy の pool にそもそも入れない（elite 基/fodder/spawnPool の全経路で不在）。
+  //   golden は difficulty 未設定＝easy 基準で走る＝burster を一切スポーンしない＝genFloor/monsterAI とも byte 完全一致（新種追加でも指紋不変）。
+  const notEasy = (world.difficulty ?? "easy") !== "easy";
+  const pool = MONSTER_KINDS.filter((k) => k.minDepth <= depth && (k.maxDepth === undefined || depth <= k.maxDepth) && (notEasy || k.ability !== "burst"));
+  // 形つき敵（arc/slam/beam/burst）を重み付けした spawn プール（PR1/PR3）。総配置数（count）は不変＝通常敵を形つき敵に置き換えるだけ。
   // elite 基（最上位 tier 抽出）と fodder は素の pool を使う（下）＝影響を主 count ループに閉じる。
-  // ★easy は重み1（自然頻度・種は出るが薄い）＝「快適無双」据え置きの確立方針（v0.121/v0.143 と同じ easy 除外ゲート）＝golden（easy 基準）も重み経路を踏まない。
-  const shapedWeight = Math.max(1, opts?.shapedWeight ?? ((world.difficulty ?? "easy") !== "easy" ? SHAPED_WEIGHT : 1));
+  // ★easy は重み1（自然頻度・arc/slam/beam は出るが薄い／burst は上の pool 除外で不在）＝「快適無双」据え置きの確立方針（v0.121/v0.143 と同じ easy 除外ゲート）＝golden（easy 基準）も重み経路を踏まない。
+  const shapedWeight = Math.max(1, opts?.shapedWeight ?? (notEasy ? SHAPED_WEIGHT : 1));
   const spawnPool: MonsterKind[] = [];
-  for (const k of pool) { const w = k.ability && SHAPED_ABILITIES.has(k.ability) ? shapedWeight : 1; for (let j = 0; j < w; j++) spawnPool.push(k); }
+  for (const k of pool) {
+    // burst は別枠の低い重み（回避不能ゆえ抑えめ）／arc/slam/beam は shapedWeight（dodge可能ゆえ濃くしてよい）／その他は1。
+    const w = k.ability === "burst" ? (notEasy ? (opts?.burstWeight ?? BURST_WEIGHT) : 1)
+      : k.ability && SHAPED_ABILITIES.has(k.ability) ? shapedWeight : 1;
+    for (let j = 0; j < w; j++) spawnPool.push(k);
+  }
   const countCap = depth > 50 ? 42 + Math.min(18, depth - 50) : 42; // 深淵帯ギア：深度50超は包囲も増す（depth≤50＝42＝golden 不変）
   const count = Math.min(Math.round((W * H) / 120) + Math.floor(depth / 3), countCap); // 出現率・上限を拡張面積に追従（20→42→深部60）
   for (let i = 0; i < count; i++) {
@@ -801,6 +822,19 @@ function beamCells(f: Floor, mx: number, my: number, tx: number, ty: number): Po
   return cells;
 }
 
+/** 爆ぜ胞子（burst・PR3）：target を中心とした3×3（本人＋周囲8マス・床のみ）。全隣接を覆う＝1手でどこへ動いても範囲内＝回避不能。 */
+function burstCells(f: Floor, tx: number, ty: number): Pos[] {
+  const cells: Pos[] = [];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = tx + dx, y = ty + dy; if (tileAt(f, x, y) === 1) cells.push({ x, y }); }
+  return cells;
+}
+/** 炸裂（burst・PR3）が (mx,my) から (tx,ty) に届くか＝Chebyshev 1..BURST_RANGE かつ視線が通る。
+ *  planMonsters の予告条件／web の押し出しキャンセル判定で共用＝挙動を一元化（監視するのは「まだ 3×3 が @ を覆えるか」）。 */
+export function canBurstReach(f: Floor, mx: number, my: number, tx: number, ty: number): boolean {
+  const cheb = Math.max(Math.abs(mx - tx), Math.abs(my - ty));
+  return cheb >= 1 && cheb <= BURST_RANGE && losClear(f, mx, my, tx, ty);
+}
+
 /** 敵の攻撃射程判定（フェーズ2）：(mx,my) から (tx,ty) を reach で討てるか。
  *  reach<=1＝隣接（8方向 Chebyshev≤1）。reach>=2＝8方向直線・距離1..reach・間の床が壁でない（頭越しに突ける）。
  *  planMonsters の遠間攻撃条件／web の押し出しキャンセル判定（③④）／突入ライン描画で共用＝挙動を一元化。 */
@@ -962,6 +996,14 @@ export function planMonsters(f: Floor, player: Pos, rng: Rng, companion?: Compan
       else {
         const beam = beamCells(f, m.x, m.y, target.x, target.y);
         if (beam) { m.intent = { type: "attack", x: target.x, y: target.y, cells: beam }; m.beamCd = BEAM_CD; continue; }
+      }
+    }
+    if (m.kind.ability === "burst") { // 爆ぜ胞子（PR3）：@が距離2以内＋視線が通れば 3×3 を回避不能に予告。CD 中や範囲外は下の通常追跡で詰める（＝離れても追ってくる）。
+      if (m.burstCd && m.burstCd > 0) m.burstCd--;
+      else if (canBurstReach(f, m.x, m.y, target.x, target.y)) {
+        m.intent = { type: "attack", x: target.x, y: target.y, cells: burstCells(f, target.x, target.y) };
+        m.burstCd = BURST_CD;
+        continue;
       }
     }
     if ((m.kind.reach ?? 1) >= 2 && monsterCanReach(f, m.x, m.y, target.x, target.y, m.kind.reach!)) {
