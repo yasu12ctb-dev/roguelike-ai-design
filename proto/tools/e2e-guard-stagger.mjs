@@ -1,4 +1,5 @@
-// 実ブラウザ E2E（v0.139.0）：剣＝受け流し（パリィ）／薙刀＝会心薙ぎの体勢崩し（stagger）。
+// 実ブラウザ E2E（v0.139.0→v0.149.0）：剣＝受け流し（パリィ・v0.149.0で無効化→半減にナーフ）／
+//   薙刀＝会心薙ぎの体勢崩し（stagger）＋正面距離2の届き／剣専用「衝撃波」（会心で隣接の他の敵もまとめて押し出し）。
 // __hazTest フック（"sekitsui.dbg"="1"）で盤面を制御して決定論検証。ローカル専用（CI外）。
 import { chromium } from "playwright";
 import { createServer } from "node:http";
@@ -76,15 +77,19 @@ async function reachTownThenDive() {
 const inDive = await reachTownThenDive();
 ok("潜行(dive)へ到達", inDive);
 
-// ── シナリオ1：剣＝受け流し（デフォルト武器＝短刀＝剣クラス）
-// 敵1体を隣接に湧かせ→受けを構え→一手経過→隣接近接1撃が無効化＋反撃の好機、HP不変。
+// ── シナリオ1：剣＝受け流し（v0.149.0＝無効化→半減にナーフ）
+// 敵1体（旋牙鬼＝tier1固定の spawnMon だと dmg=1で半減が1のまま見分けが付かないため、
+// dmg=4の「石鬼(ogre)」を spawnKind で明示的に湧かせ、半減が可観測になるようにする）。
+// 受けを構え→一手経過→隣接近接1撃が「半減」＋反撃の好機。新規キャラは支給の革鎧(reduce=1)を最初から
+// 装備している（v0.xx「序盤の丸腰を解消」）ため、easy 難易度（chipFrac=0）での軽減後ダメージは
+// h.dmg-armorReduce = 4-1 = 3 → guard 後は ceil(3/2) = 2 が確定値になる。
 const s1 = await page.evaluate(async () => {
   const t = (window).__hazTest;
   t.clearMons();
   // 周囲を床に（湧き位置確保）
   for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) t.setTile(dx, dy, 1);
   t.setHp(40);
-  t.spawnMon(1, 0, 30); // 隣接（右）に硬い敵＝planMonsters が「攻撃」を予告
+  t.spawnKind(1, 0, "ogre", 30); // 隣接（右）に dmg=4 の敵＝planMonsters が「攻撃」を予告
   const before = t.getHp();
   t.armGuard();
   t.redraw();
@@ -94,23 +99,25 @@ const s1 = await page.evaluate(async () => {
   return { before, armedBefore: armed, hpAfter: t.getHp(), counter: st.counterTurns, guardAfter: t.guard() };
 });
 ok("S1 受けを構えられた", s1.armedBefore === true, JSON.stringify(s1));
-ok("S1 隣接近接1撃を無効化（HP不変）", s1.hpAfter === s1.before, `hp ${s1.before}→${s1.hpAfter}`);
+ok("S1 隣接近接1撃を半減（dmg4→2・無効化ではない）", s1.before - s1.hpAfter === 2, `hp ${s1.before}→${s1.hpAfter}`);
 ok("S1 受け流し後に反撃の好機（counter>0）", s1.counter > 0, `counter=${s1.counter}`);
 ok("S1 受けは1手番で消費（guard=false）", s1.guardAfter === false);
 
-// ── シナリオ1b：囲まれた時＝1撃のみ無効化・残りは喰らう（難易度維持）
+// ── シナリオ1b：囲まれた時＝1撃のみ半減・残りは満額で喰らう（難易度維持）
+// dmg=4 の敵2体（左右）＝ 軽減後ダメ(4-armorReduce1=3) のうち guard される方は半減(ceil(3/2)=2)・
+// もう一方は満額(3)＝合計5（どちらが先に解決されても同額）。
 const s1b = await page.evaluate(async () => {
   const t = (window).__hazTest;
   t.clearMons();
   for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) t.setTile(dx, dy, 1);
   t.setHp(60);
-  t.spawnMon(1, 0, 30); t.spawnMon(-1, 0, 30); // 左右2体が隣接＝2撃予告
+  t.spawnKind(1, 0, "ogre", 30); t.spawnKind(-1, 0, "ogre", 30); // 左右2体が隣接＝2撃予告
   const before = t.getHp();
   t.armGuard();
   await new Promise((r) => { t.step(); setTimeout(r, 220); });
   return { before, hpAfter: t.getHp() };
 });
-ok("S1b 囲まれると1撃のみ無効化（残りは被弾）", s1b.hpAfter < s1b.before, `hp ${s1b.before}→${s1b.hpAfter}`);
+ok("S1b 囲まれると1撃のみ半減・残りは満額被弾（合計5）", s1b.before - s1b.hpAfter === 5, `hp ${s1b.before}→${s1b.hpAfter}`);
 
 // ── シナリオ2：薙刀＝会心薙ぎの体勢崩し（stagger）
 // 大薙刀を装備→左右+正面に敵3体を密集→反撃の好機(counter)を立てて→正面へ薙ぐ→
@@ -155,6 +162,51 @@ const s2b = await page.evaluate(async () => {
   return { intents, waits: intents.filter((v) => v === "wait").length };
 });
 ok("S2b 非会心の薙ぎでは体勢崩しなし（wait 無し）", s2b.waits === 0, `intents=${JSON.stringify(s2b.intents)}`);
+
+// ── シナリオ2c：薙刀＝正面距離2（bump方向の奥）にも基礎ダメが届く（v0.149.0＝長柄の届き）
+// 正面(下)に primary、その奥(距離2)に far を配置。非会心（setCounter(0)）で押し出し/staggerを介さず
+// 「基礎ダメだけが far に入るか」を単独で検証する。
+const s2c = await page.evaluate(async () => {
+  const t = (window).__hazTest;
+  t.giveWeapon("大薙刀");
+  t.clearMons();
+  for (const [dx, dy] of [[0, 1], [0, 2], [-1, 1], [1, 1], [1, 0], [-1, 0], [0, -1]]) t.setTile(dx, dy, 1);
+  t.setHp(80);
+  t.spawnMon(0, 1, 60);          // primary（正面・距離1）
+  t.spawnKind(0, 2, "ogre", 60); // far（正面・距離2＝長柄の届き対象）
+  t.setCounter(0); // 会心なし
+  const farBefore = t.monAt(0, 2)?.hp ?? null;
+  await new Promise((r) => { t.bump(0, 1); setTimeout(r, 240); });
+  const farAfter = t.monAt(0, 2)?.hp ?? null;
+  return { farBefore, farAfter };
+});
+ok("S2c 薙刀＝正面距離2の敵にも基礎ダメが届く（長柄の届き）",
+  typeof s2c.farBefore === "number" && typeof s2c.farAfter === "number" && s2c.farAfter < s2c.farBefore,
+  `far hp ${s2c.farBefore}→${s2c.farAfter}`);
+
+// ── シナリオ3：剣専用「衝撃波」＝会心の一撃で、斬った敵だけでなく隣接する他の敵もまとめて放射方向へ押し出す。
+// 正面(下)に primary、左右に別の敵2体（primaryではない）を隣接させ、会心を確定（setCounter(2)）させて bump。
+// 押し出し先（左右2マス目）が開いていることを確認したうえで、左右の敵が元位置から消え2マス目に現れるかを見る。
+const s3 = await page.evaluate(async () => {
+  const t = (window).__hazTest;
+  const wname = t.giveWeapon("戦鎚"); // 剣クラス（reach1・非薙ぎ＝衝撃波の対象武器）
+  t.clearMons();
+  for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [2, 0], [-2, 0], [0, -1]]) t.setTile(dx, dy, 1);
+  t.setHp(80);
+  t.spawnKind(0, 1, "ogre", 30);  // primary（bump先＝正面）
+  t.spawnKind(1, 0, "ogre", 30);  // 隣接・右（衝撃波の巻き込み対象）
+  t.spawnKind(-1, 0, "ogre", 30); // 隣接・左（衝撃波の巻き込み対象）
+  t.setCounter(2); // 会心確定
+  await new Promise((r) => { t.bump(0, 1); setTimeout(r, 240); });
+  return {
+    wname,
+    rightOld: t.monAt(1, 0),  rightNew: t.monAt(2, 0),
+    leftOld: t.monAt(-1, 0),  leftNew: t.monAt(-2, 0),
+  };
+});
+ok("S3 剣クラスの武器を装備", !/薙|槍/.test(s3.wname || ""), s3.wname || "");
+ok("S3 会心の衝撃波で右隣の敵も押し出された", s3.rightOld === null && !!s3.rightNew, JSON.stringify(s3));
+ok("S3 会心の衝撃波で左隣の敵も押し出された", s3.leftOld === null && !!s3.leftNew, JSON.stringify(s3));
 
 ok("例外・console.error ゼロ", errors.length === 0, errors.slice(0, 5).join(" | "));
 
