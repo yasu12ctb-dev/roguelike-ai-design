@@ -439,23 +439,33 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean; 
   }
   const countCap = depth > 50 ? 42 + Math.min(18, depth - 50) : 42; // 深淵帯ギア：深度50超は包囲も増す（depth≤50＝42＝golden 不変）
   const count = Math.min(Math.round((W * H) / 120) + Math.floor(depth / 3), countCap); // 出現率・上限を拡張面積に追従（20→42→深部60）
-  // A｜部屋の広さ比例配置（v0.151.0・2026-07-11 ユーザー承認＝「1対1が多い／広い部屋がスカスカ」FB・normal/hard 限定）：
-  //   従来は全域ランダム散布ゆえ敵が薄く散り「1対1」になりがち。normal/hard では敵の大半を「部屋の面積比」で部屋へ寄せる
-  //   ＝広間ほど多く配置（トルネコ的「部屋＝戦場」）。残り（ROOM_BIAS の外）は通路含む全域へ散布＝主経路と交差する保険。
-  //   ★easy は従来の全域散布のまま（快適無双）＝biasRooms が空＝rng 消費も従来と完全一致＝golden（easy 基準）byte 不変。
-  const ROOM_BIAS = 0.7;
-  const biasRooms = notEasy ? rooms.filter((_, i) => i !== 0 && i !== farIdx) : []; // 開始部屋・下り/ボス部屋は除外
-  let totalArea = 0; const cumArea: number[] = [];
-  for (const r of biasRooms) { totalArea += r.w * r.h; cumArea.push(totalArea); }
+  // A｜部屋の広さ比例＋大部屋集中配置（v0.151.0・2026-07-11 ユーザー承認＝「1対1が多い／広い部屋がスカスカ」FB・normal/hard 限定）：
+  //   従来は全域ランダム散布ゆえ敵が薄く散り「1対1」になりがち。面積比で全室に薄く撒くとマップが部屋過多で1室~1体のまま緊張が出ない
+  //   （sim 実測）。そこで normal/hard は敵の大半（`ROOM_BIAS`）を「大きい部屋から順に密度上限まで詰める」＝少数の部屋が確実に“戦場”に
+  //   （トルネコ的「入った部屋が乱戦／通路は安全地帯」）。残りは通路含む全域へ散布＝主経路と交差する保険。総数(count)は不変＝終始シビアの収支は保つ。
+  //   ★easy は従来の全域散布のまま（快適無双）＝roomTargets が空＝rng 消費も従来と完全一致＝golden（easy 基準）byte 不変。
+  const ROOM_BIAS = 0.7;        // 主配置のうち部屋へ集中させる割合（残りは全域散布）
+  const AREA_PER_ENEMY = 7;     // 部屋の床この面積あたり1体（密度＝小さいほど密）
+  const MAX_PER_ROOM = 8;       // 1部屋の上限（過剰な蒸発部屋を防ぐ）
+  const roomTargets: Pos[] = [];
+  if (notEasy) {
+    const cands = rooms.filter((_, i) => i !== 0 && i !== farIdx).sort((a, b) => b.w * b.h - a.w * a.h); // 大きい順（開始・下りボス部屋は除外）
+    let roomPortion = Math.round(count * ROOM_BIAS);
+    for (const r of cands) {
+      if (roomPortion <= 0) break;
+      const roomCap = Math.max(2, Math.min(MAX_PER_ROOM, Math.round((r.w * r.h) / AREA_PER_ENEMY))); // 広い部屋ほど多く詰める
+      let placed = 0;
+      for (let t = 0; t < roomCap * 3 && placed < roomCap && roomPortion > 0; t++) {
+        const p = randomTileInRoom(floor, rng, r, stairsUp, 5);
+        if (p && !roomTargets.some((q) => q.x === p.x && q.y === p.y)) { roomTargets.push(p); placed++; roomPortion--; }
+      }
+    }
+  }
+  let ri = 0;
   for (let i = 0; i < count; i++) {
     const kind = scaleKind(spawnPool[rng.int(spawnPool.length)], depth, mods); // 深度係数＋難易度を焼き込む（HP/dmg/XP連動）
-    let p: Pos | null = null;
-    if (biasRooms.length && rng.next() < ROOM_BIAS) { // 面積比で部屋を選び、その部屋の空き床に置く（広間ほど当たりやすい）
-      const roll = rng.next() * totalArea;
-      let idx = cumArea.findIndex((c) => roll < c); if (idx < 0) idx = biasRooms.length - 1;
-      p = randomTileInRoom(floor, rng, biasRooms[idx], stairsUp, 5);
-    }
-    if (!p) p = randomFloorAway(floor, rng, stairsUp, 5); // 部屋に空きが無い/散布枠＝従来どおり全域へ
+    let p: Pos | null = ri < roomTargets.length ? roomTargets[ri++] : null; // 大部屋に詰める枠（normal/hard のみ）
+    if (!p) p = randomFloorAway(floor, rng, stairsUp, 5); // 集中枠を使い切ったら＝従来どおり全域散布（通路・主経路の保険）
     if (p) floor.monsters.push({ id: `m${depth}_${i}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: false, intent: null });
   }
 
