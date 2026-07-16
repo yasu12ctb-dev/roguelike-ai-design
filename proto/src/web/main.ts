@@ -61,7 +61,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.152.0";
+export const APP_VERSION = "0.153.0";
 export const APP_BUILD = "2026-07-08";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -3137,6 +3137,7 @@ async function characterCreation() {
   log(intro, "dim");
   if (ch.bonds.some((b) => b.unfinished)) log("……先代の未完の因縁が、お前に引き継がれた。", "warn");
   await maybeIntro(); // 初回のみ：迷宮／HPは街で癒える（死だけが残る）／深蝕は薬師、の導入（4-4B）
+  showGuideOnce("guide_town_seen", "金の @ はお前だ。方向パッドで歩き、青白い『>』――迷宮の口へ。"); // 注記A（PR4）：初回の街で記号と操作だけを教える（「北へ」等の固定指示はしない）
   save();
 }
 
@@ -3158,7 +3159,26 @@ async function maybeIntro() {
     text: "もう一つ。深く潜る者の身には「深蝕」が滲む。深みの理が、少しずつお前を侵していく。\n街の薬師なら、金貨と引き換えにそれを祓ってくれる。画面上部の深蝕のゲージに、気を配れ。",
     meta: "はじめに ── 深蝕と薬師", options: ["わかった"],
   });
+  (world.flags ??= []).push("guide_active"); // 余白の三注記（PR4）を有効化＝この新規ワールドだけ・導入を見た初心者に文脈ヒントを出す（既存セーブ＝veteran には出さない）
   busy = false;
+}
+
+// ── 余白の三注記（PR4・2026-07-12 ユーザー承認・外部レビュー統合案）：強制チュートリアルやモーダルを増やさず、
+//   状況が起きた時に一度だけ、既存のログ cue で最小語彙を教える。★入力・手番・RNG・盤面を一切消費しない（log と world.flags のみ）。
+//   guide_active（新規ワールドで maybeIntro が立てる）が無ければ何もしない＝既存セーブ/veteran には出ない。各注記は個別 flag で一度きり。
+function showGuideOnce(flag: string, text: string): void {
+  const f = world.flags ?? [];
+  if (!f.includes("guide_active") || f.includes(flag)) return;
+  (world.flags ??= []).push(flag);
+  log(text, "cue");
+}
+/** 注記B：FOV 内に初めて敵の攻撃予告（テレグラフ）が現れた時に一度だけ。RNG 非消費（computeFov は純粋）。 */
+function maybeIntentGuide(): void {
+  if (mode !== "dive" || !floor || (world.flags ?? []).includes("guide_intent_seen")) return;
+  if (!(world.flags ?? []).includes("guide_active")) return;
+  const vis = computeFov(floor, player);
+  const seen = floor.monsters.some((m) => m.hp > 0 && m.awake && m.intent?.type === "attack" && vis.has(mapIdx(floor!, m.x, m.y)));
+  if (seen) showGuideOnce("guide_intent_seen", "敵の赤い印は、次の一手。印の外へ退けば見切れる。敵のいる方へ踏み込めば攻撃する。");
 }
 
 // ---------- 街（歩ける固定マップ。門 ">" で潜行＝この Promise を解決） ----------
@@ -4187,6 +4207,7 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false, viaDoor = 
   bossEnragedSeen.clear(); bossHeavySeen.clear(); // ボス告知状態をフロアごとにリセット（B）
   planMonsters(floor, player, rng, companion); // 入った瞬間に見えている敵は予告を出す
   announceBossCues(); // 入った瞬間に見えるボスの大技構えも告知（B）
+  maybeIntentGuide(); // 注記B（PR4）：初めて予告が見えた時に一度だけ
   if (companion) planCompanion(floor, player, companion, rng);
   setAmbient(true, depth); // 環境ドローン（深いほど低い）
   // 場面 BGM：深淵帯=③沈淵／通常迷宮=②冷たい石の広間（深度連動で暗く低くなる）
@@ -5509,6 +5530,7 @@ async function endTurn() {
   if (res.dodges.length > 0 && hp > 0) { // D. ジャスト見切り→反撃：空振りを誘った直後は次の近接が会心
     if (counterTurns === 0) { tileFx(player.x, player.y, "tfx-ready"); floatFx(player.x, player.y, "反撃の好機", "fl-dmg"); log("空振りの隙が見えた――反撃の好機（次の近接が会心）。", "cue"); }
     counterTurns = COUNTER_WINDOW;
+    showGuideOnce("guide_dodge_seen", "いま反撃の好機――敵へ踏み込め。"); // 注記C-1（PR4）：初めての見切り成功
   }
   if (companion && companion.hp <= 0) companionDies(); // 相棒の戦死＝化石化
   // 地形ハザード：この手番で位置が変わった敵がハザード上なら適用（fire=灼く／venom=毒／crumble=軋み）。
@@ -5528,6 +5550,7 @@ async function endTurn() {
   planMonsters(floor, player, rng, companion);
   if (companion) planCompanion(floor, player, companion, rng);
   announceBossCues(); // ボスの覚醒・大技の溜めを告知（B）
+  maybeIntentGuide(); // 注記B（PR4）：初めて予告が見えた時に一度だけ
 
   draw();
   updateStatus(); // HP/深蝕の即時反映（蝕み・被弾・持ち物使用が毎手バーに出る）
@@ -5605,6 +5628,7 @@ function downOrKill(mon: Monster, killLine?: string) {
     log(`${mon.kind.name}は膝をついた……。`, "warn");
   } else {
     rewardKill(mon, killLine);
+    if (mode === "dive") showGuideOnce("guide_kill_seen", "静けさが戻る。地図で『>』を探せば、次の層へ続く。"); // 注記C-2（PR4）：初めての非ボス撃破
   }
 }
 
