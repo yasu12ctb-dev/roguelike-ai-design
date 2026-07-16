@@ -326,7 +326,7 @@ function randomTileInRoom(f: Floor, rng: Rng, r: Room, avoid: Pos, minDist: numb
   return null;
 }
 
-export function genFloor(world: World, depth: number, opts?: { abyss?: boolean; fodderMul?: number; shapedWeight?: number; burstWeight?: number }): Floor {
+export function genFloor(world: World, depth: number, opts?: { abyss?: boolean; fodderMul?: number; shapedWeight?: number; burstWeight?: number; roomBias?: number; routeGuards?: number }): Floor {
   // seed に潜行回数(diveCount)を混ぜる＝同一世代でも潜行ごとに別ダンジョン（生還→再潜行での宝箱/XP farm を根絶）。
   const rng = makeRng((world.seed ^ (depth * 2654435761) ^ (world.generation * 97) ^ ((world.diveCount ?? 0) * 40503) ^ (opts?.abyss ? 0x5eed : 0)) >>> 0);
   const mods = diffMods(world.difficulty); // 難易度係数（4-11H）。easy＝×1.0＝従来値（golden 不変）。
@@ -444,7 +444,7 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean; 
   //   （sim 実測）。そこで normal/hard は敵の大半（`ROOM_BIAS`）を「大きい部屋から順に密度上限まで詰める」＝少数の部屋が確実に“戦場”に
   //   （トルネコ的「入った部屋が乱戦／通路は安全地帯」）。残りは通路含む全域へ散布＝主経路と交差する保険。総数(count)は不変＝終始シビアの収支は保つ。
   //   ★easy は従来の全域散布のまま（快適無双）＝roomTargets が空＝rng 消費も従来と完全一致＝golden（easy 基準）byte 不変。
-  const ROOM_BIAS = 0.7;        // 主配置のうち部屋へ集中させる割合（残りは全域散布）
+  const ROOM_BIAS = opts?.roomBias ?? 0.7; // 主配置のうち部屋へ集中させる割合（残りは全域散布）。opts は sim の A/B 用（0＝v0.150 相当の全域散布・RNG 列も一致）
   const AREA_PER_ENEMY = 7;     // 部屋の床この面積あたり1体（密度＝小さいほど密）
   const MAX_PER_ROOM = 8;       // 1部屋の上限（過剰な蒸発部屋を防ぐ）
   const roomTargets: Pos[] = [];
@@ -462,11 +462,79 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean; 
     }
   }
   let ri = 0;
+  const scatterPlaced: Monster[] = []; // 全域散布枠で置かれた敵（下の主経路ガードが再配置対象に使う。easy はガード不発＝未使用）
   for (let i = 0; i < count; i++) {
     const kind = scaleKind(spawnPool[rng.int(spawnPool.length)], depth, mods); // 深度係数＋難易度を焼き込む（HP/dmg/XP連動）
     let p: Pos | null = ri < roomTargets.length ? roomTargets[ri++] : null; // 大部屋に詰める枠（normal/hard のみ）
+    const scatter = !p;
     if (!p) p = randomFloorAway(floor, rng, stairsUp, 5); // 集中枠を使い切ったら＝従来どおり全域散布（通路・主経路の保険）
-    if (p) floor.monsters.push({ id: `m${depth}_${i}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: false, intent: null });
+    if (p) {
+      const m: Monster = { id: `m${depth}_${i}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: false, intent: null };
+      floor.monsters.push(m);
+      if (scatter) scatterPlaced.push(m);
+    }
+  }
+
+  // PR3｜主経路ガード＝既存敵の再配置（v0.152.0・2026-07-12 ユーザー承認・外部レビュー統合案）：
+  //   v0.151.0 の大部屋集中で「脅威がスキップ可能な部屋へ寄り、最短路がむしろ空く」（直行 rush の易化）ことが sim で判明。
+  //   追加スポーンはせず、全域散布枠の敵のうち深度に応じた 2〜4 体だけを stairsUp→stairsDown の 4近傍BFS最短路上へ移す
+  //   ＝「最短路にも最低限の戦闘がある」を回復（階段封鎖・固定税にはしない＝下り3マス以内は置かない）。
+  //   ★RNG を一切消費しない（純粋な後加工＝easy はもちろん normal/hard の乱数列も不変）・easy は対象外（golden byte 不変）。
+  //   規律＝敵種を選ぶ既存 RNG 順は不変（配置先だけ差し替え）／開始から経路5マス・下りから経路3マス除外／
+  //   target 間は経路距離5以上（短い通路に固めない）／部屋外の通路を優先し、無ければ経路上の部屋マスで妥協。
+  const routeGuards = opts?.routeGuards ?? (!notEasy || depth < 10 ? 0 : depth < 20 ? 2 : depth < 30 ? 3 : 4); // opts は sim の A/B 用（0＝ガード無効）
+  if (routeGuards > 0 && scatterPlaced.length > 0) {
+    // 4近傍BFS最短路（固定の近傍順＝決定論・タイルは床のみ）。マップは構成上連結＝必ず届く。
+    const prev = new Int32Array(W * H).fill(-1);
+    const start = stairsUp.y * W + stairsUp.x, goal = stairsDown.y * W + stairsDown.x;
+    const q = [start]; prev[start] = start;
+    const DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]] as const;
+    for (let h = 0; h < q.length && prev[goal] === -1; h++) {
+      const cur = q[h], cx = cur % W, cy = (cur / W) | 0;
+      for (const [dx, dy] of DIRS) {
+        const nx2 = cx + dx, ny2 = cy + dy;
+        if (nx2 < 0 || ny2 < 0 || nx2 >= W || ny2 >= H) continue;
+        const ni = ny2 * W + nx2;
+        if (prev[ni] !== -1 || tiles[ni] !== 1) continue;
+        prev[ni] = cur; q.push(ni);
+      }
+    }
+    if (prev[goal] !== -1) {
+      const route: Pos[] = [];
+      for (let cur = goal; cur !== start; cur = prev[cur]) route.push({ x: cur % W, y: (cur / W) | 0 });
+      route.push({ x: stairsUp.x, y: stairsUp.y });
+      route.reverse(); // route[0]=上り階段 → 末尾=下り階段
+      const lo = 5, hi = route.length - 1 - 3; // 開始階段から経路5マス以内・下り階段から経路3マス以内を除外
+      if (hi > lo) {
+        const inRoom = (x: number, y: number) => rooms.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+        const occupied = (x: number, y: number) => floor.monsters.some((m) => m.x === x && m.y === y);
+        const chosen: number[] = [];
+        const pickAt = (want: number, allowRoom: boolean): number => {
+          for (let off = 0; off <= 8; off++) {
+            for (const idx of [want + off, want - off]) {
+              if (idx < lo || idx > hi) continue;
+              if (chosen.some((c) => Math.abs(c - idx) < 5)) continue; // target 間は経路距離5以上
+              const p = route[idx];
+              if (occupied(p.x, p.y)) continue;
+              if (!allowRoom && inRoom(p.x, p.y)) continue; // 部屋外の幅1通路を優先
+              return idx;
+            }
+          }
+          return -1;
+        };
+        let si = scatterPlaced.length - 1; // 決定論＝散布枠の末尾から順に振り替え
+        const k = Math.min(routeGuards, scatterPlaced.length);
+        for (let j = 0; j < k && si >= 0; j++) {
+          const want = lo + Math.round(((j + 1) / (k + 1)) * (hi - lo)); // 経路の分位点
+          let idx = pickAt(want, false);
+          if (idx < 0) idx = pickAt(want, true);
+          if (idx < 0) continue;
+          chosen.push(idx);
+          const m = scatterPlaced[si--];
+          m.x = route[idx].x; m.y = route[idx].y;
+        }
+      }
+    }
   }
 
   // ---------- ボス配置（4-11F：エリアボス＝深度節目で下り階段を守る／中ボス＝奥の部屋の強敵） ----------
