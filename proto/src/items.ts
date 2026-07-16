@@ -50,9 +50,9 @@ const TEMPLATES: Template[] = [
   { slot: "weapon", name: "十文字槍", minDepth: 19, dmg: 3, reach: 2 }, // 同深度の剣 双刃=4 の −1
   { slot: "weapon", name: "大身槍",   minDepth: 25, dmg: 3, reach: 2, proc: "rend" }, // 深層＝幅広の穂先が裂傷を刻む（断界刃=4 の −1・proc が補償）
   { slot: "weapon", name: "淵穿ち",   minDepth: 30, dmg: 4, reach: 2, exposurePerTurn: 0.02, oddity: true }, // 深淵の刃の槍版＝蝕む業物（−1 免除の代償に深蝕+）
-  // ── 武器クラス〈薙刀〉（sweep:true・v0.127.0・2026-07-06 ユーザー承認）＝弧の薙ぎ払い。bump方向とその左右隣（±45度）の計3マスを同時に薙ぐ。
-  //    primary（bump先）＝フル補正（会心・挟撃・proc・siphon）／side（最大2体）＝基礎ダメのみ。会心の薙ぎは生存中の primary＋side を全員 @ から離れる向きへ吹き飛ばす。
-  //    斜め攻撃可・射程1（剣と同じ入力感覚）・踏み込み可。攻撃力は同深度の剣より −1 目安（開所で囲まれた時に真価／単体には弱い＝剣・槍との三択）。
+  // ── 武器クラス〈薙刀〉（sweep:true・v0.127.0 導入／v0.150.0 抜本改定・2026-07-11 ユーザー承認＝図で仕様指定）＝距離2の横3マスバー。
+  //    十字4方向のみ（斜め不可）・振った方向の距離2に横3マスの弧〔中央（距離2直線）=100%＝会心/挟撃/proc/siphon 対象／左右の肩=基礎ダメ×NAG_SHOULDER(0.8)〕。
+  //    距離1（隣接8マス）＝完全な死角＝斬れない（懐は退く/押し出す/持ち替えで対処）・踏み込み不可・会心で生存者を押し出し+stagger。攻撃力は同深度の剣より −1 目安（面制圧特化＝剣・槍との三択）。
   { slot: "weapon", name: "薙鎌",     minDepth: 3,  dmg: 1, sweep: true }, // 序盤から薙刀を試せる入口
   { slot: "weapon", name: "薙刀",     minDepth: 10, dmg: 2, sweep: true }, // 同深度の剣 戦鎚=3 の −1
   { slot: "weapon", name: "大薙刀",   minDepth: 17, dmg: 3, sweep: true }, // 同深度の剣 双刃=4 近辺の −1

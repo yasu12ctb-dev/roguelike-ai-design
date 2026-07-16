@@ -5,7 +5,7 @@ import { makeRng } from "../src/rng.ts";
 import {
   genFloor, planMonsters, resolveMonsters, planCompanion, resolveCompanion,
   spawnPursuer, genRaidField, bfsPath, reachableSet, mapIdx, scaleKind, MONSTER_KINDS,
-  MONSTER_HARDCAP, companionMaxHp,
+  MONSTER_HARDCAP, monsterHardcap, companionMaxHp,
   type Floor, type CompanionEntity, type Monster,
 } from "../src/dungeon.ts";
 import { diffMods } from "../src/difficulty.ts";
@@ -16,6 +16,10 @@ import {
 import { SELECTABLE_DIFFICULTIES } from "../src/difficulty.ts";
 import { maxHp } from "../src/progression.ts";
 import type { Character, Lineage, Fossil } from "../src/types.ts";
+
+// フロアの実際の敵上限（v0.151.0・monsterHardcap＝easy=60据え置き／normal/hard は深度20超で+1/階・最大80）。
+// raid のフロアは f.diff が未設定＝easy相当の60が正しい（genRaidField は diff を焼き込まない）。
+function capFor(f: Floor): number { return monsterHardcap(f.depth, f.diff ?? diffMods("easy")); }
 
 let FAIL = 0, CHECKS = 0;
 const problems: string[] = [];
@@ -56,8 +60,9 @@ function checkFloors() {
         // up から down へ到達可能（プレイヤーが詰まない）＝tiles 連結で検査
         const reach = reachTiles(f, f.stairsUp);
         ok(reach.has(mapIdx(f, f.stairsDown.x, f.stairsDown.y)), `no path up→down d${depth} ${diff} s${seed}`);
-        // 敵数 <= HARDCAP・全敵が床・座標有限
-        ok(f.monsters.length <= MONSTER_HARDCAP, `monsters>${MONSTER_HARDCAP} (${f.monsters.length}) d${depth} ${diff} s${seed}`);
+        // 敵数 <= HARDCAP（難易度・深度で可変＝monsterHardcap）・全敵が床・座標有限
+        const cap = capFor(f);
+        ok(f.monsters.length <= cap, `monsters>${cap} (${f.monsters.length}) d${depth} ${diff} s${seed}`);
         for (const m of f.monsters) {
           ok(finite(m.x) && finite(m.y) && finite(m.hp) && finite(m.kind.dmg), `monster nonfinite d${depth} ${diff} s${seed} ${m.kind.key}`);
           ok(f.tiles[mapIdx(f, m.x, m.y)] === 1, `monster off-floor d${depth} ${diff} s${seed} ${m.kind.key}`);
@@ -117,8 +122,9 @@ function combatLoop(seed: number, depth: number, diff: string, withCompanion: bo
       ok(finite(h.dmg) && h.dmg >= 0, `hit dmg nonfinite/neg s${seed} d${depth} ${h.monster.kind.key} dmg=${h.dmg}`);
       if (h.target === "player") php -= h.dmg; else if (comp) comp.hp -= h.dmg;
     }
-    // breeder 暴走しない
-    ok(f.monsters.length <= MONSTER_HARDCAP, `combat monsters>${MONSTER_HARDCAP} (${f.monsters.length}) s${seed} d${depth} ${diff} turn${turn}`);
+    // breeder 暴走しない（難易度・深度で可変＝monsterHardcap）
+    const combatCap = capFor(f);
+    ok(f.monsters.length <= combatCap, `combat monsters>${combatCap} (${f.monsters.length}) s${seed} d${depth} ${diff} turn${turn}`);
     // 全敵座標が盤内・床
     for (const m of f.monsters) {
       if (m.hp <= 0) continue;
@@ -184,7 +190,9 @@ function checkRaid() {
           resolveMonsters(f, player, null, allies);
           for (const a of allies) if (a.hp > 0) resolveCompanion(f, player, a, allies.filter((b) => b !== a));
         } catch (e: any) { bad(`raid combat throw ${scale} s${seed} t${t}: ${e.message}`); break; }
-        ok(f.monsters.length <= MONSTER_HARDCAP, `raid monsters>${MONSTER_HARDCAP} ${scale} s${seed}`);
+        // raid フロアは f.diff 未設定＝easy相当の60が正しい cap（genRaidField は diff を焼き込まない）。
+        const raidCap = capFor(f);
+        ok(f.monsters.length <= raidCap, `raid monsters>${raidCap} ${scale} s${seed}`);
         for (const m of f.monsters) if (m.hp > 0) ok(f.tiles[mapIdx(f, m.x, m.y)] === 1, `raid monster off-floor ${scale} s${seed} ${m.kind.key}`);
         for (let i = 0; i < allies.length; i++) for (let j = i + 1; j < allies.length; j++)
           if (allies[i].hp > 0 && allies[j].hp > 0) ok(!(allies[i].x === allies[j].x && allies[i].y === allies[j].y), `raid ally overlap ${scale} s${seed} t${t}`);
@@ -246,8 +254,30 @@ function checkLifecycle() {
   }
 }
 
+// ---- 0. monsterHardcap 直接ユニット（v0.151.0・easy=60据え置き／normal・hard は深度20超で+1/階・最大80） ----
+function checkHardcapValues() {
+  for (const depth of [1, 10, 20, 24, 32, 40, 50, 55, 60, 80]) {
+    ok(monsterHardcap(depth, diffMods("easy")) === MONSTER_HARDCAP, `easy hardcap should stay ${MONSTER_HARDCAP} at d${depth}`);
+  }
+  for (const diff of ["normal", "hard"] as const) {
+    const mods = diffMods(diff);
+    for (const depth of [1, 10, 20, 24, 32, 40, 50, 55, 60, 80]) {
+      const expected = MONSTER_HARDCAP + Math.min(20, Math.max(0, depth - 20));
+      const got = monsterHardcap(depth, mods);
+      ok(got === expected, `${diff} hardcap d${depth} expected ${expected} got ${got}`);
+    }
+    // レビュー指示の具体値（d24=64・d40以降=80）を直接 assert
+    ok(monsterHardcap(24, mods) === 64, `${diff} d24 hardcap should be 64, got ${monsterHardcap(24, mods)}`);
+    ok(monsterHardcap(40, mods) === 80, `${diff} d40 hardcap should be 80, got ${monsterHardcap(40, mods)}`);
+    ok(monsterHardcap(55, mods) === 80, `${diff} d55 hardcap should be 80, got ${monsterHardcap(55, mods)}`);
+    ok(monsterHardcap(60, mods) === 80, `${diff} d60 hardcap should be 80, got ${monsterHardcap(60, mods)}`);
+    ok(monsterHardcap(80, mods) === 80, `${diff} d80 hardcap should be 80, got ${monsterHardcap(80, mods)}`);
+  }
+}
+
 console.log("== stress-engine 開始 ==");
 const t0 = Date.now();
+checkHardcapValues(); console.log(`  hardcap values done (${CHECKS} checks, ${FAIL} fail)`);
 checkFloors(); console.log(`  floors done (${CHECKS} checks, ${FAIL} fail)`);
 let c = 0;
 for (let seed = 1; seed <= 20; seed++) for (const diff of SELECTABLE_DIFFICULTIES) for (const depth of [3, 9, 18, 28, 40, 50]) { combatLoop(seed * 29 + depth, depth, diff, (c++ % 2) === 0); }
