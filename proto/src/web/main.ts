@@ -61,7 +61,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.154.0";
+export const APP_VERSION = "0.155.0";
 export const APP_BUILD = "2026-07-08";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -5084,6 +5084,10 @@ function pushEnemy(mon: Monster, dx: number, dy: number): void {
     mon.x = nx; mon.y = ny; tileFx(nx, ny, "tfx-press");
     log(`${mon.kind.name}を突き飛ばした。`, "dim");
     applyHazardToEnemy(mon, true); // ★着地点がハザードなら即・叩き込む（位置取りの通貨×地形の本命シナジー）
+    // ★相殺防止（2026-07-16 バグ修正）：敵を相対移動させたら、その敵の“古い move 予告”（押し出し前に @ へ接近する destination で
+    //   計算済み）を無効化する。さもないと直後の resolveMonsters がその stale な move を適用し、押し出した位置を上書きしてしまう
+    //   （距離2の敵を巻き込む薙刀の会心押し出し等で「狙った方向へ飛ばない」体感バグ）。attack 予告は下の射程再判定（PR#351）に委ねる。
+    if (mon.hp > 0 && mon.intent?.type === "move") mon.intent = { type: "wait" };
   }
   // フェーズ2③④（2026-07-09）：押し出しで敵をその攻撃射程の外へ出したら、予告していた一撃をキャンセル（無傷の取引）。
   //   まだ届く＝reach≥2 の長柄で1マス押しても距離内 or 壁で押せず隣接のまま＝intent 温存＝反撃を受ける（④）。
