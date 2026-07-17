@@ -438,7 +438,11 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean; 
     for (let j = 0; j < w; j++) spawnPool.push(k);
   }
   const countCap = depth > 50 ? 42 + Math.min(18, depth - 50) : 42; // 深淵帯ギア：深度50超は包囲も増す（depth≤50＝42＝golden 不変）
-  const count = Math.min(Math.round((W * H) / 120) + Math.floor(depth / 3), countCap); // 出現率・上限を拡張面積に追従（20→42→深部60）
+  // ★hardcap 厳守（2026-07-16 バグ修正）：必須ボス（エリアボス＝8の倍数階／深淵の主＝abyss 階・両立し得る）は省略できないので、
+  //   main count で先にその枠を予約する＝main+ボス が hardcap を超えない（深部で count が上限に達する帯＝例 depth80×easy で 61>60 を是正）。
+  //   easy の bossSlots 該当は深度72/80/88/96 等の深部のみ（浅深度は count が countCap 未満で無影響）＝golden 深度（≤42・非ボス階）は bossSlots=0＝byte 不変。
+  const bossSlots = ((depth >= 8 && depth % 8 === 0) ? 1 : 0) + (opts?.abyss ? 1 : 0);
+  const count = Math.min(Math.round((W * H) / 120) + Math.floor(depth / 3), countCap, monsterHardcap(depth, mods) - bossSlots); // 出現率・上限を拡張面積に追従（20→42→深部60）＋必須ボス枠を予約
   // A｜部屋の広さ比例＋大部屋集中配置（v0.151.0・2026-07-11 ユーザー承認＝「1対1が多い／広い部屋がスカスカ」FB・normal/hard 限定）：
   //   従来は全域ランダム散布ゆえ敵が薄く散り「1対1」になりがち。面積比で全室に薄く撒くとマップが部屋過多で1室~1体のまま緊張が出ない
   //   （sim 実測）。そこで normal/hard は敵の大半（`ROOM_BIAS`）を「大きい部屋から順に密度上限まで詰める」＝少数の部屋が確実に“戦場”に
@@ -549,7 +553,9 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean; 
       hp: Math.round(base.hp * 2), dmg: base.dmg + 1, tier: Math.min(5, base.tier + 1), // 雑魚と area ボスの中間
     };
     const p = randomFloorAway(floor, rng, stairsUp, 8);
-    if (p) floor.monsters.push({ id: `elite${depth}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: false, intent: null, boss: "elite" });
+    // ★hardcap 厳守（2026-07-16 バグ修正）：elite は任意（rng<0.3）ゆえ枠予約でなく push を上限で抑制＝深部の elite 階（8の倍数でない・count が
+    //   上限に達する帯）で hardcap 超過を防ぐ。rng 消費（rng.next()/scaleKind/randomFloorAway）は全て通し、最後の push だけ抑制＝golden 深度は敵数<60 で push 発生＝一致。
+    if (p && floor.monsters.length < monsterHardcap(depth, mods)) floor.monsters.push({ id: `elite${depth}`, kind, hp: kind.hp, x: p.x, y: p.y, awake: false, intent: null, boss: "elite" });
   }
 
   // ---------- 宝箱配置（深いほど少し増える。入口から離して＝奥/行き止まりに置く） ----------
