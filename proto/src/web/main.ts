@@ -61,7 +61,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.153.0";
+export const APP_VERSION = "0.154.0";
 export const APP_BUILD = "2026-07-08";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -624,7 +624,18 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   setHp: (v: number) => { hp = v; },
   getHp: () => hp,
   spawnKind: (dx: number, dy: number, key: string, hpv?: number) => { if (!floor) return; const kind = MONSTER_KINDS.find((k) => k.key === key); if (!kind) return; floor.monsters.push({ id: `qk_${floor.monsters.length}`, kind, hp: hpv ?? kind.hp, x: player.x + dx, y: player.y + dy, awake: true, intent: null }); planMonsters(floor, player, rng, companion); }, // 突進 E2E：種を指定して湧かす
-  monAt: (dx: number, dy: number) => { const m = floor?.monsters.find((mm) => mm.hp > 0 && mm.x === player.x + dx && mm.y === player.y + dy); return m ? { key: m.kind.key, hp: m.hp, intent: m.intent?.type ?? null, charge: (m.intent as { charge?: boolean } | null)?.charge ?? false } : null; },
+  monAt: (dx: number, dy: number) => { const m = floor?.monsters.find((mm) => mm.hp > 0 && mm.x === player.x + dx && mm.y === player.y + dy); return m ? { key: m.kind.key, hp: m.hp, intent: m.intent?.type ?? null, charge: (m.intent as { charge?: boolean } | null)?.charge ?? false, stunned: m.stunned ?? 0 } : null; }, // stunned 追加（武器 parity E2E・観測フック）
+  // ── 武器比較 parity E2E（PR2/5・外部レビュー）用の追加フック。
+  //   forceHeavy＝MECH-2（剣の受け消費順）検証のためだけの最小追加：h.effect==="heavy" は area ボスの「渾身の一撃」経路でしか
+  //   生成されない（resolveMonsters は intent.heavy のみを見て m.boss は見ない）ため、既存の spawn 系フックでは作れない。
+  //   既にキューされた通常敵の attack intent に heavy フラグを立てるだけ＝ダメージ計算・ガード判定は本体のロジックをそのまま通す。
+  forceHeavy: (dx: number, dy: number) => { const m = floor?.monsters.find((mm) => mm.hp > 0 && mm.x === player.x + dx && mm.y === player.y + dy); if (m && m.intent && m.intent.type === "attack") m.intent = { ...m.intent, heavy: true }; },
+  //   clearIntent＝MECH-1（薙刀の押し出し）検証のためだけの最小追加：距離2の敵は隣接ではない（＝planMonsters の
+  //   「攻撃」分岐に届かない）ため spawn 直後の queued intent は通常「move」（プレイヤーへの接近）になる。この
+  //   stale な move intent は resolveMonsters が push の“後”に無条件解決してしまい、押し出し位置を上書きしてしまう
+  //   （実測で確認・詳細はレポート）。この上書き自体は薙刀の押し出し検証と無関係な既存の追跡AIの副作用なので、
+  //   bump 直前に queued intent を null 化して隔離する（＝押し出し結果そのものは一切書き換えない・観測を汚さないための処置）。
+  clearIntent: (dx: number, dy: number) => { const m = floor?.monsters.find((mm) => mm.hp > 0 && mm.x === player.x + dx && mm.y === player.y + dy); if (m) m.intent = null; },
   nearestMon: () => { if (!floor) return null; let best: Monster | null = null, bd = 1e9; for (const m of floor.monsters) { if (m.hp <= 0) continue; const d = Math.max(Math.abs(m.x - player.x), Math.abs(m.y - player.y)); if (d < bd) { bd = d; best = m; } } return best ? { dx: best.x - player.x, dy: best.y - player.y, cheb: bd, hp: best.hp, key: best.kind.key } : null; },
   bump: (dx: number, dy: number) => { void playerAct(dx, dy); }, // 近接（会心薙ぎ検証）
   push: (dx: number, dy: number) => { const m = floor?.monsters.find((mm) => mm.hp > 0 && mm.x === player.x + dx && mm.y === player.y + dy); if (m) pushEnemy(m, dx, dy); }, // フェーズ2③④：押し出しキャンセルの検証
@@ -645,6 +656,34 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   giveArmor: (baseName: string, reduceOverride?: number) => { const it = forgeItem(baseName, null, 0) ?? itemByName(baseName); if (it && world.current) { if (reduceOverride !== undefined) it.reduce = reduceOverride; world.current.equipment.armor = it; updateStatus(); } return world.current?.equipment.armor?.reduce ?? null; },
   spawnDmg: (dx: number, dy: number, key: string, dmgv: number, hpv?: number) => { if (!floor) return; const kind = MONSTER_KINDS.find((k) => k.key === key); if (!kind) return; floor.monsters.push({ id: `qd_${floor.monsters.length}`, kind: { ...kind, dmg: dmgv }, hp: hpv ?? kind.hp, x: player.x + dx, y: player.y + dy, awake: true, intent: null }); planMonsters(floor, player, rng, companion); },
   getExposure: () => world.current?.exposure ?? 0,
+  // ── 試技ハーネス（外部レビュー PR5）：ユーザー指定シナリオを一発再現し、以後は通常操作で数戦触れる。
+  //   環境準備（装備・盤面）は既存 spawnKind/giveArmor 等と同種の範囲＝以後の入力は通常のゲーム操作（bump/step等）に委ねる。
+  trial: (scenario: string, weapon: string) => {
+    if (!floor || !world.current) return false;
+    const wname = weapon === "spear" ? "刺突槍" : weapon === "naginata" ? "大薙刀" : "戦鎚";
+    const wit = forgeItem(wname, null, 0) ?? itemByName(wname);
+    if (wit) world.current.equipment.weapon = wit; else return false;
+    floor.monsters = [];
+    const open: [number, number][] = [];
+    const walls: [number, number][] = [];
+    const spawn: [number, number, string][] = [];
+    if (scenario === "corridor") { // 幅1通路＋縦列2体（東へ伸びる廊下・南北を明示的に壁で塞いで幅1を保証）
+      for (let k = 0; k <= 4; k++) { open.push([k, 0]); if (k >= 1) { walls.push([k, -1]); walls.push([k, 1]); } }
+      spawn.push([1, 0, "rat"], [2, 0, "rat"]);
+    } else if (scenario === "room3") { // 広間＋3体クラスタ（@の近くに固めて配置）
+      for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) open.push([dx, dy]);
+      spawn.push([1, 0, "rat"], [0, 1, "rat"], [1, 1, "rat"]);
+    } else if (scenario === "mixed") { // 通常+遠隔+突進の混成広間
+      for (let dx = -3; dx <= 3; dx++) for (let dy = -3; dy <= 3; dy++) open.push([dx, dy]);
+      spawn.push([1, 0, "rat"], [0, -3, "spitter"], [3, 0, "charger"]);
+    } else return false;
+    for (const [dx, dy] of open) { const x = player.x + dx, y = player.y + dy; if (inBounds(floor, x, y)) { floor.tiles[mapIdx(floor, x, y)] = 1; floor.explored[mapIdx(floor, x, y)] = true; } }
+    for (const [dx, dy] of walls) { const x = player.x + dx, y = player.y + dy; if (inBounds(floor, x, y)) { floor.tiles[mapIdx(floor, x, y)] = 0; floor.explored[mapIdx(floor, x, y)] = true; } }
+    for (const [dx, dy, key] of spawn) { const kind = MONSTER_KINDS.find((k) => k.key === key); if (kind) floor.monsters.push({ id: `trial_${floor.monsters.length}`, kind, hp: kind.hp, x: player.x + dx, y: player.y + dy, awake: true, intent: null }); }
+    planMonsters(floor, player, rng, companion);
+    updateStatus(); draw();
+    return true;
+  },
 }; } catch {}
 let crowd: CrowdActor[] = [];        // 街路の群衆（使い捨て・非永続）
 let interior: Interior | null = null; // 屋内シーン（null=街路）
