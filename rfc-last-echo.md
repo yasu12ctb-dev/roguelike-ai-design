@@ -1,6 +1,8 @@
 # RFC：最期の残響（Last Echo）
 
-**status: P1 全4種 実装済み（P1-A 静穏・遺言＝v0.159.0／P1-B 守り手・呪詛＝v0.160.0）。P2-A 相棒/縁者の残響 実装済み（v0.161.0）。P2-B tonePole 機械修飾 実装済み（v0.162.0・2026-07-18 承認）。方向性承認＝2026-07-18。次＝P2-C〜E（alien 形状変化・山場連結・呪詛の霧拡大＝各別承認）。**
+**status: P1 全4種 実装済み（P1-A 静穏・遺言＝v0.159.0／P1-B 守り手・呪詛＝v0.160.0）。P2-A 相棒/縁者の残響（v0.161.0）。P2-B tonePole 機械修飾（v0.162.0）。P2-C alien 変質の形状変化 実装済み（v0.163.0・2026-07-18 承認）。方向性承認＝2026-07-18。次＝P2-D〜E（山場連結・呪詛の霧拡大＝各別承認）。**
+
+**P2-C（v0.163.0・2026-07-18 承認・web 限定＝main.ts のみ・engine 非改変・golden 8/8 完全不変・SAVE_VERSION 据置）＝これまで peek のフレーバー1行だけだった変質段階 `stage`（weathered/twisting/alien）を初めて盤面の「形」に。** 本作の核「放置すれば深層の残響ほど歪む（4-1C＝変質クロックは放置で進み・鎮魂/継承で巻き戻る）」を盤面へ。**alien のみ**が形を変える（weathered/twisting は不変）＝面影を失い別の異形に。4種＝**守り手**：番人が「歪んだ番人」に（erratic＋hp/dmg ×`ECHO_ALIEN_WARD_MUL(1.1)`・易化させない方向のみ）／**呪詛**：怨念の影が「歪影」に（erratic＋hp ×`ECHO_ALIEN_SHADE_MUL(1.1)`）／**静穏**：静かなマスが square→十字（対角は安らがない＝安らぎが形を失う＝「変質は恩恵半減」に整合）／**遺言**：判読不能に＋型は最弱形（先見）へ縮退（武器種の冴えは失われる）。★可読性＝peek は既に「もはや面影は薄い」と alien を予兆済み。★「じっくり攻略」は不罰（変質は世代を跨ぐ放置で進む・鎮魂/継承で巻き戻せる）。★P2-E（呪詛の霧拡大）とは分離（curse の alien は影の異形化で扱う）。★実装教訓＝守り手は `intervene(inherit)` がクロックを巻き戻すので alien 判定を intervene の前に取る。検証＝`e2e-echo.mjs` 31/31（P2-C 3項目＝歪影/歪んだ番人/静穏の十字化を実測）。数値/re-skin はテスト調整候補。
 
 **P2-B（v0.162.0・2026-07-18 承認・web 限定＝main.ts のみ・engine 非改変・golden 8/8 完全不変・SAVE_VERSION 据置）＝これまでフレーバー（オーラ色＋peek）だけだった tonePole（loss/myth/grudge）を初めて盤面ルールに。** 原則＝**loss=基準（無修飾）／myth=プレイヤー側の恵み（敵を弱めない＝パワークリープ回避）／grudge=より険しく、より報われる（易化させず敵を強くする方向のみ・報酬も増やして収支中立〜損）**。マッピング（全て web 定数・テスト調整候補）＝**静穏**：grudge 半径 −1（`ECHO_CALM_RADIUS-1`・張り詰めた安らぎ）／myth 鎮魂の深蝕減 ×`ECHO_MYTH_REQUIEM_MUL(1.5)`。**遺言**：grudge 読むだけで深蝕 +`ECHO_GRUDGE_WILL_COST(0.05)`（濁りは +`ECHO_GRUDGE_MUD_COST(0.15)`）／myth は濁っていても代償なし（神話の遺志は澄む）／loss 基準（濁りのみ +0.1）。**守り手**：grudge 番人 hp/dmg ×`ECHO_GRUDGE_WARD_MUL(1.15)`。**呪詛**：grudge 怨念の影 hp ×1.15＋撃破 gold 係数 +`ECHO_GRUDGE_SHADE_BONUS(2)`（×6→×8）／myth 浄化時にプレイヤー深蝕 −`ECHO_MYTH_PURIFY_RELIEF(0.15)`。各効果は効果時に `fossil.tonePole` を読むだけ（cross-floor 状態を増やさない）。検証＝`e2e-echo.mjs` 28/28（P2-B 5項目＝静穏半径/影 hp/影報酬/浄化恵み/番人 hp を tone 別に実測）＋golden 8/8 完全不変。数値は全てテスト調整候補。
 
@@ -107,7 +109,8 @@ computeEcho(fossil, worldTime) -> Echo | null
 - **P1（最小）**：4種の骨格・tonePole は文言差のみ・変質は恩恵半減まで。
 - **P2-A（実装済み・v0.161.0）**：相棒/縁者の残響（wasCompanion/wasAlly＝情緒最大）。選定ゲート拡張＋認識句のみ・golden 不変。
 - **P2-B（実装済み・v0.162.0）**：tonePole の機械的修飾（loss=基準／myth=恵み／grudge=険しく報われる）。golden 不変。
-- **P2-C〜E（未着手・各別承認）**：alien 変質の形状変化・山場（grudge_hunt/legend_return）との連結・deathManner の副次修飾・「呪詛の放置で霧が広がる」。
+- **P2-C（実装済み・v0.163.0）**：alien 変質の形状変化（放置で歪む・4-1C を盤面へ・4種：歪んだ番人/歪影/静穏の十字化/遺言の判読不能）。golden 不変。
+- **P2-D〜E（未着手・各別承認）**：山場（grudge_hunt/legend_return）との連結・deathManner の副次修飾・「呪詛の放置で霧が広がる」。
 
 ## 8. 未決事項（承認時に決めたい）
 

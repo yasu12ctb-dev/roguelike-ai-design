@@ -320,10 +320,48 @@ const wardHpG = await wardHpFor("grudge");
 const wardHpL = await wardHpFor("loss");
 ok("⑫e守り手：grudge の番人 hp は loss より高い（×1.15）", wardHpG !== null && wardHpL !== null && wardHpG > wardHpL, JSON.stringify({ grudge: wardHpG, loss: wardHpL }));
 
+// ⑬ P2-C（alien 変質の形状変化）：放置で歪んだ（alien）残響は面影を失い形が変わる。weathered/twisting は不変。
+// ⑬a 呪詛：alien の影は「歪影」＝名が変わり hp も高い（loss 同士で alien vs 非alien）。
+const curseAlien = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz(); t.spawnEcho("curse", "loss", 3, 0, { alien: true }); const a = { hp: t.shadeHp(), name: t.shadeName() };
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz(); t.spawnEcho("curse", "loss", 3, 0, {}); const n = { hp: t.shadeHp(), name: t.shadeName() };
+  return { a, n };
+});
+ok("⑬a呪詛：alien は『歪影』＝名が変わり hp も高い", curseAlien.a.name === "歪影" && curseAlien.n.name === "怨念の影" && curseAlien.a.hp > curseAlien.n.hp, JSON.stringify(curseAlien));
+
+// ⑬b 守り手：alien の番人は「歪んだ番人」＝名が変わり hp も高い。
+async function wardFor(alien) {
+  await page.evaluate((al) => {
+    const t = (window).__hazTest;
+    t.clearEchoFossils(); t.clearMons(); t.clearHaz(); t.setHp(200);
+    for (let dx = -4; dx <= 4; dx++) for (let dy = -4; dy <= 4; dy++) t.setTile(dx, dy, 1);
+    t.spawnEcho("guard", "loss", 2, 0, { gear: "長剣", alien: al });
+    t.triggerGuardTake();
+  }, alien);
+  await page.waitForTimeout(150);
+  await clickOption(/奪う/).catch(() => {});
+  await drainSheets();
+  return await page.evaluate(() => ({ hp: (window).__hazTest.wardHp(), name: (window).__hazTest.wardName() }));
+}
+const wardAlien = await wardFor(true);
+const wardNorm = await wardFor(false);
+ok("⑬b守り手：alien は『歪んだ番人』＝名が変わり hp も高い", wardAlien.name === "歪んだ番人" && wardNorm.name === "遺品の番人" && wardAlien.hp > wardNorm.hp, JSON.stringify({ wardAlien, wardNorm }));
+
+// ⑬c 静穏：alien は十字のみ（対角はゾーン外）。距離1の対角(1,1)＝非alien は安らぎ／alien は安らがない。
+await openArea();
+const calmAlien = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz(); t.spawnEcho("calm", "loss", 1, 1, { alien: true }); const a = t.calmActive();
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz(); t.spawnEcho("calm", "loss", 1, 1, {}); const n = t.calmActive();
+  return { alien: a, normal: n };
+});
+ok("⑬c静穏：alien は十字のみ＝対角(1,1)は安らがない／非alien は安らぐ", calmAlien.alien === false && calmAlien.normal === true, JSON.stringify(calmAlien));
+
 ok("例外・console.error ゼロ（全体）", errors.length === 0, errors.slice(0, 8).join(" | "));
 
 await browser.close();
 server.close();
 const failed = results.filter((r) => !r.pass);
-console.log(`\n=== E2E 最期の残響（P1 ＋ P2-A 相棒/縁者 ＋ P2-B tonePole）：${results.length - failed.length}/${results.length} pass ===`);
+console.log(`\n=== E2E 最期の残響（P1 ＋ P2-A ＋ P2-B ＋ P2-C alien）：${results.length - failed.length}/${results.length} pass ===`);
 if (failed.length) { console.log("FAILED:", failed.map((f) => f.name).join(", ")); process.exit(1); }

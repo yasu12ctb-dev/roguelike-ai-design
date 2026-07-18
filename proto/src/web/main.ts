@@ -62,7 +62,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.162.0";
+export const APP_VERSION = "0.163.0";
 export const APP_BUILD = "2026-07-18";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -438,13 +438,26 @@ function echoFossilTone(): Fossil["tonePole"] | null {
   const e = floor?.echo; if (!e) return null;
   return world.fossils.find((f) => f.id === e.fossilId)?.tonePole ?? null;
 }
+/** P2-C：現在フロアの残響の主の変質段階（weathered/twisting/alien）。放置で進み・干渉で巻き戻る（4-1C）。無ければ null。 */
+function echoFossilStage(): "weathered" | "twisting" | "alien" | null {
+  const e = floor?.echo; if (!e) return null;
+  const f = world.fossils.find((ff) => ff.id === e.fossilId);
+  return f ? computeVariation(f, worldTime(world)).stage : null;
+}
+// ── 最期の残響・P2-C：alien 変質の形状変化（放置で歪む・4-1C を盤面へ・alien のみ・全て web 定数・テスト調整候補）──
+const ECHO_ALIEN_WARD_MUL = 1.1;   // alien：歪んだ番人の hp/dmg ×（易化させない方向のみ・grudge と乗算）
+const ECHO_ALIEN_SHADE_MUL = 1.1;  // alien：歪影の hp ×
+const ECHO_ALIEN_ERRATIC = 0.4;    // alien：番人/影の不規則移動（面影を失い、動きが読めない）
 /** player が静穏の残響の「静かなマス」内にいるか。聖遺物携行中は無効＝クリア動線（帰還の試練）の緊張は不可侵。
  *  P2-B：怨念（grudge）の静穏は張り詰めて狭い（半径 −1）＝易化させず情緒差だけ足す。 */
 function inCalmZone(): boolean {
   const e = floor?.echo;
   if (!e || e.kind !== "calm" || !world.current || world.current.carryingRelic) return false;
+  const dx = Math.abs(player.x - e.x), dy = Math.abs(player.y - e.y);
   const r = ECHO_CALM_RADIUS - (echoFossilTone() === "grudge" ? 1 : 0);
-  return Math.max(Math.abs(player.x - e.x), Math.abs(player.y - e.y)) <= r;
+  if (Math.max(dx, dy) > r) return false;
+  if (echoFossilStage() === "alien" && dx !== 0 && dy !== 0) return false; // P2-C：歪んだ静穏＝十字のみ（対角は安らがない＝安らぎが形を失う）
+  return true;
 }
 // ── 最期の残響・守り手/呪詛（RFC・P1-B）：盤面の器（数値はテスト調整候補） ──
 const ECHO_MIASMA_R = 1;        // 呪詛：蝕の霧の半径（Chebyshev）
@@ -492,7 +505,9 @@ function setupEchoBoard(echo: NonNullable<Floor["echo"]>, fossil: Fossil, depth:
     if (t.length) {
       const base = MONSTER_KINDS.find((k) => k.key === "wraith") ?? MONSTER_KINDS[0];
       const smul = fossil.tonePole === "grudge" ? ECHO_GRUDGE_WARD_MUL : 1; // P2-B：怨念の影は一段強い
-      const kind = { ...base, name: "怨念の影", glyph: "影", hp: Math.round((8 + depth * 1.0) * smul), dmg: 2 + Math.round(depth * 0.18), tier: 4, erratic: 0.2, ability: undefined };
+      const alien = computeVariation(fossil, worldTime(world)).stage === "alien"; // P2-C：放置で歪む
+      const amul = alien ? ECHO_ALIEN_SHADE_MUL : 1;
+      const kind = { ...base, name: alien ? "歪影" : "怨念の影", glyph: "影", hp: Math.round((8 + depth * 1.0) * smul * amul), dmg: 2 + Math.round(depth * 0.18), tier: 4, erratic: alien ? ECHO_ALIEN_ERRATIC : 0.2, ability: undefined };
       const id = `shade_${fossil.id}`;
       floor.monsters.push({ id, kind, hp: kind.hp, x: t[0].x, y: t[0].y, awake: true, intent: null });
       echo.shadeId = id;
@@ -819,12 +834,18 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   setExposure: (v: number) => { if (world.current) world.current.exposure = v; }, // P2-B E2E
   shadeHp: () => { const e = floor?.echo; return e?.shadeId ? (floor?.monsters.find((m) => m.id === e.shadeId)?.hp ?? null) : null; }, // P2-B E2E：怨念の影の hp
   wardHp: () => { const e = floor?.echo; return e ? (floor?.monsters.find((m) => m.id === `ward_${e.fossilId}`)?.hp ?? null) : null; }, // P2-B E2E：番人の hp
+  shadeName: () => { const e = floor?.echo; return e?.shadeId ? (floor?.monsters.find((m) => m.id === e.shadeId)?.kind.name ?? null) : null; }, // P2-C E2E：影の名（怨念の影/歪影）
+  wardName: () => { const e = floor?.echo; return e ? (floor?.monsters.find((m) => m.id === `ward_${e.fossilId}`)?.kind.name ?? null) : null; }, // P2-C E2E：番人の名（遺品の番人/歪んだ番人）
+  echoStage: () => echoFossilStage(), // P2-C E2E：現在の残響の変質段階
   // ── 最期の残響（RFC・P1）E2E フック：自血統化石＋floor.echo を仕込み、表示/静穏/遺言の型を検証する。
-  spawnEcho: (kind: EchoKind, tone: string, dx: number, dy: number, opts?: { note?: string; exp?: number; gear?: string; name?: string }) => {
+  spawnEcho: (kind: EchoKind, tone: string, dx: number, dy: number, opts?: { note?: string; exp?: number; gear?: string; name?: string; alien?: boolean }) => {
     if (!floor || !world.current) return null;
     const choice = ({ calm: "accept", will: "leave_will", guard: "guard_relic", curse: "curse_dungeon" } as const)[kind];
     const id = `echofossil_${world.fossils.length}`; // world.fossils はクリアしない＝グローバル一意（clearEchoFossils 後の id 衝突を防ぐ）
-    const fossil = { id, kind: "character", origin: { name: opts?.name ?? "先代", archetype: "wanderer", gearTags: opts?.gear ? [opts.gear] : [], epithet: "" }, death: { manner: "grievous", finalAct: { choice, note: opts?.note }, depth: floor.depth, generationCreated: world.generation }, exposureAtDeath: opts?.exp ?? 0, bondAtDeath: 0, tonePole: tone as Fossil["tonePole"], interventions: [], lastTouchedGeneration: 0, laidDepth: floor.depth } as Fossil;
+    // P2-C E2E：opts.alien で computeVariation が alien を返すよう仕込む（深度50＋起点を過去へ＝distort≥0.67）。
+    const dep = opts?.alien ? 50 : floor.depth;
+    const ltg = opts?.alien ? -8 : 0;
+    const fossil = { id, kind: "character", origin: { name: opts?.name ?? "先代", archetype: "wanderer", gearTags: opts?.gear ? [opts.gear] : [], epithet: "" }, death: { manner: "grievous", finalAct: { choice, note: opts?.note }, depth: dep, generationCreated: world.generation }, exposureAtDeath: opts?.exp ?? 0, bondAtDeath: 0, tonePole: tone as Fossil["tonePole"], interventions: [], lastTouchedGeneration: ltg, laidDepth: dep } as Fossil;
     world.fossils.push(fossil);
     const x = player.x + dx, y = player.y + dy;
     floor.fossils.push({ id: `fe_${id}`, fossilId: id, resolved: false, x, y });
@@ -7261,6 +7282,7 @@ async function echoGuardTake(): Promise<void> {
     meta: "守り手の残響", options: requiemed ? ["静かに受け取る", "やめておく"] : ["奪う（番人が目を覚ます）", "やめておく"],
   });
   if (r.pick === 2) { busy = false; return; } // やめる＝非消費・非手番
+  const alien = computeVariation(fossil, worldTime(world)).stage === "alien"; // P2-C：放置で歪む＝歪んだ番人。★intervene(inherit) はクロックを巻き戻すので、その前に判定する。
   loot.taken = true;
   (world.flags ??= []).push(`echo_guard_${fossil.id}`); // 一度きり（farm 防止）
   intervene(world, fossil.id, "inherit"); // 遺品の受け取り＝inherit 記録（冪等・重複取得なし）
@@ -7269,7 +7291,8 @@ async function echoGuardTake(): Promise<void> {
     const depth = floor.depth;
     const base = MONSTER_KINDS.find((k) => k.key === "brute") ?? MONSTER_KINDS[0];
     const wmul = fossil.tonePole === "grudge" ? ECHO_GRUDGE_WARD_MUL : 1; // P2-B：怨念の番人は一段強い（易化させない方向のみ）
-    const kind = { ...base, name: "遺品の番人", glyph: "番", hp: Math.round((14 + depth * 1.4) * wmul), dmg: Math.round((3 + depth * 0.18) * wmul), tier: 4, erratic: 0.05, ability: undefined };
+    const amul = alien ? ECHO_ALIEN_WARD_MUL : 1;
+    const kind = { ...base, name: alien ? "歪んだ番人" : "遺品の番人", glyph: "番", hp: Math.round((14 + depth * 1.4) * wmul * amul), dmg: Math.round((3 + depth * 0.18) * wmul * amul), tier: 4, erratic: alien ? ECHO_ALIEN_ERRATIC : 0.05, ability: undefined };
     floor.monsters.push({ id: `ward_${fossil.id}`, kind, hp: kind.hp, x: echo.ward.x, y: echo.ward.y, awake: true, intent: null });
     echo.ward.awake = true;
     planMonsters(floor, player, rng, companion);
@@ -7462,14 +7485,17 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       (world.flags ??= []).push(`echo_will_${fossil.id}`); // 一度きり（farm 防止・冪等）
       intervene(world, fossil.id, "memorial");            // 消費記録＝memorial（既存の敬意の流儀）
       const note = fossil.death.finalAct.note;
+      const alienWill = echo?.stage === "alien"; // P2-C：放置で歪む＝遺言が判読不能に・型は最弱形（先見）へ縮退
       await sheet({
-        text: note
-          ? `${fossil.origin.name}の遺した言葉が、盤面に滲む――\n\n「${note}」`
-          : `${fossil.origin.name}は言葉を遺さなかった。ただ、最後の一手の冴えだけが、ここに静かに残っている。`,
+        text: alienWill
+          ? `${fossil.origin.name}の遺した言葉は、もはや判読できない。歪みきった残響が、ただ次の階の気配だけを、かすかに伝えてくる。`
+          : note
+            ? `${fossil.origin.name}の遺した言葉が、盤面に滲む――\n\n「${note}」`
+            : `${fossil.origin.name}は言葉を遺さなかった。ただ、最後の一手の冴えだけが、ここに静かに残っている。`,
         meta: "遺言の残響", options: ["受け取る"],
       });
-      const cls = foreWeaponClass(fossil);
-      if (cls === "sight") { await foresightScene(ch); } // 素手/武器不明＝先見（次階の気配）
+      const cls = alienWill ? "sight" : foreWeaponClass(fossil); // P2-C：alien は武器種の冴えを失い先見に縮退
+      if (cls === "sight") { await foresightScene(ch); } // 素手/武器不明/alien＝先見（次階の気配）
       else {
         echoBoon = cls;
         log(cls === "sword" ? "先代の受けの冴えを継いだ――次の受けは、一撃を完全に殺す。"
