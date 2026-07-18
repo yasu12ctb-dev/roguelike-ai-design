@@ -1,6 +1,8 @@
 # RFC：最期の残響（Last Echo）
 
-**status: P1 全4種 実装済み（P1-A 静穏・遺言＝v0.159.0／P1-B 守り手・呪詛＝v0.160.0）。方向性承認＝2026-07-18。次＝P2（相棒/縁者の残響・tonePole 修飾・山場連結＝別承認）。**
+**status: P1 全4種 実装済み（P1-A 静穏・遺言＝v0.159.0／P1-B 守り手・呪詛＝v0.160.0）。P2-A 相棒/縁者の残響 実装済み（v0.161.0・2026-07-18 承認）。方向性承認＝2026-07-18。次＝P2-B〜E（tonePole 機械修飾・alien 形状変化・山場連結・呪詛の霧拡大＝各別承認）。**
+
+**P2-A（v0.161.0・2026-07-18 承認・web 限定＝main.ts のみ・engine 非改変・golden 8/8 完全不変・SAVE_VERSION 据置・migrate 不要）＝残響の対象を「自血統のみ」から「自血統＋死んだ相棒（wasCompanion）＋縁を結んだ生者NPC（wasAlly）」へ拡張。** 核＝選定ゲートを新述語 `isEchoFossil(f)=f.kind==="character"`（シード explorer は自然に除外・`isOwnLineFossil` は系譜/継承の別軸ゆえ不変）へ。選定は関数 `pickFloorEcho()` に抽出（enterFloor と E2E が同一実コードを通る）。`computeEcho` は純関数のまま（相棒/縁者化石も全経路で `finalAct.choice` を持つ＝相棒→accept／見捨て→curse_dungeon／縁者→tone依存で guard/curse/will）＝改修不要。**情緒**＝残響の主が相棒/縁者だと分かる認識句（`echoBondTag`/`echoBondNote`）を peek＋守り手の遺品取得＋呪詛の影撃破/浄化に前置（対面時 fossilScene の認識は既存）＝「共に歩いた相棒／見捨てた相棒（宿敵として還る）／縁を結んだ者」。dupe 防止（inherit 記録・遺品復元不能で不採択）は相棒/縁者にも一様に効く。1フロア1残響の枠は自血統と共有（最新世代優先）。検証＝`echo-check` 12/12＋`e2e-echo.mjs` 23/23（P2-A 6項目＝相棒/縁者/見捨てた相棒の採択・シード除外・認識句・例外0）。数値/情緒句はテスト調整候補。**★シード化石は P2-A の対象外（承認範囲は相棒/縁者）＝要れば別の micro-拡張。**
 承認された推奨＝P1 は4種全部／遺言の一行入力あり（スキップ可・空なら定型文＝死亡フローに既存）／対象は自血統限定／数値は全てテスト調整候補。
 `design-snapshot.md`（正典）への反映は実装 PR と同時＝P1-A 分は 4-11(A) に additive 反映済み（残響の器＋静穏/遺言）。P1-B マージ時に guard/curse を追記する。
 分割方針（ユーザー承認 2026-07-18）＝**P1-A**＝computeEcho 核＋オーラ/peek 表示＋静穏(accept)＋遺言(leave_will)〔受動・低リスク・新敵なし〕／**P1-B**＝守り手(guard_relic＝眠り番人)＋呪詛(curse_dungeon＝蝕の霧＋怨念の影)〔新敵/ハザード・高リスク〕。
@@ -101,7 +103,8 @@ computeEcho(fossil, worldTime) -> Echo | null
 ## 7. 段階案
 
 - **P1（最小）**：4種の骨格・tonePole は文言差のみ・変質は恩恵半減まで。
-- **P2（拡張・別承認）**：相棒/縁者の残響（wasCompanion＝情緒最大）・tonePole の機械的修飾・alien 変質の形状変化・山場（grudge_hunt/legend_return）との連結・deathManner の副次修飾。
+- **P2-A（実装済み・v0.161.0）**：相棒/縁者の残響（wasCompanion/wasAlly＝情緒最大）。選定ゲート拡張＋認識句のみ・golden 不変。
+- **P2-B〜E（未着手・各別承認）**：tonePole の機械的修飾・alien 変質の形状変化・山場（grudge_hunt/legend_return）との連結・deathManner の副次修飾・「呪詛の放置で霧が広がる」。
 
 ## 8. 未決事項（承認時に決めたい）
 
