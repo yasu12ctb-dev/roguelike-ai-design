@@ -62,7 +62,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.161.0";
+export const APP_VERSION = "0.162.0";
 export const APP_BUILD = "2026-07-18";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -426,11 +426,25 @@ const echoBondNote = (f: Fossil): string =>
 /** 最期の残響・静穏（RFC・P1・テスト調整候補）：静かなマスの半径（Chebyshev）と鎮魂の一度きり深蝕減。 */
 const ECHO_CALM_RADIUS = 2;
 const ECHO_CALM_REQUIEM = 0.3; // 静穏の残響を鎮魂した時の一度きり深蝕減（guardian_boon と同型・冪等）
-/** player が静穏の残響の「静かなマス」内にいるか。聖遺物携行中は無効＝クリア動線（帰還の試練）の緊張は不可侵。 */
+// ── 最期の残響・P2-B：tonePole の機械的修飾（loss=基準／myth=プレイヤー恵み／grudge=険しく報われる・全て web 限定・テスト調整候補）──
+const ECHO_GRUDGE_WARD_MUL = 1.15;    // grudge：番人/怨念の影の hp/dmg ×（執念＝険しい）
+const ECHO_GRUDGE_SHADE_BONUS = 2;    // grudge：怨念の影撃破の gold 係数 +（×6→×8＝険しいが報われる）
+const ECHO_MYTH_REQUIEM_MUL = 1.5;    // myth：静穏の残響を鎮魂した時の深蝕減 ×（神話＝より深く祓う）
+const ECHO_MYTH_PURIFY_RELIEF = 0.15; // myth：呪詛の残響を浄化した時のプレイヤー深蝕減（神話＝恵み）
+const ECHO_GRUDGE_WILL_COST = 0.05;   // grudge：遺言を読むだけで滲む深蝕（濁っていなくても＝怨念の澱）
+const ECHO_GRUDGE_MUD_COST = 0.15;    // grudge：濁った遺言の深蝕（loss の 0.1 より重い）
+/** P2-B：現在フロアの残響の主の極（tonePole）。無ければ null。 */
+function echoFossilTone(): Fossil["tonePole"] | null {
+  const e = floor?.echo; if (!e) return null;
+  return world.fossils.find((f) => f.id === e.fossilId)?.tonePole ?? null;
+}
+/** player が静穏の残響の「静かなマス」内にいるか。聖遺物携行中は無効＝クリア動線（帰還の試練）の緊張は不可侵。
+ *  P2-B：怨念（grudge）の静穏は張り詰めて狭い（半径 −1）＝易化させず情緒差だけ足す。 */
 function inCalmZone(): boolean {
   const e = floor?.echo;
   if (!e || e.kind !== "calm" || !world.current || world.current.carryingRelic) return false;
-  return Math.max(Math.abs(player.x - e.x), Math.abs(player.y - e.y)) <= ECHO_CALM_RADIUS;
+  const r = ECHO_CALM_RADIUS - (echoFossilTone() === "grudge" ? 1 : 0);
+  return Math.max(Math.abs(player.x - e.x), Math.abs(player.y - e.y)) <= r;
 }
 // ── 最期の残響・守り手/呪詛（RFC・P1-B）：盤面の器（数値はテスト調整候補） ──
 const ECHO_MIASMA_R = 1;        // 呪詛：蝕の霧の半径（Chebyshev）
@@ -477,7 +491,8 @@ function setupEchoBoard(echo: NonNullable<Floor["echo"]>, fossil: Fossil, depth:
     const t = echoFreeTilesNear(floor, echo.x, echo.y, 1, avoid);
     if (t.length) {
       const base = MONSTER_KINDS.find((k) => k.key === "wraith") ?? MONSTER_KINDS[0];
-      const kind = { ...base, name: "怨念の影", glyph: "影", hp: 8 + Math.round(depth * 1.0), dmg: 2 + Math.round(depth * 0.18), tier: 4, erratic: 0.2, ability: undefined };
+      const smul = fossil.tonePole === "grudge" ? ECHO_GRUDGE_WARD_MUL : 1; // P2-B：怨念の影は一段強い
+      const kind = { ...base, name: "怨念の影", glyph: "影", hp: Math.round((8 + depth * 1.0) * smul), dmg: 2 + Math.round(depth * 0.18), tier: 4, erratic: 0.2, ability: undefined };
       const id = `shade_${fossil.id}`;
       floor.monsters.push({ id, kind, hp: kind.hp, x: t[0].x, y: t[0].y, awake: true, intent: null });
       echo.shadeId = id;
@@ -489,7 +504,8 @@ function echoShadeReward(): void {
   const echo = floor?.echo; if (!echo || echo.kind !== "curse") return;
   const fossil = world.fossils.find((f) => f.id === echo.fossilId);
   const lv = fossil?.level ?? fossil?.laidDepth ?? floor!.depth;
-  const gold = lv * ECHO_SHADE_REWARD;
+  const rewardMul = fossil?.tonePole === "grudge" ? ECHO_SHADE_REWARD + ECHO_GRUDGE_SHADE_BONUS : ECHO_SHADE_REWARD; // P2-B：怨念は険しいが報われる
+  const gold = lv * rewardMul;
   const who = fossil?.wasCompanion ? "見捨てたあの相棒の怨念を" : fossil?.wasAlly ? "縁を結んだ者の怨念を" : "怨念の影を"; // P2-A：相棒/縁者なら認識
   if (world.current) { world.current.gold += gold; sfx("coin"); log(`${who}討ち祓った――先代の遺した ${gold} 金貨が、澱から零れ落ちた。`, "cue"); updateStatus(); }
   echo.shadeId = undefined;
@@ -502,6 +518,10 @@ function echoPurifyCurse(): void {
   ec.purified = true;
   const cf = world.fossils.find((f) => f.id === ec.fossilId);
   log((cf?.wasCompanion ? "見捨てた相棒の怨念が、ようやく鎮まる――" : cf?.wasAlly ? "縁を結んだ者の怨念が鎮まる――" : "鎮魂が澱みを祓う――") + "蝕の霧が晴れ、怨念の影は還っていった。", "cue");
+  if (cf?.tonePole === "myth" && world.current) { // P2-B：神話の呪詛を浄化＝プレイヤーへ恵み（深蝕減）
+    const b = world.current.exposure; world.current.exposure = Math.max(0, b - ECHO_MYTH_PURIFY_RELIEF);
+    if (world.current.exposure < b) log(`神話の澱が晴れ、削られた芯が人へ還る（深蝕 -${(b - world.current.exposure).toFixed(2)}）。`, "cue");
+  }
 }
 /** 最期の残響（RFC・P1/P2-A）：配置済みの character 化石（自血統＋死んだ相棒〔wasCompanion〕＋縁を結んだ生者NPC〔wasAlly〕）の
  *  うち最新世代の1体に残響を生やす。★1フロア最大1残響（過密ゼロ）。computeEcho は純関数（保存しない）＝engine 非改変で golden 安全
@@ -796,11 +816,14 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   giveArmor: (baseName: string, reduceOverride?: number) => { const it = forgeItem(baseName, null, 0) ?? itemByName(baseName); if (it && world.current) { if (reduceOverride !== undefined) it.reduce = reduceOverride; world.current.equipment.armor = it; updateStatus(); } return world.current?.equipment.armor?.reduce ?? null; },
   spawnDmg: (dx: number, dy: number, key: string, dmgv: number, hpv?: number) => { if (!floor) return; const kind = MONSTER_KINDS.find((k) => k.key === key); if (!kind) return; floor.monsters.push({ id: `qd_${floor.monsters.length}`, kind: { ...kind, dmg: dmgv }, hp: hpv ?? kind.hp, x: player.x + dx, y: player.y + dy, awake: true, intent: null }); planMonsters(floor, player, rng, companion); },
   getExposure: () => world.current?.exposure ?? 0,
+  setExposure: (v: number) => { if (world.current) world.current.exposure = v; }, // P2-B E2E
+  shadeHp: () => { const e = floor?.echo; return e?.shadeId ? (floor?.monsters.find((m) => m.id === e.shadeId)?.hp ?? null) : null; }, // P2-B E2E：怨念の影の hp
+  wardHp: () => { const e = floor?.echo; return e ? (floor?.monsters.find((m) => m.id === `ward_${e.fossilId}`)?.hp ?? null) : null; }, // P2-B E2E：番人の hp
   // ── 最期の残響（RFC・P1）E2E フック：自血統化石＋floor.echo を仕込み、表示/静穏/遺言の型を検証する。
   spawnEcho: (kind: EchoKind, tone: string, dx: number, dy: number, opts?: { note?: string; exp?: number; gear?: string; name?: string }) => {
     if (!floor || !world.current) return null;
     const choice = ({ calm: "accept", will: "leave_will", guard: "guard_relic", curse: "curse_dungeon" } as const)[kind];
-    const id = `echofossil_${floor.fossils.length}`;
+    const id = `echofossil_${world.fossils.length}`; // world.fossils はクリアしない＝グローバル一意（clearEchoFossils 後の id 衝突を防ぐ）
     const fossil = { id, kind: "character", origin: { name: opts?.name ?? "先代", archetype: "wanderer", gearTags: opts?.gear ? [opts.gear] : [], epithet: "" }, death: { manner: "grievous", finalAct: { choice, note: opts?.note }, depth: floor.depth, generationCreated: world.generation }, exposureAtDeath: opts?.exp ?? 0, bondAtDeath: 0, tonePole: tone as Fossil["tonePole"], interventions: [], lastTouchedGeneration: 0, laidDepth: floor.depth } as Fossil;
     world.fossils.push(fossil);
     const x = player.x + dx, y = player.y + dy;
@@ -7245,7 +7268,8 @@ async function echoGuardTake(): Promise<void> {
   if (!requiemed && echo.ward && !echo.ward.awake) {
     const depth = floor.depth;
     const base = MONSTER_KINDS.find((k) => k.key === "brute") ?? MONSTER_KINDS[0];
-    const kind = { ...base, name: "遺品の番人", glyph: "番", hp: 14 + Math.round(depth * 1.4), dmg: 3 + Math.round(depth * 0.18), tier: 4, erratic: 0.05, ability: undefined };
+    const wmul = fossil.tonePole === "grudge" ? ECHO_GRUDGE_WARD_MUL : 1; // P2-B：怨念の番人は一段強い（易化させない方向のみ）
+    const kind = { ...base, name: "遺品の番人", glyph: "番", hp: Math.round((14 + depth * 1.4) * wmul), dmg: Math.round((3 + depth * 0.18) * wmul), tier: 4, erratic: 0.05, ability: undefined };
     floor.monsters.push({ id: `ward_${fossil.id}`, kind, hp: kind.hp, x: echo.ward.x, y: echo.ward.y, awake: true, intent: null });
     echo.ward.awake = true;
     planMonsters(floor, player, rng, companion);
@@ -7452,7 +7476,13 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
           : cls === "spear" ? "先代の突きの間合いを継いだ――次の突きは、懐でも威力が鈍らない。"
           : "先代の薙ぎの重みを継いだ――次の会心の薙ぎは、敵の体勢をより長く崩す。", "cue");
       }
-      if (echo?.mud) { addExp(0.1); log("遺言は濁っていた――受け取った腕前に、わずかな深蝕が滲む（深蝕 +0.10）。", "warn"); }
+      // P2-B：極による代償。loss=基準（濁りのみ +0.1）／grudge=より澱む（濁り +0.15／澄んでいても +0.05）／myth=神話の遺志は澄む（濁っていても代償なし）。
+      {
+        const tone = fossil.tonePole;
+        const cost = tone === "myth" ? 0 : echo?.mud ? (tone === "grudge" ? ECHO_GRUDGE_MUD_COST : 0.1) : (tone === "grudge" ? ECHO_GRUDGE_WILL_COST : 0);
+        if (cost > 0) { addExp(cost); log(`遺志を受け取った腕前に、深蝕が滲む（深蝕 +${cost.toFixed(2)}）。`, "warn"); }
+        else if (echo?.mud && tone === "myth") log("遺言は濁っていた――が、神話の遺志は澄んだまま、代償を残さなかった。", "cue");
+      }
       save();
       break;
     }
@@ -7466,7 +7496,8 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       // 最期の残響・静穏（RFC・P1）：静穏の残響を鎮魂すると一度きりの深蝕減（guardian_boon と同型・冪等）。
       if (echo?.kind === "calm" && !(world.flags ?? []).includes(`echo_calm_${fossil.id}`)) {
         (world.flags ??= []).push(`echo_calm_${fossil.id}`);
-        const b2 = ch.exposure; ch.exposure = Math.max(0, ch.exposure - ECHO_CALM_REQUIEM);
+        const relief = ECHO_CALM_REQUIEM * (fossil.tonePole === "myth" ? ECHO_MYTH_REQUIEM_MUL : 1); // P2-B：神話の静穏はより深く祓う
+        const b2 = ch.exposure; ch.exposure = Math.max(0, ch.exposure - relief);
         if (ch.exposure < b2) log(`静穏の残響が、深みの澱みをさらに祓う（深蝕 -${(b2 - ch.exposure).toFixed(2)}）。`, "cue");
       }
       // 最期の残響・呪詛（RFC・P1-B）：呪詛の残響を鎮魂すると浄化＝蝕の霧が晴れ、怨念の影が還る。

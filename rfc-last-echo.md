@@ -1,6 +1,8 @@
 # RFC：最期の残響（Last Echo）
 
-**status: P1 全4種 実装済み（P1-A 静穏・遺言＝v0.159.0／P1-B 守り手・呪詛＝v0.160.0）。P2-A 相棒/縁者の残響 実装済み（v0.161.0・2026-07-18 承認）。方向性承認＝2026-07-18。次＝P2-B〜E（tonePole 機械修飾・alien 形状変化・山場連結・呪詛の霧拡大＝各別承認）。**
+**status: P1 全4種 実装済み（P1-A 静穏・遺言＝v0.159.0／P1-B 守り手・呪詛＝v0.160.0）。P2-A 相棒/縁者の残響 実装済み（v0.161.0）。P2-B tonePole 機械修飾 実装済み（v0.162.0・2026-07-18 承認）。方向性承認＝2026-07-18。次＝P2-C〜E（alien 形状変化・山場連結・呪詛の霧拡大＝各別承認）。**
+
+**P2-B（v0.162.0・2026-07-18 承認・web 限定＝main.ts のみ・engine 非改変・golden 8/8 完全不変・SAVE_VERSION 据置）＝これまでフレーバー（オーラ色＋peek）だけだった tonePole（loss/myth/grudge）を初めて盤面ルールに。** 原則＝**loss=基準（無修飾）／myth=プレイヤー側の恵み（敵を弱めない＝パワークリープ回避）／grudge=より険しく、より報われる（易化させず敵を強くする方向のみ・報酬も増やして収支中立〜損）**。マッピング（全て web 定数・テスト調整候補）＝**静穏**：grudge 半径 −1（`ECHO_CALM_RADIUS-1`・張り詰めた安らぎ）／myth 鎮魂の深蝕減 ×`ECHO_MYTH_REQUIEM_MUL(1.5)`。**遺言**：grudge 読むだけで深蝕 +`ECHO_GRUDGE_WILL_COST(0.05)`（濁りは +`ECHO_GRUDGE_MUD_COST(0.15)`）／myth は濁っていても代償なし（神話の遺志は澄む）／loss 基準（濁りのみ +0.1）。**守り手**：grudge 番人 hp/dmg ×`ECHO_GRUDGE_WARD_MUL(1.15)`。**呪詛**：grudge 怨念の影 hp ×1.15＋撃破 gold 係数 +`ECHO_GRUDGE_SHADE_BONUS(2)`（×6→×8）／myth 浄化時にプレイヤー深蝕 −`ECHO_MYTH_PURIFY_RELIEF(0.15)`。各効果は効果時に `fossil.tonePole` を読むだけ（cross-floor 状態を増やさない）。検証＝`e2e-echo.mjs` 28/28（P2-B 5項目＝静穏半径/影 hp/影報酬/浄化恵み/番人 hp を tone 別に実測）＋golden 8/8 完全不変。数値は全てテスト調整候補。
 
 **P2-A（v0.161.0・2026-07-18 承認・web 限定＝main.ts のみ・engine 非改変・golden 8/8 完全不変・SAVE_VERSION 据置・migrate 不要）＝残響の対象を「自血統のみ」から「自血統＋死んだ相棒（wasCompanion）＋縁を結んだ生者NPC（wasAlly）」へ拡張。** 核＝選定ゲートを新述語 `isEchoFossil(f)=f.kind==="character"`（シード explorer は自然に除外・`isOwnLineFossil` は系譜/継承の別軸ゆえ不変）へ。選定は関数 `pickFloorEcho()` に抽出（enterFloor と E2E が同一実コードを通る）。`computeEcho` は純関数のまま（相棒/縁者化石も全経路で `finalAct.choice` を持つ＝相棒→accept／見捨て→curse_dungeon／縁者→tone依存で guard/curse/will）＝改修不要。**情緒**＝残響の主が相棒/縁者だと分かる認識句（`echoBondTag`/`echoBondNote`）を peek＋守り手の遺品取得＋呪詛の影撃破/浄化に前置（対面時 fossilScene の認識は既存）＝「共に歩いた相棒／見捨てた相棒（宿敵として還る）／縁を結んだ者」。dupe 防止（inherit 記録・遺品復元不能で不採択）は相棒/縁者にも一様に効く。1フロア1残響の枠は自血統と共有（最新世代優先）。検証＝`echo-check` 12/12＋`e2e-echo.mjs` 23/23（P2-A 6項目＝相棒/縁者/見捨てた相棒の採択・シード除外・認識句・例外0）。数値/情緒句はテスト調整候補。**★シード化石は P2-A の対象外（承認範囲は相棒/縁者）＝要れば別の micro-拡張。**
 承認された推奨＝P1 は4種全部／遺言の一行入力あり（スキップ可・空なら定型文＝死亡フローに既存）／対象は自血統限定／数値は全てテスト調整候補。
@@ -104,7 +106,8 @@ computeEcho(fossil, worldTime) -> Echo | null
 
 - **P1（最小）**：4種の骨格・tonePole は文言差のみ・変質は恩恵半減まで。
 - **P2-A（実装済み・v0.161.0）**：相棒/縁者の残響（wasCompanion/wasAlly＝情緒最大）。選定ゲート拡張＋認識句のみ・golden 不変。
-- **P2-B〜E（未着手・各別承認）**：tonePole の機械的修飾・alien 変質の形状変化・山場（grudge_hunt/legend_return）との連結・deathManner の副次修飾・「呪詛の放置で霧が広がる」。
+- **P2-B（実装済み・v0.162.0）**：tonePole の機械的修飾（loss=基準／myth=恵み／grudge=険しく報われる）。golden 不変。
+- **P2-C〜E（未着手・各別承認）**：alien 変質の形状変化・山場（grudge_hunt/legend_return）との連結・deathManner の副次修飾・「呪詛の放置で霧が広がる」。
 
 ## 8. 未決事項（承認時に決めたい）
 
