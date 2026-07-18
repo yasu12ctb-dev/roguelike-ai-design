@@ -73,7 +73,7 @@ async function reachTownThenDive() {
 const inDive = await reachTownThenDive();
 ok("潜行(dive)へ到達", inDive);
 
-const SCENARIOS = ["corridor", "room3", "mixed"];
+const SCENARIOS = ["corridor", "room3", "sweepbar", "mixed"];
 const WEAPONS = ["sword", "spear", "naginata"];
 
 for (const scenario of SCENARIOS) {
@@ -94,6 +94,55 @@ for (const scenario of SCENARIOS) {
     ok(`trial(${scenario}, ${weapon}) 起動＋数手が例外なく進行`, r.started === true && newErrors.length === 0, JSON.stringify(r) + (newErrors.length ? " ERRORS: " + newErrors.join(" | ") : ""));
   }
 }
+
+// ── PR-3 拡張の検証 ──
+
+// ①武器正規化：3クラスとも装備武器の dmg が等しく（TRIAL_DMG）、reach/sweep がクラス相応か。
+const norm = await page.evaluate(async () => {
+  const t = (window).__hazTest; t.setHp(200);
+  const info = {};
+  for (const w of ["sword", "spear", "naginata"]) { t.trial("room3", w); info[w] = t.weaponInfo(); }
+  return info;
+});
+const dmgs = ["sword", "spear", "naginata"].map((w) => norm[w]?.dmg);
+ok("①武器正規化：3クラスの攻撃値(dmg)が等しい", dmgs.every((d) => d === dmgs[0] && d > 0), JSON.stringify(norm));
+ok("①クラス機構が保たれる（剣=近接／槍=reach2／薙刀=sweep）", norm.sword?.reach === 1 && !norm.sword?.sweep && norm.spear?.reach === 2 && norm.naginata?.sweep === true, JSON.stringify({ sword: norm.sword, spear: norm.spear, naginata: norm.naginata }));
+
+// ②薙刀の距離2バー：sweepbar＋薙刀で東へ薙ぐと距離2の横3マス（3体）に届く＝敵HP総量が減る。
+const sweep = await page.evaluate(async () => {
+  const t = (window).__hazTest; t.setHp(200);
+  t.trial("sweepbar", "naginata");
+  const before = t.state().mons; // 生存3体
+  const ehp0 = t.state().monList.reduce((s, m) => s + m.hp, 0);
+  await t.trialTurn(1, 0); // 東へ薙ぐ（距離2バー発火）
+  const ehp1 = t.state().monList.reduce((s, m) => s + m.hp, 0);
+  return { before, ehp0, ehp1, hit: ehp1 < ehp0 };
+});
+ok("②薙刀の距離2バーが3体に届く（敵HP総量が減る）", sweep.before === 3 && sweep.hit === true, JSON.stringify(sweep));
+
+// ③gearBag＋一手交換：控えに他クラス2種、trialSwapWeapon で持ち替え＝一手消費（swaps 加算・武器が入替）。
+const swap = await page.evaluate(async () => {
+  const t = (window).__hazTest; t.setHp(200);
+  t.trial("room3", "spear");
+  const bag0 = t.bagWeapons().length;
+  const before = t.weaponInfo();
+  const swapped = await t.trialSwapWeapon("naginata");
+  const after = t.weaponInfo();
+  const st = t.trialStats();
+  return { bag0, before: before?.name, swapped, afterSweep: after?.sweep, swaps: st?.swaps, turns: st?.turns };
+});
+ok("③控えに他クラス2種が入っている", swap.bag0 === 2, JSON.stringify(swap));
+ok("③一手交換で薙刀へ持ち替わる＋交換回数を記録", swap.afterSweep === true && swap.swaps === 1, JSON.stringify(swap));
+
+// ④stats記録：room3(全隣接)で薙刀＝距離1は死角ゆえ東へ薙いでも当たらず「攻撃不能手番」が積まれる／被ダメも積む。
+const stats = await page.evaluate(async () => {
+  const t = (window).__hazTest; t.setHp(200);
+  t.trial("room3", "naginata"); // 3体全隣接＝薙刀の死角
+  for (let i = 0; i < 4; i++) await t.trialTurn(1, 0); // 東へ薙ごうとする（隣接ゆえ届かない）
+  return t.trialStats();
+});
+ok("④攻撃不能手番を記録（薙刀×全隣接＝死角で当たらない手番がある）", (stats?.noHitTurns ?? 0) >= 1, JSON.stringify(stats));
+ok("④被ダメ・手番数を記録している", (stats?.turns ?? 0) === 4 && (stats?.dmgTaken ?? 0) >= 0, JSON.stringify(stats));
 
 // コンソールから起動できることの直接確認（page.evaluate 経由だが、ユーザーが実際に打つコマンド文字列をそのまま実行する）。
 const consoleStart = await page.evaluate(() => {
