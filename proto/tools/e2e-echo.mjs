@@ -155,6 +155,64 @@ const isolation = await page.evaluate(async () => {
 });
 ok("⑥剣 boon は槍攻撃では消費されない（型が混ざらない）", isolation.boonAfter === "sword", JSON.stringify(isolation));
 
+// ── P1-B（守り手/呪詛）──
+async function openArea() { await page.evaluate(() => { const t = (window).__hazTest; t.clearMons(); t.clearHaz(); for (let dx = -4; dx <= 4; dx++) for (let dy = -4; dy <= 4; dy++) t.setTile(dx, dy, 1); }); }
+async function clickOption(re) {
+  const btns = await page.evaluate(() => [...document.querySelectorAll("#sheetButtons button")].map((b) => (b.textContent || "").trim()));
+  const idx = btns.findIndex((t) => re.test(t));
+  await page.locator("#sheetButtons button").nth(idx >= 0 ? idx : 0).click().catch(() => {});
+  await page.waitForTimeout(150);
+}
+async function drainSheets(max = 8) { for (let i = 0; i < max; i++) { const shown = await page.evaluate(() => !!document.querySelector("#overlay")?.classList.contains("show")); if (!shown) break; await page.locator("#sheetButtons button").first().click().catch(() => {}); await page.waitForTimeout(120); } }
+
+// ⑦ 守り手：未鎮魂で奪取→番人が覚醒（floor.monsters へ注入）。
+await openArea();
+const gAwakeB0 = await page.evaluate(() => { const t = (window).__hazTest; t.setHp(200); t.setDifficulty("normal"); const id = t.spawnEcho("guard", "myth", 2, 0, { gear: "長剣" }); return { id, board: t.echoBoard() }; });
+await page.evaluate(() => (window).__hazTest.triggerGuardTake());
+await page.waitForTimeout(170);
+await clickOption(/奪う/);
+await drainSheets();
+const gAwakeB1 = await page.evaluate(() => (window).__hazTest.echoBoard());
+ok("⑦守り手：遺品＋眠り番人が配置される", gAwakeB0.id && gAwakeB0.board?.loot && gAwakeB0.board?.ward && gAwakeB0.board?.ward.awake === false, JSON.stringify(gAwakeB0));
+ok("⑦守り手：未鎮魂で奪取→番人が覚醒（floor.monsters に注入）", gAwakeB1?.loot?.taken === true && gAwakeB1?.ward?.awake === true && gAwakeB1?.wardInMons === true, JSON.stringify(gAwakeB1));
+
+// ⑧ 守り手：鎮魂済みなら静かに受け取り、番人は崩れる（floor.monsters に入らない）。
+await openArea();
+const gCalmId = await page.evaluate(() => { const t = (window).__hazTest; t.setHp(200); const id = t.spawnEcho("guard", "myth", 2, 0, { gear: "長剣" }); t.requiemFossil(id); return id; });
+await page.evaluate(() => (window).__hazTest.triggerGuardTake());
+await page.waitForTimeout(170);
+await clickOption(/静かに受け取る/);
+await drainSheets();
+const gCalmB = await page.evaluate(() => (window).__hazTest.echoBoard());
+ok("⑧守り手：鎮魂済みなら番人は覚醒せず崩れる", gCalmB?.loot?.taken === true && gCalmB?.ward === null && gCalmB?.wardInMons === false, JSON.stringify(gCalmB));
+
+// ⑨ 呪詛：蝕の霧＋怨念の影が配置され、影を討てば先代Lv比例 gold。
+await openArea();
+const curse = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  const id = t.spawnEcho("curse", "grudge", 3, 0, {});
+  const b0 = t.echoBoard();
+  const g0 = t.getGold();
+  const killed = t.killShade();
+  const g1 = t.getGold();
+  const b1 = t.echoBoard();
+  return { id, b0, g0, killed, g1, b1 };
+});
+ok("⑨呪詛：蝕の霧＋怨念の影が配置される", curse.b0?.miasma > 0 && !!curse.b0?.shadeId, JSON.stringify({ miasma: curse.b0?.miasma, shade: curse.b0?.shadeId }));
+ok("⑨呪詛：影を討てば gold を得る＋影が消える", curse.killed === true && curse.g1 > curse.g0 && curse.b1?.shadeId === null, JSON.stringify({ g0: curse.g0, g1: curse.g1, shade: curse.b1?.shadeId }));
+
+// ⑩ 呪詛：鎮魂で浄化＝蝕の霧が晴れ、怨念の影が還る。
+await openArea();
+const purify = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.spawnEcho("curse", "grudge", 3, 0, {});
+  const b0 = t.echoBoard();
+  t.purifyCurse();
+  const b1 = t.echoBoard();
+  return { b0, b1 };
+});
+ok("⑩呪詛：鎮魂で霧が晴れ影が還る（浄化）", purify.b0?.miasma > 0 && purify.b1?.miasma === 0 && purify.b1?.shadeId === null && purify.b1?.purified === true, JSON.stringify(purify));
+
 ok("例外・console.error ゼロ（全体）", errors.length === 0, errors.slice(0, 8).join(" | "));
 
 await browser.close();
