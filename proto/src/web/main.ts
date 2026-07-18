@@ -61,7 +61,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.156.0";
+export const APP_VERSION = "0.157.0";
 export const APP_BUILD = "2026-07-18";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -598,6 +598,12 @@ let townPlayer: Pos = { ...townGrid.data.start };
 try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.dbg") === "1") (window as any).__dbg = () => ({ mode, townPlayer: { ...townPlayer }, ascended: world.ascended, nobleOpen: nobleQuarterOpen(), tile: townGrid.tiles[townPlayer.y]?.[townPlayer.x], ngate: townGrid.data.nobleGate, grid: townGrid.tiles, W: townGrid.data.width ?? townGrid.tiles[0].length, H: townGrid.tiles.length }); } catch {}
 // 地形ハザード QA フック（v0.128.0・"sekitsui.dbg"="1" のときだけ定義＝本番無害）。tools の実ブラウザ E2E 専用。
 // 盤面状態の読み取り＋（player 相対で）ハザード/弱い敵の設置・counterTurns 設定＝押し出し叩き込み（本命）を決定論的に検証する。
+// 試技ハーネス（PR-3 拡張）の計測状態と武器正規化ヘルパ（dbg のみ使用・本番は未参照＝副作用ゼロ）。
+type TrialStats = { turns: number; dmgTaken: number; kills: number; noHitTurns: number; swaps: number };
+let trialStats: TrialStats | null = null;
+const TRIAL_WEAPON: Record<string, string> = { sword: "戦鎚", spear: "刺突槍", naginata: "大薙刀" }; // 各クラスの代表基（reach/sweep は基テンプレ由来）
+const TRIAL_DMG = 3; // ①武器正規化：攻撃値を揃え「間合い・機構」だけを比較する（旧＝刺突槍d8/戦鎚d11/大薙刀d17 と深度・攻撃値が不揃いだった是正）
+function trialForge(cls: string): Item | null { const b = TRIAL_WEAPON[cls]; if (!b) return null; const it = forgeItem(b, null, 0) ?? itemByName(b); if (it) it.dmg = TRIAL_DMG; return it; }
 try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.dbg") === "1") (window as any).__hazTest = {
   state: () => {
     const run = (dx: number, dy: number) => { let n = 0; for (let k = 1; k <= 6 && floor; k++) { const x = player.x + dx * k, y = player.y + dy * k; if (tileAt(floor, x, y) !== 1 || floor.monsters.some((m) => m.hp > 0 && m.x === x && m.y === y)) break; n++; } return n; };
@@ -660,9 +666,10 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   //   環境準備（装備・盤面）は既存 spawnKind/giveArmor 等と同種の範囲＝以後の入力は通常のゲーム操作（bump/step等）に委ねる。
   trial: (scenario: string, weapon: string) => {
     if (!floor || !world.current) return false;
-    const wname = weapon === "spear" ? "刺突槍" : weapon === "naginata" ? "大薙刀" : "戦鎚";
-    const wit = forgeItem(wname, null, 0) ?? itemByName(wname);
+    const wit = trialForge(weapon); // ①武器正規化（攻撃値を TRIAL_DMG に揃える・reach/sweep は基テンプレ由来）
     if (wit) world.current.equipment.weapon = wit; else return false;
+    // ③gearBag＝他クラス2種を控えに（正規化済み）＝戦闘中の「一手交換」を trialSwapWeapon で比較できる。
+    world.current.gearBag = (["sword", "spear", "naginata"].filter((c) => c !== weapon).map((c) => trialForge(c)).filter(Boolean) as Item[]);
     floor.monsters = [];
     const open: [number, number][] = [];
     const walls: [number, number][] = [];
@@ -670,9 +677,12 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
     if (scenario === "corridor") { // 幅1通路＋縦列2体（東へ伸びる廊下・南北を明示的に壁で塞いで幅1を保証）
       for (let k = 0; k <= 4; k++) { open.push([k, 0]); if (k >= 1) { walls.push([k, -1]); walls.push([k, 1]); } }
       spawn.push([1, 0, "rat"], [2, 0, "rat"]);
-    } else if (scenario === "room3") { // 広間＋3体クラスタ（@の近くに固めて配置）
+    } else if (scenario === "room3") { // 広間＋3体クラスタ（@の近くに固めて配置＝全隣接）
       for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) open.push([dx, dy]);
       spawn.push([1, 0, "rat"], [0, 1, "rat"], [1, 1, "rat"]);
+    } else if (scenario === "sweepbar") { // ②薙刀の距離2バー検証：東の距離2に横3マス、隣接（距離1）は空ける＝死角/カイトを試せる配置
+      for (let dx = -1; dx <= 3; dx++) for (let dy = -2; dy <= 2; dy++) open.push([dx, dy]);
+      spawn.push([2, -1, "rat"], [2, 0, "rat"], [2, 1, "rat"]); // 東へ薙ぐと横3マスバーがちょうど3体を覆う
     } else if (scenario === "mixed") { // 通常+遠隔+突進の混成広間
       for (let dx = -3; dx <= 3; dx++) for (let dy = -3; dy <= 3; dy++) open.push([dx, dy]);
       spawn.push([1, 0, "rat"], [0, -3, "spitter"], [3, 0, "charger"]);
@@ -681,9 +691,44 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
     for (const [dx, dy] of walls) { const x = player.x + dx, y = player.y + dy; if (inBounds(floor, x, y)) { floor.tiles[mapIdx(floor, x, y)] = 0; floor.explored[mapIdx(floor, x, y)] = true; } }
     for (const [dx, dy, key] of spawn) { const kind = MONSTER_KINDS.find((k) => k.key === key); if (kind) floor.monsters.push({ id: `trial_${floor.monsters.length}`, kind, hp: kind.hp, x: player.x + dx, y: player.y + dy, awake: true, intent: null }); }
     planMonsters(floor, player, rng, companion);
+    trialStats = { turns: 0, dmgTaken: 0, kills: 0, noHitTurns: 0, swaps: 0 }; // ④計測リセット
     updateStatus(); draw();
     return true;
   },
+  // ①検証：装備武器と控えの正規化を読み取る（dmg が全クラスで等しく・reach/sweep がクラス相応か）。
+  weaponInfo: () => { const w = world.current?.equipment.weapon; return w ? { name: w.name, dmg: w.dmg ?? 0, reach: w.reach ?? 1, sweep: !!w.sweep } : null; },
+  bagWeapons: () => (world.current?.gearBag ?? []).filter((it) => it.slot === "weapon").map((it) => ({ name: it.name, dmg: it.dmg ?? 0, reach: it.reach ?? 1, sweep: !!it.sweep })),
+  // ④一手を進めて計測（bump と同じく playerAct を通す＝本体の戦闘ロジックそのまま）。被ダメ・撃破・攻撃不能手番を積む。
+  trialTurn: async (dx: number, dy: number) => {
+    if (!floor || !world.current || !trialStats) return null;
+    const hp0 = hp, alive0 = floor.monsters.filter((m) => m.hp > 0).length;
+    const ehp0 = floor.monsters.reduce((s, m) => s + Math.max(0, m.hp), 0);
+    await playerAct(dx, dy);
+    const alive1 = floor.monsters.filter((m) => m.hp > 0).length;
+    const ehp1 = floor.monsters.reduce((s, m) => s + Math.max(0, m.hp), 0);
+    trialStats.turns++;
+    trialStats.dmgTaken += Math.max(0, hp0 - hp);
+    trialStats.kills += Math.max(0, alive0 - alive1);
+    if (alive0 > 0 && ehp1 >= ehp0) trialStats.noHitTurns++; // 敵が居たのに誰にもダメージを与えられなかった手番（間合い外/死角/移動のみ）
+    updateStatus(); draw();
+    return { ...trialStats, hp };
+  },
+  // ③戦闘中の一手交換（inCombatNow と同じ「一手消費」モデルを再現）。target＝控えのクラス（省略時は先頭の武器）。
+  trialSwapWeapon: async (target?: string) => {
+    if (!floor || !world.current || !trialStats) return null;
+    const bag = world.current.gearBag ??= [];
+    const matches = (it: Item) => target === "spear" ? it.reach === 2 && !it.sweep : target === "naginata" ? !!it.sweep : (it.reach ?? 1) < 2 && !it.sweep;
+    const i = target ? bag.findIndex((it) => it.slot === "weapon" && matches(it)) : bag.findIndex((it) => it.slot === "weapon");
+    if (i < 0) return null;
+    const incoming = bag[i], outgoing = world.current.equipment.weapon;
+    world.current.equipment.weapon = incoming; bag.splice(i, 1); if (outgoing) bag.push(outgoing);
+    trialStats.swaps++;
+    updateStatus();
+    await turnPass(); // 戦闘中の持ち替え＝一手消費（敵が動く）＝本体の戦闘中スワップと同じコスト
+    draw();
+    return incoming.name;
+  },
+  trialStats: () => trialStats ? { ...trialStats } : null,
 }; } catch {}
 let crowd: CrowdActor[] = [];        // 街路の群衆（使い捨て・非永続）
 let interior: Interior | null = null; // 屋内シーン（null=街路）
