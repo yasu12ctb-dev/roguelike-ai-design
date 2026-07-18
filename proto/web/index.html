@@ -322,6 +322,12 @@
     @keyframes hzmiasma { 50% { background: rgba(165,105,225,.34); } }
     .cell.hz-frost   { background: rgba(120,180,225,.26); box-shadow: inset 0 0 9px rgba(150,200,240,.4); animation: hzfrost 2.4s ease-in-out infinite; }
     @keyframes hzfrost { 50% { background: rgba(150,205,240,.36); } }
+    /* 最期の残響（RFC・P1）：残響化石マスの淡いトーン色オーラ（静けさ優先＝控えめの光輪・グリフは † のまま・新グリフを増やさない） */
+    .cell.echo-loss::after, .cell.echo-myth::after, .cell.echo-grudge::after { content:""; position:absolute; inset:14%; border-radius:6px; pointer-events:none; animation: echoaura 3.4s ease-in-out infinite; }
+    .cell.echo-loss::after   { box-shadow: 0 0 9px 1px rgba(159,216,207,.5); }   /* loss＝亡骸の青緑 */
+    .cell.echo-myth::after   { box-shadow: 0 0 10px 1px rgba(232,192,106,.55); } /* myth＝金 */
+    .cell.echo-grudge::after { box-shadow: 0 0 9px 1px rgba(200,120,150,.5); }   /* grudge＝菫紅 */
+    @keyframes echoaura { 0%,100% { opacity:.4 } 50% { opacity:.85 } }
     /* 投擲照準（v0.133.0）：着弾3×3の予告（throw-blast＝淡い琥珀枠）＋クロスヘア中心（throw-aim＝強い琥珀の照準） */
     .cell.throw-blast::after {
       content: ""; position: absolute; inset: 8%; border-radius: 3px; pointer-events: none;
