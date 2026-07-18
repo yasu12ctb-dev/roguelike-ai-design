@@ -61,7 +61,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.155.1";
+export const APP_VERSION = "0.156.0";
 export const APP_BUILD = "2026-07-18";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -4192,9 +4192,11 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false, viaDoor = 
     // rollEncounter は未完因縁に +3.0 の重みを既に与えるため、1体増やすだけで因縁化石が盤上に出やすくなる。
     if (quietDescents >= PITY_BOND_AT && ch.bonds.some((b) => b.unfinished)) fossilTries += 1;
     for (let i = 0; i < fossilTries; i++) {
-      const fossil = rollEncounter(world, ch, rng, exclude);
+      // PR-1：距離ゲート（±4）を抽選候補に前もって課す＝配置不能な遠方候補を引かない
+      //  （旧：±14 まで引いてから配置直前に距離で弾き、exclude に入れず同じ候補を再抽選＝候補重みの過半が無駄撃ち）。
+      const fossil = rollEncounter(world, ch, rng, exclude, 4);
       if (!fossil) break;
-      if (Math.abs(fossil.laidDepth - depth) <= 4 && placeFossil(floor, rng, player, fossil)) exclude.add(fossil.id);
+      if (placeFossil(floor, rng, player, fossil)) exclude.add(fossil.id);
     }
     // 入口B：手負いの冒険者を稀に配置（相棒不在時のみ＝1体限定。深度2以降）。初訪のみ。
     floor.downed = null;
