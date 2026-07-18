@@ -162,15 +162,22 @@ function intentHits(m: Monster, x: number, y: number): boolean {
 function cloneFloor(f: Floor): Floor {
   return { ...f, monsters: f.monsters.map((m) => ({ ...m, intent: m.intent ? { ...m.intent } : m.intent })) } as Floor;
 }
-/** 押し出しの実適用（web pushEnemy 忠実：壁+4／敵衝突±2／空き移動＋射程外なら予告 wait 化）。 */
-function realPush(f: Floor, E: Monster, px: number, py: number): void {
+/** 押し出しの実適用（web pushEnemy 忠実：壁+4／敵衝突±2／空き移動＋射程外なら予告 wait 化）。
+ *  ★export＝tools/qa-sim-push-parity.ts（PR2 parity 検証・2026-07-18）が runtime(main.ts pushEnemy) との
+ *  一致を assert するために直接呼ぶ。武器の数値・挙動は一切変更していない（export のみの追加）。 */
+export function realPush(f: Floor, E: Monster, px: number, py: number): void {
   const dx = Math.sign(E.x - px), dy = Math.sign(E.y - py); if (dx === 0 && dy === 0) return;
   const nx = E.x + dx, ny = E.y + dy;
   if (!isFloor(f, nx, ny)) { E.hp -= PUSH_WALL_DMG; }
   else if (occ(f, nx, ny, E.id) || (nx === px && ny === py)) {
     const other = f.monsters.find((mm) => mm.hp > 0 && mm.x === nx && mm.y === ny);
     if (other) { E.hp -= PUSH_COLLIDE_DMG; other.hp -= PUSH_COLLIDE_DMG; }
-  } else { E.x = nx; E.y = ny; }
+  } else {
+    E.x = nx; E.y = ny;
+    // v0.155 bug2 同期（main.ts:5090）：相対移動させた敵の“古い move 予告”を wait に潰す。さもないと後段の
+    // resolveMonsters がその stale move を適用して押し出し位置を上書きする（薙刀の会心押し出し等を過小評価する乖離）。
+    if (E.hp > 0 && E.intent?.type === "move") E.intent = { type: "wait" };
+  }
   if (E.hp > 0 && E.intent?.type === "attack" && E.intent.x === px && E.intent.y === py) {
     const still = E.kind.ability === "burst" ? canBurstReach(f, E.x, E.y, px, py) : monsterCanReach(f, E.x, E.y, px, py, E.kind.reach ?? 1);
     if (!still) E.intent = { type: "wait" };
