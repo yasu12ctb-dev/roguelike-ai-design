@@ -1,15 +1,12 @@
-// バグ1（elite スポーンの hardcap 未チェック）の受入検証（デスクトップ Claude Code 用）。
+// バグ1（hardcap 超過）の受入検証（デスクトップ Claude Code 用）。
 // 狙い＝genFloor を深部×難易度×多シードで生成し、floor.monsters.length <= monsterHardcap(depth, mods) を全件 assert する。
 //
-// ★重要な検証結果（2026-07-17）：修正は elite 分岐（depth>=5 かつ depth%8!==0 の非ボス階）の hardcap 超過は解消したが、
-//   報告された具体例「depth80×easy で 61>60」自体は再現し続ける。原因は elite ではなく、
-//   depth%8===0（エリアボス階）の「エリアボス push」（src/dungeon.ts 内 `boss: "area"` の push）が
-//   hardcap 未チェックのまま残っているため。depth>=68（easy の countCap が hardcap(60) に到達する帯）かつ
-//   depth%8===0（72/80/88/96…）で、主配置ループが countCap=60 まで敵を詰めた直後にボスが無条件で+1 され 61>60 になる
-//   （100/100 seed で再現＝決定論的・rng 依存ではない）。normal/hard は countCap の上限(60)が hardcap(最大80)を
-//   下回るため発生しない＝easy 限定の現象。
-//   ⇒ 本スクリプトは①elite 分岐単体（depth%8!==0）の受入と②全深度（ボス階含む）の受入を分けて報告する。
-//   ②は現状 FAIL のまま＝タスク説明の「バグ1修正」は不完全（ゲーム本体の追加修正が必要＝本セッションでは対象外＝報告のみ）。
+// ★経緯と現況（2026-07-17 検出 → 同日 v0.155.0 #370 で完全修正済み）：当初の elite 分岐修正だけでは
+//   depth%8===0（エリアボス階）の「必須ボス push」が hardcap 未チェックのまま残り「depth80×easy で 61>60」が再現していた
+//   （本コメントの旧版が FAIL を報告していたのはこの時点の記録）。その後、本体 `src/dungeon.ts` に
+//   **必須ボス枠の予約**（`count = min(…, countCap, monsterHardcap - bossSlots)`・bossSlots=エリアボス+深淵の主）が入り、
+//   ①elite 分岐単体（depth%8!==0）・②全深度（ボス階含む）の**両方とも現在は PASS**（①4,950＋②7,200 checks／0 fail）。
+//   本スクリプトはその回帰固定として①②を分けて報告する。軽量版は tools/hardcap-check.ts（npm run check 同梱）。
 // 実行: node --experimental-strip-types tools/qa-hardcap-elite.ts
 import { genFloor, monsterHardcap, type Floor } from "../src/dungeon.ts";
 import { diffMods, SELECTABLE_DIFFICULTIES } from "../src/difficulty.ts";
