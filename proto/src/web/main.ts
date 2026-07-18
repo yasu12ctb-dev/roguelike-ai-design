@@ -62,7 +62,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.159.0";
+export const APP_VERSION = "0.160.0";
 export const APP_BUILD = "2026-07-18";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -409,6 +409,8 @@ function setPeek(name: string, sub: string): void {
 function echoPeekLine(e: Echo): string {
   const base = e.kind === "calm" ? "静穏の残響――この周り（2マス）では、装備が滲ませる深蝕の澱みが凪ぐ。鎮めれば安らぐ。"
     : e.kind === "will" ? "遺言の残響――踏み込めば、遺した言葉と、最後の腕前が一度だけ届く。"
+    : e.kind === "guard" ? "守り手の残響――近くに、先代が守り抜いた遺品と、それを守る番人が眠る。鎮めれば静かに、鎮めねば番人が起きる。"
+    : e.kind === "curse" ? "呪詛の残響――蝕の霧と、迷宮を呪った先代の怨念の影が澱む。討てば戦利品、鎮めれば晴れる。"
     : "残響が、静かに漂っている。";
   const w = e.stage === "alien" ? "　もはや面影は薄い。" : e.stage === "twisting" ? "　少しずつ、歪みはじめている。" : "";
   const m = e.mud ? "　濁りが混じる（恩恵に、わずかな深蝕の代償）。" : "";
@@ -422,6 +424,75 @@ function inCalmZone(): boolean {
   const e = floor?.echo;
   if (!e || e.kind !== "calm" || !world.current || world.current.carryingRelic) return false;
   return Math.max(Math.abs(player.x - e.x), Math.abs(player.y - e.y)) <= ECHO_CALM_RADIUS;
+}
+// ── 最期の残響・守り手/呪詛（RFC・P1-B）：盤面の器（数値はテスト調整候補） ──
+const ECHO_MIASMA_R = 1;        // 呪詛：蝕の霧の半径（Chebyshev）
+const ECHO_SHADE_REWARD = 6;    // 呪詛：怨念の影撃破の gold＝先代 level × これ（死者Lv由来固定＝呪い死 farm は常に損）
+/** 化石の周囲リング（半径1→3）から、空き床マスを最大 n 個 集める（決定論・スキャン順）。stairs/化石/宝箱/敵/既配置を避ける。 */
+function echoFreeTilesNear(f: Floor, cx: number, cy: number, n: number, avoid: Set<string>): Pos[] {
+  const out: Pos[] = [];
+  for (let r = 1; r <= 3 && out.length < n; r++) {
+    for (let dy = -r; dy <= r && out.length < n; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // リングの外周だけ
+      const x = cx + dx, y = cy + dy, key = `${x},${y}`;
+      if (!inBounds(f, x, y) || tileAt(f, x, y) !== 1 || avoid.has(key)) continue;
+      if (f.monsters.some((m) => m.x === x && m.y === y)) continue;
+      if (f.fossils.some((e) => e.x === x && e.y === y)) continue;
+      if ((f.chests ?? []).some((c) => c.x === x && c.y === y)) continue;
+      if ((f.stairsDown.x === x && f.stairsDown.y === y) || (f.stairsUp.x === x && f.stairsUp.y === y)) continue;
+      out.push({ x, y }); avoid.add(key);
+    }
+  }
+  return out;
+}
+/** 守り手/呪詛の盤面を仕込む（enterFloor 初訪・floorCache に乗る）。calm/will は no-op。 */
+function setupEchoBoard(echo: NonNullable<Floor["echo"]>, fossil: Fossil, depth: number): void {
+  if (!floor) return;
+  if (echo.kind === "guard") {
+    // 守り手：遺品マス（先代の gearTags を復元）＋眠りの番人（未覚醒は floor.monsters に入れない＝room-aggro しない）。
+    const gear = fossil.origin.gearTags.find((g) => itemByName(g));
+    const avoid = new Set<string>([`${player.x},${player.y}`, `${echo.x},${echo.y}`]);
+    const tiles = echoFreeTilesNear(floor, echo.x, echo.y, 2, avoid);
+    if (!gear || tiles.length < 1) { floor.echo = null; return; } // 置けなければ残響を諦める（プレーンな化石）
+    echo.loot = { x: tiles[0].x, y: tiles[0].y, gear };
+    if (tiles.length >= 2) echo.ward = { x: tiles[1].x, y: tiles[1].y, awake: false };
+  } else if (echo.kind === "curse") {
+    // 呪詛：蝕の霧（恒久＝turns 無し・鎮魂で消す）＋怨念の影（既存種 re-skin・敵性）。
+    floor.hazards ??= [];
+    for (let dy = -ECHO_MIASMA_R; dy <= ECHO_MIASMA_R; dy++) for (let dx = -ECHO_MIASMA_R; dx <= ECHO_MIASMA_R; dx++) {
+      const x = echo.x + dx, y = echo.y + dy;
+      if (!inBounds(floor, x, y) || tileAt(floor, x, y) !== 1) continue;
+      if (x === echo.x && y === echo.y) continue; // 化石マス自身は空ける（踏み込み用）
+      if ((floor.stairsDown.x === x && floor.stairsDown.y === y) || (floor.stairsUp.x === x && floor.stairsUp.y === y)) continue;
+      if (!floor.hazards.some((h) => h.x === x && h.y === y)) floor.hazards.push({ x, y, kind: "miasma" });
+    }
+    const avoid = new Set<string>([`${player.x},${player.y}`, `${echo.x},${echo.y}`]);
+    const t = echoFreeTilesNear(floor, echo.x, echo.y, 1, avoid);
+    if (t.length) {
+      const base = MONSTER_KINDS.find((k) => k.key === "wraith") ?? MONSTER_KINDS[0];
+      const kind = { ...base, name: "怨念の影", glyph: "影", hp: 8 + Math.round(depth * 1.0), dmg: 2 + Math.round(depth * 0.18), tier: 4, erratic: 0.2, ability: undefined };
+      const id = `shade_${fossil.id}`;
+      floor.monsters.push({ id, kind, hp: kind.hp, x: t[0].x, y: t[0].y, awake: true, intent: null });
+      echo.shadeId = id;
+    }
+  }
+}
+/** 呪詛：怨念の影を討った時の報酬＝先代の level 由来で固定（死者の持ち物・レベル由来＝呪い死 farm は常に損）。 */
+function echoShadeReward(): void {
+  const echo = floor?.echo; if (!echo || echo.kind !== "curse") return;
+  const fossil = world.fossils.find((f) => f.id === echo.fossilId);
+  const lv = fossil?.level ?? fossil?.laidDepth ?? floor!.depth;
+  const gold = lv * ECHO_SHADE_REWARD;
+  if (world.current) { world.current.gold += gold; sfx("coin"); log(`怨念の影を討ち祓った――先代の遺した ${gold} 金貨が、澱から零れ落ちた。`, "cue"); updateStatus(); }
+  echo.shadeId = undefined;
+}
+/** 呪詛：鎮魂で浄化＝化石周囲の蝕の霧を消し、怨念の影（残存していれば）を還す。 */
+function echoPurifyCurse(): void {
+  const ec = floor?.echo; if (!floor || !ec || ec.kind !== "curse" || ec.purified) return;
+  if (floor.hazards) floor.hazards = floor.hazards.filter((h) => !(h.kind === "miasma" && Math.max(Math.abs(h.x - ec.x), Math.abs(h.y - ec.y)) <= ECHO_MIASMA_R));
+  if (ec.shadeId) { floor.monsters = floor.monsters.filter((m) => m.id !== ec.shadeId); ec.shadeId = undefined; }
+  ec.purified = true;
+  log("鎮魂が澱みを祓う――蝕の霧が晴れ、怨念の影は還っていった。", "cue");
 }
 /** マップ座標 (x,y) のマスを調べる。優先順は draw() の描画優先と同じ（上にあるもの＝知りたいもの）。 */
 function showPeek(x: number, y: number): void {
@@ -468,6 +539,9 @@ function showPeek(x: number, y: number): void {
     }
     setPeek("†　化石", fe.resolved ? "鎮まった亡骸。もう語らない。" : "何者かの亡骸が層に眠る。踏み込めば対面する。"); return;
   }
+  // 最期の残響・守り手（RFC・P1-B）：遺品マス／眠る番人の peek。
+  if (vis && f.echo?.loot && !f.echo.loot.taken && f.echo.loot.x === x && f.echo.loot.y === y) { setPeek("遺　守り手の遺品", "先代が守り抜いた品。鎮めた亡骸なら静かに、鎮めていなければ番人が目覚める。"); return; }
+  if (vis && f.echo?.ward && !f.echo.ward.awake && f.echo.ward.x === x && f.echo.ward.y === y) { setPeek("番　眠りの番人", "遺品を守る者。まだ眠っている。鎮めずに遺品を奪えば、目を覚ます。"); return; }
   const ce = vis ? f.chests.find((c) => c.x === x && c.y === y) : undefined;
   if (ce) { setPeek("▭　宝箱", ce.opened ? "開け放たれている。中は空だ。" : "閉じたままの箱。罠のこともある。"); return; }
   // ノード・地形（泉/安/扉/階段は draw() が記憶描画する＝視界外でも答えてよい）。
@@ -699,14 +773,22 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
     const x = player.x + dx, y = player.y + dy;
     floor.fossils.push({ id: `fe_${id}`, fossilId: id, resolved: false, x, y });
     floor.echo = { fossilId: id, x, y, kind };
+    setupEchoBoard(floor.echo, fossil, floor.depth); // guard/curse の盤面（遺品/番人・霧/影）も仕込む
     updateStatus(); draw();
-    return id;
+    return floor.echo ? id : null; // setupEchoBoard が配置不能で null 化した場合は null
   },
   echoAuraInDom: () => document.querySelectorAll(".cell.echo-loss, .cell.echo-myth, .cell.echo-grudge").length,
   calmActive: () => inCalmZone(),
   echoBoonState: () => echoBoon,
   setEchoBoon: (c: "sword" | "spear" | "naginata" | null) => { echoBoon = c; },
   peekAt: (dx: number, dy: number) => { showPeek(player.x + dx, player.y + dy); const t = document.querySelector("#peek")?.textContent ?? ""; return t; },
+  // 守り手/呪詛（P1-B）E2E：盤面状態の読み取り＋取得/撃破/浄化の直接トリガー（sheet 駆動は E2E 側）。
+  echoBoard: () => { const e = floor?.echo; if (!e) return null; return { kind: e.kind, loot: e.loot ? { x: e.loot.x, y: e.loot.y, taken: !!e.loot.taken } : null, ward: e.ward ? { x: e.ward.x, y: e.ward.y, awake: !!e.ward.awake } : null, shadeId: e.shadeId ?? null, purified: !!e.purified, miasma: (floor?.hazards ?? []).filter((h) => h.kind === "miasma").length, wardInMons: (floor?.monsters ?? []).some((m) => e.ward && m.id === `ward_${e.fossilId}` && m.hp > 0) }; },
+  triggerGuardTake: () => { void echoGuardTake(); },
+  requiemFossil: (fossilId: string) => { const f = world.fossils.find((ff) => ff.id === fossilId); if (f) intervene(world, f.id, "requiem"); },
+  killShade: () => { const e = floor?.echo; if (!floor || !e?.shadeId) return false; const m = floor.monsters.find((mm) => mm.id === e.shadeId); if (!m) return false; m.hp = 0; downOrKill(m, "怨念の影を討った。"); return true; },
+  purifyCurse: () => { echoPurifyCurse(); },
+  getGold: () => world.current?.gold ?? 0,
   // ── 試技ハーネス（外部レビュー PR5）：ユーザー指定シナリオを一発再現し、以後は通常操作で数戦触れる。
   //   環境準備（装備・盤面）は既存 spawnKind/giveArmor 等と同種の範囲＝以後の入力は通常のゲーム操作（bump/step等）に委ねる。
   trial: (scenario: string, weapon: string) => {
@@ -975,6 +1057,9 @@ function draw() {
     if (visible) {
       const fe = floor.fossils.find((e) => e.x === x && e.y === y);
       if (fe) { glyph = "†"; cls = fe.resolved ? "g-fossil-quiet" : "g-fossil"; }
+      // 最期の残響・守り手（RFC・P1-B）：遺品マス「遺」（金）／眠る番人「番」（淡）。覚醒後の番人は floor.monsters 側で描く。
+      if (floor.echo?.loot && !floor.echo.loot.taken && floor.echo.loot.x === x && floor.echo.loot.y === y) { glyph = "遺"; cls = "g-chest"; }
+      if (floor.echo?.ward && !floor.echo.ward.awake && floor.echo.ward.x === x && floor.echo.ward.y === y) { glyph = "番"; cls = "g-fossil-quiet"; }
       const ce = floor.chests.find((c) => c.x === x && c.y === y);
       if (ce) { glyph = "▭"; cls = ce.opened ? "g-chest-open" : "g-chest"; }
       if (floor.downed && floor.downed.x === x && floor.downed.y === y) { glyph = "&"; cls = "g-downed"; } // 手負いの冒険者（4-14C）
@@ -4320,22 +4405,27 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false, viaDoor = 
       if (!fossil) break;
       if (placeFossil(floor, rng, player, fossil)) exclude.add(fossil.id);
     }
-    // 最期の残響（RFC・P1）：配置済みの「自血統」化石のうち、残響の形が P1 実装済み（静穏/遺言）で最新世代のもの1体に残響を生やす。
+    // 最期の残響（RFC・P1）：配置済みの「自血統」化石のうち、最新世代の1体に残響を生やす（4種）。
     //  ★1フロア最大1残響・自血統限定（過密ゼロ）。computeEcho は純関数（保存しない）＝enterFloor 初訪で floorCache に乗る（潜行内で一意）。
-    //  守り手/呪詛（guard/curse）は PR-B で盤面化＝ここでは対象外（プレーンな化石のまま）。engine 非改変＝golden 安全。
+    //  engine 非改変＝golden 安全（floor.echo は engine 非使用の型・番人/影は web が floor.monsters へ push＝raid/wanderer と同じ既存手法）。
     floor.echo = null;
     {
       const wt = worldTime(world);
-      let best: { fossilId: string; x: number; y: number; kind: EchoKind; gen: number } | null = null;
+      let best: { f: Fossil; x: number; y: number; kind: EchoKind; gen: number } | null = null;
       for (const fe of floor.fossils) {
         const f = world.fossils.find((ff) => ff.id === fe.fossilId);
         if (!f || !isOwnLineFossil(f)) continue; // 自血統のみ（相棒/縁NPC/シードは P2）
         const echo = computeEcho(f, wt);
-        if (!echo || (echo.kind !== "calm" && echo.kind !== "will")) continue; // P1 は静穏/遺言のみ
+        if (!echo) continue;
+        // 守り手：相続済み（inherit）or 遺品が復元できない先代は残響化しない（遺品 dupe 防止・RFC 悪用対策）。
+        if (echo.kind === "guard" && (f.interventions.some((iv) => iv.type === "inherit") || !f.origin.gearTags.some((g) => itemByName(g)))) continue;
         const gen = f.death.generationCreated ?? 0;
-        if (!best || gen > best.gen) best = { fossilId: f.id, x: fe.x, y: fe.y, kind: echo.kind, gen };
+        if (!best || gen > best.gen) best = { f, x: fe.x, y: fe.y, kind: echo.kind, gen };
       }
-      if (best) floor.echo = { fossilId: best.fossilId, x: best.x, y: best.y, kind: best.kind };
+      if (best) {
+        floor.echo = { fossilId: best.f.id, x: best.x, y: best.y, kind: best.kind };
+        setupEchoBoard(floor.echo, best.f, floor.depth); // guard/curse の盤面（遺品/番人・霧/怨念の影）を仕込む（calm/will は no-op）
+      }
     }
     // 入口B：手負いの冒険者を稀に配置（相棒不在時のみ＝1体限定。深度2以降）。初訪のみ。
     floor.downed = null;
@@ -5832,6 +5922,7 @@ function announceBossCues() {
 /** 撃破処理の入口。敵性化探索者ボス（出自=化石）は「討つ/鎮める」へ。それ以外は通常撃破。 */
 function downOrKill(mon: Monster, killLine?: string) {
   floatFx(mon.x, mon.y, "＊", "fl-kill"); // 撃破の燐光（v0.99.0・純表示）
+  if (floor?.echo?.kind === "curse" && floor.echo.shadeId && mon.id === floor.echo.shadeId) echoShadeReward(); // 呪詛：怨念の影の撃破報酬
   if (mon.boss === "area" && mon.fossilId) {
     pendingBossResolve.push(mon);
     log(`${mon.kind.name}は膝をついた……。`, "warn");
@@ -6804,6 +6895,10 @@ function moveOrInteract(nx: number, ny: number): boolean {
   const fe = f.fossils.find((e) => e.x === nx && e.y === ny);
   if (fe && !fe.resolved) { void fossilScene(fe); return true; }
 
+  // 最期の残響・守り手（RFC・P1-B）：遺品マス＝取得（鎮魂済みなら静かに／未鎮魂なら番人覚醒）／眠る番人は道を塞ぐ。
+  if (f.echo?.loot && !f.echo.loot.taken && f.echo.loot.x === nx && f.echo.loot.y === ny) { void echoGuardTake(); return true; }
+  if (f.echo?.ward && !f.echo.ward.awake && f.echo.ward.x === nx && f.echo.ward.y === ny) { log("遺品の番人が、眠ったまま道を塞いでいる。", "dim"); return false; }
+
   const ce = f.chests.find((c) => c.x === nx && c.y === ny);
   if (ce && !ce.opened) { void chestScene(ce); return true; }
 
@@ -7092,6 +7187,44 @@ async function maybeMerchantEncounter(): Promise<boolean> {
 }
 
 // ---------- 化石との対面（再発見 → 干渉） ----------
+/** 最期の残響・守り手（RFC・P1-B）：遺品マスの取得。鎮魂済みなら静かに受け取り番人は崩れ、未鎮魂なら奪取で番人が覚醒する。inherit 記録で一度きり。 */
+async function echoGuardTake(): Promise<void> {
+  if (busy || !floor?.echo?.loot || floor.echo.loot.taken || !world.current) return;
+  const echo = floor.echo, loot = echo.loot!;
+  const fossil = world.fossils.find((f) => f.id === echo.fossilId);
+  if (!fossil) return;
+  busy = true;
+  sfx("ui");
+  const requiemed = fossil.interventions.some((iv) => iv.type === "requiem");
+  const name = fossil.origin.name;
+  const r = await sheet({
+    text: requiemed
+      ? `${name}の遺品が、静かに横たわっている。すでに鎮めた亡骸だ――番人は、もう抗わない。`
+      : `${name}の遺品を、眠る番人が守っている。鎮めずに奪えば、番人は目を覚ますだろう。`,
+    meta: "守り手の残響", options: requiemed ? ["静かに受け取る", "やめておく"] : ["奪う（番人が目を覚ます）", "やめておく"],
+  });
+  if (r.pick === 2) { busy = false; return; } // やめる＝非消費・非手番
+  loot.taken = true;
+  (world.flags ??= []).push(`echo_guard_${fossil.id}`); // 一度きり（farm 防止）
+  intervene(world, fossil.id, "inherit"); // 遺品の受け取り＝inherit 記録（冪等・重複取得なし）
+  const item = itemByName(loot.gear);
+  if (!requiemed && echo.ward && !echo.ward.awake) {
+    const depth = floor.depth;
+    const base = MONSTER_KINDS.find((k) => k.key === "brute") ?? MONSTER_KINDS[0];
+    const kind = { ...base, name: "遺品の番人", glyph: "番", hp: 14 + Math.round(depth * 1.4), dmg: 3 + Math.round(depth * 0.18), tier: 4, erratic: 0.05, ability: undefined };
+    floor.monsters.push({ id: `ward_${fossil.id}`, kind, hp: kind.hp, x: echo.ward.x, y: echo.ward.y, awake: true, intent: null });
+    echo.ward.awake = true;
+    planMonsters(floor, player, rng, companion);
+    sfx("hurt"); log(`${name}を守る番人が目を覚ました――遺品を奪う者を、討たんとする。`, "warn");
+  } else if (echo.ward) {
+    echo.ward = undefined; // 鎮魂済み＝番人は静かに崩れる
+    log("鎮めた亡骸の番人は、静かに崩れ落ちた。", "dim");
+  }
+  save();
+  if (item) { await equipPrompt(item); } else log("遺品は、もう形を保っていなかった。", "dim");
+  busy = false;
+  draw();
+}
 async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   if (busy) return;
   busy = true;
@@ -7302,6 +7435,8 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
         const b2 = ch.exposure; ch.exposure = Math.max(0, ch.exposure - ECHO_CALM_REQUIEM);
         if (ch.exposure < b2) log(`静穏の残響が、深みの澱みをさらに祓う（深蝕 -${(b2 - ch.exposure).toFixed(2)}）。`, "cue");
       }
+      // 最期の残響・呪詛（RFC・P1-B）：呪詛の残響を鎮魂すると浄化＝蝕の霧が晴れ、怨念の影が還る。
+      if (echo?.kind === "curse" && floor?.echo?.fossilId === fossil.id) echoPurifyCurse();
       // 残響召喚の種（4-10I・snapshot 524）：神話極の化石を鎮魂すると「残響の遺灰」を得る（grantEchoOnRequiem＝純関数・world.ts）。
       // 潜行中に1回だけ強めの一時味方として展開できる（術ボタン→「残響の遺灰を使う」）。farm防止＝1化石1遺灰（神話極の初回鎮魂のみ）。
       const ash = grantEchoOnRequiem(world, fossil, floor?.depth ?? fossil.death.depth ?? 1);
