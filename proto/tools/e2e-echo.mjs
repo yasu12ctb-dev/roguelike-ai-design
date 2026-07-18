@@ -213,10 +213,59 @@ const purify = await page.evaluate(() => {
 });
 ok("⑩呪詛：鎮魂で霧が晴れ影が還る（浄化）", purify.b0?.miasma > 0 && purify.b1?.miasma === 0 && purify.b1?.shadeId === null && purify.b1?.purified === true, JSON.stringify(purify));
 
+// ⑪ P2-A（相棒/縁者の残響）：実選定ゲート pickFloorEcho が相棒/縁者化石を採択し、シード explorer は除外する。
+await openArea();
+const p2comp = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.clearEchoFossils();
+  const id = t.injectEchoFossil("accept", 2, 0, { bond: "companion", name: "レン" });
+  const picked = t.runEchoSelection();
+  const peek = t.peekAt(2, 0);
+  return { id, picked, peek };
+});
+ok("⑪P2-A：死んだ相棒（accept）が残響に採択される", p2comp.picked === p2comp.id, JSON.stringify({ picked: p2comp.picked, id: p2comp.id }));
+ok("⑪P2-A：相棒の残響 peek に『共に歩いた相棒』が出る", /共に歩いた相棒/.test(p2comp.peek), p2comp.peek);
+
+const p2ally = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.clearEchoFossils();
+  const id = t.injectEchoFossil("guard_relic", 2, 0, { bond: "ally", gear: "長剣", name: "セラ" });
+  const picked = t.runEchoSelection();
+  const board = t.echoBoard();
+  const peek = t.peekAt(2, 0);
+  return { id, picked, board, peek };
+});
+ok("⑪P2-A：縁を結んだ者（guard）が残響に採択され遺品が置かれる", p2ally.picked === p2ally.id && !!p2ally.board?.loot, JSON.stringify({ picked: p2ally.picked, loot: p2ally.board?.loot }));
+ok("⑪P2-A：縁者の残響 peek に『縁を結んだ者』が出る", /縁を結んだ者/.test(p2ally.peek), p2ally.peek);
+
+const p2seed = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.clearEchoFossils();
+  t.injectEchoFossil("accept", 2, 0, { seed: true, name: "見知らぬ骨" });
+  return { picked: t.runEchoSelection() };
+});
+ok("⑪P2-A：シード化石（explorer）は残響に採択されない（自血統/相棒/縁者のみ）", p2seed.picked === null, JSON.stringify(p2seed));
+
+const p2aband = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.clearEchoFossils();
+  const id = t.injectEchoFossil("curse_dungeon", 3, 0, { bond: "companion", name: "ダン" });
+  const picked = t.runEchoSelection();
+  const peek = t.peekAt(3, 0);
+  const board = t.echoBoard();
+  const g0 = t.getGold();
+  const killed = t.killShade();
+  const g1 = t.getGold();
+  return { id, picked, peek, board, killed, g0, g1 };
+});
+ok("⑪P2-A：見捨てた相棒（betrayed→curse）が呪詛の残響に採択される", p2aband.picked === p2aband.id && p2aband.board?.kind === "curse", JSON.stringify({ picked: p2aband.picked, kind: p2aband.board?.kind }));
+ok("⑪P2-A：見捨てた相棒の呪詛 peek に『見捨てた相棒』が出る", /見捨てた相棒/.test(p2aband.peek), p2aband.peek);
+ok("⑪P2-A：見捨てた相棒の影を討てば gold を得る", p2aband.killed === true && p2aband.g1 > p2aband.g0, JSON.stringify({ g0: p2aband.g0, g1: p2aband.g1 }));
+
 ok("例外・console.error ゼロ（全体）", errors.length === 0, errors.slice(0, 8).join(" | "));
 
 await browser.close();
 server.close();
 const failed = results.filter((r) => !r.pass);
-console.log(`\n=== E2E 最期の残響（calm/will）：${results.length - failed.length}/${results.length} pass ===`);
+console.log(`\n=== E2E 最期の残響（P1 calm/will/guard/curse ＋ P2-A 相棒/縁者）：${results.length - failed.length}/${results.length} pass ===`);
 if (failed.length) { console.log("FAILED:", failed.map((f) => f.name).join(", ")); process.exit(1); }
