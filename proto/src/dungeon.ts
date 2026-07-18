@@ -302,6 +302,7 @@ export interface Floor {
   delver?: DelverActor | null;   // 同時に潜る生者の冒険者（任意。enterFloor が時々配置：すれ違いの軽イベント）
   rooms?: { x: number; y: number; w: number; h: number }[]; // 生成した部屋の矩形（v0.151.0）。部屋aggro（入室で部屋の敵を一斉起床）が読む。golden の genFloor ハッシュは rooms を読まない＝不変。
   aurelSite?: { x: number; y: number; kind: "mark" | "laila" } | null; // メインの縦糸（4-15）：始祖の遺構「痕」／ライラ・境（web が章に応じて配置＝engine は触らない・golden 安全）
+  echo?: { fossilId: string; x: number; y: number; kind: "calm" | "will" | "guard" | "curse" } | null; // 最期の残響（RFC・P1）：配置済み自血統化石の1体に生える残響（web が enterFloor 初訪で computeEcho から写す＝engine 非使用・golden 安全＝aurelSite と同じパターン）
   hazards?: { x: number; y: number; kind: "fire" | "venom" | "crumble" | "miasma" | "frost"; cracked?: number; turns?: number }[]; // 地形ハザード（v0.128.0／v0.130.0 で frost・turns 追加）：web が enterFloor 初訪で seeded 配置＝engine 非使用＝golden 安全（aurelSite と同じパターン）。cracked＝崩れかけの床の崩落カウントダウン。frost＝術で敷く鈍化の霧。turns＝寿命（術で敷いた地形は毎手デクリメント→0 で消滅・自然配置は undefined＝恒久）。
   diff?: DifficultyMods;         // このフロアの難易度係数（genFloor で焼き込む。動的スポーン＝追手/眷属が読む）。未設定＝easy。
 }
