@@ -24,10 +24,13 @@ export function encounterWeight(world: World, ch: Character, fossil: Fossil): nu
   return w;
 }
 
-/** 現在深度の周辺で、重みに比例して化石を1体抽選（いなければ null）。excludeIds は同一潜行内の再出現防止。 */
-export function rollEncounter(world: World, ch: Character, rng: Rng, excludeIds: Set<string> = new Set()): Fossil | null {
+/** 現在深度の周辺で、重みに比例して化石を1体抽選（いなければ null）。excludeIds は同一潜行内の再出現防止。
+ *  maxDist＝配置側の距離ゲートを抽選候補に前もって課す（web 配置ループ用・PR-1）。
+ *  既定 Infinity＝重み（depthProximity・±14 まで）だけで絞る従来挙動＝CLI/demo は不変。 */
+export function rollEncounter(world: World, ch: Character, rng: Rng, excludeIds: Set<string> = new Set(), maxDist = Infinity): Fossil | null {
   const candidates = world.fossils.filter(
-    (f) => !excludeIds.has(f.id) && !f.retired && depthProximity(ch.depth, f.laidDepth) > 0, // retired＝退隠した先代（生者・守護者）＝亡骸ではない＝遭遇から除外（4-14G）
+    (f) => !excludeIds.has(f.id) && !f.retired && depthProximity(ch.depth, f.laidDepth) > 0 // retired＝退隠した先代（生者・守護者）＝亡骸ではない＝遭遇から除外（4-14G）
+      && Math.abs(ch.depth - f.laidDepth) <= maxDist,                                        // 配置可能距離の候補だけを引く（無駄撃ち防止・PR-1）
   );
   if (candidates.length === 0) return null;
   const weights = candidates.map((f) => encounterWeight(world, ch, f));
