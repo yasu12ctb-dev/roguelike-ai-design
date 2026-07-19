@@ -374,6 +374,149 @@ const wipeFix = await page.evaluate(() => {
 });
 ok("⑭バグ修正：placeHazards が霧を消し（m1=0）、layEchoMiasma が救う（m2>0・復元）", wipeFix.m0 > 0 && wipeFix.m1 === 0 && wipeFix.m2 > 0 && wipeFix.m2 === wipeFix.m0, JSON.stringify(wipeFix));
 
+// ⑮ P2-E：霧の形が変質段階から導出（weathered=半径1=8／twisting=半径2=24／alien=半径2＋触腕4=28）。全面半径3=48 は不採用。
+const shapeCase = (stage) => page.evaluate((st) => {
+  const t = (window).__hazTest;
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz();
+  for (let dx = -7; dx <= 7; dx++) for (let dy = -7; dy <= 7; dy++) t.setTile(dx, dy, 1); // 広い床（触腕が届く）
+  t.setStairs(9, 9, 9, -9); // 階段を形の外へ退かす（除外による数の目減りを防ぐ）
+  t.spawnEcho("curse", "loss", 1, 0, { stage: st });
+  return { count: t.echoMiasmaCount(), stage: t.echoStage() };
+}, stage);
+const wSh = await shapeCase("weathered"), tSh = await shapeCase("twisting"), aSh = await shapeCase("alien");
+ok("⑮P2-E weathered＝半径1（8マス）", wSh.count === 8 && wSh.stage === "weathered", JSON.stringify(wSh));
+ok("⑮P2-E twisting＝半径2（24マス）", tSh.count === 24 && tSh.stage === "twisting", JSON.stringify(tSh));
+ok("⑮P2-E alien＝半径2＋触腕4（28マス・全面半径3=48は不採用）", aSh.count === 28 && aSh.stage === "alien", JSON.stringify(aSh));
+
+// ⑯ P2-E：壁/階段/化石/既存ハザードのマスには敷かない（weathered 8マスから4マス除外→4）。
+const excl = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz();
+  for (let dx = -3; dx <= 3; dx++) for (let dy = -3; dy <= 3; dy++) t.setTile(dx, dy, 1);
+  t.setStairs(9, 9, 1, -1);        // 下り階段を echo+(0,-1)=player+(1,-1) に（shape 内）
+  t.setTile(2, 0, 0);              // 壁：echo+(1,0)=player+(2,0)
+  t.putHaz(1, 1, "fire");          // 既存ハザード(fire)：echo+(0,1)=player+(1,1)
+  t.injectEchoFossil("accept", 2, 1); // 化石：echo+(1,1)=player+(2,1)
+  t.spawnEcho("curse", "loss", 1, 0, { stage: "weathered" });
+  const fireKept = (t.state?.().hazards ?? []).some((h) => h.kind === "fire" && h.x - t.playerAt().x === 1 && h.y - t.playerAt().y === 1);
+  return { count: t.echoMiasmaCount(), fireKept };
+});
+ok("⑯P2-E 壁/階段/化石/既存ハザードを除外（8-4=4）＋既存ハザード非上書き", excl.count === 4 && excl.fireKept === true, JSON.stringify(excl));
+
+// ⑰ P2-E：鎮魂は残響由来(src=echo)だけ消し、自然の蝕の霧は残す（選択浄化）。
+const purSel = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz();
+  for (let dx = -3; dx <= 3; dx++) for (let dy = -3; dy <= 3; dy++) t.setTile(dx, dy, 1);
+  t.setStairs(9, 9, 9, -9);
+  t.putHaz(3, 0, "miasma");        // 自然の霧（src なし）＝weathered 範囲外(echo+(2,0))
+  t.spawnEcho("curse", "loss", 1, 0, { stage: "weathered" });
+  const b = { echo: t.echoMiasmaCount(), nat: t.naturalMiasmaCount() };
+  t.purifyCurse();
+  const a = { echo: t.echoMiasmaCount(), nat: t.naturalMiasmaCount() };
+  return { b, a };
+});
+ok("⑰P2-E 選択浄化：残響霧のみ消え自然霧は残る", purSel.b.echo > 0 && purSel.b.nat > 0 && purSel.a.echo === 0 && purSel.a.nat === purSel.b.nat, JSON.stringify(purSel));
+
+// ⑱ P2-E：反復敷設は冪等（重複しない・RNG も消費しない構造＝count 不変）。
+const idem = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz();
+  for (let dx = -4; dx <= 4; dx++) for (let dy = -4; dy <= 4; dy++) t.setTile(dx, dy, 1);
+  t.setStairs(9, 9, 9, -9);
+  t.spawnEcho("curse", "loss", 1, 0, { stage: "twisting" });
+  const a = t.echoMiasmaCount(); t.relayEchoMiasma(); t.relayEchoMiasma(); const b = t.echoMiasmaCount();
+  return { a, b };
+});
+ok("⑱P2-E 反復敷設は冪等（24→24）", idem.a === 24 && idem.b === 24, JSON.stringify(idem));
+
+// ⑲ P2-E：鎮魂でクロックが巻き戻り、次回潜行の再敷設で霧が縮む（alien28→weathered8）。
+const shrink = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz();
+  for (let dx = -7; dx <= 7; dx++) for (let dy = -7; dy <= 7; dy++) t.setTile(dx, dy, 1);
+  t.setStairs(9, 9, 9, -9);
+  const id = t.spawnEcho("curse", "loss", 1, 0, { stage: "alien" });
+  const big = t.echoMiasmaCount();
+  t.requiemFossil(id);   // 鎮魂＝lastTouchedGeneration=worldTime（クロック巻き戻し）
+  t.clearHaz();          // 次回潜行のフロア再生成を模す
+  t.relayEchoMiasma();   // 巻き戻ったクロックで再敷設＝縮む
+  const small = t.echoMiasmaCount();
+  return { big, small };
+});
+ok("⑲P2-E 鎮魂で次回潜行の霧が縮む（alien28→weathered8）", shrink.big === 28 && shrink.small === 8, JSON.stringify(shrink));
+
+// 後方互換テストの共通：v0.164 相当の盤面（残響霧 weathered=半径1＋距離2の自然霧）を仕込む。
+const setupCurseSave = () => page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.forceDive();
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz();
+  for (let dx = -5; dx <= 5; dx++) for (let dy = -5; dy <= 5; dy++) t.setTile(dx, dy, 1);
+  t.setStairs(9, 9, 9, -9);
+  t.spawnEcho("curse", "loss", 0, -2, { stage: "weathered" }); // v0.164 は常に半径1
+  t.putHaz(2, -2, "miasma"); // 自然霧（echo+(2,0)=距離2＝半径1の外）
+});
+const stripSrcInKey = (key) => page.evaluate((k) => {
+  const raw = JSON.parse(localStorage.getItem(k));
+  const strip = (f) => (f?.hazards || []).forEach((h) => { if (h.kind === "miasma") delete h.src; });
+  strip(raw.floor); (raw.cache || []).forEach((e) => strip(e[1]));
+  localStorage.setItem(k, JSON.stringify(raw)); // 旧v0.164形式化（残響霧に src なし）
+}, key);
+const reloadReady = async (hook) => { await page.reload({ waitUntil: "domcontentloaded" }); await page.waitForFunction((h) => !!(window).__hazTest?.[h], hook); };
+
+// ⑳ P2-E（新形式・保存→再読込→再開）：v0.165 セーブは src が維持され、再開後に選択浄化が効く。
+await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.forceDive();
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz();
+  for (let dx = -5; dx <= 5; dx++) for (let dy = -5; dy <= 5; dy++) t.setTile(dx, dy, 1);
+  t.setStairs(9, 9, 9, -9);
+  t.spawnEcho("curse", "loss", 0, -2, { stage: "twisting" });
+  t.putHaz(3, 0, "miasma"); // 自然霧（距離3＝半径2の外）
+  t.saveDiveNow();
+});
+await reloadReady("loadDiveSnap");
+const newFmt = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  const snap = t.loadDiveSnap();          // 実 loadDive（backfill は no-op＝src 既存）
+  const inSnap = t.miasmaOfSnap(snap);
+  t.resumeSnap(snap);                     // 実 resumeDive
+  const ar = { echo: t.echoMiasmaCount(), nat: t.naturalMiasmaCount() };
+  t.purifyCurse();
+  return { inSnap, ar, ap: { echo: t.echoMiasmaCount(), nat: t.naturalMiasmaCount() } };
+});
+ok("⑳P2-E 新形式：保存→再読込→再開で src 維持・選択浄化（24/1→浄化0/1）", newFmt.inSnap.echo === 24 && newFmt.inSnap.nat === 1 && newFmt.ar.echo === 24 && newFmt.ar.nat === 1 && newFmt.ap.echo === 0 && newFmt.ap.nat === 1, JSON.stringify(newFmt));
+
+// ㉑ P2-E（後方互換・旧v0.164 DiveSnapshot）：src 無しの旧残響霧を loadDive が backfill→鎮魂で残響霧だけ消え自然霧は残る。
+await setupCurseSave();
+await page.evaluate(() => (window).__hazTest.saveDiveNow());
+await stripSrcInKey("sekitsui.dive.v0");
+await reloadReady("loadDiveSnap");
+const oldDive = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  const snap = t.loadDiveSnap();          // 実 loadDive＝旧盤面へ src を backfill
+  const inSnap = t.miasmaOfSnap(snap);
+  t.resumeSnap(snap);
+  t.purifyCurse();
+  return { inSnap, ap: { echo: t.echoMiasmaCount(), nat: t.naturalMiasmaCount() } };
+});
+ok("㉑P2-E 旧v0.164 Dive：backfill→鎮魂で残響霧のみ消え自然霧は残る（8/1→0/1）", oldDive.inSnap.echo === 8 && oldDive.inSnap.nat === 1 && oldDive.ap.echo === 0 && oldDive.ap.nat === 1, JSON.stringify(oldDive));
+
+// ㉒ P2-E（後方互換・旧v0.164 PortalSnapshot）：帰還の扉スナップショットも loadPortal が backfill する。
+await setupCurseSave();
+await page.evaluate(() => (window).__hazTest.parkPortalNow());
+await stripSrcInKey("sekitsui.portal.v0");
+await reloadReady("loadPortalSnap");
+const oldPortal = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  const snap = t.loadPortalSnap();        // 実 loadPortal＝旧盤面へ src を backfill
+  const inSnap = t.miasmaOfSnap(snap);
+  t.resumeSnap(snap);
+  t.purifyCurse();
+  return { inSnap, ap: { echo: t.echoMiasmaCount(), nat: t.naturalMiasmaCount() } };
+});
+ok("㉒P2-E 旧v0.164 Portal：backfill→鎮魂で選択浄化（8/1→0/1）", oldPortal.inSnap.echo === 8 && oldPortal.inSnap.nat === 1 && oldPortal.ap.echo === 0 && oldPortal.ap.nat === 1, JSON.stringify(oldPortal));
+
 ok("例外・console.error ゼロ（全体）", errors.length === 0, errors.slice(0, 8).join(" | "));
 
 await browser.close();
