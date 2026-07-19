@@ -869,7 +869,7 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   forceDive: () => { if (world.current) { abyssDivePending = false; portalDivePending = false; void startDive(); } return !!world.current; },
   setHp: (v: number) => { hp = v; },
   getHp: () => hp,
-  spawnKind: (dx: number, dy: number, key: string, hpv?: number) => { if (!floor) return; const kind = MONSTER_KINDS.find((k) => k.key === key); if (!kind) return; floor.monsters.push({ id: `qk_${floor.monsters.length}`, kind, hp: hpv ?? kind.hp, x: player.x + dx, y: player.y + dy, awake: true, intent: null }); planMonsters(floor, player, rng, companion); }, // 突進 E2E：種を指定して湧かす
+  spawnKind: (dx: number, dy: number, key: string, hpv?: number) => { if (!floor) return null; const kind = MONSTER_KINDS.find((k) => k.key === key); if (!kind) return null; const id = `qk_${floor.monsters.length}`; floor.monsters.push({ id, kind, hp: hpv ?? kind.hp, x: player.x + dx, y: player.y + dy, awake: true, intent: null }); planMonsters(floor, player, rng, companion); return id; }, // 突進 E2E：種を指定して湧かす（id を返す＝㉕の無関係 monster 追跡用）
   monAt: (dx: number, dy: number) => { const m = floor?.monsters.find((mm) => mm.hp > 0 && mm.x === player.x + dx && mm.y === player.y + dy); return m ? { key: m.kind.key, hp: m.hp, intent: m.intent?.type ?? null, charge: (m.intent as { charge?: boolean } | null)?.charge ?? false, stunned: m.stunned ?? 0 } : null; }, // stunned 追加（武器 parity E2E・観測フック）
   // ── 武器比較 parity E2E（PR2/5・外部レビュー）用の追加フック。
   //   forceHeavy＝MECH-2（剣の受け消費順）検証のためだけの最小追加：h.effect==="heavy" は area ボスの「渾身の一撃」経路でしか
@@ -973,8 +973,20 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   fossilInterventions: (fid: string) => world.fossils.find((f) => f.id === fid)?.interventions.length ?? null, // ㉖：二度目 intervene が走らないことを検証
   curseShadeState: () => { const e = floor?.echo; if (!e || e.kind !== "curse") return null; return (e.shadeId != null && !e.purified) ? "alive" : e.purified ? "purified" : "slain"; },
   feResolved: (fid: string) => floor?.fossils.find((e) => e.fossilId === fid)?.resolved ?? null, // ㉕：撥ねつけ後の resolved を検証
+  // ── P2-D 修正 E2E（㉔〜㉗）：不変検証用の read フック＋実 enterFloor 降下＋RNG 計数ラッパ（全て dbg 限定・golden 非対象）。──
+  monStats: (id: string) => { const m = floor?.monsters.find((mm) => mm.id === id); return m ? { hp: m.hp, kindHp: m.kind.hp, dmg: m.kind.dmg } : null; }, // ㉕：無関係 monster の hp/dmg 不変を検証
+  descendFloor: () => { if (floor) enterFloor(floor.depth + 1, false); return floor?.depth ?? null; }, // ㉕：実 enterFloor で新フロア（新 floor.fossils／新 fe）へ降りる
+  getTraits: () => [...(world.current?.traits ?? [])],                       // ㉖：形質の実値不変
+  equippedWeaponName: () => world.current?.equipment.weapon?.name ?? null,   // ㉖：装備武器の実値不変
+  companionFeats: () => world.companion?.feats ?? 0,                          // ㉖：相棒 feat の実値不変
+  bondUnfinished: (fid: string) => { const b = world.current?.bonds.find((bb) => bb.entityRef === fid); return b ? !!b.unfinished : null; }, // ㉔：認識決着で unfinished bond を作らない
+  chronicleLen: () => world.chronicle.length,                                // ㉔：認識決着で未完 chronicle を書かない
+  sheetText: () => document.querySelector("#sheetText")?.textContent ?? "",   // ㉗：対面文の固定表示を捕捉
+  logText: () => Array.from(document.querySelectorAll("#log > *")).slice(-6).map((d) => d.textContent ?? "").join("\n"), // ㉔/㉖：認識文（log 行）の固定表示を捕捉
+  rngWrapCount: () => { if ((window as any).__rngCountFn) return; const inner = rng; let n = 0; (window as any).__rngCountFn = () => n; rng = { next() { n++; return inner.next(); }, pick<T>(arr: T[]) { if (!arr.length) throw new Error("pick empty"); return arr[Math.floor(this.next() * arr.length)]; }, int(m: number) { return Math.floor(this.next() * m); } } as Rng; }, // ㉗：live rng をパススルー計数ラッパで包む（値は不変・draw 数だけ数える）
+  rngCount: () => (window as any).__rngCountFn ? (window as any).__rngCountFn() : -1, // ㉗：現在までの累計 draw 数（非消費＝不変を証明）
   // 山場を bump で発火させる化石を仕込む（twisting 段階＝matchSetPiece 発火・cooldown リセット）。curse で呪詛残響も同座に。inherited で既継承状態に。
-  spawnSetpieceSite: (opts: { tone: string; finalAct: string; dx?: number; dy?: number; curse?: boolean; inherited?: boolean; gear?: string; name?: string; manner?: string }) => {
+  spawnSetpieceSite: (opts: { tone: string; finalAct: string; dx?: number; dy?: number; curse?: boolean; echoKind?: EchoKind; inherited?: boolean; gear?: string; name?: string; manner?: string }) => {
     if (!floor || !world.current) return null;
     const dx = opts.dx ?? 1, dy = opts.dy ?? 0, x = player.x + dx, y = player.y + dy;
     if (inBounds(floor, x, y)) { floor.tiles[mapIdx(floor, x, y)] = 1; floor.explored[mapIdx(floor, x, y)] = true; }
@@ -987,6 +999,7 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
     world.fossils.push(fossil);
     floor.fossils.push({ id: `fe_${id}`, fossilId: id, resolved: false, x, y });
     if (opts.curse) { floor.echo = { fossilId: id, x, y, kind: "curse" }; setupEchoBoard(floor.echo, fossil, floor.depth); }
+    else if (opts.echoKind) { floor.echo = { fossilId: id, x, y, kind: opts.echoKind }; setupEchoBoard(floor.echo, fossil, floor.depth); } // ㉘：実在の非curse echo（calm 等）を同座＝連結不発の負テスト
     setPieceCooldown = 0;
     draw();
     return { fossilId: id, x, y, shadeId: floor.echo?.shadeId ?? null };
@@ -7450,6 +7463,9 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
   const curseEcho = (spType === "grudge_hunt" && floor?.echo?.kind === "curse" && floor.echo.fossilId === fossil.id) ? floor.echo : null;
   const curseState: "alive" | "slain" | "purified" | null =
     !curseEcho ? null : (curseEcho.shadeId != null && !curseEcho.purified) ? "alive" : curseEcho.purified ? "purified" : "slain";
+  // P2-D（§A・修正）：影先討ち/浄化済の grudge×curse は対決/浄化が既に済んでいる＝残るは認識のみ。
+  //  この時は「そっと立ち去る」（放置＝未完 bond/chronicle/leaveLine〔RNG〕）へ流さず、副作用ゼロの認識決着へ差し替える。
+  const grudgeCurseResolved = !!curseEcho && (curseState === "slain" || curseState === "purified");
   {
     const mf = echoMannerFlavor(fossil); // P2-D：deathManner 第二形容（決定論・RNG非消費）
     if (mf) text += `\n${mf}`;
@@ -7509,7 +7525,9 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
     if (willEchoAvail) opts.push("遺言を読む（先代の最後の腕前を継ぐ）"); // 最期の残響・遺言（RFC・P1）
     if (!curseEcho) opts.push("鎮魂する（末路を閉じ、変質の時計を巻き戻す）"); // P2-D：grudge×curse は詫びると requiem 重複ゆえ全3状態で非表示
     if (canInherit && spType !== "inheritance") opts.push("遺されたものを継ぐ"); // inheritance 山場時は climax「遺志を継ぐ」が代替＝重複回避
-    opts.push("そっと立ち去る");
+    // P2-D（§A・修正）：影先討ち/浄化済の grudge×curse は認識専用の決着（放置分岐を通さない・副作用ゼロ）。それ以外は従来の放置。
+    if (grudgeCurseResolved) opts.push("その者の末路を胸に刻む（認めて去る）");
+    else opts.push("そっと立ち去る");
 
     const r = await sheet({
       text,
@@ -7550,6 +7568,8 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       ch.exposure = Math.max(0, ch.exposure - 0.4);
       chronicle(world, "legend", `${ch.name}は${fossil.origin.name}の導きを受けた。`, [fossil.id, ch.id]);
       log(`${fossil.origin.name}の光が、行く道を照らした。記憶に『導きの印』が刻まれた。`);
+      // P2-D（§E）：legend_return × 静穏の残響＝認識の一行（純 flavor・固定文＝RNG非消費・機構変更なし）。
+      if (echo?.kind === "calm") log(`その導きは静穏の残響に溶け、いっそう穏やかに行く道を照らした。`, "cue");
       if (ch.exposure < before) log(`深みに削られた芯が、人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
       // 奉献の試練・印③：山場（legend_return）を決着（4-13A）
       if (awardSeal(world, "setpiece", [fossil.id])) { sfx("seal"); log("◆ 「山場の決着」の印を得た。", "warn"); }
@@ -7583,6 +7603,13 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       if (curseState === "alive") echoEnrageShade(fossil.id);
       fe.resolved = true;
       save();
+      break;
+    }
+    if (label.startsWith("その者の末路を胸に刻む")) { // P2-D（§A・修正）：grudge×curse 影先討ち/浄化済＝認識のみで閉じる
+      // 放置分岐（bond.unfinished/未完 chronicle/leaveLine〔RNG〕）へ流さない＝intervene/requiem/浄化/exposure/印/feat/bond/chronicle/RNG を一切動かさず fe.resolved+save だけで閉じる。
+      log(curseState === "slain"
+        ? `怨嗟の影は既に討った。その者の末路を、ただ胸に刻んで去る。`
+        : `澱みは既に鎮めた。その者の末路を、ただ胸に刻んで去る。`); // 固定文＝RNG非消費
       break;
     }
     if (label.startsWith("継いだ遺志を胸に刻む")) { // P2-D（§B'）：既継承後の inheritance 山場＝認識決着1本（二度目 intervene/装備/形質/深蝕回復/相棒feat を全停止・冪等な setpiece 印のみ）
