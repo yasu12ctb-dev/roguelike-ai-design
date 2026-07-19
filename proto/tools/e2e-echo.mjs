@@ -358,6 +358,22 @@ const calmAlien = await page.evaluate(() => {
 });
 ok("⑬c静穏：alien は十字のみ＝対角(1,1)は安らがない／非alien は安らぐ", calmAlien.alien === false && calmAlien.normal === true, JSON.stringify(calmAlien));
 
+// ⑭ v0.164.0 バグ修正：呪詛の蝕の霧は placeHazards（f.hazards=[]）で全消去されるが、直後の layEchoMiasma で救われる
+//    （実 enterFloor 順序＝pickFloorEcho→…→placeHazards→layEchoMiasma の回帰。修正前はこの経路で霧が実プレイから消えていた）。
+await openArea();
+const wipeFix = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz();
+  t.spawnEcho("curse", "loss", 3, 0, {});
+  const m0 = t.echoBoard()?.miasma;   // 敷設直後＝霧あり
+  t.runPlaceHazards();                 // 実 enterFloor の placeHazards（f.hazards=[]）＝修正前はここで霧が死ぬ
+  const m1 = t.echoBoard()?.miasma;
+  t.relayEchoMiasma();                 // placeHazards 直後の再敷設（修正の核）
+  const m2 = t.echoBoard()?.miasma;
+  return { m0, m1, m2 };
+});
+ok("⑭バグ修正：placeHazards が霧を消し（m1=0）、layEchoMiasma が救う（m2>0・復元）", wipeFix.m0 > 0 && wipeFix.m1 === 0 && wipeFix.m2 > 0 && wipeFix.m2 === wipeFix.m0, JSON.stringify(wipeFix));
+
 ok("例外・console.error ゼロ（全体）", errors.length === 0, errors.slice(0, 8).join(" | "));
 
 await browser.close();
