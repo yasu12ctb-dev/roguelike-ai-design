@@ -446,19 +446,76 @@ const shrink = await page.evaluate(() => {
 });
 ok("⑲P2-E 鎮魂で次回潜行の霧が縮む（alien28→weathered8）", shrink.big === 28 && shrink.small === 8, JSON.stringify(shrink));
 
-// ⑳ P2-E：途中保存(DiveSnapshot)に所有情報(src=echo)が載る＝再開後も残響由来が維持される。
-const saved = await page.evaluate(() => {
+// 後方互換テストの共通：v0.164 相当の盤面（残響霧 weathered=半径1＋距離2の自然霧）を仕込む。
+const setupCurseSave = () => page.evaluate(() => {
   const t = (window).__hazTest;
+  t.forceDive();
   t.clearEchoFossils(); t.clearMons(); t.clearHaz();
-  for (let dx = -4; dx <= 4; dx++) for (let dy = -4; dy <= 4; dy++) t.setTile(dx, dy, 1);
+  for (let dx = -5; dx <= 5; dx++) for (let dy = -5; dy <= 5; dy++) t.setTile(dx, dy, 1);
   t.setStairs(9, 9, 9, -9);
-  t.spawnEcho("curse", "loss", 1, 0, { stage: "twisting" });
-  t.saveDiveNow();
-  const snap = JSON.parse(localStorage.getItem("sekitsui.dive.v0") || "{}");
-  const haz = snap.floor?.hazards ?? [];
-  return { echoTiles: haz.filter((h) => h.kind === "miasma" && h.src === "echo").length };
+  t.spawnEcho("curse", "loss", 0, -2, { stage: "weathered" }); // v0.164 は常に半径1
+  t.putHaz(2, -2, "miasma"); // 自然霧（echo+(2,0)=距離2＝半径1の外）
 });
-ok("⑳P2-E 保存された DiveSnapshot に残響由来の霧(src=echo)が維持される", saved.echoTiles === 24, JSON.stringify(saved));
+const stripSrcInKey = (key) => page.evaluate((k) => {
+  const raw = JSON.parse(localStorage.getItem(k));
+  const strip = (f) => (f?.hazards || []).forEach((h) => { if (h.kind === "miasma") delete h.src; });
+  strip(raw.floor); (raw.cache || []).forEach((e) => strip(e[1]));
+  localStorage.setItem(k, JSON.stringify(raw)); // 旧v0.164形式化（残響霧に src なし）
+}, key);
+const reloadReady = async (hook) => { await page.reload({ waitUntil: "domcontentloaded" }); await page.waitForFunction((h) => !!(window).__hazTest?.[h], hook); };
+
+// ⑳ P2-E（新形式・保存→再読込→再開）：v0.165 セーブは src が維持され、再開後に選択浄化が効く。
+await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.forceDive();
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz();
+  for (let dx = -5; dx <= 5; dx++) for (let dy = -5; dy <= 5; dy++) t.setTile(dx, dy, 1);
+  t.setStairs(9, 9, 9, -9);
+  t.spawnEcho("curse", "loss", 0, -2, { stage: "twisting" });
+  t.putHaz(3, 0, "miasma"); // 自然霧（距離3＝半径2の外）
+  t.saveDiveNow();
+});
+await reloadReady("loadDiveSnap");
+const newFmt = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  const snap = t.loadDiveSnap();          // 実 loadDive（backfill は no-op＝src 既存）
+  const inSnap = t.miasmaOfSnap(snap);
+  t.resumeSnap(snap);                     // 実 resumeDive
+  const ar = { echo: t.echoMiasmaCount(), nat: t.naturalMiasmaCount() };
+  t.purifyCurse();
+  return { inSnap, ar, ap: { echo: t.echoMiasmaCount(), nat: t.naturalMiasmaCount() } };
+});
+ok("⑳P2-E 新形式：保存→再読込→再開で src 維持・選択浄化（24/1→浄化0/1）", newFmt.inSnap.echo === 24 && newFmt.inSnap.nat === 1 && newFmt.ar.echo === 24 && newFmt.ar.nat === 1 && newFmt.ap.echo === 0 && newFmt.ap.nat === 1, JSON.stringify(newFmt));
+
+// ㉑ P2-E（後方互換・旧v0.164 DiveSnapshot）：src 無しの旧残響霧を loadDive が backfill→鎮魂で残響霧だけ消え自然霧は残る。
+await setupCurseSave();
+await page.evaluate(() => (window).__hazTest.saveDiveNow());
+await stripSrcInKey("sekitsui.dive.v0");
+await reloadReady("loadDiveSnap");
+const oldDive = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  const snap = t.loadDiveSnap();          // 実 loadDive＝旧盤面へ src を backfill
+  const inSnap = t.miasmaOfSnap(snap);
+  t.resumeSnap(snap);
+  t.purifyCurse();
+  return { inSnap, ap: { echo: t.echoMiasmaCount(), nat: t.naturalMiasmaCount() } };
+});
+ok("㉑P2-E 旧v0.164 Dive：backfill→鎮魂で残響霧のみ消え自然霧は残る（8/1→0/1）", oldDive.inSnap.echo === 8 && oldDive.inSnap.nat === 1 && oldDive.ap.echo === 0 && oldDive.ap.nat === 1, JSON.stringify(oldDive));
+
+// ㉒ P2-E（後方互換・旧v0.164 PortalSnapshot）：帰還の扉スナップショットも loadPortal が backfill する。
+await setupCurseSave();
+await page.evaluate(() => (window).__hazTest.parkPortalNow());
+await stripSrcInKey("sekitsui.portal.v0");
+await reloadReady("loadPortalSnap");
+const oldPortal = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  const snap = t.loadPortalSnap();        // 実 loadPortal＝旧盤面へ src を backfill
+  const inSnap = t.miasmaOfSnap(snap);
+  t.resumeSnap(snap);
+  t.purifyCurse();
+  return { inSnap, ap: { echo: t.echoMiasmaCount(), nat: t.naturalMiasmaCount() } };
+});
+ok("㉒P2-E 旧v0.164 Portal：backfill→鎮魂で選択浄化（8/1→0/1）", oldPortal.inSnap.echo === 8 && oldPortal.inSnap.nat === 1 && oldPortal.ap.echo === 0 && oldPortal.ap.nat === 1, JSON.stringify(oldPortal));
 
 ok("例外・console.error ゼロ（全体）", errors.length === 0, errors.slice(0, 8).join(" | "));
 

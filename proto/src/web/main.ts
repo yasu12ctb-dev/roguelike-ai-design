@@ -728,6 +728,23 @@ function saveDive(): void {
 }
 function clearDive(): void { try { localStorage.removeItem(DIVE_KEY); } catch { /* ignore */ } }
 
+/** 後方互換（v0.165.0）：v0.164 以前に保存された盤面（DiveSnapshot/PortalSnapshot）の残響霧には所有ID src が無い。
+ *  更新後に鎮魂しても echoPurifyCurse の `src==="echo"` 判定に一致せず旧残響霧が盤面に残るため、読込時（loadDive/loadPortal）に backfill する。
+ *  ★安全性＝旧仕様の残響霧は必ず化石周囲 Chebyshev 半径1（ECHO_MIASMA_R）の固定形、かつ v0.164 の placeHazards は全化石の半径1を
+ *  自然ハザード禁止にしていた＝この範囲の「src 無し miasma」は必ず残響由来＝自然霧を誤所有しない。current floor と cache 全件へ適用。
+ *  既に src があれば no-op・冪等（新形式 v0.165 セーブには何もしない）。World/Fossil・SAVE_VERSION は変更しない（盤面状態のみ）。 */
+function backfillEchoMiasmaSrc(snap: DiveSnapshot): void {
+  const fix = (f: Floor | undefined | null): void => {
+    const ec = f?.echo;
+    if (!f || !ec || ec.kind !== "curse" || ec.purified || !f.hazards) return; // 未浄化の呪詛残響の盤面だけが対象
+    for (const h of f.hazards) {
+      if (h.kind === "miasma" && h.src === undefined && Math.max(Math.abs(h.x - ec.x), Math.abs(h.y - ec.y)) <= ECHO_MIASMA_R) h.src = "echo";
+    }
+  };
+  fix(snap.floor);
+  for (const entry of snap.cache ?? []) fix(entry?.[1]);
+}
+
 // 帰還の扉（街側・一回だけ）：ボス撃破後に街へ戻ると、あの階の盤面（ボス討伐済み）を丸ごと
 // 「駐機」しておく。live な DiveSnapshot は街入場で破棄されるので、これは専用キーに退避＝
 // リロード/アプリ再起動でも生き残り、慰霊碑の扉から一度だけ同じ盤面へ戻れる。
@@ -745,7 +762,7 @@ function loadPortal(): DiveSnapshot | null {
   try {
     const raw = localStorage.getItem(PORTAL_KEY); if (!raw) return null;
     const s = JSON.parse(raw) as DiveSnapshot;
-    if (s && s.floor && s.player && typeof s.hp === "number" && Array.isArray(s.cache)) return s;
+    if (s && s.floor && s.player && typeof s.hp === "number" && Array.isArray(s.cache)) { backfillEchoMiasmaSrc(s); return s; } // v0.165：旧盤面の残響霧に src を補填
   } catch { /* ignore */ }
   return null;
 }
@@ -755,7 +772,7 @@ function loadDive(): DiveSnapshot | null {
   try {
     const raw = localStorage.getItem(DIVE_KEY); if (!raw) return null;
     const s = JSON.parse(raw) as DiveSnapshot;
-    if (s && s.floor && s.player && typeof s.hp === "number" && Array.isArray(s.cache)) return s;
+    if (s && s.floor && s.player && typeof s.hp === "number" && Array.isArray(s.cache)) { backfillEchoMiasmaSrc(s); return s; } // v0.165：旧盤面の残響霧に src を補填
   } catch { /* ignore */ }
   return null;
 }
@@ -903,6 +920,12 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   echoMiasmaCount: () => (floor?.hazards ?? []).filter((h) => h.kind === "miasma" && h.src === "echo").length,
   naturalMiasmaCount: () => (floor?.hazards ?? []).filter((h) => h.kind === "miasma" && h.src !== "echo").length,
   saveDiveNow: () => { saveDive(); },                                      // 途中保存→再開後の所有維持の検証用
+  parkPortalNow: () => { parkPortal(); },                                  // 帰還の扉スナップショットを保存（PORTAL_KEY）
+  // v0.165 後方互換 E2E：loadDive/loadPortal は読込時に旧盤面の残響霧へ src を backfill する（実関数を通す）。
+  miasmaOfSnap: (s: DiveSnapshot | null) => s?.floor ? { echo: (s.floor.hazards ?? []).filter((h) => h.kind === "miasma" && h.src === "echo").length, nat: (s.floor.hazards ?? []).filter((h) => h.kind === "miasma" && h.src !== "echo").length } : null,
+  loadDiveSnap: () => loadDive(),           // backfill 済みの DiveSnapshot を返す（旧形式→src 補填を検証）
+  loadPortalSnap: () => loadPortal(),       // backfill 済みの PortalSnapshot を返す
+  resumeSnap: (s: DiveSnapshot | null) => { if (s) resumeDive(s); return mode; }, // 実 resumeDive で盤面へ復元
   getGold: () => world.current?.gold ?? 0,
   // ── P2-A（相棒/縁者の残響）E2E：化石を world.fossils＋floor.fossils に注入し（floor.echo は設定しない）、
   //   実選定ゲート pickFloorEcho を通して採択されるか（相棒/縁者は採択・シード explorer は除外）を検証する。
