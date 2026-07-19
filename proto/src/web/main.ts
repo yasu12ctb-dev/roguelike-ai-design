@@ -62,8 +62,8 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.163.0";
-export const APP_BUILD = "2026-07-18";
+export const APP_VERSION = "0.164.0";
+export const APP_BUILD = "2026-07-19";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
 const db = makeContentDb(
@@ -479,6 +479,21 @@ function echoFreeTilesNear(f: Floor, cx: number, cy: number, n: number, avoid: S
   }
   return out;
 }
+/** 呪詛：蝕の霧（miasma・恒久＝turns 無し）を化石周囲 ECHO_MIASMA_R に敷く。冪等（既存ハザードのマスはスキップ＝自然ハザードを上書きしない）・RNG 非消費。
+ *  ★setupEchoBoard（E2E フック経路＝placeHazards 後に走る）と enterFloor（実経路＝placeHazards の直後）の両方から呼ぶ。
+ *  実 enterFloor では pickFloorEcho→setupEchoBoard が敷いた霧を placeHazards の `f.hazards = []` が消してしまうため、placeHazards 後に再敷設して救う（v0.164.0 バグ修正）。 */
+function layEchoMiasma(): void {
+  const echo = floor?.echo;
+  if (!floor || !echo || echo.kind !== "curse") return;
+  floor.hazards ??= [];
+  for (let dy = -ECHO_MIASMA_R; dy <= ECHO_MIASMA_R; dy++) for (let dx = -ECHO_MIASMA_R; dx <= ECHO_MIASMA_R; dx++) {
+    const x = echo.x + dx, y = echo.y + dy;
+    if (!inBounds(floor, x, y) || tileAt(floor, x, y) !== 1) continue;
+    if (x === echo.x && y === echo.y) continue; // 化石マス自身は空ける（踏み込み用）
+    if ((floor.stairsDown.x === x && floor.stairsDown.y === y) || (floor.stairsUp.x === x && floor.stairsUp.y === y)) continue;
+    if (!floor.hazards.some((h) => h.x === x && h.y === y)) floor.hazards.push({ x, y, kind: "miasma" });
+  }
+}
 /** 守り手/呪詛の盤面を仕込む（enterFloor 初訪・floorCache に乗る）。calm/will は no-op。 */
 function setupEchoBoard(echo: NonNullable<Floor["echo"]>, fossil: Fossil, depth: number): void {
   if (!floor) return;
@@ -492,14 +507,8 @@ function setupEchoBoard(echo: NonNullable<Floor["echo"]>, fossil: Fossil, depth:
     if (tiles.length >= 2) echo.ward = { x: tiles[1].x, y: tiles[1].y, awake: false };
   } else if (echo.kind === "curse") {
     // 呪詛：蝕の霧（恒久＝turns 無し・鎮魂で消す）＋怨念の影（既存種 re-skin・敵性）。
-    floor.hazards ??= [];
-    for (let dy = -ECHO_MIASMA_R; dy <= ECHO_MIASMA_R; dy++) for (let dx = -ECHO_MIASMA_R; dx <= ECHO_MIASMA_R; dx++) {
-      const x = echo.x + dx, y = echo.y + dy;
-      if (!inBounds(floor, x, y) || tileAt(floor, x, y) !== 1) continue;
-      if (x === echo.x && y === echo.y) continue; // 化石マス自身は空ける（踏み込み用）
-      if ((floor.stairsDown.x === x && floor.stairsDown.y === y) || (floor.stairsUp.x === x && floor.stairsUp.y === y)) continue;
-      if (!floor.hazards.some((h) => h.x === x && h.y === y)) floor.hazards.push({ x, y, kind: "miasma" });
-    }
+    //  ★霧の敷設は layEchoMiasma に集約（実 enterFloor 経路では placeHazards 後に再敷設が要るため＝v0.164.0 バグ修正）。
+    layEchoMiasma();
     const avoid = new Set<string>([`${player.x},${player.y}`, `${echo.x},${echo.y}`]);
     const t = echoFreeTilesNear(floor, echo.x, echo.y, 1, avoid);
     if (t.length) {
@@ -865,6 +874,9 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   requiemFossil: (fossilId: string) => { const f = world.fossils.find((ff) => ff.id === fossilId); if (f) intervene(world, f.id, "requiem"); },
   killShade: () => { const e = floor?.echo; if (!floor || !e?.shadeId) return false; const m = floor.monsters.find((mm) => mm.id === e.shadeId); if (!m) return false; m.hp = 0; downOrKill(m, "怨念の影を討った。"); return true; },
   purifyCurse: () => { echoPurifyCurse(); },
+  // v0.164.0 バグ修正 E2E：実 enterFloor の順序（placeHazards→layEchoMiasma）を忠実に再現し、呪詛の霧が生き残るか検証する。
+  runPlaceHazards: () => { if (floor) placeHazards(floor, rng, player); }, // placeHazards 単体＝呪詛霧を全消去する側（修正前は miasma=0 に落ちる）
+  relayEchoMiasma: () => { layEchoMiasma(); },                              // placeHazards 後の再敷設＝修正の核（miasma を救う）
   getGold: () => world.current?.gold ?? 0,
   // ── P2-A（相棒/縁者の残響）E2E：化石を world.fossils＋floor.fossils に注入し（floor.echo は設定しない）、
   //   実選定ゲート pickFloorEcho を通して採択されるか（相棒/縁者は採択・シード explorer は除外）を検証する。
@@ -4547,6 +4559,9 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false, viaDoor = 
     }
     // 地形ハザード（v0.128.0）：初訪のみ配置（floorCache に乗り同一潜行内で決定論）。深淵帯・街防衛戦には置かない。
     if (!abyss) placeHazards(floor, rng, player);
+    // ★呪詛残響の蝕の霧を救う（v0.164.0 バグ修正）：pickFloorEcho→setupEchoBoard が敷いた miasma を
+    //  直前の placeHazards（`f.hazards = []`）が全消去してしまうため、placeHazards の後に再敷設する（RNG 非消費・冪等・半径1で自然霧と非重複）。
+    layEchoMiasma();
   }
   // 同行（4-14C）：相棒がいれば @ の隣に展開（階段は隣接で同行降下）。ephemeral＝再訪でも再展開。
   companion = null;
