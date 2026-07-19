@@ -56,13 +56,13 @@ import {
   VIEW_W, VIEW_H, MONSTER_KINDS, MONSTER_HARDCAP, WANDER_EVERY, WANDER_FLOOR_CAP,
   type Floor, type Pos, type Chest, type Monster, type CompanionEntity, type DownedActor, type DelverActor, type Shrine,
 } from "../dungeon.ts";
-import type { Actor, Character, FinalActChoice, Fossil, Fragment, Item, ItemSlot, LivingActor, Quest, RosterActor, SetPiece, Storylet, TownContext, World } from "../types.ts";
+import type { Actor, Character, DeathManner, FinalActChoice, Fossil, Fragment, Item, ItemSlot, LivingActor, Quest, RosterActor, SetPiece, Storylet, TownContext, World } from "../types.ts";
 import { diffMods, SELECTABLE_DIFFICULTIES, DIFFICULTY_LABEL, DIFFICULTY_BLURB, type Difficulty } from "../difficulty.ts";
 import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.165.0";
+export const APP_VERSION = "0.166.0";
 export const APP_BUILD = "2026-07-19";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -423,6 +423,30 @@ const echoBondTag = (f: Fossil): string =>
 /** 最期の残響・P2-A：残響の主が相棒/縁者なら認識の一文を返す（自血統は空）。peek/盤面フローに前置する。 */
 const echoBondNote = (f: Fossil): string =>
   f.wasCompanion ? (f.death.manner === "betrayed" ? "見捨てたあの者の亡骸だ。" : "共に歩いた相棒の亡骸だ。") : f.wasAlly ? "かつて縁を結んだ者だ。" : "";
+// ── 最期の残響・P2-D：deathManner の副次修飾（flavor のみ・決定論表引き・RNG非消費＝tonePole の下層の第二形容）。──
+const MANNER_FLAVOR: Record<DeathManner, string> = {
+  noble: "誇りある最期だった。",
+  grievous: "無惨な最期だった。",
+  betrayed: "見捨てられた末の姿だ。",
+  peaceful: "安らかな最期だった。",
+  anonymous: "名も無き最期だった。",
+};
+/** P2-D：残響の主の deathManner に応じた第二形容（決定論・RNG非消費）。相棒の betrayed 対面文と重複する場合は空（既存文優先）。 */
+const echoMannerFlavor = (f: Fossil): string =>
+  (f.wasCompanion && f.death.manner === "betrayed") ? "" : (MANNER_FLAVOR[f.death.manner] ?? "");
+// ── 最期の残響・P2-D（§C'）：撥ねつけ enrage の乗算（対象 shade 1体・×1.15・テスト調整候補）。──
+const ECHO_ENRAGE_MUL = 1.15;
+/** P2-D（§C'）：呪詛の生存 shade を一段猛らせる（対象＝当該 floor.echo.shadeId 1体のみ・hp/dmg ×ECHO_ENRAGE_MUL・Math.round・Monster.enraged 非流用）。
+ *  一回性は撥ねつけ分岐が fossilScene の1回終結（fe.resolved で再起動しない＝main.ts の bump ガード）で担保＝盤面単位（次回潜行の新 shade は再度1回強化可）。 */
+function echoEnrageShade(fossilId: string): void {
+  const ec = floor?.echo;
+  if (!floor || !ec || ec.kind !== "curse" || ec.fossilId !== fossilId || !ec.shadeId) return;
+  const m = floor.monsters.find((mm) => mm.id === ec.shadeId && mm.hp > 0);
+  if (!m) return;
+  m.kind = { ...m.kind, hp: Math.round(m.kind.hp * ECHO_ENRAGE_MUL), dmg: Math.round(m.kind.dmg * ECHO_ENRAGE_MUL) };
+  m.hp = Math.round(m.hp * ECHO_ENRAGE_MUL);
+  log("撥ねつけた怨嗟が、影に牙を与える――怨念の影が、一段猛る。", "warn");
+}
 /** 最期の残響・静穏（RFC・P1・テスト調整候補）：静かなマスの半径（Chebyshev）と鎮魂の一度きり深蝕減。 */
 const ECHO_CALM_RADIUS = 2;
 const ECHO_CALM_REQUIEM = 0.3; // 静穏の残響を鎮魂した時の一度きり深蝕減（guardian_boon と同型・冪等）
@@ -633,7 +657,7 @@ function showPeek(x: number, y: number): void {
     if (f.echo && f.echo.x === x && f.echo.y === y) {
       const wf = world.fossils.find((ff) => ff.id === f.echo!.fossilId);
       const e = wf ? computeEcho(wf, worldTime(world)) : null;
-      if (wf && e) { const bn = echoBondNote(wf); setPeek(`†　${wf.origin.name}の残響${echoBondTag(wf)}`, (bn ? bn + "　" : "") + echoPeekLine(e)); return; }
+      if (wf && e) { const bn = echoBondNote(wf); const mf = echoMannerFlavor(wf); setPeek(`†　${wf.origin.name}の残響${echoBondTag(wf)}`, (bn ? bn + "　" : "") + echoPeekLine(e) + (mf ? "　" + mf : "")); return; } // P2-D：deathManner 第二形容を下層に
     }
     setPeek("†　化石", fe.resolved ? "鎮まった亡骸。もう語らない。" : "何者かの亡骸が層に眠る。踏み込めば対面する。"); return;
   }
@@ -880,6 +904,7 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   getExposure: () => world.current?.exposure ?? 0,
   setExposure: (v: number) => { if (world.current) world.current.exposure = v; }, // P2-B E2E
   shadeHp: () => { const e = floor?.echo; return e?.shadeId ? (floor?.monsters.find((m) => m.id === e.shadeId)?.hp ?? null) : null; }, // P2-B E2E：怨念の影の hp
+  shadeStats: () => { const e = floor?.echo; const m = e?.shadeId ? floor?.monsters.find((mm) => mm.id === e.shadeId) : null; return m ? { hp: m.hp, kindHp: m.kind.hp, dmg: m.kind.dmg } : null; }, // P2-D E2E：影の hp/kind.hp/kind.dmg（enrage 値検証）
   wardHp: () => { const e = floor?.echo; return e ? (floor?.monsters.find((m) => m.id === `ward_${e.fossilId}`)?.hp ?? null) : null; }, // P2-B E2E：番人の hp
   shadeName: () => { const e = floor?.echo; return e?.shadeId ? (floor?.monsters.find((m) => m.id === e.shadeId)?.kind.name ?? null) : null; }, // P2-C E2E：影の名（怨念の影/歪影）
   wardName: () => { const e = floor?.echo; return e ? (floor?.monsters.find((m) => m.id === `ward_${e.fossilId}`)?.kind.name ?? null) : null; }, // P2-C E2E：番人の名（遺品の番人/歪んだ番人）
@@ -942,6 +967,30 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   },
   runEchoSelection: () => { pickFloorEcho(); draw(); return floor?.echo?.fossilId ?? null; },
   clearEchoFossils: () => { if (floor) { floor.fossils = []; floor.echo = null; if (floor.hazards) floor.hazards = []; draw(); } },
+  // ── 最期の残響・P2-D（山場連結）E2E フック ──
+  getSeals: () => [...(world.seals ?? [])], // ㉓/㉖：setpiece 印の付与を検証
+  answerSheet: (re: string) => { const b = Array.from(document.querySelectorAll("#sheetButtons button")).find((x) => new RegExp(re).test(x.textContent || "")); if (b) { (b as HTMLElement).click(); return b.textContent; } return null; }, // シート選択肢をページ内クリックで確定（playwright の actionability を経ずに onclick を発火）
+  fossilInterventions: (fid: string) => world.fossils.find((f) => f.id === fid)?.interventions.length ?? null, // ㉖：二度目 intervene が走らないことを検証
+  curseShadeState: () => { const e = floor?.echo; if (!e || e.kind !== "curse") return null; return (e.shadeId != null && !e.purified) ? "alive" : e.purified ? "purified" : "slain"; },
+  feResolved: (fid: string) => floor?.fossils.find((e) => e.fossilId === fid)?.resolved ?? null, // ㉕：撥ねつけ後の resolved を検証
+  // 山場を bump で発火させる化石を仕込む（twisting 段階＝matchSetPiece 発火・cooldown リセット）。curse で呪詛残響も同座に。inherited で既継承状態に。
+  spawnSetpieceSite: (opts: { tone: string; finalAct: string; dx?: number; dy?: number; curse?: boolean; inherited?: boolean; gear?: string; name?: string; manner?: string }) => {
+    if (!floor || !world.current) return null;
+    const dx = opts.dx ?? 1, dy = opts.dy ?? 0, x = player.x + dx, y = player.y + dy;
+    if (inBounds(floor, x, y)) { floor.tiles[mapIdx(floor, x, y)] = 1; floor.explored[mapIdx(floor, x, y)] = true; }
+    const id = `spfossil_${world.fossils.length}`;
+    const fossil = { id, kind: "character", origin: { name: opts.name ?? "先代", archetype: "wanderer", gearTags: [opts.gear ?? "長剣"], epithet: "" },
+      death: { manner: (opts.manner ?? "grievous") as DeathManner, finalAct: { choice: opts.finalAct as FinalActChoice }, depth: 50, generationCreated: world.generation },
+      exposureAtDeath: 0, bondAtDeath: 5, tonePole: opts.tone as Fossil["tonePole"],
+      interventions: opts.inherited ? [{ type: "inherit" as const, generation: world.generation }] : [],
+      lastTouchedGeneration: worldTime(world) - 2, laidDepth: 50 } as Fossil; // twisting 段階（stage!=="weathered"＝matchSetPiece 発火）
+    world.fossils.push(fossil);
+    floor.fossils.push({ id: `fe_${id}`, fossilId: id, resolved: false, x, y });
+    if (opts.curse) { floor.echo = { fossilId: id, x, y, kind: "curse" }; setupEchoBoard(floor.echo, fossil, floor.depth); }
+    setPieceCooldown = 0;
+    draw();
+    return { fossilId: id, x, y, shadeId: floor.echo?.shadeId ?? null };
+  },
   // ── 試技ハーネス（外部レビュー PR5）：ユーザー指定シナリオを一発再現し、以後は通常操作で数戦触れる。
   //   環境準備（装備・盤面）は既存 spawnKind/giveArmor 等と同種の範囲＝以後の入力は通常のゲーム操作（bump/step等）に委ねる。
   trial: (scenario: string, weapon: string) => {
@@ -7396,6 +7445,19 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
     : fossil.wasAlly
       ? `――かつて街で、迷宮で、言葉を交わした者だ。こんな姿で再び巡り合うとは。\n${baseText}`
       : baseText;
+  // 最期の残響・P2-D：山場連結の状態（新規保存なし＝floor.echo の実状態を読む）。alreadyInherited は inheritance 山場の分岐に使う。
+  const alreadyInherited = fossil.interventions.some((iv) => iv.type === "inherit");
+  const curseEcho = (spType === "grudge_hunt" && floor?.echo?.kind === "curse" && floor.echo.fossilId === fossil.id) ? floor.echo : null;
+  const curseState: "alive" | "slain" | "purified" | null =
+    !curseEcho ? null : (curseEcho.shadeId != null && !curseEcho.purified) ? "alive" : curseEcho.purified ? "purified" : "slain";
+  {
+    const mf = echoMannerFlavor(fossil); // P2-D：deathManner 第二形容（決定論・RNG非消費）
+    if (mf) text += `\n${mf}`;
+    // P2-D（R）：不可逆な交換を選択前に明示（実UI用語「印」「金貨/戦利品」で統一）。
+    if (curseState === "alive") text += `\n\n詫びれば怨嗟は鎮まり『山場の決着』の印を得るが、影の澱から零れる金貨は取れぬ。討てば戦利品は手に入るが、怨嗟は印とはならぬ。`;
+    else if (curseState === "slain") text += `\n\n怨嗟の影は既に討った――残るは、言葉だけだ。`;
+    else if (curseState === "purified") text += `\n\nこの澱みは、既に鎮めた。`;
+  }
   recordRediscovery(world, fossil.id);
   seenThisDive.push(fossil.id);
   markEventFired(); // 4-10H 第二層：化石遭遇＝イベントが起きた＝凪を解除
@@ -7429,12 +7491,23 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
     const opts: string[] = [];
     // 山場の固有決着（遭-④）：通常動詞より先に提示
     if (spType === "legend_return") opts.push("導きを受ける（祝福）");
-    if (spType === "grudge_hunt") { opts.push("向き合って詫びる"); opts.push("怨みを撥ねつける"); }
-    if (spType === "inheritance") { opts.push("遺志を継ぐ（受け継ぐ）"); opts.push("安らかに送る（鎮魂）"); }
+    if (spType === "grudge_hunt") {
+      // P2-D（§A）：grudge×curse は影の状態で分岐。影生存 or 非curse連結＝従来の2択（詫びるラベルに交換を併記）。
+      //  影先討ち/浄化済（対決を選んだ or 既に鎮めた）＝reconcile 選択肢を出さず認識のみ（本文で予兆済み）。
+      if (curseState === "alive" || !curseEcho) {
+        opts.push(curseState === "alive" ? "向き合って詫びる（怨嗟を鎮め印を得る・戦利品は放棄）" : "向き合って詫びる");
+        opts.push("怨みを撥ねつける");
+      }
+    }
+    if (spType === "inheritance") {
+      // P2-D（§B'）：既継承後は固有2択（遺志を継ぐ／安らかに送る）を認識決着1本へ置換＝機械報酬なし・冪等な setpiece 印のみ。
+      if (alreadyInherited) opts.push("継いだ遺志を胸に刻む（認める）");
+      else { opts.push("遺志を継ぐ（受け継ぐ）"); opts.push("安らかに送る（鎮魂）"); }
+    }
     if (storylet?.investigate && !done.has("investigate")) opts.push("調べる");
     if (storylet?.search && !done.has("search")) opts.push("周辺を捜索する");
     if (willEchoAvail) opts.push("遺言を読む（先代の最後の腕前を継ぐ）"); // 最期の残響・遺言（RFC・P1）
-    opts.push("鎮魂する（末路を閉じ、変質の時計を巻き戻す）");
+    if (!curseEcho) opts.push("鎮魂する（末路を閉じ、変質の時計を巻き戻す）"); // P2-D：grudge×curse は詫びると requiem 重複ゆえ全3状態で非表示
     if (canInherit && spType !== "inheritance") opts.push("遺されたものを継ぐ"); // inheritance 山場時は climax「遺志を継ぐ」が代替＝重複回避
     opts.push("そっと立ち去る");
 
@@ -7484,7 +7557,7 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       save();
       break;
     }
-    if (label === "向き合って詫びる") { // grudge_hunt（遭-④）：怨みを認め、鎮める
+    if (label.startsWith("向き合って詫びる")) { // grudge_hunt（遭-④）：怨みを認め、鎮める（P2-D：ラベルに交換併記あり＝startsWith 判定）
       sfx("intervene");
       intervene(world, fossil.id, "requiem");
       const before = ch.exposure;
@@ -7492,6 +7565,8 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       chronicle(world, "intervention", `${ch.name}は${fossil.origin.name}の怨みに向き合い、詫びた。`, [fossil.id]);
       log(`果たさなかった責めを認めた。${fossil.origin.name}の震えが、ゆっくりと収まっていく。`);
       if (ch.exposure < before) log(`深みに削られた芯が、少し人へ還る（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
+      // P2-D（§A）：和解＝盤面浄化（src="echo" の霧だけ消え自然霧は残す・怨念の影は還る・gold 報酬なし＝戦利品は放棄）。影生存時のみ。
+      if (curseState === "alive") echoPurifyCurse();
       // 奉献の試練・印③：山場（grudge_hunt）を決着（4-13A）
       if (awardSeal(world, "setpiece", [fossil.id])) { sfx("seal"); log("◆ 「山場の決着」の印を得た。", "warn"); }
       recordCompanionFeat(); // 相棒と共に山場を決着＝偉業（4-4E 昇格ゲート）
@@ -7504,6 +7579,17 @@ async function fossilScene(fe: { fossilId: string; resolved: boolean }) {
       if (gb) gb.unfinished = true; else ch.bonds.push({ entityRef: fossil.id, value: 0, unfinished: true });
       chronicle(world, "rediscovery", `${ch.name}は${fossil.origin.name}の怨みを撥ねつけた。（未完のまま・再来の種）`, [fossil.id]);
       log(`怨みを否定した。だがそれは、より深い闇となって絡みつく（深蝕 +0.20）。いつか、また。`, "warn");
+      // P2-D（§C'）：生存 shade を一段猛らせる（対象1体・×1.15）。enrage と fe.resolved=true を分岐内 save の前に立て原子的に永続（reload で再乗算しない）。
+      if (curseState === "alive") echoEnrageShade(fossil.id);
+      fe.resolved = true;
+      save();
+      break;
+    }
+    if (label.startsWith("継いだ遺志を胸に刻む")) { // P2-D（§B'）：既継承後の inheritance 山場＝認識決着1本（二度目 intervene/装備/形質/深蝕回復/相棒feat を全停止・冪等な setpiece 印のみ）
+      sfx("intervene");
+      log(`その遺志は既にこの手にある――いま改めて、その者を胸に刻む。`); // 固定文＝RNG非消費
+      // 奉献の試練・印③：山場（inheritance）を決着（4-13A）。awardSeal は set 追加＝冪等。
+      if (awardSeal(world, "setpiece", [fossil.id])) { sfx("seal"); log("◆ 「山場の決着」の印を得た。", "warn"); }
       save();
       break;
     }

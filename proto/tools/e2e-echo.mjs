@@ -5,9 +5,9 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { join, extname } from "node:path";
 
-const WEB_DIR = new URL("../web/", import.meta.url).pathname;
+const WEB_DIR = decodeURIComponent(new URL("../web/", import.meta.url).pathname); // 非ASCII パス（例：日本語ディレクトリ）でも readFile が解決できるよう decode（ASCII は no-op）
 const PORT = 41990 + Math.floor(Math.random() * 900);
-const EXEC = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+const EXEC = process.env.PW_CHROMIUM || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"; // ローカル macOS 実走用に env で上書き可（CI/cloud は既定の Linux Chromium）
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".webmanifest": "application/manifest+json" };
 
 const server = createServer(async (req, res) => {
@@ -517,10 +517,124 @@ const oldPortal = await page.evaluate(() => {
 });
 ok("㉒P2-E 旧v0.164 Portal：backfill→鎮魂で選択浄化（8/1→0/1）", oldPortal.inSnap.echo === 8 && oldPortal.inSnap.nat === 1 && oldPortal.ap.echo === 0 && oldPortal.ap.nat === 1, JSON.stringify(oldPortal));
 
+// ── P2-D（山場連結）㉓〜㉘：実 fossilScene を bump で駆動し、選択肢・浄化・enrage・二重付与・deathManner・非curse負分岐を検証。──
+await drainSheets(); await reachDive(); // ㉒ の reload/resume 後に残るシート/状態を掃除し、dive を確定してから P2-D へ。
+// 山場サイトを仕込み、bump で fossilScene を開いてボタン群を読む共通手順。
+async function openSetpiece(opts) {
+  await drainSheets(); // 直前テストのシートが残っていれば閉じてから（busy 詰まり防止）
+  await openArea();
+  const setup = await page.evaluate((o) => {
+    const t = (window).__hazTest; t.setHp(300); t.setDifficulty("normal");
+    t.clearEchoFossils();
+    return t.spawnSetpieceSite(o);
+  }, opts);
+  await page.evaluate(() => (window).__hazTest.bump(1, 0));
+  await page.waitForTimeout(250);
+  const btns = await page.evaluate(() => [...document.querySelectorAll("#sheetButtons button")].map((b) => (b.textContent || "").trim()));
+  return { setup, btns };
+}
+// シート選択肢をページ内クリックで確定（bump 起点のシートは playwright の .click() が pointer 判定で不発になることがあるため、onclick を直接発火）。
+async function pick(re) { await page.waitForTimeout(350); const label = await page.evaluate((s) => (window).__hazTest.answerSheet(s), re.source); await page.waitForTimeout(200); return label; } // 先に 350ms 待つ＝sheet() の 300ms クリックデバウンス（誤タップ防止）を確実に越える
+
+// ㉓ grudge×curse 影生存で「詫びる」＝浄化（src=echo の霧だけ消え自然霧は残す）・gold 放棄・setpiece 印付与。
+{
+  const A = await openSetpiece({ tone: "grudge", finalAct: "curse_dungeon", curse: true, gear: "長剣", name: "ヴェイン" });
+  const pre = await page.evaluate(() => { const t = (window).__hazTest; t.putHaz(3, 0, "miasma"); return { st: t.curseShadeState(), em: t.echoMiasmaCount(), nm: t.naturalMiasmaCount(), gold: t.getGold(), seals: t.getSeals() }; });
+  await pick(/詫びる/);
+  const post = await page.evaluate(() => { const t = (window).__hazTest; return { st: t.curseShadeState(), em: t.echoMiasmaCount(), nm: t.naturalMiasmaCount(), gold: t.getGold(), seals: t.getSeals() }; });
+  ok("㉓P2-D grudge×curse 影生存で詫びる＝浄化(echo霧のみ消え自然霧残す)・gold放棄・印付与・交換をラベル明示・一般鎮魂は非表示",
+    A.btns.some((b) => /詫びる（怨嗟を鎮め印/.test(b)) && !A.btns.some((b) => /^鎮魂する/.test(b)) &&
+    pre.st === "alive" && post.st === "purified" && pre.em > 0 && post.em === 0 && post.nm >= 1 &&
+    post.gold === pre.gold && !pre.seals.includes("setpiece") && post.seals.includes("setpiece"),
+    JSON.stringify({ btns: A.btns, pre, post }));
+}
+
+// ㉔ grudge×curse 影先討ち（対決済）＝reconcile 選択肢/一般鎮魂を出さず認識のみ・requiem/浄化/深蝕回復/印なし。
+{
+  await openArea();
+  const s = await page.evaluate(() => { const t = (window).__hazTest; t.setHp(300); t.clearEchoFossils(); const site = t.spawnSetpieceSite({ tone: "grudge", finalAct: "curse_dungeon", curse: true, gear: "長剣" }); t.setExposure(1.0); const killed = t.killShade(); return { site, killed, exp: t.getExposure(), seals: t.getSeals(), st: t.curseShadeState() }; });
+  await page.evaluate(() => (window).__hazTest.bump(1, 0)); await page.waitForTimeout(250);
+  const btns = await page.evaluate(() => [...document.querySelectorAll("#sheetButtons button")].map((b) => (b.textContent || "").trim()));
+  await pick(/立ち去る/);
+  const post = await page.evaluate(() => { const t = (window).__hazTest; return { exp: t.getExposure(), seals: t.getSeals(), st: t.curseShadeState() }; });
+  ok("㉔P2-D grudge×curse 影先討ち＝対決側（reconcile/一般鎮魂なし・requiem/浄化/回復/印なし）",
+    s.st === "slain" && !btns.some((b) => /詫びる/.test(b)) && !btns.some((b) => /撥ねつける/.test(b)) && !btns.some((b) => /^鎮魂する/.test(b)) &&
+    post.exp === s.exp && post.st !== "purified" && post.seals.length === s.seals.length,
+    JSON.stringify({ btns, s, post }));
+}
+
+// ㉕ 撥ねつけ enrage＝対象 shade だけ ×1.15（round）を1回・fe.resolved で再bump不発・保存再開後も同値・新サイトでは再度1回強化可。
+{
+  const A = await openSetpiece({ tone: "grudge", finalAct: "curse_dungeon", curse: true, gear: "長剣" });
+  const base = await page.evaluate(() => (window).__hazTest.shadeStats());
+  await pick(/撥ねつける/);
+  const after = await page.evaluate((fid) => { const t = (window).__hazTest; return { s: t.shadeStats(), resolved: t.feResolved(fid) }; }, A.setup.fossilId);
+  // 再 bump（resolved ゆえ fossilScene 不発）→ 再乗算なし
+  await page.evaluate(() => (window).__hazTest.bump(1, 0)); await page.waitForTimeout(200);
+  const reBump = await page.evaluate(() => (window).__hazTest.shadeStats());
+  // 保存→再読込→再開で同値（再乗算しない）
+  await page.evaluate(() => (window).__hazTest.saveDiveNow());
+  await reloadReady("loadDiveSnap");
+  const reload = await page.evaluate((fid) => { const t = (window).__hazTest; const snap = t.loadDiveSnap(); t.resumeSnap(snap); return { s: t.shadeStats(), resolved: t.feResolved(fid) }; }, A.setup.fossilId);
+  // 新しいサイト（新 shade）では再度1回だけ強化できる
+  const fresh = await openSetpiece({ tone: "grudge", finalAct: "curse_dungeon", curse: true, gear: "長剣" });
+  const fBase = await page.evaluate(() => (window).__hazTest.shadeStats());
+  await pick(/撥ねつける/);
+  const fAfter = await page.evaluate(() => (window).__hazTest.shadeStats());
+  const exp = (v) => Math.round(v * 1.15);
+  ok("㉕P2-D 撥ねつけ enrage＝対象shadeのみ×1.15を1回・resolved・保存再開後も同値・新shadeは再強化可",
+    after.s.kindHp === exp(base.kindHp) && after.s.dmg === exp(base.dmg) && after.resolved === true &&
+    reBump.kindHp === after.s.kindHp && reBump.dmg === after.s.dmg &&
+    reload.s.kindHp === after.s.kindHp && reload.s.dmg === after.s.dmg && reload.resolved === true &&
+    fAfter.kindHp === exp(fBase.kindHp) && fAfter.dmg === exp(fBase.dmg),
+    JSON.stringify({ base, after, reBump, reload, fBase, fAfter }));
+}
+
+// ㉖ inheritance alreadyInherited＝固有2択を認識決着1本へ置換・機械報酬なし（二度目 intervene/装備/深蝕なし）・印のみ。対照＝未継承は従来2択。
+{
+  const A = await openSetpiece({ tone: "loss", finalAct: "guard_relic", inherited: true, gear: "餓狼の爪", name: "オルド" });
+  const pre = await page.evaluate((fid) => { const t = (window).__hazTest; return { exp: t.getExposure(), gold: t.getGold(), seals: t.getSeals(), iv: t.fossilInterventions(fid) }; }, A.setup.fossilId);
+  await pick(/胸に刻む/);
+  const post = await page.evaluate((fid) => { const t = (window).__hazTest; return { exp: t.getExposure(), gold: t.getGold(), seals: t.getSeals(), iv: t.fossilInterventions(fid) }; }, A.setup.fossilId);
+  const B = await openSetpiece({ tone: "loss", finalAct: "guard_relic", inherited: false, gear: "長剣" }); // 対照
+  ok("㉖P2-D inheritance 既継承＝認識決着1本（遺志を継ぐ/安らかに送る 不在）・二度目intervene/深蝕なし・印のみ。未継承は従来2択",
+    A.btns.some((b) => /胸に刻む/.test(b)) && !A.btns.some((b) => /遺志を継ぐ/.test(b)) && !A.btns.some((b) => /安らかに送る/.test(b)) &&
+    post.iv === pre.iv && post.exp === pre.exp && post.seals.includes("setpiece") &&
+    B.btns.some((b) => /遺志を継ぐ/.test(b)) && B.btns.some((b) => /安らかに送る/.test(b)),
+    JSON.stringify({ aBtns: A.btns, pre, post, bBtns: B.btns }));
+  await pick(/立ち去る/); // 対照シート B を 300ms デバウンスを越えて確実に閉じる（drainSheets はデバウンスに掛かり閉じ切れない）
+}
+
+// ㉗ deathManner＝5値すべてが決定論表引きで peek に出る・RNG非消費（二度読んで同一）・betrayed 単独は反映。
+{
+  const manners = [["noble", "誇りある最期"], ["grievous", "無惨な最期"], ["betrayed", "見捨てられた末"], ["peaceful", "安らかな最期"], ["anonymous", "名も無き最期"]];
+  const seen = await page.evaluate((ms) => {
+    const t = (window).__hazTest; const out = [];
+    for (const [m] of ms) { t.clearEchoFossils(); t.spawnSetpieceSite({ tone: "grudge", finalAct: "curse_dungeon", curse: true, manner: m }); const p1 = t.peekAt(1, 0); const p2 = t.peekAt(1, 0); out.push({ m, p1, det: p1 === p2 }); }
+    return out;
+  }, manners);
+  const allShown = manners.every(([m, phrase], i) => seen[i].m === m && seen[i].p1.includes(phrase) && seen[i].det);
+  ok("㉗P2-D deathManner 5値が peek に決定論表引きで出る・RNG非消費（2回読み同一）", allShown, JSON.stringify(seen.map((s) => ({ m: s.m, det: s.det, has: s.p1.slice(-40) }))));
+}
+
+// ㉘ 負テスト：grudge_hunt × 非curse（残響なし）＝連結が発火しない（詫びるラベルは素・一般鎮魂あり・詫びるで浄化対象なし・enrage なし）。
+{
+  const A = await openSetpiece({ tone: "grudge", finalAct: "accept", curse: false, gear: "長剣" }); // curse なし＝floor.echo なし
+  const st = await page.evaluate(() => (window).__hazTest.curseShadeState());
+  const plainReconcile = A.btns.includes("向き合って詫びる"); // 交換併記なしの素ラベル
+  const hasGeneralRequiem = A.btns.some((b) => /^鎮魂する/.test(b));
+  await pick(/^向き合って詫びる$/);
+  const post = await page.evaluate(() => { const t = (window).__hazTest; return { seals: t.getSeals(), shade: t.curseShadeState() }; });
+  ok("㉘P2-D 負テスト grudge_hunt×非curse＝連結不発（素の詫びるラベル・一般鎮魂あり・浄化対象なし・enrageなし）",
+    st === null && plainReconcile && hasGeneralRequiem && post.shade === null && post.seals.includes("setpiece"),
+    JSON.stringify({ btns: A.btns, st, post }));
+  await drainSheets();
+}
+
 ok("例外・console.error ゼロ（全体）", errors.length === 0, errors.slice(0, 8).join(" | "));
 
 await browser.close();
 server.close();
 const failed = results.filter((r) => !r.pass);
-console.log(`\n=== E2E 最期の残響（P1 ＋ P2-A ＋ P2-B ＋ P2-C alien）：${results.length - failed.length}/${results.length} pass ===`);
+console.log(`\n=== E2E 最期の残響（P1 ＋ P2-A ＋ P2-B ＋ P2-C alien ＋ P2-D 山場連結）：${results.length - failed.length}/${results.length} pass ===`);
 if (failed.length) { console.log("FAILED:", failed.map((f) => f.name).join(", ")); process.exit(1); }
