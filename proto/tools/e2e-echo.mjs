@@ -374,6 +374,92 @@ const wipeFix = await page.evaluate(() => {
 });
 ok("⑭バグ修正：placeHazards が霧を消し（m1=0）、layEchoMiasma が救う（m2>0・復元）", wipeFix.m0 > 0 && wipeFix.m1 === 0 && wipeFix.m2 > 0 && wipeFix.m2 === wipeFix.m0, JSON.stringify(wipeFix));
 
+// ⑮ P2-E：霧の形が変質段階から導出（weathered=半径1=8／twisting=半径2=24／alien=半径2＋触腕4=28）。全面半径3=48 は不採用。
+const shapeCase = (stage) => page.evaluate((st) => {
+  const t = (window).__hazTest;
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz();
+  for (let dx = -7; dx <= 7; dx++) for (let dy = -7; dy <= 7; dy++) t.setTile(dx, dy, 1); // 広い床（触腕が届く）
+  t.setStairs(9, 9, 9, -9); // 階段を形の外へ退かす（除外による数の目減りを防ぐ）
+  t.spawnEcho("curse", "loss", 1, 0, { stage: st });
+  return { count: t.echoMiasmaCount(), stage: t.echoStage() };
+}, stage);
+const wSh = await shapeCase("weathered"), tSh = await shapeCase("twisting"), aSh = await shapeCase("alien");
+ok("⑮P2-E weathered＝半径1（8マス）", wSh.count === 8 && wSh.stage === "weathered", JSON.stringify(wSh));
+ok("⑮P2-E twisting＝半径2（24マス）", tSh.count === 24 && tSh.stage === "twisting", JSON.stringify(tSh));
+ok("⑮P2-E alien＝半径2＋触腕4（28マス・全面半径3=48は不採用）", aSh.count === 28 && aSh.stage === "alien", JSON.stringify(aSh));
+
+// ⑯ P2-E：壁/階段/化石/既存ハザードのマスには敷かない（weathered 8マスから4マス除外→4）。
+const excl = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz();
+  for (let dx = -3; dx <= 3; dx++) for (let dy = -3; dy <= 3; dy++) t.setTile(dx, dy, 1);
+  t.setStairs(9, 9, 1, -1);        // 下り階段を echo+(0,-1)=player+(1,-1) に（shape 内）
+  t.setTile(2, 0, 0);              // 壁：echo+(1,0)=player+(2,0)
+  t.putHaz(1, 1, "fire");          // 既存ハザード(fire)：echo+(0,1)=player+(1,1)
+  t.injectEchoFossil("accept", 2, 1); // 化石：echo+(1,1)=player+(2,1)
+  t.spawnEcho("curse", "loss", 1, 0, { stage: "weathered" });
+  const fireKept = (t.state?.().hazards ?? []).some((h) => h.kind === "fire" && h.x - t.playerAt().x === 1 && h.y - t.playerAt().y === 1);
+  return { count: t.echoMiasmaCount(), fireKept };
+});
+ok("⑯P2-E 壁/階段/化石/既存ハザードを除外（8-4=4）＋既存ハザード非上書き", excl.count === 4 && excl.fireKept === true, JSON.stringify(excl));
+
+// ⑰ P2-E：鎮魂は残響由来(src=echo)だけ消し、自然の蝕の霧は残す（選択浄化）。
+const purSel = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz();
+  for (let dx = -3; dx <= 3; dx++) for (let dy = -3; dy <= 3; dy++) t.setTile(dx, dy, 1);
+  t.setStairs(9, 9, 9, -9);
+  t.putHaz(3, 0, "miasma");        // 自然の霧（src なし）＝weathered 範囲外(echo+(2,0))
+  t.spawnEcho("curse", "loss", 1, 0, { stage: "weathered" });
+  const b = { echo: t.echoMiasmaCount(), nat: t.naturalMiasmaCount() };
+  t.purifyCurse();
+  const a = { echo: t.echoMiasmaCount(), nat: t.naturalMiasmaCount() };
+  return { b, a };
+});
+ok("⑰P2-E 選択浄化：残響霧のみ消え自然霧は残る", purSel.b.echo > 0 && purSel.b.nat > 0 && purSel.a.echo === 0 && purSel.a.nat === purSel.b.nat, JSON.stringify(purSel));
+
+// ⑱ P2-E：反復敷設は冪等（重複しない・RNG も消費しない構造＝count 不変）。
+const idem = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz();
+  for (let dx = -4; dx <= 4; dx++) for (let dy = -4; dy <= 4; dy++) t.setTile(dx, dy, 1);
+  t.setStairs(9, 9, 9, -9);
+  t.spawnEcho("curse", "loss", 1, 0, { stage: "twisting" });
+  const a = t.echoMiasmaCount(); t.relayEchoMiasma(); t.relayEchoMiasma(); const b = t.echoMiasmaCount();
+  return { a, b };
+});
+ok("⑱P2-E 反復敷設は冪等（24→24）", idem.a === 24 && idem.b === 24, JSON.stringify(idem));
+
+// ⑲ P2-E：鎮魂でクロックが巻き戻り、次回潜行の再敷設で霧が縮む（alien28→weathered8）。
+const shrink = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz();
+  for (let dx = -7; dx <= 7; dx++) for (let dy = -7; dy <= 7; dy++) t.setTile(dx, dy, 1);
+  t.setStairs(9, 9, 9, -9);
+  const id = t.spawnEcho("curse", "loss", 1, 0, { stage: "alien" });
+  const big = t.echoMiasmaCount();
+  t.requiemFossil(id);   // 鎮魂＝lastTouchedGeneration=worldTime（クロック巻き戻し）
+  t.clearHaz();          // 次回潜行のフロア再生成を模す
+  t.relayEchoMiasma();   // 巻き戻ったクロックで再敷設＝縮む
+  const small = t.echoMiasmaCount();
+  return { big, small };
+});
+ok("⑲P2-E 鎮魂で次回潜行の霧が縮む（alien28→weathered8）", shrink.big === 28 && shrink.small === 8, JSON.stringify(shrink));
+
+// ⑳ P2-E：途中保存(DiveSnapshot)に所有情報(src=echo)が載る＝再開後も残響由来が維持される。
+const saved = await page.evaluate(() => {
+  const t = (window).__hazTest;
+  t.clearEchoFossils(); t.clearMons(); t.clearHaz();
+  for (let dx = -4; dx <= 4; dx++) for (let dy = -4; dy <= 4; dy++) t.setTile(dx, dy, 1);
+  t.setStairs(9, 9, 9, -9);
+  t.spawnEcho("curse", "loss", 1, 0, { stage: "twisting" });
+  t.saveDiveNow();
+  const snap = JSON.parse(localStorage.getItem("sekitsui.dive.v0") || "{}");
+  const haz = snap.floor?.hazards ?? [];
+  return { echoTiles: haz.filter((h) => h.kind === "miasma" && h.src === "echo").length };
+});
+ok("⑳P2-E 保存された DiveSnapshot に残響由来の霧(src=echo)が維持される", saved.echoTiles === 24, JSON.stringify(saved));
+
 ok("例外・console.error ゼロ（全体）", errors.length === 0, errors.slice(0, 8).join(" | "));
 
 await browser.close();

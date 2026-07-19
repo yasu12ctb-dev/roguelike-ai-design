@@ -62,7 +62,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.164.0";
+export const APP_VERSION = "0.165.0";
 export const APP_BUILD = "2026-07-19";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -479,19 +479,39 @@ function echoFreeTilesNear(f: Floor, cx: number, cy: number, n: number, avoid: S
   }
   return out;
 }
-/** 呪詛：蝕の霧（miasma・恒久＝turns 無し）を化石周囲 ECHO_MIASMA_R に敷く。冪等（既存ハザードのマスはスキップ＝自然ハザードを上書きしない）・RNG 非消費。
+/** 呪詛残響の蝕の霧の形（stage 導出・P2-E v0.165.0・Codex 承認スコープ）。
+ *  weathered=Chebyshev 半径1（最大8マス）／twisting=半径2（最大24マス）／alien=半径2＋上下左右の距離3を4マス（最大28マス）。
+ *  ★全面半径3（最大48マス）は局所負荷/可読性の根拠不足で不採用。放置で進む変質クロックから形が広がり、鎮魂でクロックが巻き戻れば次回潜行で縮む（4-1C を盤面へ）。 */
+const ECHO_MIASMA_ALIEN_REACH = 3; // alien の触腕（上下左右）の距離。
+function echoMiasmaOffsets(stage: "weathered" | "twisting" | "alien"): Array<[number, number]> {
+  const r = stage === "weathered" ? 1 : 2; // twisting/alien は充填半径2
+  const out: Array<[number, number]> = [];
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    if (dx === 0 && dy === 0) continue; // 化石マス自身は空ける
+    out.push([dx, dy]);
+  }
+  if (stage === "alien") { const d = ECHO_MIASMA_ALIEN_REACH; out.push([0, d], [0, -d], [d, 0], [-d, 0]); } // 歪んで伸びる4本（上下左右の距離3）
+  return out;
+}
+/** 呪詛：蝕の霧（miasma・恒久＝turns 無し）を化石周囲に敷く。形は変質段階から導出（P2-E）。所有ID src="echo" で自然ハザードと区別。
+ *  冪等（既存ハザードのマスはスキップ＝自然ハザードを上書きしない）・RNG 非消費・1潜行内は worldTime 不変ゆえ形は固定。
  *  ★setupEchoBoard（E2E フック経路＝placeHazards 後に走る）と enterFloor（実経路＝placeHazards の直後）の両方から呼ぶ。
  *  実 enterFloor では pickFloorEcho→setupEchoBoard が敷いた霧を placeHazards の `f.hazards = []` が消してしまうため、placeHazards 後に再敷設して救う（v0.164.0 バグ修正）。 */
 function layEchoMiasma(): void {
   const echo = floor?.echo;
   if (!floor || !echo || echo.kind !== "curse") return;
+  const fossil = world.fossils.find((f) => f.id === echo.fossilId);
+  if (!fossil) return;
   floor.hazards ??= [];
-  for (let dy = -ECHO_MIASMA_R; dy <= ECHO_MIASMA_R; dy++) for (let dx = -ECHO_MIASMA_R; dx <= ECHO_MIASMA_R; dx++) {
+  const stage = computeVariation(fossil, worldTime(world)).stage; // 放置で進む変質クロックから霧の形を導出（新規恒久状態なし）。
+  for (const [dx, dy] of echoMiasmaOffsets(stage)) {
     const x = echo.x + dx, y = echo.y + dy;
-    if (!inBounds(floor, x, y) || tileAt(floor, x, y) !== 1) continue;
+    if (!inBounds(floor, x, y) || tileAt(floor, x, y) !== 1) continue; // 壁除外
     if (x === echo.x && y === echo.y) continue; // 化石マス自身は空ける（踏み込み用）
-    if ((floor.stairsDown.x === x && floor.stairsDown.y === y) || (floor.stairsUp.x === x && floor.stairsUp.y === y)) continue;
-    if (!floor.hazards.some((h) => h.x === x && h.y === y)) floor.hazards.push({ x, y, kind: "miasma" });
+    if ((floor.stairsDown.x === x && floor.stairsDown.y === y) || (floor.stairsUp.x === x && floor.stairsUp.y === y)) continue; // 階段除外
+    if (floor.fossils.some((fe) => fe.x === x && fe.y === y)) continue; // 他の化石マス除外
+    if (floor.hazards.some((h) => h.x === x && h.y === y)) continue; // 既存ハザード非上書き（自然霧を残す）＝冪等
+    floor.hazards.push({ x, y, kind: "miasma", src: "echo" }); // 所有ID＝残響由来（鎮魂は src==="echo" だけ消す）。
   }
 }
 /** 守り手/呪詛の盤面を仕込む（enterFloor 初訪・floorCache に乗る）。calm/will は no-op。 */
@@ -537,7 +557,8 @@ function echoShadeReward(): void {
 /** 呪詛：鎮魂で浄化＝化石周囲の蝕の霧を消し、怨念の影（残存していれば）を還す。 */
 function echoPurifyCurse(): void {
   const ec = floor?.echo; if (!floor || !ec || ec.kind !== "curse" || ec.purified) return;
-  if (floor.hazards) floor.hazards = floor.hazards.filter((h) => !(h.kind === "miasma" && Math.max(Math.abs(h.x - ec.x), Math.abs(h.y - ec.y)) <= ECHO_MIASMA_R));
+  // 所有ID で残響由来の霧だけを消す（P2-E）＝半径判定を廃止＝拡大形（触腕含む）も過不足なく浄化し、自然生成の蝕の霧（深度25+）は残す。
+  if (floor.hazards) floor.hazards = floor.hazards.filter((h) => !(h.kind === "miasma" && h.src === "echo"));
   if (ec.shadeId) { floor.monsters = floor.monsters.filter((m) => m.id !== ec.shadeId); ec.shadeId = undefined; }
   ec.purified = true;
   const cf = world.fossils.find((f) => f.id === ec.fossilId);
@@ -847,13 +868,14 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   wardName: () => { const e = floor?.echo; return e ? (floor?.monsters.find((m) => m.id === `ward_${e.fossilId}`)?.kind.name ?? null) : null; }, // P2-C E2E：番人の名（遺品の番人/歪んだ番人）
   echoStage: () => echoFossilStage(), // P2-C E2E：現在の残響の変質段階
   // ── 最期の残響（RFC・P1）E2E フック：自血統化石＋floor.echo を仕込み、表示/静穏/遺言の型を検証する。
-  spawnEcho: (kind: EchoKind, tone: string, dx: number, dy: number, opts?: { note?: string; exp?: number; gear?: string; name?: string; alien?: boolean }) => {
+  spawnEcho: (kind: EchoKind, tone: string, dx: number, dy: number, opts?: { note?: string; exp?: number; gear?: string; name?: string; alien?: boolean; stage?: "weathered" | "twisting" | "alien" }) => {
     if (!floor || !world.current) return null;
     const choice = ({ calm: "accept", will: "leave_will", guard: "guard_relic", curse: "curse_dungeon" } as const)[kind];
     const id = `echofossil_${world.fossils.length}`; // world.fossils はクリアしない＝グローバル一意（clearEchoFossils 後の id 衝突を防ぐ）
-    // P2-C E2E：opts.alien で computeVariation が alien を返すよう仕込む（深度50＋起点を過去へ＝distort≥0.67）。
-    const dep = opts?.alien ? 50 : floor.depth;
-    const ltg = opts?.alien ? -8 : 0;
+    // P2-C/P2-E E2E：opts.alien or opts.stage で computeVariation の返す段階を仕込む（深度50＋起点を過去へ＝distort を制御）。
+    const st = opts?.alien ? "alien" : (opts?.stage ?? "weathered");
+    const dep = st === "weathered" ? floor.depth : 50;                      // weathered=浅い depthC／twisting・alien=depthC=1
+    const ltg = st === "alien" ? -8 : st === "twisting" ? worldTime(world) - 2 : 0; // alien:gens 大→distort1／twisting:gens=2→distort0.4／weathered:gens≈worldTime で distort≈0
     const fossil = { id, kind: "character", origin: { name: opts?.name ?? "先代", archetype: "wanderer", gearTags: opts?.gear ? [opts.gear] : [], epithet: "" }, death: { manner: "grievous", finalAct: { choice, note: opts?.note }, depth: dep, generationCreated: world.generation }, exposureAtDeath: opts?.exp ?? 0, bondAtDeath: 0, tonePole: tone as Fossil["tonePole"], interventions: [], lastTouchedGeneration: ltg, laidDepth: dep } as Fossil;
     world.fossils.push(fossil);
     const x = player.x + dx, y = player.y + dy;
@@ -877,6 +899,10 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   // v0.164.0 バグ修正 E2E：実 enterFloor の順序（placeHazards→layEchoMiasma）を忠実に再現し、呪詛の霧が生き残るか検証する。
   runPlaceHazards: () => { if (floor) placeHazards(floor, rng, player); }, // placeHazards 単体＝呪詛霧を全消去する側（修正前は miasma=0 に落ちる）
   relayEchoMiasma: () => { layEchoMiasma(); },                              // placeHazards 後の再敷設＝修正の核（miasma を救う）
+  // P2-E（霧拡大）E2E：残響由来（src="echo"）と自然由来の miasma を区別して数える／途中保存を起こす。
+  echoMiasmaCount: () => (floor?.hazards ?? []).filter((h) => h.kind === "miasma" && h.src === "echo").length,
+  naturalMiasmaCount: () => (floor?.hazards ?? []).filter((h) => h.kind === "miasma" && h.src !== "echo").length,
+  saveDiveNow: () => { saveDive(); },                                      // 途中保存→再開後の所有維持の検証用
   getGold: () => world.current?.gold ?? 0,
   // ── P2-A（相棒/縁者の残響）E2E：化石を world.fossils＋floor.fossils に注入し（floor.echo は設定しない）、
   //   実選定ゲート pickFloorEcho を通して採択されるか（相棒/縁者は採択・シード explorer は除外）を検証する。
@@ -5131,7 +5157,7 @@ function meleeWithPositioning(base: number, mon: Monster, opts?: { lunge?: boole
 //   （挟撃/見切り/押し出し/薙刀の吹き飛ばし）に「敵をハザードに叩き込む」新しい使い道を足す（Into the Breach の方程式）。
 //   ★敵AIはハザードを避けない（単純さ維持・プレイヤーだけが地形を武器にできる非対称）。数値はテスト調整候補。
 type HazardKind = "fire" | "venom" | "crumble" | "miasma" | "frost";
-type Hazard = { x: number; y: number; kind: HazardKind; cracked?: number; turns?: number };
+type Hazard = { x: number; y: number; kind: HazardKind; cracked?: number; turns?: number; src?: string }; // src＝所有ID（P2-E）：残響由来の霧("echo")を自然ハザードと区別（鎮魂は src==="echo" だけ消す）。
 const HAZARD_FIRE_DMG = (depth: number) => Math.max(2, Math.round(2 + depth * 0.25));    // 業火床：進入＋滞在の燃焼ダメ（プレイヤー/敵とも同式）
 const HAZARD_CRUMBLE_DMG = (depth: number) => Math.max(4, Math.round(4 + depth * 0.5));  // 崩れかけの床：崩落の大ダメ
 const HAZARD_MIASMA_EXP = 0.02;   // 蝕の霧だまり：手番終了ごと深蝕（addExp 経由＝難易度係数が乗る・プレイヤーのみ）

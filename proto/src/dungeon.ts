@@ -308,7 +308,7 @@ export interface Floor {
     ward?: { x: number; y: number; awake?: boolean };                // 守り手：眠りの番人（未覚醒は floor.monsters に入れない＝room-aggro しない・web が描画/覚醒管理）
     shadeId?: string; purified?: boolean;                            // 呪詛：怨念の影（floor.monsters に注入済みの敵 id）／鎮魂で浄化済みか
   } | null;
-  hazards?: { x: number; y: number; kind: "fire" | "venom" | "crumble" | "miasma" | "frost"; cracked?: number; turns?: number }[]; // 地形ハザード（v0.128.0／v0.130.0 で frost・turns 追加）：web が enterFloor 初訪で seeded 配置＝engine 非使用＝golden 安全（aurelSite と同じパターン）。cracked＝崩れかけの床の崩落カウントダウン。frost＝術で敷く鈍化の霧。turns＝寿命（術で敷いた地形は毎手デクリメント→0 で消滅・自然配置は undefined＝恒久）。
+  hazards?: { x: number; y: number; kind: "fire" | "venom" | "crumble" | "miasma" | "frost"; cracked?: number; turns?: number; src?: string }[]; // 地形ハザード（v0.128.0／v0.130.0 で frost・turns 追加）：web が enterFloor 初訪で seeded 配置＝engine 非使用＝golden 安全（aurelSite と同じパターン）。cracked＝崩れかけの床の崩落カウントダウン。frost＝術で敷く鈍化の霧。turns＝寿命（術で敷いた地形は毎手デクリメント→0 で消滅・自然配置は undefined＝恒久）。src＝所有ID（v0.165.0/P2-E）：残響由来の霧("echo")を自然ハザードと区別＝鎮魂は当該残響由来だけを消す・dive ローカル（DiveSnapshot 内）＝World/Fossil・SAVE_VERSION 不変。
   diff?: DifficultyMods;         // このフロアの難易度係数（genFloor で焼き込む。動的スポーン＝追手/眷属が読む）。未設定＝easy。
 }
 
