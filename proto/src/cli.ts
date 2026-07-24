@@ -5,6 +5,7 @@
 import { existsSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { stdin, stdout } from "node:process";
+import { fileURLToPath } from "node:url";
 import { loadContent } from "./content-node.ts";
 import { saveWorld, loadWorld } from "./persist-node.ts";
 import { makeRng, type Rng } from "./rng.ts";
@@ -15,7 +16,9 @@ import type { World } from "./types.ts";
 const args = process.argv.slice(2);
 const seedArg = args.includes("--seed") ? Number(args[args.indexOf("--seed") + 1]) : undefined;
 const forceNew = args.includes("--new");
-const SAVE_PATH = new URL("../save/world.json", import.meta.url).pathname;
+// ⚠ `new URL(...).pathname` は percent-encode されたままなので、非ASCII パス（例：日本語ディレクトリ配下）だと
+//    `%E3%82%A2...` という別ディレクトリを実際に作ってセーブを書いてしまう。fileURLToPath で必ず実パスへ解く。
+const SAVE_PATH = fileURLToPath(new URL("../save/world.json", import.meta.url));
 
 const db = loadContent();
 const say = (s = "") => console.log(s);
