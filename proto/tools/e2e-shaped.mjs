@@ -155,19 +155,24 @@ ok("S6 通路で直線に居れば貫かれる（手番1で被弾）", s6.d1 > 0
 ok("S6 CD＝1手おき（手番2は撃たない＝無傷）", s6.d2 === 0, `d2=${s6.d2}`);
 
 // ── S7：既存戦闘の回帰＝剣/槍/薙刀で通常敵を殴って斃せる（例外0）。
-for (const [wp, label] of [["長剣", "剣"], ["刺突槍", "槍"], ["大薙刀", "薙刀"]]) {
-  const r = await page.evaluate(async ({ wp }) => {
+// ★間合いは武器クラスごとに正しい距離で当てる（v0.150.0/#364）＝剣・槍は隣接、薙刀は「距離2の横3マスバー」（隣接8マスは完全な死角）。
+//   判定は state() の絶対座標で行う＝薙刀がその場で薙がず前進した場合に相対座標がずれて「斃した」と誤検知するのを防ぐ。
+for (const [wp, label, d] of [["長剣", "剣", 1], ["刺突槍", "槍", 1], ["大薙刀", "薙刀", 2]]) {
+  const r = await page.evaluate(async ({ wp, d }) => {
     const t = (window).__hazTest;
     t.giveWeapon(wp); t.setCounter(0); t.clearMons(); t.setHp(80);
     for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) t.setTile(dx, dy, 1);
-    t.spawnKind(1, 0, "rat", 3);
-    const hp0 = t.monAt(1, 0)?.hp ?? -1;
-    t.bump(1, 0);                                // 東の敵を殴る（槍は距離1でも突ける／薙刀は薙ぐ）
+    t.spawnKind(d, 0, "rat", 3);
+    const s0 = t.state();
+    const tx = s0.px + d, ty = s0.py;            // 敵の絶対座標（以後プレイヤーが動いてもぶれない）
+    const hp0 = s0.monList.find((m) => m.x === tx && m.y === ty)?.hp ?? -1;
+    t.bump(1, 0);                                // 東へ（剣/槍＝隣接を殴る／薙刀＝距離2バーをその場で薙ぐ）
     await new Promise((res) => setTimeout(res, 220));
-    const after = t.monAt(1, 0);                 // 斃れていれば null
-    return { hp0, gone: after === null, afterHp: after?.hp ?? -1 };
-  }, { wp });
-  ok(`S7 ${label}で通常敵に有効打（斃す/削る）`, r.hp0 > 0 && (r.gone || r.afterHp < r.hp0), `hp0=${r.hp0} afterHp=${r.afterHp} gone=${r.gone}`);
+    const s1 = t.state();
+    const now = s1.monList.find((m) => m.x === tx && m.y === ty);   // 斃れていれば undefined
+    return { hp0, gone: !now, afterHp: now?.hp ?? -1, moved: s1.px !== s0.px || s1.py !== s0.py };
+  }, { wp, d });
+  ok(`S7 ${label}で通常敵に有効打（斃す/削る）`, r.hp0 > 0 && (r.gone || r.afterHp < r.hp0), `hp0=${r.hp0} afterHp=${r.afterHp} gone=${r.gone} moved=${r.moved}`);
 }
 
 ok("例外・console.error ゼロ", errors.length === 0, errors.slice(0, 5).join(" | "));

@@ -156,6 +156,7 @@ const LO = Math.max(1, cap0.cap - 3); // cap 未満の低HP（ここから回復
 await arena(8);
 const s5a = await page.evaluate(async ({ lo }) => {
   const t = (window).__hazTest;
+  t.resetMendTick();                            // ★mendTick はフロア単位でしか初期化されず前段テストの手番を持ち越す＝起点を揃えないと非交戦1手で閾値を踏み +1HP して誤検知する
   t.giveRelic("再生の雫"); t.clearMons();
   t.spawnKind(7, 0, "rat", 99);                 // 遠く（dist7・視界内・起きている）＝近づくが5手では隣接せず＝攻撃なし
   t.setHp(lo);
@@ -191,20 +192,25 @@ async function dismissOverlays() {
   }
 }
 // ── S6：既存戦闘の回帰＝剣/槍/薙刀で通常敵を殴って斃せる（例外0）。
-for (const [wp, label] of [["長剣", "剣"], ["刺突槍", "槍"], ["大薙刀", "薙刀"]]) {
+// ★間合いは武器クラスごとに正しい距離で当てる（v0.150.0/#364）＝剣・槍は隣接、薙刀は「距離2の横3マスバー」（隣接8マスは完全な死角）。
+//   判定は state() の絶対座標で行う＝薙刀がその場で薙がず前進した場合の誤検知を防ぐ。
+for (const [wp, label, d] of [["長剣", "剣", 1], ["刺突槍", "槍", 1], ["大薙刀", "薙刀", 2]]) {
   await dismissOverlays();
-  const r = await page.evaluate(async ({ wp }) => {
+  const r = await page.evaluate(async ({ wp, d }) => {
     const t = (window).__hazTest;
     t.giveWeapon(wp); t.setCounter(0); t.clearMons(); t.setHp(80);
     for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) t.setTile(dx, dy, 1);
-    t.spawnKind(1, 0, "rat", 3);
-    const hp0 = t.monAt(1, 0)?.hp ?? -1;
+    t.spawnKind(d, 0, "rat", 3);
+    const s0 = t.state();
+    const tx = s0.px + d, ty = s0.py;
+    const hp0 = s0.monList.find((m) => m.x === tx && m.y === ty)?.hp ?? -1;
     t.bump(1, 0);
     await new Promise((res) => setTimeout(res, 220));
-    const after = t.monAt(1, 0);
-    return { hp0, gone: after === null, afterHp: after?.hp ?? -1 };
-  }, { wp });
-  ok(`S6 ${label}で通常敵に有効打（斃す/削る）`, r.hp0 > 0 && (r.gone || r.afterHp < r.hp0), `hp0=${r.hp0} afterHp=${r.afterHp} gone=${r.gone}`);
+    const s1 = t.state();
+    const now = s1.monList.find((m) => m.x === tx && m.y === ty);
+    return { hp0, gone: !now, afterHp: now?.hp ?? -1, moved: s1.px !== s0.px || s1.py !== s0.py };
+  }, { wp, d });
+  ok(`S6 ${label}で通常敵に有効打（斃す/削る）`, r.hp0 > 0 && (r.gone || r.afterHp < r.hp0), `hp0=${r.hp0} afterHp=${r.afterHp} gone=${r.gone} moved=${r.moved}`);
 }
 
 ok("例外・console.error ゼロ", errors.length === 0, errors.slice(0, 5).join(" | "));

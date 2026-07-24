@@ -854,6 +854,7 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   clearMons: () => { if (floor) floor.monsters = []; },
   spawnMon: (dx: number, dy: number, hpv = 3) => { if (!floor) return; const kind = MONSTER_KINDS.find((k) => k.tier === 1) ?? MONSTER_KINDS[0]; floor.monsters.push({ id: `qa_${floor.monsters.length}`, kind, hp: hpv, awake: true, intent: null, x: player.x + dx, y: player.y + dy }); planMonsters(floor, player, rng, companion); },
   setCounter: (n: number) => { counterTurns = n; },
+  resetMendTick: () => { mendTick = 0; }, // mending E2E：mendTick はフロア単位でしか初期化されず前段テストの手番を持ち越すため、サブテストの起点を揃える
   redraw: () => draw(),
   // 魔法カタログ拡充 E2E（v0.130.0）用の追加フック。
   cast: (key: string) => { void castSpell(key); },
