@@ -5,9 +5,9 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { join, extname } from "node:path";
 
-const WEB_DIR = new URL("../web/", import.meta.url).pathname;
+const WEB_DIR = decodeURIComponent(new URL("../web/", import.meta.url).pathname); // 非ASCII パス（例：日本語ディレクトリ）でも readFile が解決できるよう decode（ASCII は no-op）
 const PORT = 42600 + Math.floor(Math.random() * 900);
-const EXEC = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+const EXEC = process.env.PW_CHROMIUM || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"; // ローカル macOS 実走用に env で上書き可（CI/cloud は既定の Linux Chromium）
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".webmanifest": "application/manifest+json" };
 
 const server = createServer(async (req, res) => {

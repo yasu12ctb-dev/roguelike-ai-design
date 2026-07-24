@@ -1,6 +1,7 @@
 // 最小ループのデモ（prototype-spec.md §5 を seed 固定で一周×2世代）
 // 実行: node --experimental-strip-types src/demo.ts
 
+import { fileURLToPath } from "node:url";
 import { loadContent } from "./content-node.ts";
 import { makeRng } from "./rng.ts";
 import {
@@ -218,7 +219,8 @@ for (const e of world.chronicle) {
 
 // ---------- 永続化の往復確認 ----------
 hr("永続化（セーブ→ロード往復）");
-const savePath = new URL("../save/world.json", import.meta.url).pathname;
+// ⚠ `new URL(...).pathname` は percent-encode されたまま＝非ASCII パス配下だと別ディレクトリを作ってしまう（cli.ts と同根）。
+const savePath = fileURLToPath(new URL("../save/world.json", import.meta.url));
 saveWorld(world, savePath);
 const loaded = loadWorld(savePath);
 say(`saved fossils=${world.fossils.length} → loaded fossils=${loaded.fossils.length} / 年代記 ${loaded.chronicle.length}件 / 一致=${JSON.stringify(loaded) === JSON.stringify(world)}`);
