@@ -7,6 +7,10 @@
 //
 // 検査内容：
 //   A) closed schema validator      … fixture 定義自体の妥当性（未知 field/型違い/非有限数/判別 union 等を拒否）
+//                                     ★値型は **field 型表 `ROW_FIELD_TYPES` 駆動**＝全 Row 種別の必須・任意
+//                                     すべての field を網羅検査する（ad-hoc 検査の書き漏らしを構造的に排除）。
+//                                     型表の鍵集合が `screen-model.ts` の `ROW_FIELDS` と一致することも毎回検査
+//                                     （＝field を足して型を書き忘れる＝穴の再発を機械的に封じる）。
 //   B) settings compatibility       … production `buildSettingLabels()` の出力を profile `settings-row-v1`
 //                                     （row.id / row.label / row.header / row.order の4欄・**validator 側の固定表が正**）
 //                                     で fixture へ射影して照合。Screen.id は照合に含めない。
@@ -41,6 +45,9 @@ const PROFILES: Record<string, readonly string[]> = {
 const FIXTURE_FIELDS = ["schemaVersion", "fixtureId", "screenId", "derivedFrom", "webProjectionProfile", "state", "expected"] as const;
 const DERIVED_FIELDS = ["spec", "oracle"] as const;
 const ORACLE_BASE_COMMIT = "6a537d197d23865f578832ba56e88a753dc38825";
+/** ★`derivedFrom` は **固定値との完全一致**（部分文字列判定だと prefix/suffix 詐称が通る）。 */
+const DERIVED_SPEC = "prototype-spec.md §10.1b/§10.2e";
+const DERIVED_ORACLE = `tools/fixtures/settings-oracle.json@${ORACLE_BASE_COMMIT}`;
 const STATE_FIELDS = ["muted", "bgmOn", "bgmVol", "sfxVol", "dpadOn", "dpadPos", "dpadSize", "autorun", "lunge", "guard", "logSize"] as const;
 /** 11 入力の値域（D 状態被覆で使用）。 */
 const STATE_DOMAIN: Record<string, readonly unknown[]> = {
@@ -75,10 +82,10 @@ export function validateFixture(fx: unknown, where = "fixture"): Issue[] {
   if (!isObj(df)) bad("derived-from", where, "derivedFrom がオブジェクトでない");
   else {
     for (const k of Object.keys(df)) if (!(DERIVED_FIELDS as readonly string[]).includes(k)) bad("unknown-field", `${where}.derivedFrom`, `未知 field: ${k}`);
-    if (!nonEmpty(df.spec) || !/§10\.1b/.test(df.spec) || !/§10\.2e/.test(df.spec))
-      bad("derived-spec", `${where}.derivedFrom`, "spec に §10.1b/§10.2e の識別が無い");
-    if (!nonEmpty(df.oracle) || !df.oracle.includes("settings-oracle.json") || !df.oracle.includes(ORACLE_BASE_COMMIT))
-      bad("derived-oracle", `${where}.derivedFrom`, `oracle が settings-oracle.json@${ORACLE_BASE_COMMIT.slice(0, 7)} 形式でない`);
+    if (df.spec !== DERIVED_SPEC)
+      bad("derived-spec", `${where}.derivedFrom`, `spec が固定値 ${JSON.stringify(DERIVED_SPEC)} と一致しない: ${JSON.stringify(df.spec)}`);
+    if (df.oracle !== DERIVED_ORACLE)
+      bad("derived-oracle", `${where}.derivedFrom`, `oracle が固定値 ${JSON.stringify(DERIVED_ORACLE)} と一致しない: ${JSON.stringify(df.oracle)}`);
   }
 
   // profile（validator 側の固定表と突合）
@@ -125,7 +132,103 @@ export function validateFixture(fx: unknown, where = "fixture"): Issue[] {
   return out;
 }
 
-function validateRow(r: unknown, w: string, rowIds: Set<string>, bad: (c: string, w: string, m: string) => void): void {
+type Bad = (c: string, w: string, m: string) => void;
+
+// ---- field 型表（closed schema の中核） --------------------------------------
+/**
+ * 各 Row 種別の **全 field の値型**（`!`＝必須／`?`＝任意）。
+ * `kind`/`id` は共通処理で個別に検査するため型表では素通しの印だけ置く。
+ * ★`screen-model.ts` の `ROW_FIELDS`（許可 field 名）と鍵集合が一致することを毎回検査する
+ *   ＝「field を足したのに型を書き忘れる」＝U1c 検収で指摘された穴の再発を機械的に封じる。
+ */
+type FieldType =
+  | "kind" | "id"
+  | "str!" | "str?" | "bool!" | "bool?" | "num?"
+  | "tone?" | "role?" | "icon?" | "badge?" | "glyph?" | "options!" | "inputType!";
+
+const ROW_FIELD_TYPES: Record<string, Record<string, FieldType>> = {
+  info: { kind: "kind", id: "id", label: "str!", value: "str?", note: "str?", tone: "tone?" },
+  text: { kind: "kind", id: "id", text: "str!", dim: "bool?", tone: "tone?" },
+  action: { kind: "kind", id: "id", label: "str!", role: "role?", icon: "icon?", badge: "badge?" },
+  toggle: { kind: "kind", id: "id", label: "str!", on: "bool!" },
+  picker: { kind: "kind", id: "id", label: "str!", options: "options!", selected: "str!" },
+  input: {
+    kind: "kind", id: "id", label: "str!", required: "bool?", placeholder: "str?", value: "str?",
+    inputType: "inputType!", multiline: "bool?", min: "num?", max: "num?", step: "num?",
+  },
+  card: { kind: "kind", id: "id", title: "str!", sub: "str?", glyph: "glyph?", badge: "badge?", role: "role?" },
+};
+
+/** 型表と `ROW_FIELDS`／`ROW_KINDS` の鍵ドリフトを検出（self-test は複製表を渡して検知力を裏取りする）。 */
+export function checkFieldTableDrift(table: Record<string, Record<string, FieldType>> = ROW_FIELD_TYPES): Issue[] {
+  const out: Issue[] = [];
+  const bad = (msg: string) => out.push({ code: "field-table-drift", where: "ROW_FIELD_TYPES", msg });
+  const got = Object.keys(table).sort().join("|"), want = [...ROW_KINDS].sort().join("|");
+  if (got !== want) bad(`種別集合が ROW_KINDS と不一致: [${got}] / [${want}]`);
+  for (const kind of ROW_KINDS) {
+    const t = table[kind];
+    if (!t) { bad(`${kind} の型表が無い`); continue; }
+    const have = Object.keys(t), allow = ROW_FIELDS[kind] as readonly string[];
+    for (const f of allow) if (!have.includes(f)) bad(`${kind}.${f} は ROW_FIELDS にあるが型表に無い`);
+    for (const f of have) if (!allow.includes(f)) bad(`${kind}.${f} は型表にあるが ROW_FIELDS に無い`);
+  }
+  return out;
+}
+
+/** badge / glyph（入れ子オブジェクト）の検査。 */
+function validateSubObject(v: unknown, key: "badge" | "glyph", w: string, bad: Bad): void {
+  const fields = key === "badge" ? BADGE_FIELDS : GLYPH_FIELDS;
+  if (!isObj(v)) { bad(key, w, `${key} がオブジェクトでない`); return; }
+  for (const k of Object.keys(v)) if (!(fields as readonly string[]).includes(k)) bad("unknown-field", `${w}.${key}`, `未知 field: ${k}`);
+  if (!nonEmpty(v[key === "badge" ? "text" : "char"])) bad(key, `${w}.${key}`, "必須文字列が空");
+  if (!isStr(v.tone) || !(SEM_TONES as readonly string[]).includes(v.tone)) bad("tone-unknown", `${w}.${key}`, `未登録 tone: ${String(v.tone)}`);
+}
+
+/** picker.options の検査。妥当なら option id の集合を返す（selected の所属検査に使う）。 */
+function validateOptions(v: unknown, w: string, bad: Bad): Set<string> | null {
+  if (!Array.isArray(v) || v.length === 0) { bad("picker-options", w, "options が非空配列でない"); return null; }
+  const ids = new Set<string>();
+  v.forEach((oU, oi) => {
+    if (!isObj(oU)) { bad("picker-option", `${w}.options[${oi}]`, "option がオブジェクトでない"); return; }
+    for (const k of Object.keys(oU)) if (!(OPTION_FIELDS as readonly string[]).includes(k)) bad("unknown-field", `${w}.options[${oi}]`, `未知 field: ${k}`);
+    if (!nonEmpty(oU.id)) bad("option-id", `${w}.options[${oi}]`, "id が非空文字列でない");
+    else if (ids.has(oU.id)) bad("option-id-dup", `${w}.options[${oi}]`, `option id 重複: ${oU.id}`);
+    else ids.add(oU.id);
+    if (!nonEmpty(oU.label)) bad("option-label", `${w}.options[${oi}]`, "label が非空文字列でない");
+  });
+  return ids;
+}
+
+/** 型表に従って **全 field の必須／値型** を検査する（種別ごとの ad-hoc 検査に代わる網羅版）。 */
+function checkRowFieldTypes(r: Record<string, unknown>, kind: string, w: string, bad: Bad): { optionIds: Set<string> | null } {
+  let optionIds: Set<string> | null = null;
+  for (const [f, t] of Object.entries(ROW_FIELD_TYPES[kind] ?? {})) {
+    if (t === "kind" || t === "id") continue; // 共通処理で検査済み
+    if (!(f in r)) { if (t.endsWith("!")) bad("required", w, `${kind} に ${f} が無い`); continue; }
+    const v = r[f], shown = JSON.stringify(v) ?? String(v);
+    switch (t) {
+      case "str!":
+        if (!isStr(v)) bad("type", w, `${f} が文字列でない: ${shown}`);
+        else if (!v.length) bad("required", w, `${f} が空文字列`);
+        break;
+      case "str?": if (!isStr(v)) bad("type", w, `${f} が文字列でない: ${shown}`); break;
+      case "bool!": case "bool?": if (typeof v !== "boolean") bad("type", w, `${f} が boolean でない: ${shown}`); break;
+      case "num?":
+        if (typeof v !== "number") bad("type", w, `${f} が数値でない: ${shown}`);
+        else if (!Number.isFinite(v)) bad("non-finite", w, `${f} が非有限数`);
+        break;
+      case "tone?": if (!isStr(v) || !(SEM_TONES as readonly string[]).includes(v)) bad("tone-unknown", w, `未登録 tone: ${String(v)}`); break;
+      case "role?": if (!isStr(v) || !(ROLES as readonly string[]).includes(v)) bad("role-unknown", w, `未知 role: ${String(v)}`); break;
+      case "icon?": if (!isStr(v) || !(ICON_IDS as readonly string[]).includes(v)) bad("icon-unknown", w, `未登録 icon: ${String(v)}`); break;
+      case "badge?": case "glyph?": validateSubObject(v, t === "badge?" ? "badge" : "glyph", w, bad); break;
+      case "options!": optionIds = validateOptions(v, w, bad); break;
+      case "inputType!": if (!isStr(v) || !(INPUT_TYPES as readonly string[]).includes(v)) bad("input-type", w, `未知 inputType: ${String(v)}`); break;
+    }
+  }
+  return { optionIds };
+}
+
+function validateRow(r: unknown, w: string, rowIds: Set<string>, bad: Bad): void {
   if (!isObj(r)) { bad("row", w, "row がオブジェクトでない"); return; }
   const kind = r.kind;
   if (!isStr(kind) || !(ROW_KINDS as readonly string[]).includes(kind)) { bad("row-kind", w, `未知 kind: ${String(kind)}`); return; }
@@ -135,57 +238,24 @@ function validateRow(r: unknown, w: string, rowIds: Set<string>, bad: (c: string
   if (!nonEmpty(r.id)) bad("row-id", w, "id が非空文字列でない");
   else if (rowIds.has(r.id)) bad("row-id-dup", w, `Row.id 重複（Screen 全体）: ${r.id}`);
   else rowIds.add(r.id);
-  // 数値は常に有限
+  // 数値は常に有限（型表に無い経路＝未知 field に紛れた NaN/Infinity も拾う）
   for (const [k, v] of Object.entries(r)) if (typeof v === "number" && !Number.isFinite(v)) bad("non-finite", w, `${k} が非有限数`);
-  // tone / role / icon は runtime 定数集合に在ること
-  if ("tone" in r && (!isStr(r.tone) || !(SEM_TONES as readonly string[]).includes(r.tone))) bad("tone-unknown", w, `未登録 tone: ${String(r.tone)}`);
-  if ("role" in r && (!isStr(r.role) || !(ROLES as readonly string[]).includes(r.role))) bad("role-unknown", w, `未知 role: ${String(r.role)}`);
-  if ("icon" in r && (!isStr(r.icon) || !(ICON_IDS as readonly string[]).includes(r.icon))) bad("icon-unknown", w, `未登録 icon: ${String(r.icon)}`);
-  for (const key of ["badge", "glyph"] as const) {
-    if (!(key in r)) continue;
-    const b = r[key];
-    const fields = key === "badge" ? BADGE_FIELDS : GLYPH_FIELDS;
-    if (!isObj(b)) { bad(key, w, `${key} がオブジェクトでない`); continue; }
-    for (const k of Object.keys(b)) if (!(fields as readonly string[]).includes(k)) bad("unknown-field", `${w}.${key}`, `未知 field: ${k}`);
-    if (!nonEmpty(b[key === "badge" ? "text" : "char"])) bad(key, `${w}.${key}`, "必須文字列が空");
-    if (!isStr(b.tone) || !(SEM_TONES as readonly string[]).includes(b.tone)) bad("tone-unknown", `${w}.${key}`, `未登録 tone: ${String(b.tone)}`);
-  }
-  // 種別ごとの必須欄
-  switch (kind) {
-    case "info": if (!nonEmpty(r.label)) bad("required", w, "info に label が無い"); break;
-    case "text": if (!nonEmpty(r.text)) bad("required", w, "text に text が無い"); break;
-    case "action": case "toggle": case "picker": case "input":
-      if (!nonEmpty(r.label)) bad("required", w, `${kind} に label が無い`); break;
-    case "card": if (!nonEmpty(r.title)) bad("required", w, "card に title が無い"); break;
-  }
-  if (kind === "toggle" && typeof r.on !== "boolean") bad("required", w, "toggle に boolean の on が無い");
-  if (kind === "picker") {
-    if (!Array.isArray(r.options) || r.options.length === 0) { bad("picker-options", w, "options が非空配列でない"); return; }
-    const ids = new Set<string>();
-    r.options.forEach((oU, oi) => {
-      if (!isObj(oU)) { bad("picker-option", `${w}.options[${oi}]`, "option がオブジェクトでない"); return; }
-      for (const k of Object.keys(oU)) if (!(OPTION_FIELDS as readonly string[]).includes(k)) bad("unknown-field", `${w}.options[${oi}]`, `未知 field: ${k}`);
-      if (!nonEmpty(oU.id)) bad("option-id", `${w}.options[${oi}]`, "id が非空文字列でない");
-      else if (ids.has(oU.id)) bad("option-id-dup", `${w}.options[${oi}]`, `option id 重複: ${oU.id}`);
-      else ids.add(oU.id);
-      if (!nonEmpty(oU.label)) bad("option-label", `${w}.options[${oi}]`, "label が非空文字列でない");
-    });
-    if (!nonEmpty(r.selected) || !ids.has(r.selected as string)) bad("picker-selected", w, `selected(${String(r.selected)}) が options の id に無い`);
-  }
+  // ★全 field の必須／値型（型表駆動）
+  const { optionIds } = checkRowFieldTypes(r, kind, w, bad);
+  // 型表で表せない意味論
+  if (kind === "picker" && optionIds && (!nonEmpty(r.selected) || !optionIds.has(r.selected)))
+    bad("picker-selected", w, `selected(${String(r.selected)}) が options の id に無い`);
   if (kind === "input") {
     const t = r.inputType;
-    if (!isStr(t) || !(INPUT_TYPES as readonly string[]).includes(t)) { bad("input-type", w, `未知 inputType: ${String(t)}`); return; }
+    if (!isStr(t) || !(INPUT_TYPES as readonly string[]).includes(t)) return; // 型表で報告済み
     if (t === "number") {
       if ("multiline" in r) bad("input-mismatch", w, "number に multiline は不可");
-      for (const k of ["min", "max", "step"] as const) if (k in r && typeof r[k] !== "number") bad("type", w, `${k} が数値でない`);
       const mn = r.min as number | undefined, mx = r.max as number | undefined, sp = r.step as number | undefined;
       if (typeof mn === "number" && typeof mx === "number" && mn > mx) bad("input-range", w, `min(${mn}) > max(${mx})`);
       if (typeof sp === "number" && sp <= 0) bad("input-step", w, `step(${sp}) が 0 以下`);
     } else {
       for (const k of ["min", "max", "step"] as const) if (k in r) bad("input-mismatch", w, `text に ${k} は不可`);
-      if ("multiline" in r && typeof r.multiline !== "boolean") bad("type", w, "multiline が boolean でない");
     }
-    if ("required" in r && typeof r.required !== "boolean") bad("type", w, "required が boolean でない");
   }
 }
 
@@ -216,13 +286,16 @@ let fail = 0;
 const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++; };
 
 // -- F) self-test（変異試験・毎回実行）
-const selfTests: { name: string; expect: string; make: () => unknown }[] = (() => {
+const selfTests: { name: string; expect: string; make?: () => unknown; run?: () => Issue[] }[] = (() => {
   const base = () => JSON.parse(readFileSync(join(FIXTURE_ROOT, "settings", "default.json"), "utf8")) as any;
+  /** 合成 row を1件足した fixture（型表の各枝を種別ごとに突く）。 */
+  const withRow = (row: Record<string, unknown>) => () => { const f = base(); f.expected.sections[0].rows.push(row); return f; };
   return [
     { name: "Row.id 欠落", expect: "row-id", make: () => { const f = base(); delete f.expected.sections[0].rows[0].id; return f; } },
     { name: "Row.id 重複（Section 跨ぎ）", expect: "row-id-dup", make: () => { const f = base(); f.expected.sections[1].rows[0].id = f.expected.sections[0].rows[0].id; return f; } },
     { name: "Section.id 重複", expect: "section-id-dup", make: () => { const f = base(); f.expected.sections[1].id = f.expected.sections[0].id; return f; } },
-    { name: "未登録 tone", expect: "tone-unknown", make: () => { const f = base(); f.expected.sections[0].rows[0].tone = "not-a-tone"; return f; } },
+    // tone は `info`/`text` にだけ許される field（`action` に付けると unknown-field＝別枝で検査済み）
+    { name: "未登録 tone", expect: "tone-unknown", make: () => { const f = base(); f.expected.sections[0].rows.push({ kind: "info", id: "tmp-tone", label: "x", tone: "not-a-tone" }); return f; } },
     { name: "未登録 icon", expect: "icon-unknown", make: () => { const f = base(); f.expected.sections[0].rows[0].icon = "no-such-icon"; return f; } },
     { name: "未知 role", expect: "role-unknown", make: () => { const f = base(); f.expected.sections[3].rows[3].role = "scary"; return f; } },
     { name: "未知 kind", expect: "row-kind", make: () => { const f = base(); f.expected.sections[0].rows[0].kind = "widget"; return f; } },
@@ -247,12 +320,39 @@ const selfTests: { name: string; expect: string; make: () => unknown }[] = (() =
     { name: "input min>max", expect: "input-range", make: () => { const f = base(); f.expected.sections[0].rows.push({ kind: "input", id: "tmp-num2", label: "x", inputType: "number", min: 9, max: 1 }); return f; } },
     { name: "input step<=0", expect: "input-step", make: () => { const f = base(); f.expected.sections[0].rows.push({ kind: "input", id: "tmp-num3", label: "x", inputType: "number", step: 0 }); return f; } },
     { name: "input text に min", expect: "input-mismatch", make: () => { const f = base(); f.expected.sections[0].rows.push({ kind: "input", id: "tmp-txt", label: "x", inputType: "text", min: 1 }); return f; } },
+    // ---- ★型表駆動で塞いだ optional/必須 field の型違い（U1c 検収 修正必須1） ----
+    { name: "text.dim が boolean でない", expect: "type", make: withRow({ kind: "text", id: "tmp-dim", text: "x", dim: "yes" }) },
+    { name: "info.value が文字列でない", expect: "type", make: withRow({ kind: "info", id: "tmp-val", label: "x", value: {} }) },
+    { name: "info.note が文字列でない", expect: "type", make: withRow({ kind: "info", id: "tmp-note", label: "x", note: 42 }) },
+    { name: "card.sub が文字列でない", expect: "type", make: withRow({ kind: "card", id: "tmp-sub", title: "x", sub: 42 }) },
+    { name: "input.placeholder が文字列でない", expect: "type", make: withRow({ kind: "input", id: "tmp-ph", label: "x", inputType: "text", placeholder: 42 }) },
+    { name: "input.value が文字列でない", expect: "type", make: withRow({ kind: "input", id: "tmp-iv", label: "x", inputType: "text", value: true }) },
+    { name: "必須 string の型違い（info.label=42）", expect: "type", make: withRow({ kind: "info", id: "tmp-lab", label: 42 }) },
+    { name: "必須 boolean の型違い（toggle.on=\"yes\"）", expect: "type", make: withRow({ kind: "toggle", id: "tmp-on", label: "x", on: "yes" }) },
+    { name: "picker.selected が文字列でない", expect: "type", make: withRow({ kind: "picker", id: "tmp-sel", label: "x", options: [{ id: "a", label: "A" }], selected: 42 }) },
+    { name: "input(number).min が数値でない", expect: "type", make: withRow({ kind: "input", id: "tmp-min", label: "x", inputType: "number", min: "1" }) },
+    { name: "card.title 欠落", expect: "required", make: withRow({ kind: "card", id: "tmp-title" }) },
+    // ---- ★derivedFrom の完全一致（U1c 検収 修正必須2） ----
+    { name: "derivedFrom.oracle の prefix/suffix 詐称（正しい commit 入り）", expect: "derived-oracle", make: () => { const f = base(); f.derivedFrom.oracle = `prefix-settings-oracle.json-junk-${ORACLE_BASE_COMMIT}-suffix`; return f; } },
+    { name: "derivedFrom.spec の詐称（§10.1b/§10.2e を含む別文字列）", expect: "derived-spec", make: () => { const f = base(); f.derivedFrom.spec = "junk §10.1b junk §10.2e junk"; return f; } },
+    // ---- ★型表 ↔ ROW_FIELDS の鍵ドリフト（削除／追加の双方を検知できること） ----
+    {
+      name: "型表と ROW_FIELDS の鍵ドリフト（1キー削除／1キー追加）", expect: "field-table-drift",
+      run: () => {
+        const copy = () => Object.fromEntries(Object.entries(ROW_FIELD_TYPES).map(([k, v]) => [k, { ...v }]));
+        const dropped: any = copy(); delete dropped.info.note;          // ROW_FIELDS にあるが型表に無い
+        const added: any = copy(); added.card.bogus = "str?";            // 型表にあるが ROW_FIELDS に無い
+        const a = checkFieldTableDrift(dropped), b = checkFieldTableDrift(added);
+        const hit = (xs: Issue[]) => xs.some((i) => i.code === "field-table-drift");
+        return hit(a) && hit(b) ? [...a, ...b] : []; // 片方でも未検出なら空＝self-test が fail する
+      },
+    },
   ];
 })();
 {
   let ng = 0;
   for (const t of selfTests) {
-    const issues = validateFixture(t.make(), "self");
+    const issues = t.run ? t.run() : validateFixture(t.make!(), "self");
     const hit = issues.some((i) => i.code === t.expect);
     if (!hit) { err(`self-test 未検出: ${t.name}（期待 code=${t.expect} / 実際=${issues.map((i) => i.code).join(",") || "なし"}）`); ng++; }
   }
@@ -260,6 +360,13 @@ const selfTests: { name: string; expect: string; make: () => unknown }[] = (() =
   const clean = validateFixture(JSON.parse(readFileSync(join(FIXTURE_ROOT, "settings", "default.json"), "utf8")), "self-clean");
   if (clean.length) { err(`self-test: 正常な fixture が fail した（${clean.map((i) => i.code).join(",")}）`); ng++; }
   console.log(`  self-test（変異試験）: ${selfTests.length} 拒否枝 ＋ 正常系1 / NG ${ng}`);
+}
+
+// -- A0) 型表 ↔ ROW_FIELDS の鍵ドリフト（実表）
+{
+  const issues = checkFieldTableDrift();
+  for (const i of issues) err(`[${i.code}] ${i.where}: ${i.msg}`);
+  console.log(`  (A0) field 型表: ${ROW_KINDS.length} 種別 / ROW_FIELDS と鍵一致（ドリフト ${issues.length}）`);
 }
 
 // -- A) 実 fixture の schema 検査
