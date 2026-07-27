@@ -1,0 +1,225 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "settings/cycle-a",
+  "screenId": "settings",
+  "derivedFrom": {
+    "spec": "prototype-spec.md §10.1b/§10.2e",
+    "oracle": "tools/fixtures/settings-oracle.json@6a537d197d23865f578832ba56e88a753dc38825"
+  },
+  "webProjectionProfile": "settings-row-v1",
+  "state": {
+    "muted": true,
+    "bgmOn": false,
+    "bgmVol": 0.35,
+    "sfxVol": 0.85,
+    "dpadOn": false,
+    "dpadPos": "left",
+    "dpadSize": "lg",
+    "autorun": false,
+    "lunge": false,
+    "guard": false,
+    "logSize": "sm"
+  },
+  "expected": {
+    "id": "settings",
+    "title": "設定",
+    "sections": [
+      {
+        "id": "sec-play",
+        "header": "あそびかた",
+        "rows": [
+          {
+            "kind": "action",
+            "id": "help",
+            "label": "❓ あそびかた・記号の凡例",
+            "icon": "help"
+          }
+        ]
+      },
+      {
+        "id": "sec-audio",
+        "header": "音",
+        "rows": [
+          {
+            "kind": "toggle",
+            "id": "audio-mute",
+            "label": "♪ 音を出す",
+            "on": false
+          },
+          {
+            "kind": "toggle",
+            "id": "bgm-toggle",
+            "label": "🎵 BGM：オフ → オン",
+            "on": false
+          },
+          {
+            "kind": "picker",
+            "id": "bgm-volume",
+            "label": "🎵 BGM音量：小（小→中→大）",
+            "options": [
+              {
+                "id": "small",
+                "label": "小"
+              },
+              {
+                "id": "medium",
+                "label": "中"
+              },
+              {
+                "id": "large",
+                "label": "大"
+              }
+            ],
+            "selected": "small"
+          },
+          {
+            "kind": "picker",
+            "id": "sfx-volume",
+            "label": "🔊 効果音音量：大（小→中→大）",
+            "options": [
+              {
+                "id": "small",
+                "label": "小"
+              },
+              {
+                "id": "medium",
+                "label": "中"
+              },
+              {
+                "id": "large",
+                "label": "大"
+              }
+            ],
+            "selected": "large"
+          }
+        ]
+      },
+      {
+        "id": "sec-controls",
+        "header": "操作・表示",
+        "rows": [
+          {
+            "kind": "toggle",
+            "id": "dpad-toggle",
+            "label": "🕹 方向パッド：オフ → オン",
+            "on": false
+          },
+          {
+            "kind": "picker",
+            "id": "dpad-position",
+            "label": "🕹 方向パッドの位置：左下（右下→左下→中央）",
+            "options": [
+              {
+                "id": "right",
+                "label": "右下"
+              },
+              {
+                "id": "left",
+                "label": "左下"
+              },
+              {
+                "id": "center",
+                "label": "中央"
+              }
+            ],
+            "selected": "left"
+          },
+          {
+            "kind": "picker",
+            "id": "dpad-size",
+            "label": "🕹 方向パッドの大きさ：大（大→中→小）",
+            "options": [
+              {
+                "id": "lg",
+                "label": "大"
+              },
+              {
+                "id": "md",
+                "label": "中"
+              },
+              {
+                "id": "sm",
+                "label": "小"
+              }
+            ],
+            "selected": "lg"
+          },
+          {
+            "kind": "toggle",
+            "id": "dpad-autorun",
+            "label": "🕹 長押しで連続移動：オフ → オン",
+            "on": false
+          },
+          {
+            "kind": "toggle",
+            "id": "lunge-button",
+            "label": "🥾 踏み込みボタン表示：オフ → オン",
+            "on": false
+          },
+          {
+            "kind": "toggle",
+            "id": "guard-button",
+            "label": "🛡 受け流しボタン表示（剣）：オフ → オン",
+            "on": false
+          },
+          {
+            "kind": "picker",
+            "id": "log-size",
+            "label": "🔤 文字サイズ：小（小→中→大）",
+            "options": [
+              {
+                "id": "sm",
+                "label": "小"
+              },
+              {
+                "id": "md",
+                "label": "中"
+              },
+              {
+                "id": "lg",
+                "label": "大"
+              }
+            ],
+            "selected": "sm"
+          }
+        ]
+      },
+      {
+        "id": "sec-data",
+        "header": "データ",
+        "rows": [
+          {
+            "kind": "action",
+            "id": "save-export",
+            "label": "💾 セーブを書き出す（バックアップ）",
+            "icon": "save-export"
+          },
+          {
+            "kind": "action",
+            "id": "save-import",
+            "label": "📂 セーブを読み込む（復元）",
+            "icon": "save-import"
+          },
+          {
+            "kind": "action",
+            "id": "dev-tools",
+            "label": "🔧 テスト"
+          },
+          {
+            "kind": "action",
+            "id": "world-reset",
+            "label": "⟲ 世界を最初からやり直す",
+            "role": "danger",
+            "icon": "reset"
+          },
+          {
+            "kind": "action",
+            "id": "close",
+            "label": "閉じる",
+            "role": "cancel"
+          }
+        ]
+      }
+    ]
+  }
+}
