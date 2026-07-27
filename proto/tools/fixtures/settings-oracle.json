@@ -1,0 +1,96 @@
+{
+  "//": [
+    "設定シートの凍結 oracle（U1a）。挙動不変の基準点。**通常は更新禁止**。",
+    "由来 = 基準 commit の legacy settingsSheet から採取した独立期待値であり、",
+    "refactor 後の buildSettingLabels()/SETTING_DEFS を入力にしていない。",
+    "検査（tools/settings-parity.ts）はこのデータを読むだけで、再生成しない。"
+  ],
+  "version": 1,
+  "baseCommit": "6a537d197d23865f578832ba56e88a753dc38825",
+  "baseAppVersion": "0.166.0",
+  "source": "legacy settingsSheet（proto/src/web/main.ts）",
+  "order": [
+    "help",
+    "audio-mute",
+    "bgm-toggle",
+    "bgm-volume",
+    "sfx-volume",
+    "dpad-toggle",
+    "dpad-position",
+    "dpad-size",
+    "dpad-autorun",
+    "lunge-button",
+    "guard-button",
+    "log-size",
+    "save-export",
+    "save-import",
+    "dev-tools",
+    "world-reset",
+    "close"
+  ],
+  "headers": {
+    "help": "あそびかた",
+    "audio-mute": "音",
+    "dpad-toggle": "操作・表示",
+    "save-export": "データ"
+  },
+  "fixedLabels": {
+    "help": "❓ あそびかた・記号の凡例",
+    "save-export": "💾 セーブを書き出す（バックアップ）",
+    "save-import": "📂 セーブを読み込む（復元）",
+    "dev-tools": "🔧 テスト",
+    "world-reset": "⟲ 世界を最初からやり直す",
+    "close": "閉じる"
+  },
+  "variableLabels": {
+    "audio-mute": {
+      "true": "♪ 音を出す",
+      "false": "🔇 すべての音を消す"
+    },
+    "bgm-toggle": {
+      "true": "🎵 BGM：オン → オフ",
+      "false": "🎵 BGM：オフ → オン"
+    },
+    "bgm-volume": {
+      "小": "🎵 BGM音量：小（小→中→大）",
+      "中": "🎵 BGM音量：中（小→中→大）",
+      "大": "🎵 BGM音量：大（小→中→大）"
+    },
+    "sfx-volume": {
+      "小": "🔊 効果音音量：小（小→中→大）",
+      "中": "🔊 効果音音量：中（小→中→大）",
+      "大": "🔊 効果音音量：大（小→中→大）"
+    },
+    "dpad-toggle": {
+      "true": "🕹 方向パッド：オン → オフ",
+      "false": "🕹 方向パッド：オフ → オン"
+    },
+    "dpad-position": {
+      "right": "🕹 方向パッドの位置：右下（右下→左下→中央）",
+      "left": "🕹 方向パッドの位置：左下（右下→左下→中央）",
+      "center": "🕹 方向パッドの位置：中央（右下→左下→中央）"
+    },
+    "dpad-size": {
+      "lg": "🕹 方向パッドの大きさ：大（大→中→小）",
+      "md": "🕹 方向パッドの大きさ：中（大→中→小）",
+      "sm": "🕹 方向パッドの大きさ：小（大→中→小）"
+    },
+    "dpad-autorun": {
+      "true": "🕹 長押しで連続移動：オン → オフ",
+      "false": "🕹 長押しで連続移動：オフ → オン"
+    },
+    "lunge-button": {
+      "true": "🥾 踏み込みボタン表示：オン → オフ",
+      "false": "🥾 踏み込みボタン表示：オフ → オン"
+    },
+    "guard-button": {
+      "true": "🛡 受け流しボタン表示（剣）：オン → オフ",
+      "false": "🛡 受け流しボタン表示（剣）：オフ → オン"
+    },
+    "log-size": {
+      "sm": "🔤 文字サイズ：小（小→中→大）",
+      "md": "🔤 文字サイズ：中（小→中→大）",
+      "lg": "🔤 文字サイズ：大（小→中→大）"
+    }
+  }
+}
