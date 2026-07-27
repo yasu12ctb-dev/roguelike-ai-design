@@ -448,12 +448,25 @@ type InputKind =
 type Role  = "primary" | "cancel" | "danger" | "normal";  // 10.1「ボタン役割」と一致
 type Badge = { text: string; tone: SemTone };  // ✓受取可・◦受注中 等の状態章
 type Glyph = { char: string; tone: SemTone };  // グリフ 1字＋意味トーン（CSS クラス名でなく意味キー）
-type SemTone = /* §10.2/10.2b の前景トークンに 1:1（下記） */;
-type IconId  = /* §10.10⑥ の SF Symbols 対応表のキー */;
+// SemTone / IconId は 10.2e の正典一覧から生成する有限 ID 集合（表に無い値は 10.12 (1a) で拒否）。
+// 実体（2026-07-27 現在・出所＝10.2e。追加時は 10.2e を先に更新する）：
+type SemTone =
+  | "hp" | "exp" | "gold" | "buff" | "warn"                                  // 状態（10.2）
+  | "strong" | "dim" | "meta" | "faint" | "acc"                              // 文字強調（10.2）
+  | "player" | "player-danger" | "player-heavy"                              // グリフ役割（10.3）
+  | "companion" | "companion-danger" | "companion-erratic"
+  | "delver" | "downed" | "summon" | "stairs-down" | "stairs-up" | "wall" | "floor"
+  | "mon-t1" | "mon-t2" | "mon-t3" | "mon-t4" | "mon-t5" | "elite" | "boss"  // 敵ティア（10.2）
+  | "fossil" | "fossil-quiet" | "chest" | "chest-open" | "spring" | "rest" | "door"  // 物・ノード（10.3）
+  | "atk" | "ctl" | "mov" | "sup" | "lore" | "sum"                           // 術学派（10.2）
+  | "loss" | "myth" | "grudge";                                              // 残響の極（4-11A）
+type IconId =
+  | "spell" | "bag" | "stat" | "map" | "hub" | "cog"                         // タブ/ハブ（10.10③）
+  | "help" | "save-export" | "save-import" | "reset";                        // 設定行
 ```
 
 - **ルーティングは `id`（安定キー）**＝表示ラベルはローカライズ／A11y 自由。設定の `includes` 分岐は `row.id`（`"bgm-volume"` 等）に置換。
-- **`SemTone` は意味トーンの完全集合＝画面モデルが参照する「前景の意味トークン」の単一集合**（§10.2 のステータス色／文字トークン、§10.2b の様式、敵ティア、物・ノード、術学派、＋残響の極 loss/myth/grudge）。**背景・面（`bg-*`）などクロムのトークンは含まない。** 列挙の出所は §10.2 のトークン表**一箇所**に一元化し、そこから機械生成する（型に曖昧な別名を混ぜない・正典 token 名に揃える）。web は `tone`→`.c-exp`/`.g-mon-t3` 等の正典色クラス、Swift は `tone`→`Color` に解決。cls の生 CSS クラス名は持たせない。
+- **`SemTone` は意味トーンの完全集合＝画面モデルが参照する「前景の意味トークン」の単一集合。列挙の出所は 10.2e の正典一覧ただ一つ**（状態／文字強調／グリフ役割／敵ティア／物・ノード／術学派／残響の極）。**背景・面（`bg-*`）などクロムのトークンは含まない。** 型に曖昧な別名を混ぜず正典 token 名に揃える。**色の hex は 10.2/10.3 が持ち、10.2e・本節は ID だけを扱う**（二重管理をしない）。web は `tone`→`.c-exp`/`.g-mon-t3` 等のクラス、Swift は `tone`→`Color` に解決。生 CSS クラス名はモデルに持たせない。`IconId` も同様に 10.2e の有限一覧から生成し、**表に無い値は 10.12 (1a) で拒否**。
 - **`kind:"input"` は `text`（`multiline` 可）と `number`（`min/max/step`・`multiline` 不可）の判別 union**＝矛盾状態（number+multiline 等）を構造検査で拒否できる。実使用は5経路のみ＝①名前 ②最期の言葉（任意）③セーブ読込の貼付（現 web は単行）④テスト用レベル（number）⑤テスト用深度（number）。Swift ＝ `TextField`／`TextEditor`／`.keyboardType(.numberPad)`。
 - **現 web → モデルの対応（移植マッピング）：**
 
@@ -487,6 +500,23 @@ type IconId  = /* §10.10⑥ の SF Symbols 対応表のキー */;
 タイトル：墨黒地・最小限の光の題字（`#efe6d3`）＋**朱の落款「蝕」**。残り火（embers）は①では出さない（DOM は残し CSS で隠す＝別テーマ復帰用）。primary メニュー＝朱の塗り。theme-color＝`#14110c`（`--bg-panel`＝タブバー/ホームインジケータ帯と連続）。
 ※すべて gradient/border/shadow/text-shadow のみ＝**SwiftUI modifier（stroke/cornerRadius/shadow/tracking/小 Path overlay）で表現可能・画像アセットゼロ**。
 
+### 10.2e 前景意味トークン ID の正典一覧（`SemTone` の生成元）
+**画面モデル（10.1b）が参照できる意味トークンの有限な正典。`SemTone` はこの表の ID 集合そのもの**（＝ここから機械生成する）。**背景・面（`bg-app`/`bg-panel`/`bg-sheet`/`bg-input`/`bg-btn`/`bg-void`/`bg-wall`）・罫線などクロムのトークンは含まない**（画面モデルは前景の意味だけを宣言する）。**色の実値（hex）はここに書かず 10.2／10.3 を参照する**（二重管理をしない）。web は ID→CSS クラス、Swift は ID→`Color` に解決する。
+
+| 群 | トークン ID | 色の出所 | web クラス（解決先の例） |
+|---|---|---|---|
+| 状態 | `hp` / `exp` / `gold` / `buff` / `warn` | 10.2「ステータス色」 | `--c-hp`／`--c-exp`／`--c-gold`／`--c-buff`／`--c-warn` |
+| 文字強調 | `strong` / `dim` / `meta` / `faint` / `acc` | 10.2「文字」「アクセント」 | `--tx-strong`／`--tx-dim`／`--tx-meta`／`--tx-faint`／`--acc` |
+| グリフ役割 | `player` / `player-danger` / `player-heavy` / `companion` / `companion-danger` / `companion-erratic` / `delver` / `downed` / `summon` / `stairs-down` / `stairs-up` / `wall` / `floor` | 10.3 | `.g-player`／`.g-player-danger`／`.g-player-heavy`／`.g-companion`／`.g-companion-danger`／`.g-companion-erratic`／`.g-delver`／`.g-downed`／`.g-summon`／`.g-down`／`.g-up`／`.g-wall`／`.g-floor` |
+| 敵ティア | `mon-t1` / `mon-t2` / `mon-t3` / `mon-t4` / `mon-t5` / `elite` / `boss` | 10.2「敵ティア色」 | `.g-mon-t1`…`.g-mon-t5`／`.g-elite`／`.g-boss` |
+| 物・ノード | `fossil` / `fossil-quiet` / `chest` / `chest-open` / `spring` / `rest` / `door` | 10.3 | `.g-fossil`／`.g-fossil-quiet`／`.g-chest`／`.g-chest-open`／`.g-spring`／`.g-rest`／`.g-door` |
+| 術学派 | `atk` / `ctl` / `mov` / `sup` / `lore` / `sum` | 10.2「術学派色」 | `.c-atk`／`.c-ctl`／`.c-mov`／`.c-sup`／`.c-lore`／`.c-sum` |
+| 残響の極 | `loss` / `myth` / `grudge` | 4-11A（残響オーラ） | `.cell.echo-loss`／`.echo-myth`／`.echo-grudge` |
+
+**拡張の規律：** 新しい意味トーンが要るときは**まず本表に ID を足す**（web/Swift の実装より先）。**表に無い ID はモデル検査（10.12 (1a)）で拒否する**。
+
+**`IconId` の正典一覧（10.10③ の SF Symbols 対応表と対）：** 現在の有限集合＝**`spell`／`bag`／`stat`／`map`／`hub`／`cog`**（web の線画 SVG `ICONS` のキー）＋設定行で使う **`help`／`save-export`／`save-import`／`reset`**。**登録表に無い値は拒否**（`SemTone` と同じ規律＝追加時は本項と 10.10③ を同時に更新する）。
+
 ### 10.2c タイポグラフィ基準（字体・サイズ・ウェイト・行間）
 三系統の字体で「声」を分ける（design-spec §3 由来・現行実装の実値）。
 
@@ -499,16 +529,23 @@ type IconId  = /* §10.10⑥ の SF Symbols 対応表のキー */;
 サイズ（基準・px）：盤面HUD 12／シート本文 14.5／ログ 15（設定で 13/15/17＝小中大＝`logSize`）／ボタン 14.5／メタ 11／版数 10.5。ウェイト：グリフと見出しは 700・本文は標準。行間：ログ 1.8・シート 1.95。**Swift ＝ サイズは Dynamic Type スケールに対応づけ（10.11）。**
 
 ### 10.2d アニメーション（keyframes の意味論）
-「常時うるさく光らせない・静と動のコントラストで情報を立てる」（design-spec §4 由来）。各アニメの**意味**を固定する（見た目でなく役割の仕様）。
+「常時うるさく光らせない・静と動のコントラストで情報を立てる」。各アニメの**意味**を固定する（見た目でなく役割の仕様）。**周期は現行実装（`web/index.html` の `@keyframes`／`animation`）の実値。** 本表は**主要アニメの抜粋**で、網羅的な正典は `web/index.html` の CSS 定義（`@keyframes` 群）＝**周期を変えたら本表も更新する**。
 
-| keyframe | 周期 | 意味・対象 |
+| keyframe | 周期（実値） | 意味・対象 |
 |---|---|---|
-| `pulse` | 1.4–2.8s | 重要物の「呼吸」＝化石・泉・扉・召喚・敵 t5 |
-| `danger` | .55s | 被攻撃予告の自分/相棒が赤く脈打つ |
+| `pulse` | 1.05–2.8s（対象ごと） | 重要物の「呼吸」＝化石・泉・安息所・扉・召喚・敵 t5（1.4s）・エリート（1.05s）・erratic 相棒（1.1s）等 |
+| `danger` | .55s（ボス大技の被予告は .4s） | 被攻撃予告の自分/相棒が赤く脈打つ |
 | `monatk` | .5s | 敵の攻撃予告（ティア色のまま強く明滅＝「来る」） |
-| `tele` / `tele-move` | .55s | 討たれるマスの赤枠／踏み込み先の琥珀ハイライト（4-11A） |
+| `bossheavy` | .42s | ボスの渾身の一撃（溜め大技）の予告 |
+| `tele` | .55s | 討たれるマスの赤枠（`.cell.tele-atk::after`） |
+| `teleboss` / `teleshape` / `telecharge` / `telereach` | .5s / .5s / .45s / .5s | 形つき確定範囲（ボス）／形つき敵（arc・slam・beam）／突進ライン／長柄の突き線（4-11A） |
 | `fxflash` | .4–.55s | 術の全域点滅（warp 菫／still 青／blink 青菫） |
 | `torchflick` / `abyssair` | 4.2s / 6s | 松明のゆらぎ／深淵帯の菫ヴィネット脈動（10.3b） |
+| `echoaura` | 3.4s | 最期の残響のトーン色オーラ（4-11A） |
+| `hzfire`/`hzvenom`/`hzcrack`/`hzmiasma`/`hzfrost` | 1.3s / 2.2s / .5s / 2.6s / 2.4s | 地形ハザード（業火床・毒沼・崩れ床の軋み・蝕の霧・凍霧） |
+| 単発演出 | `floatup` .55–.8s／`critpop` .28s／`fxready` .45s／`fxslash` .3s／`fxpressL/R` .26s／`shakecrit` .14s／`peekin` .16s／`bannerfade` 1.5s | FloatFx・位置取り演出（10.3）・調べるポップ・フロア進入バナー |
+
+**★アニメでないもの（誤解防止）：** **踏み込み先/敵の移動予告 `tele-move` は静的な琥珀背景**（`background: rgba(224,140,72,.34)`＋inset shadow）＝keyframe を持たない。**盤面の床の濃淡・壁の彫り込みも静的**（10.3）。
 
 Swift ＝ `withAnimation(.easeInOut.repeatForever())` 等でミラー。**Reduce Motion 時は静止/最小化（10.11）＝テレグラフの「来る」情報は色/枠の静的表現で担保**。
 
@@ -579,7 +616,7 @@ Swift ＝ `withAnimation(.easeInOut.repeatForever())` 等でミラー。**Reduce
 **原則：雰囲気を壊さず OS 設定に連動する。通常テーマの盤面を一律に明るくしない。**
 
 - **Dynamic Type**：`logSize`（小/中/大）を型スケールトークンとして持ち、Swift は `.dynamicTypeSize` で OS 設定に追従。盤面グリフは等幅維持のため上限クランプ（レイアウト崩壊防止）、シート/ログは全域追従。
-- **高コントラスト**（`@media (prefers-contrast)` / Swift `.accessibilityShowButtonShapes`・`legibilityWeight`）：**不変に保つのは「色の役割の対応（自分=金系・深蝕=菫系・敵ティアの段・術学派の別）と互いに識別可能であること」であって各役割色の RGB 値そのものではない。** 背景・罫線を変えてコントラスト比を割るなら**役割色の明度/彩度を調整してよい**（意味と相対関係は保つ）。**コントラスト基準は対象別＝通常文字 4.5:1／大文字・主要な非テキスト UI（ゲージ・アイコン・枠）3:1（WCAG AA）**。既定（雰囲気優先）と高コントラストの2系統をトークンで分岐（高コントラストは OS 設定 ON 時のみ）。
+- **高コントラスト**（`@media (prefers-contrast)` / Swift `.accessibilityShowButtonShapes`・`legibilityWeight`）：**不変に保つのは「色の役割の対応（自分=金系・深蝕=菫系・敵ティアの段・術学派の別）と互いに識別可能であること」であって各役割色の RGB 値そのものではない。** 背景・罫線を変えてコントラスト比を割るなら**役割色の明度/彩度を調整してよい**（意味と相対関係は保つ）。**コントラスト基準は対象別（WCAG AA）＝①通常文字 4.5:1／②大きな文字（18pt 以上、または 14pt 以上の太字）3:1／③主要な非テキスト UI（ゲージ・アイコン・枠・状態表示）3:1**。既定（雰囲気優先）と高コントラストの2系統をトークンで分岐（高コントラストは OS 設定 ON 時のみ）。
 - **色を唯一の識別手段にしない**：敵ティア・術学派・状態は**色＋別の手掛かり**で二重符号化（敵は記号字形が種別・色が tier／状態・バフはピルの**ラベル文字＋アイコン**／テレグラフは**枠・形＋点滅**）。色覚特性・高コントラスト時も情報が落ちない。
 - **Reduce Motion**（`prefers-reduced-motion` / `.accessibilityReduceMotion`）：pulse/danger/monatk/torchflick/abyssair/tileFx/FloatFx の**アニメを静止 or 最小化**（テレグラフの「来る」は色/枠の静的表現で担保）。
 - **VoiceOver（盤面の表現が核・要約＋結果通知＋フォーカス管理）：**
