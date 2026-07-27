@@ -48,7 +48,11 @@ import {
 import {
   ensureAudio, audioStarted, sfx, setAmbient, setMuted, isMuted, loadMutePref,
   setBgm, setBgmDepth, setBgmEnabled, isBgmOn, setBgmVolume, bgmVolume, loadBgmPref, setSfxVolume, sfxVolume,
+  type Sfx,
 } from "./audio.ts";
+// 設定シートの意味論化（U1a）：表示（ラベル）と分岐（安定 ID）を分離する純データ層＋実行 factory。
+import { buildSettingLabels, type SettingsState } from "./settings-items.ts";
+import { createSettingHandlers } from "./settings-handlers.ts";
 import {
   genFloor, genRaidField, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx, spawnPursuer, spawnWanderer,
   planCompanion, resolveCompanion, randomFloorAway, inBounds, companionMaxHp, companionDmg, companionReduce, scaleKind,
@@ -62,8 +66,8 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.166.0";
-export const APP_BUILD = "2026-07-24";
+export const APP_VERSION = "0.167.0";
+export const APP_BUILD = "2026-07-27";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
 const db = makeContentDb(
@@ -7966,50 +7970,55 @@ async function helpSheet(page: "flow" | "legend" = "flow"): Promise<void> {
   }
 }
 
+/** 現在の設定状態のスナップショット（純データ層 `buildSettingLabels` へ渡す）。 */
+function settingsState(): SettingsState {
+  return {
+    muted: isMuted(), bgmOn: isBgmOn(), bgmVol: bgmVolume(), sfxVol: sfxVolume(),
+    dpadOn, dpadPos, dpadSize, autorun: dpadAutorun, lunge: lungeShow, guard: guardShow, logSize,
+  };
+}
+
+/** 実依存を注入した handler registry（U1a）。`Record<SettingId, Handler>` ＝欠落は tsc で検出。 */
+const settingHandlers = createSettingHandlers({
+  ensureAudio,
+  isMuted, setMuted,
+  isBgmOn, setBgmEnabled,
+  bgmVolume, setBgmVolume,
+  sfxVolume, setSfxVolume,
+  sfx: (k) => sfx(k as Sfx),
+  dpadOn: () => dpadOn, setDpad,
+  dpadPos: () => dpadPos, setDpadPos,
+  dpadSize: () => dpadSize, setDpadSize,
+  dpadAutorun: () => dpadAutorun, setDpadAutorun,
+  lungeShow: () => lungeShow, setLungeShow,
+  guardShow: () => guardShow, setGuardShow,
+  logSize: () => logSize, setLogSize,
+  helpSheet: () => helpSheet(),
+  exportSave: () => exportSave(),
+  importSave: () => importSave(),
+  testSheet: () => testSheet(),
+  resetWorld: () => resetWorld(),
+});
+
 async function settingsSheet() {
   busy = true;
-  const bgmVolJp = bgmVolume() < 0.45 ? "小" : bgmVolume() < 0.72 ? "中" : "大";
-  const sfxVolJp = sfxVolume() < 0.45 ? "小" : sfxVolume() < 0.72 ? "中" : "大";
-  // ラベル先頭の識別子でディスパッチ（並び替えに強い）。グループ見出し＝あそびかた／音／操作・表示／データ（横断F ①・Swift の Section にミラー）。
-  const HELP = "❓ あそびかた・記号の凡例";
-  const opts: SheetOption[] = [
-    { label: HELP, header: "あそびかた" },
-    { label: isMuted() ? "♪ 音を出す" : "🔇 すべての音を消す", header: "音" },
-    isBgmOn() ? "🎵 BGM：オン → オフ" : "🎵 BGM：オフ → オン",
-    `🎵 BGM音量：${bgmVolJp}（小→中→大）`,
-    `🔊 効果音音量：${sfxVolJp}（小→中→大）`,
-    { label: dpadOn ? "🕹 方向パッド：オン → オフ" : "🕹 方向パッド：オフ → オン", header: "操作・表示" },
-    `🕹 方向パッドの位置：${dpadPos === "right" ? "右下" : dpadPos === "left" ? "左下" : "中央"}（右下→左下→中央）`,
-    `🕹 方向パッドの大きさ：${SZJP[dpadSize]}（大→中→小）`,
-    dpadAutorun ? "🕹 長押しで連続移動：オン → オフ" : "🕹 長押しで連続移動：オフ → オン",
-    lungeShow ? "🥾 踏み込みボタン表示：オン → オフ" : "🥾 踏み込みボタン表示：オフ → オン",
-    guardShow ? "🛡 受け流しボタン表示（剣）：オン → オフ" : "🛡 受け流しボタン表示（剣）：オフ → オン",
-    `🔤 文字サイズ：${SZJP[logSize]}（小→中→大）`,
-    { label: "💾 セーブを書き出す（バックアップ）", header: "データ" },
-    "📂 セーブを読み込む（復元）",
-    "🔧 テスト",
-    "⟲ 世界を最初からやり直す", // ← 自動で danger 役割（"やり直す" を含む）
-    "閉じる",                    // ← 自動で cancel 役割
-  ];
+  // 表示（ラベル）と分岐（安定 ID）を分離（U1a）。ラベル・並び順・見出しは純データ層が持ち、
+  // 押された項目は index → SettingDef → handler で特定する（表示文字列に依存しない）。
+  // グループ見出し＝あそびかた／音／操作・表示／データ（横断F ①・Swift の Section にミラー）。
+  const rows = buildSettingLabels(settingsState());
+  const opts: SheetOption[] = rows.map((r) => (r.header ? { label: r.label, header: r.header } : r.label));
   const r = await sheet({ text: "音・操作・表示を整える。困ったら「あそびかた」へ。", meta: `設定 ── v${APP_VERSION}（build ${APP_BUILD}）`, options: opts });
   busy = false;
-  const c = optLabel(opts[r.pick - 1] ?? "");
-  if (c === HELP) { await helpSheet(); await settingsSheet(); }
-  else if (c.includes("音を消す") || c.includes("音を出す")) { ensureAudio(); setMuted(!isMuted()); await settingsSheet(); }
-  else if (c.includes("BGM：")) { ensureAudio(); setBgmEnabled(!isBgmOn()); await settingsSheet(); }
-  else if (c.includes("BGM音量")) { ensureAudio(); setBgmVolume(bgmVolume() < 0.45 ? 0.6 : bgmVolume() < 0.72 ? 0.85 : 0.35); await settingsSheet(); }
-  else if (c.includes("効果音音量")) { ensureAudio(); setSfxVolume(sfxVolume() < 0.45 ? 0.6 : sfxVolume() < 0.72 ? 0.85 : 0.35); sfx("equip"); await settingsSheet(); }
-  else if (c.includes("方向パッド：")) { setDpad(!dpadOn); await settingsSheet(); }
-  else if (c.includes("位置")) { setDpadPos(dpadPos === "right" ? "left" : dpadPos === "left" ? "center" : "right"); await settingsSheet(); }
-  else if (c.includes("大きさ")) { setDpadSize(dpadSize === "lg" ? "md" : dpadSize === "md" ? "sm" : "lg"); await settingsSheet(); }
-  else if (c.includes("連続移動")) { setDpadAutorun(!dpadAutorun); await settingsSheet(); }
-  else if (c.includes("踏み込みボタン")) { setLungeShow(!lungeShow); await settingsSheet(); }
-  else if (c.includes("受け流しボタン")) { setGuardShow(!guardShow); await settingsSheet(); }
-  else if (c.includes("文字サイズ")) { setLogSize(logSize === "sm" ? "md" : logSize === "md" ? "lg" : "sm"); await settingsSheet(); }
-  else if (c.includes("書き出す")) { await exportSave(); await settingsSheet(); }
-  else if (c.includes("読み込む")) { await importSave(); await settingsSheet(); }
-  else if (c.includes("テスト")) { await testSheet(); }
-  else if (c.includes("やり直す")) { await resetWorld(); }
+  // index は sheet() の pick と 1:1（header はボタンでないので index に影響しない）。
+  const def = rows[r.pick - 1];
+  if (!def) return; // 範囲外・× 閉じ＝何もせず終了（legacy と同一）
+  const h = settingHandlers[def.id];
+  if (!h) { // 未知 ID＝no-op（本番は無言・dev のみ警告）。例外は投げない（設定画面を壊さない）。
+    try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.dbg") === "1") console.warn("[settings] unknown id", def.id); } catch { /* ignore */ }
+    return;
+  }
+  await h.run();
+  if (h.reopen) await settingsSheet();
 }
 
 // ---------- 🔧 テストモード（開発用・web限定）。設定→テスト。レベル/深度を即変更しバランス検証を加速。 ----------
