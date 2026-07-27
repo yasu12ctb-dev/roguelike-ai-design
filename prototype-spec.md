@@ -427,6 +427,60 @@ snapshot §5：**潜行 → 深蝕 → 死（最後の一手）→ 化石化 →
   - **ボタン役割：** `primary`（朱罫＋微光＝先へ進む動詞）／通常（塗りなし1px罫）／`cancel`（罫なし中央＝閉じる・立ち去る）／`danger`（warn 罫＝取り返しのつかない操作）。`gap` で動詞グループ間に間隔。役割は明示指定 or 自動判定（末尾の「閉じる/戻る」＝cancel／「やり直す」を含む＝danger）。min-height 48px（タッチ最小）。**Swift ＝ `ButtonRole`（.cancel/.destructive）＋ buttonStyle。**
   - **上部固定の「✕ 閉じる」（v0.76.0→v0.96.0 でヘッダ帯へ統合）：** メニュー系シート（ステータス/設定/図鑑/装備・荷物/進行中/記憶 等）で、ヘッダ帯右端に sticky の専用「✕ 閉じる」を出す。**出す条件＝末尾の選択肢（or `chooseGrid` のキャンセル）が厳密に「閉じる」「戻る」かつ内容がはみ出ているときだけ。** 物語シーン（内容語）／強制選択（討つ/鎮める）／action 中断（「やめる」）には出さない。動作＝末尾の閉じる選択肢と同一。**Swift ＝ sheet のツールバー dismiss（`.topBarTrailing`）にミラー。**
 
+### 10.1b 意味論的スクリーンモデル（Swift ミラー用・画面モデル仕様・RFC UI Swift-ready v3 由来）
+オーバーレイ画面（シート／カード一覧／設定）は **「データ（ID付きの項目配列）」として宣言し、レンダラ（web は DOM／Swift は SwiftUI）が描く。web・Swift は同じモデル型をミラーする。** 現 web の `chooseGrid`（生HTML文字列）・`settingsSheet`（表示ラベルの `includes` 分岐）を将来この意味論モデルへ置換する（着手は別承認＝U1/U2）。以下は言語非依存の型仕様（TS 表記）。
+
+```ts
+type Screen = { id: string; title: string; subtitle?: string; sections: Section[] };
+type Section = { id: string; header?: string; rows: Row[] };
+// 現 SheetRow（main.ts）の kv 行と自由文行を info / text に忠実分離。双方に意味色 tone?。
+type Row =
+  | { kind: "info"; id: string; label: string; value?: string; note?: string; tone?: SemTone }  // kv 行
+  | { kind: "text"; id: string; text: string; dim?: boolean; tone?: SemTone }                    // 自由文行（label なし）
+  | { kind: "action"; id: string; label: string; role?: Role; icon?: IconId; badge?: Badge }     // 押すと action(id) 発火
+  | { kind: "toggle"; id: string; label: string; on: boolean }                                   // オン/オフ
+  | { kind: "picker"; id: string; label: string; options: {id:string;label:string}[]; selected: string } // 循環/選択
+  | ({ kind: "input"; id: string; label: string; required?: boolean; placeholder?: string; value?: string } & InputKind) // 自由入力
+  | { kind: "card"; id: string; title: string; sub?: string; glyph?: Glyph; badge?: Badge; role?: Role };  // 一覧カード→詳細
+type InputKind =
+  | { inputType: "text";   multiline?: boolean }                        // 名前・最期の言葉・セーブ貼付（現 web は単行／複数行は Swift 改善案）
+  | { inputType: "number"; min?: number; max?: number; step?: number }; // テスト用レベル/深度（multiline 不可）
+type Role  = "primary" | "cancel" | "danger" | "normal";  // 10.1「ボタン役割」と一致
+type Badge = { text: string; tone: SemTone };  // ✓受取可・◦受注中 等の状態章
+type Glyph = { char: string; tone: SemTone };  // グリフ 1字＋意味トーン（CSS クラス名でなく意味キー）
+// SemTone / IconId は 10.2e の正典一覧から生成する有限 ID 集合（表に無い値は 10.12 (1a) で拒否）。
+// 実体（2026-07-27 現在・出所＝10.2e。追加時は 10.2e を先に更新する）：
+type SemTone =
+  | "hp" | "exp" | "gold" | "buff" | "warn"                                  // 状態（10.2）
+  | "strong" | "dim" | "meta" | "faint" | "acc"                              // 文字強調（10.2）
+  | "player" | "player-danger" | "player-heavy"                              // グリフ役割（10.3）
+  | "companion" | "companion-danger" | "companion-erratic"
+  | "delver" | "downed" | "summon" | "stairs-down" | "stairs-up" | "wall" | "floor"
+  | "mon-t1" | "mon-t2" | "mon-t3" | "mon-t4" | "mon-t5" | "elite" | "boss"  // 敵ティア（10.2）
+  | "fossil" | "fossil-quiet" | "chest" | "chest-open" | "spring" | "rest" | "door"  // 物・ノード（10.3）
+  | "atk" | "ctl" | "mov" | "sup" | "lore" | "sum"                           // 術学派（10.2）
+  | "loss" | "myth" | "grudge";                                              // 残響の極（4-11A）
+type IconId =
+  | "spell" | "bag" | "stat" | "map" | "hub" | "cog"                         // タブ/ハブ（10.10③）
+  | "help" | "save-export" | "save-import" | "reset";                        // 設定行
+```
+
+- **ルーティングは `id`（安定キー）**＝表示ラベルはローカライズ／A11y 自由。設定の `includes` 分岐は `row.id`（`"bgm-volume"` 等）に置換。
+- **`SemTone` は意味トーンの完全集合＝画面モデルが参照する「前景の意味トークン」の単一集合。列挙の出所は 10.2e の正典一覧ただ一つ**（状態／文字強調／グリフ役割／敵ティア／物・ノード／術学派／残響の極）。**背景・面（`bg-*`）などクロムのトークンは含まない。** 型に曖昧な別名を混ぜず正典 token 名に揃える。**色の hex は 10.2/10.3 が持ち、10.2e・本節は ID だけを扱う**（二重管理をしない）。web は `tone`→`.c-exp`/`.g-mon-t3` 等のクラス、Swift は `tone`→`Color` に解決。生 CSS クラス名はモデルに持たせない。`IconId` も同様に 10.2e の有限一覧から生成し、**表に無い値は 10.12 (1a) で拒否**。
+- **`kind:"input"` は `text`（`multiline` 可）と `number`（`min/max/step`・`multiline` 不可）の判別 union**＝矛盾状態（number+multiline 等）を構造検査で拒否できる。実使用は5経路のみ＝①名前 ②最期の言葉（任意）③セーブ読込の貼付（現 web は単行）④テスト用レベル（number）⑤テスト用深度（number）。Swift ＝ `TextField`／`TextEditor`／`.keyboardType(.numberPad)`。
+- **現 web → モデルの対応（移植マッピング）：**
+
+  | 現 web | 目標モデル | Swift |
+  |---|---|---|
+  | `SheetRow` kv 行 `{label,value,note?,cls?}` | `Row.info{tone?}` | `LabeledContent` |
+  | `SheetRow` 自由文行 `{text,dim?,cls?}` | `Row.text{dim?,tone?}` | `Text` |
+  | `sheet` のボタン列（role 付） | `Row.action{role}` | `Button(role:)` |
+  | `chooseGrid(cells:{html})`（生HTML） | `Row.card{glyph,badge,role}` | `List`＋`NavigationLink` |
+  | `sheet({input})`（5経路） | `Row.input`（text/number 判別 union） | `TextField`（number=`.numberPad`） |
+  | `settingsSheet` toggle | `Row.toggle{id,on}` | `Toggle` in `Form` |
+  | `settingsSheet` 循環（小中大/位置） | `Row.picker{id,options,selected}` | `Picker` |
+  | `settingsSheet` action（書出/読込/やり直す） | `Row.action{id,role}` | `Button(role:.destructive)` |
+
 ### 10.2 デザイントークン（配色・正典＝方向①「静謐な写本」v0.96.0）
 背景・面（① 墨紙）：`bg-app #0e0c09`／`bg-panel #14110c`／`bg-void #07090c`（未踏暗部＝盤面・不変）／`bg-wall #11151c`（盤面・不変）／`bg-sheet #17130e`／`bg-input #201a12`／`bg-btn #1d1812`／`bg-btn-active #2a2318`。罫線：`#372f23`/`#4a3f2e`。
 アクセント（①）：**朱 `--acc #c2452f`（活性 `--acc-2 #d9573c`）／金泥 `--gold-leaf #c9a75a`**。
@@ -445,6 +499,55 @@ snapshot §5：**潜行 → 深蝕 → 死（最後の一手）→ 化石化 →
 拾得物のシジル（Wizardry/シレン流の1字圧縮）：装備中＝★（金泥）／未鑑定＝？（淡）／発動効果（proc）＝〔薙/止/裂/萎/受/棘/清/威/怯〕（朱）。名前に前置/後置。
 タイトル：墨黒地・最小限の光の題字（`#efe6d3`）＋**朱の落款「蝕」**。残り火（embers）は①では出さない（DOM は残し CSS で隠す＝別テーマ復帰用）。primary メニュー＝朱の塗り。theme-color＝`#14110c`（`--bg-panel`＝タブバー/ホームインジケータ帯と連続）。
 ※すべて gradient/border/shadow/text-shadow のみ＝**SwiftUI modifier（stroke/cornerRadius/shadow/tracking/小 Path overlay）で表現可能・画像アセットゼロ**。
+
+### 10.2e 前景意味トークン ID の正典一覧（`SemTone` の生成元）
+**画面モデル（10.1b）が参照できる意味トークンの有限な正典。`SemTone` はこの表の ID 集合そのもの**（＝ここから機械生成する）。**背景・面（`bg-app`/`bg-panel`/`bg-sheet`/`bg-input`/`bg-btn`/`bg-void`/`bg-wall`）・罫線などクロムのトークンは含まない**（画面モデルは前景の意味だけを宣言する）。**色の実値（hex）はここに書かず 10.2／10.3 を参照する**（二重管理をしない）。web は ID→CSS クラス、Swift は ID→`Color` に解決する。
+
+| 群 | トークン ID | 色の出所 | web クラス（解決先の例） |
+|---|---|---|---|
+| 状態 | `hp` / `exp` / `gold` / `buff` / `warn` | 10.2「ステータス色」 | `--c-hp`／`--c-exp`／`--c-gold`／`--c-buff`／`--c-warn` |
+| 文字強調 | `strong` / `dim` / `meta` / `faint` / `acc` | 10.2「文字」「アクセント」 | `--tx-strong`／`--tx-dim`／`--tx-meta`／`--tx-faint`／`--acc` |
+| グリフ役割 | `player` / `player-danger` / `player-heavy` / `companion` / `companion-danger` / `companion-erratic` / `delver` / `downed` / `summon` / `stairs-down` / `stairs-up` / `wall` / `floor` | 10.3 | `.g-player`／`.g-player-danger`／`.g-player-heavy`／`.g-companion`／`.g-companion-danger`／`.g-companion-erratic`／`.g-delver`／`.g-downed`／`.g-summon`／`.g-down`／`.g-up`／`.g-wall`／`.g-floor` |
+| 敵ティア | `mon-t1` / `mon-t2` / `mon-t3` / `mon-t4` / `mon-t5` / `elite` / `boss` | 10.2「敵ティア色」 | `.g-mon-t1`…`.g-mon-t5`／`.g-elite`／`.g-boss` |
+| 物・ノード | `fossil` / `fossil-quiet` / `chest` / `chest-open` / `spring` / `rest` / `door` | 10.3 | `.g-fossil`／`.g-fossil-quiet`／`.g-chest`／`.g-chest-open`／`.g-spring`／`.g-rest`／`.g-door` |
+| 術学派 | `atk` / `ctl` / `mov` / `sup` / `lore` / `sum` | 10.2「術学派色」 | `.c-atk`／`.c-ctl`／`.c-mov`／`.c-sup`／`.c-lore`／`.c-sum` |
+| 残響の極 | `loss` / `myth` / `grudge` | 4-11A（残響オーラ） | `.cell.echo-loss`／`.echo-myth`／`.echo-grudge` |
+
+**拡張の規律：** 新しい意味トーンが要るときは**まず本表に ID を足す**（web/Swift の実装より先）。**表に無い ID はモデル検査（10.12 (1a)）で拒否する**。
+
+**`IconId` の正典一覧（10.10③ の SF Symbols 対応表と対）：** 現在の有限集合＝**`spell`／`bag`／`stat`／`map`／`hub`／`cog`**（web の線画 SVG `ICONS` のキー）＋設定行で使う **`help`／`save-export`／`save-import`／`reset`**。**登録表に無い値は拒否**（`SemTone` と同じ規律＝追加時は本項と 10.10③ を同時に更新する）。
+
+### 10.2c タイポグラフィ基準（字体・サイズ・ウェイト・行間）
+三系統の字体で「声」を分ける（design-spec §3 由来・現行実装の実値）。
+
+| 役 | スタック（web） | 用途 | Swift |
+|---|---|---|---|
+| serif（明朝） | `"Hiragino Mincho ProN","Yu Mincho","Noto Serif CJK JP",serif` | **物語・ログ・シート本文・タイトル**（静かな語り） | ヒラギノ明朝 / New York |
+| sans | `"Hiragino Sans", system-ui, sans-serif` | ステータス・メタ・ラベル | SF Pro / system |
+| mono | `"Menlo","Consolas",monospace` | 盤面グリフ（等幅・字形の安定） | SF Mono / Menlo |
+
+サイズ（基準・px）：盤面HUD 12／シート本文 14.5／ログ 15（設定で 13/15/17＝小中大＝`logSize`）／ボタン 14.5／メタ 11／版数 10.5。ウェイト：グリフと見出しは 700・本文は標準。行間：ログ 1.8・シート 1.95。**Swift ＝ サイズは Dynamic Type スケールに対応づけ（10.11）。**
+
+### 10.2d アニメーション（keyframes の意味論）
+「常時うるさく光らせない・静と動のコントラストで情報を立てる」。各アニメの**意味**を固定する（見た目でなく役割の仕様）。**周期は現行実装（`web/index.html` の `@keyframes`／`animation`）の実値。** 本表は**主要アニメの抜粋**で、網羅的な正典は `web/index.html` の CSS 定義（`@keyframes` 群）＝**周期を変えたら本表も更新する**。
+
+| keyframe | 周期（実値） | 意味・対象 |
+|---|---|---|
+| `pulse` | 1.05–2.8s（対象ごと） | 重要物の「呼吸」＝化石・泉・安息所・扉・召喚・敵 t5（2s）・エリート（1.4s）・エリアボス（1.05s）・erratic 相棒（1.1s）等 |
+| `danger` | .55s（ボス大技の被予告は .4s） | 被攻撃予告の自分/相棒が赤く脈打つ |
+| `monatk` | .5s | 敵の攻撃予告（ティア色のまま強く明滅＝「来る」） |
+| `bossheavy` | .42s | ボスの渾身の一撃（溜め大技）の予告 |
+| `tele` | .55s | 討たれるマスの赤枠（`.cell.tele-atk::after`） |
+| `teleboss` / `teleshape` / `telecharge` / `telereach` | .5s / .5s / .45s / .5s | 形つき確定範囲（ボス）／形つき敵（arc・slam・beam）／突進ライン／長柄の突き線（4-11A） |
+| `fxflash` | .4–.55s | 術の全域点滅（warp 菫／still 青／blink 青菫） |
+| `torchflick` / `abyssair` | 4.2s / 6s | 松明のゆらぎ／深淵帯の菫ヴィネット脈動（10.3b） |
+| `echoaura` | 3.4s | 最期の残響のトーン色オーラ（4-11A） |
+| `hzfire`/`hzvenom`/`hzcrack`/`hzmiasma`/`hzfrost` | 1.3s / 2.2s / .5s / 2.6s / 2.4s | 地形ハザード（業火床・毒沼・崩れ床の軋み・蝕の霧・凍霧） |
+| 単発演出 | `floatup` .55–.8s／`critpop` .28s／`fxready` .45s／`fxslash` .3s／`fxpressL/R` .26s／`shakecrit` .14s／`peekin` .16s／`bannerfade` 1.5s | FloatFx・位置取り演出（10.3）・調べるポップ・フロア進入バナー |
+
+**★アニメでないもの（誤解防止）：** **踏み込み先/敵の移動予告 `tele-move` は静的な琥珀背景**（`background: rgba(224,140,72,.34)`＋inset shadow）＝keyframe を持たない。**盤面の床の濃淡・壁の彫り込みも静的**（10.3）。
+
+Swift ＝ `withAnimation(.easeInOut.repeatForever())` 等でミラー。**Reduce Motion 時は静止/最小化（10.11）＝テレグラフの「来る」情報は色/枠の静的表現で担保**。
 
 ### 10.3 グリフ凡例（迷宮）
 プレイヤー `@`金 `#ffd87a`／相棒 `@`青 `#6fc7ff`（erratic時 菫 `#b58bff`脈動）／すれ違う冒険者 `@`緑 `#79d39b`／召喚 `ψ/‡/Ψ`菫 `#c79bff`／手負い `&`琥珀 `#d8a24a`／敵 記号×tier色（10.2）／エリアボス `Ω`／中ボス(エリート)色 `#ffcf4a`／化石 `†`青緑 `#9fd8cf`（鎮め済 `#6f9a93`）／宝箱 `▭`金（開封 `#7a6a44`）／階段 `›`/`‹` `#6fb3c8`／回復の泉 `泉` `#5fd2d8`／安息所 `安` `#8fdf9a`／帰還の扉 `扉`金 `#ffd24a`／壁 `▒` `#39434f`／床 `·` `#2c333d`／照準 `⊕`（到達=緑/不可=赤）。
@@ -481,7 +584,7 @@ snapshot §5：**潜行 → 深蝕 → 死（最後の一手）→ 化石化 →
 **4グループの見出し（朱の左罫）＝あそびかた／音／操作・表示／データ**（Swift ＝ `Section`）。
 - あそびかた：凡例2頁（`helpSheet`）。
 - 音：全体ミュート／BGM オンオフ／BGM 音量(小0.35・中0.6・大0.85)／効果音 音量(同)。
-- 操作・表示：方向パッド オンオフ・位置・大きさ・長押し連続移動／ログ文字サイズ(小中大)。
+- 操作・表示：方向パッド オンオフ・位置・大きさ・長押し連続移動／**踏み込みボタン表示（`lungeShow`・既定オン）／受け流しボタン表示（剣・`guardShow`・既定オン）**／ログ文字サイズ(小中大)。
 - データ：セーブ書き出し(クリップボード/ファイル)／読み込み(貼付→`migrateWorld`検証→二重確認→reload)／(開発)テスト／**世界をやり直す**(danger 役割・二重確認)。
 バージョン＋build 日はヘッダ帯の副題に表示。※音量・D-pad・文字サイズ・ミュートは **World セーブと別の localStorage キー**（世界リセットでも保持）＝Swift では UserDefaults 相当。
 
@@ -502,4 +605,39 @@ snapshot §5：**潜行 → 深蝕 → 死（最後の一手）→ 化石化 →
 - **③ アイコン ↔ SF Symbols 対応表**（Swift で置換）：術＝`wand.and.stars`／品（袋）＝`bag`／地図＝`map`／ステータス（人）＝`person.crop.circle`／設定＝`slider.horizontal.3`／ハブ＝`book.closed`。PWA は線画 SVG（`ICONS`）、Swift は SF Symbols へ差し替え（意味は同じ）。
 - **④ 触覚フィードバック対応表**（PWA は no-op・Swift で有効化）：`sfx()` イベント ↔ `UIImpactFeedbackGenerator`＝攻撃/被弾＝medium／会心・撃破・levelup・印＝heavy（`UINotificationFeedbackGenerator.success`）／deny＝rigid（`.error`）／拾得・購入＝light。効果音と同じトリガ点で発火。
 - **⑤ 文字サイズ設定 → Dynamic Type**：現 小/中/大（`logSize`）を型スケールトークンとして持つ＝Swift は Dynamic Type（`.dynamicTypeSize`）に接続し OS 設定にも追従。
+- **⑥ Swift ネイティブ部品への具体化（RFC UI Swift-ready v3 §4 由来・Swift フェーズ）：**
+  - **タブバー＝SF Symbol＋可視ラベル**（現 web はアイコンのみ）。対応表（③）の各 SF Symbol に**短い可視ラベル**を併記（学習性・VoiceOver）。ラベル文言は未確定（Swift フェーズで確定）。
+  - **設定＝`Form` + `Toggle`/`Picker`/`Button(role:)`**＝10.1b の `toggle`/`picker`/`action` を SwiftUI 標準部品へ 1:1。破壊的操作（世界をやり直す）は `.destructive`＋確認ダイアログ。
+  - **D-pad のヒット領域 ≥ 44pt**（Apple HIG）＝視覚サイズ（大/中/小）と独立にタップ領域を最小 44pt 保証（`contentShape`）。**8方向＋中央の待機（3×3 の全9ボタン）**すべて。
+  - **版数を設定フッタへ**＝現 web は HUD 右上（`#stVer`・PWA キャッシュ粘着対策の最新判定用＝web 固有）。Swift は HUD を情報密度優先で整理し、版数（`APP_VERSION`＋build 日）は**設定画面フッタ**へ移す（App Store 配信ゆえ最新判定は不要）。
 - **Swift 専用の上乗せ（PWA では作らない・提案のみ）：** iCloud セーブ同期＋複数スロット（現 `exportSave`/`importSave` の上位互換）／iPad 向け「ライブ探索表示」型の詳細HUDトグル（不思議のダンジョン シレン6 流＝要約HUD⇄詳細HUD）／SF Symbols のリッチ表現。これらは移植の後工程で検討する。
+
+### 10.11 アクセシビリティ（RFC UI Swift-ready v3 §5 由来・Swift フェーズで実装）
+**原則：雰囲気を壊さず OS 設定に連動する。通常テーマの盤面を一律に明るくしない。**
+
+- **Dynamic Type**：`logSize`（小/中/大）を型スケールトークンとして持ち、Swift は `.dynamicTypeSize` で OS 設定に追従。盤面グリフは等幅維持のため上限クランプ（レイアウト崩壊防止）、シート/ログは全域追従。
+- **高コントラスト**（`@media (prefers-contrast)` / Swift `.accessibilityShowButtonShapes`・`legibilityWeight`）：**不変に保つのは「色の役割の対応（自分=金系・深蝕=菫系・敵ティアの段・術学派の別）と互いに識別可能であること」であって各役割色の RGB 値そのものではない。** 背景・罫線を変えてコントラスト比を割るなら**役割色の明度/彩度を調整してよい**（意味と相対関係は保つ）。**コントラスト基準は対象別（WCAG AA）＝①通常文字 4.5:1／②大きな文字（18pt 以上、または 14pt 以上の太字）3:1／③主要な非テキスト UI（ゲージ・アイコン・枠・状態表示）3:1**。既定（雰囲気優先）と高コントラストの2系統をトークンで分岐（高コントラストは OS 設定 ON 時のみ）。
+- **色を唯一の識別手段にしない**：敵ティア・術学派・状態は**色＋別の手掛かり**で二重符号化（敵は記号字形が種別・色が tier／状態・バフはピルの**ラベル文字＋アイコン**／テレグラフは**枠・形＋点滅**）。色覚特性・高コントラスト時も情報が落ちない。
+- **Reduce Motion**（`prefers-reduced-motion` / `.accessibilityReduceMotion`）：pulse/danger/monatk/torchflick/abyssair/tileFx/FloatFx の**アニメを静止 or 最小化**（テレグラフの「来る」は色/枠の静的表現で担保）。
+- **VoiceOver（盤面の表現が核・要約＋結果通知＋フォーカス管理）：**
+  - **(a) 盤面は「セル群」でなく要約された単一の accessibility 要素**（数十マスを個別読み上げさせない）。例＝「深度12・中層。周囲に敵3体（うち攻撃予告1）。北に階段。HP 68%・深蝕 42%」。
+  - **(b) 選択（調べる/照準）したマスは個別説明**＝`#peek`（傷語・状態異常・能力ヒント・10.3）を accessibility 説明として読む。
+  - **(c) アクション結果の能動通知**（単一要素化だけでは自動読上げされない）＝1手ごとの結果を accessibility announcement で能動的に読ませる＝移動（方向＋新たに視界に入った脅威）／攻撃（対象＋与ダメ or 撃破）／被弾（被ダメ＋残HP）／見切り・撃破・拒否（不可の理由）／深度移動・レベルアップ・遭遇。ログ1行と同トリガ・差分を短く。**連続手番で読み上げ queue を詰まらせない＝同種通知は coalesce／重複抑制（連続移動は最新1件）、被弾・拒否・深度移動・レベルアップ等の重要通知は優先。Swift は `AttributedString.accessibilitySpeechAnnouncementPriority = .high` を使う**（擬似記法でなく実 API）。
+  - **(d) フォーカス管理**＝VoiceOver カーソルを 盤面（要約要素）↔ D-pad（8方向＋待機の全ボタン）↔ シート（開いたら先頭へ・閉じたら元へ戻す）で明示制御。シート表示中は背後の盤面を `accessibilityHidden`。照準モードは D-pad 微調整と「移動/やめる」にフォーカスを保つ。
+  - シート/カード/設定は 10.1b モデルの `label`/`value`/`badge`/`role` を accessibility ラベル・trait（`.isButton`/`.isSelected`）へ機械変換。触覚（10.10④）と併用。
+
+### 10.12 画面状態 fixture（移植受理ゲート・RFC UI Swift-ready v3 §6 由来）
+**固定状態（seed・world・画面種を固定した決定論スナップショット）を列挙し、共有するのは画像でなく「seed＋画面状態＋意味論的な期待値（10.1b モデルの中身）」。** 検査は検証手段の要否で層別する。
+
+| 検査 | 内容 | 手段 | `npm run check` 同梱 |
+|---|---|---|---|
+| **(1a) schema/fixture validator** | fixture 定義自体が妥当か＝各 Screen/Row が ID を持つ・必須欄が揃う・`tone`/`role`/`inputType` が既知値・矛盾なし（number+multiline を拒否）。**実装不要** | 純データ検査 | **○ 同梱可** |
+| **(1b) conformance（実装済み subset のみ）** | ある画面のモデル adapter が出力した Screen が fixture 期待値に一致するか＝**adapter を実装した画面だけが対象** | 各 platform で「モデル出力→照合」 | **○ 同梱可（対象＝実装済み画面）** |
+| **(2) レイアウト** | overflow / safe-area / 44pt ヒット領域 | **レイアウトエンジン必須**＝web はブラウザ E2E、Swift は XCUITest | **× 非同梱** |
+| **(3) 画像回帰** | 見た目の退行（PIL で領域別明度・要素位置） | ブラウザ/シミュレータ撮影 | **× 非同梱・platform 別 baseline** |
+
+- **移植受理ゲートの本体＝〈共有 fixture schema〔(1a)〕＋各 platform の conformance test〔(1b)〕〉**（実装のない (1a) 単独ではない）。web は Screen モデルを出す画面だけ (1b) 対象（大方針「web は原則モデル化しない」と両立）。**全画面 conformance は Swift（全画面がモデルから描かれる）で有効化＝移植受理の本丸。**
+- **画像は web と Swift で直接同一比較しない**（別レンダラゆえ必ずズレる）＝**画像 baseline は platform 別**。共有するのは fixture 定義だけ。
+- **必須の寸法・条件**＝375×812（実機基準）**に加え最小対応幅（例 320pt）と Accessibility Dynamic Type（最大サイズ）を必須 fixture に**（レイアウト崩壊が最も出やすい）。＋高コントラスト・Reduce Motion 適用時／極端な状態（長い化石名・最大ステ・満杯の荷物）。
+- fixture 列挙（案）＝タイトル／街／屋内／迷宮（浅・深・深淵）／地図（パン・全体図）／照準／HUD（バフ満杯・深蝕高・HP瀕死）／ステータス／装備・荷物（満杯）／術（構え・図鑑）／進行中／設定／各遭遇オーバーレイ（化石/宝箱/ボス決着/レベルアップ/昇格）／死の選択／入力系（名前・最期の言葉・セーブ貼付）。
+- 現 `tools/visual-check.ts`（480×900・輝度分散中心・`npm run check` 非同梱）はこの受理ゲートには不足＝将来 375×812＋最小幅＋Dynamic Type＋fixture 列挙へ拡張 or 新ツール化（実装は別承認）。
