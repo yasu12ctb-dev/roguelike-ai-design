@@ -74,18 +74,29 @@ function mediaBlock(css: string, cond: string): string | null {
 const NON_COLOR_VARS = new Set(["r-btn", "r-card", "r-chip", "gauge-h", "gauge-r", "torch-rgb"]);
 const HEX6 = /^#[0-9a-fA-F]{6}$/;
 const LOOKS_COLOR = /^(#|rgba?\(|hsla?\(|color\(|hwb\(|lab\(|lch\(|oklab\(|oklch\(|(red|blue|green|white|black|gray|grey|orange|purple|yellow|pink|brown|cyan|magenta|transparent|currentcolor)\b)/i;
-function customProps(block: string, where: string): { colors: Record<string, string>; issues: Issue[] } {
+/** プロジェクトの命名規約（小文字・数字・ハイフンのみ）。CSS 的にはもっと広いので**規約外は明示 fail**。 */
+const VAR_NAME_OK = /^[a-z0-9-]+$/;
+function customProps(block: string, where: string): { colors: Record<string, string>; names: string[]; issues: Issue[] } {
   const colors: Record<string, string> = {};
+  const names: string[] = [];
   const issues: Issue[] = [];
-  for (const m of block.matchAll(/--([a-z0-9-]+)\s*:\s*([^;{}]+)/g)) {
+  // ★名前は「拾ってから弾く」。旧実装は --([a-z0-9-]+) で、規約外の名前（大文字・underscore 等）が
+  //   マッチせず **issue にならずに読み飛ばされて**いた＝母集団の入口で黙って消える穴だった。
+  //   `()` を除外文字に入れるのは var(--x) の参照を名前と誤認しないため。
+  for (const m of block.matchAll(/--([^\s:;{}()]+)\s*:\s*([^;{}]+)/g)) {
     const name = m[1], raw = m[2].trim();
+    names.push(name);
+    if (!VAR_NAME_OK.test(name)) {
+      issues.push({ code: "var-name", msg: `[${where}] custom property 名が規約外（小文字・数字・ハイフンのみ）: --${name}` });
+      continue;
+    }
     if (HEX6.test(raw)) { colors[name] = raw.toLowerCase(); continue; }
     if (LOOKS_COLOR.test(raw))
       issues.push({ code: "color-format", msg: `[${where}] --${name} の色形式が許容外（6 桁 hex のみ）: ${raw}` });
     else if (!NON_COLOR_VARS.has(name))
       issues.push({ code: "var-unclassified", msg: `[${where}] --${name} は色でも既知の非色でもない: ${raw}（a11y-check の NON_COLOR_VARS へ登録するか色に直す）` });
   }
-  return { colors, issues };
+  return { colors, names, issues };
 }
 // ※issues を捨てるヘルパ（旧 colorVars）は置かない＝取りこぼしの再発経路を作らないため。
 //   custom property を読む箇所は必ず customProps() を通し、issues を audit へ集約する。
@@ -122,7 +133,10 @@ export function parseCss(html: string) {
   //   HC 側だけ素通りしていたのが U1b 検収の指摘＝色形式・未知プロパティが黙って消えていた。
   const root = customProps(style.slice(rootStart, style.indexOf("}", rootStart)), ":root");
   const hcp = customProps(hc, "prefers-contrast: more");
-  return { kf, selKf, rmSel, hcVars: hcp.colors, rootVars: root.colors, varIssues: [...root.issues, ...hcp.issues] };
+  return {
+    kf, selKf, rmSel, hcVars: hcp.colors, hcNames: hcp.names,
+    rootVars: root.colors, varIssues: [...root.issues, ...hcp.issues],
+  };
 }
 
 // ---- doc（正典）抽出 ---------------------------------------------------------
@@ -245,16 +259,17 @@ export function audit(html: string, spec: string, mainTs: string): Issue[] {
       bad("rm-no-static", `B（状態・予告）なのに静的代替が無い: ${sel}＝テレグラフを消してはならない`);
   }
 
-  // E) 高コントラスト：doc 差分表 ↔ CSS（**既定値と HC 値の両方**を完全一致で照合）
+  // E) 高コントラスト：doc 差分表 ↔ CSS。**色に限らず全 custom property 名**で 1:1 にする
+  //    （色だけを照合していたため、非色の追加上書き〔例 --r-btn:99px〕が素通りしていた）。
   for (const [k, v] of Object.entries(dc.hc)) {
-    if (!(k in css.hcVars)) bad("hc-missing", `§10.2f にあるが CSS の高コントラストに無い: --${k}`);
-    else if (css.hcVars[k] !== v) bad("hc-value", `--${k} の HC 値が doc(${v}) と CSS(${css.hcVars[k]}) で不一致`);
+    if (!css.hcNames.includes(k)) bad("hc-missing", `§10.2f にあるが CSS の高コントラストに無い: --${k}`);
+    else if (css.hcVars[k] !== v) bad("hc-value", `--${k} の HC 値が doc(${v}) と CSS(${css.hcVars[k] ?? "非色"}) で不一致`);
   }
   for (const [k, v] of Object.entries(dc.def)) {
     if (!(k in css.rootVars)) bad("default-missing", `§10.2f 差分表にあるが :root に無い: --${k}`);
     else if (css.rootVars[k] !== v) bad("default-value", `--${k} の既定値が doc(${v}) と :root(${css.rootVars[k]}) で不一致`);
   }
-  for (const k of Object.keys(css.hcVars)) if (!(k in dc.hc)) bad("hc-undocumented", `§10.2f 差分表に無い高コントラスト上書き: --${k}`);
+  for (const k of css.hcNames) if (!(k in dc.hc)) bad("hc-undocumented", `§10.2f 差分表に無い高コントラスト上書き: --${k}`);
 
   // F) WCAG 再計算（閾値・判定面は §10.2f 規則表から生成）
   const eff = { ...css.rootVars, ...css.hcVars };
@@ -305,10 +320,17 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
     { name: "doc に無い高コントラスト上書きを CSS に足す", expect: "hc-undocumented", run: () => audit(html.replace("--g-floor:#576578;", "--g-floor:#576578; --g-door:#ffe97a;"), spec, mainTs) },
     { name: "規則表の 2 行に同じトークンを載せる（多重一致）", expect: "rule-unresolved", run: () => audit(html, spec.replace("| `line` / `line-2` / `line-3` |", "| `line` / `line-2` / `line-3` / `tx-meta` |"), mainTs) },
     { name: "規則表の判定面を :root に無い面にする", expect: "rule-bg", run: () => audit(html, spec.replace("| `bg-sheet` `#17130e` | 4.5:1（文字） | 術名", "| `bg-nope` `#17130e` | 4.5:1（文字） | 術名"), mainTs) },
-    // ---- 高コントラストブロックにも :root と同じ閉包が掛かること（対称化・#404 検収の残1点） ----
-    { name: "HC ブロックに 3 桁 hex を足す", expect: "color-format", run: () => audit(html.replace("--g-floor:#576578;", "--g-floor:#576578; --zz-hc3:#fff;"), spec, mainTs) },
-    { name: "HC ブロックに rgb() を足す", expect: "color-format", run: () => audit(html.replace("--g-floor:#576578;", "--g-floor:#576578; --zz-hcrgb:rgb(9,9,9);"), spec, mainTs) },
-    { name: "HC ブロックに未登録の非色プロパティを足す", expect: "var-unclassified", run: () => audit(html.replace("--g-floor:#576578;", "--g-floor:#576578; --zz-hcsize:4px;"), spec, mainTs) },
+    // ---- ★:root と HC ブロックへ **同じ変異セットを対称に**流す（片側だけ塞ぐ事故の構造的防止）----
+    //      ANCHOR は各ブロック末尾の宣言。ここへ足した変異が同じ code で落ちなければならない。
+    ...([[":root", "--g-laila:#c9a3ff;"], ["HC", "--g-floor:#576578;"]] as const).flatMap(([wh, anchor]) => [
+      { name: `${wh} に 3 桁 hex を足す`, expect: "color-format", run: () => audit(html.replace(anchor, `${anchor} --zz-3:#fff;`), spec, mainTs) },
+      { name: `${wh} に rgb() を足す`, expect: "color-format", run: () => audit(html.replace(anchor, `${anchor} --zz-rgb:rgb(9,9,9);`), spec, mainTs) },
+      { name: `${wh} に未登録の非色プロパティを足す`, expect: "var-unclassified", run: () => audit(html.replace(anchor, `${anchor} --zz-size:4px;`), spec, mainTs) },
+      { name: `${wh} に大文字名（--ZZ）を足す`, expect: "var-name", run: () => audit(html.replace(anchor, `${anchor} --ZZ:#ffffff;`), spec, mainTs) },
+      { name: `${wh} に underscore 名（--zz_bad）を足す`, expect: "var-name", run: () => audit(html.replace(anchor, `${anchor} --zz_bad:#ffffff;`), spec, mainTs) },
+    ]),
+    // HC は「§10.2f 差分表の 7 変数ちょうど」＝既知の非色すら追加上書きできない
+    { name: "HC に既知の非色（--r-btn）を追加上書きする", expect: "hc-undocumented", run: () => audit(html.replace("--g-floor:#576578;", "--g-floor:#576578; --r-btn:99px;"), spec, mainTs) },
     { name: "分類表の行を消す（件数アサート）", expect: "sel-count", run: () => audit(html, spec.replace("／`.g-laila`", ""), mainTs) },
     { name: "意味論表の行を消す（件数アサート）", expect: "kf-count", run: () => audit(html, spec.replace(/\| `abyssair` \| 6s \|[^\n]*\n/, ""), mainTs) },
   ];
