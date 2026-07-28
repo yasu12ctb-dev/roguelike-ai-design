@@ -152,6 +152,10 @@ await page.emulateMedia({ contrast: "no-preference", reducedMotion: "reduce" });
     atk5["animation-name"] === "none" && atk5["text-decoration-line"] === "underline" && m5["text-decoration-line"] !== "underline",
     `予告中=${atk5["text-decoration-line"]} / 通常=${m5["text-decoration-line"]}`);
 
+  // ★非 keyframe motion（transition）＝HP／深蝕ゲージの伸縮も Reduce Motion で止まること
+  const g = await styleOf('<div id="stBars"><div class="gauge"><div class="fill"></div></div></div>', "#stBars .gauge .fill", ["transition-duration"]);
+  ok("⑤ 非 keyframe motion: ゲージの transition が RM で停止", g["transition-duration"] === "0s", g["transition-duration"]);
+
   // ⑥ 情報表示そのもの（不透明度だけのフェード）は残す
   const k1 = await styleOf('<div id="floorBanner" class="show">深度 12</div>', "#floorBanner", ["animation-name"]);
   const k2 = await styleOf('<div id="fx" class="warp"></div>', "#fx", ["animation-name"]);
@@ -164,6 +168,8 @@ await page.emulateMedia({ reducedMotion: "no-preference" });
   const r = await styleOf('<span class="g-boss">Ω</span>', ".g-boss", ["animation-name"]);
   const t = await styleOf('<div class="cell tele-atk"></div>', ".cell.tele-atk", []);
   ok("⑦ 既定モードではアニメが復活（RM 以外に影響していない）", r["animation-name"] === "pulse" && t["::after.animation-name"] === "tele", `${r["animation-name"]} / ${t["::after.animation-name"]}`);
+  const g2 = await styleOf('<div id="stBars"><div class="gauge"><div class="fill"></div></div></div>', "#stBars .gauge .fill", ["transition-duration"]);
+  ok("⑦ 既定モードではゲージの transition が生きている（0.18s）", g2["transition-duration"] === "0.18s", g2["transition-duration"]);
 }
 
 ok("⑧ pageerror / console error 0", pageErrors.length === 0, pageErrors.slice(0, 2).join(" | "));

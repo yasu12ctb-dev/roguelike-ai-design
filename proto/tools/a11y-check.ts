@@ -35,6 +35,7 @@ const SPEC = join(__dirname, "..", "..", "prototype-spec.md");
 /** 正典が宣言する件数（doc 側の行を消したときに両側から同時に消える事故を捕まえるため固定値でも持つ）。 */
 const EXPECT_KEYFRAMES = 29;
 const EXPECT_SELECTORS = 48;
+const EXPECT_TRANSITIONS = 1;
 
 type Issue = { code: string; msg: string };
 type Rule = { ids: string[]; globs: string[]; on: string[]; need: number | null };
@@ -166,13 +167,15 @@ export function assertGrammar(html: string, mainTs: string): Issue[] {
     if (/[^\s]/.test(gap)) bad("grammar-tail", `高コントラストと Reduce Motion のブロックの間に宣言がある: ${gap.trim().slice(0, 60)}…`);
     if (/[^\s]/.test(tail)) bad("grammar-tail", `a11y ブロックより後に宣言がある: ${tail.trim().slice(0, 60)}…`);
   }
-  // G5：animation 系プロパティの構文を閉じる
+  // G5：animation / transition 系プロパティの構文を閉じる（動きを生む経路は両方とも対象）
   for (const r of rules(style)) {
-    const decls = [...r.body.matchAll(/(^|[;{\s])(animation[a-z-]*)\s*:\s*([^;]*)/g)];
-    const shorthand = decls.filter((d) => d[2] === "animation");
-    for (const d of decls) if (d[2] !== "animation") bad("grammar-anim-prop", `未対応の animation 個別プロパティ: ${d[2]}（${r.sel.trim().slice(0, 40)}）`);
-    if (shorthand.length > 1) bad("grammar-anim-dup", `1 ルールに animation 宣言が複数（後勝ちは解析しない）: ${r.sel.trim().slice(0, 40)}`);
-    for (const d of shorthand) if (/var\(/.test(d[3])) bad("grammar-anim-var", `animation の値に var() は未対応: ${r.sel.trim().slice(0, 40)}`);
+    for (const [head, code] of [["animation", "anim"], ["transition", "trans"]] as const) {
+      const decls = [...r.body.matchAll(new RegExp(`(^|[;{\\s])(${head}[a-z-]*)\\s*:\\s*([^;]*)`, "g"))];
+      const shorthand = decls.filter((d) => d[2] === head);
+      for (const d of decls) if (d[2] !== head) bad(`grammar-${code}-prop`, `未対応の ${head} 個別プロパティ: ${d[2]}（${r.sel.trim().slice(0, 40)}）`);
+      if (shorthand.length > 1) bad(`grammar-${code}-dup`, `1 ルールに ${head} 宣言が複数（後勝ちは解析しない）: ${r.sel.trim().slice(0, 40)}`);
+      for (const d of shorthand) if (/var\(/.test(d[3])) bad(`grammar-${code}-var`, `${head} の値に var() は未対応: ${r.sel.trim().slice(0, 40)}`);
+    }
   }
   // G8：CSS 外（JS）からアニメ・スタイルを足す経路をすべて塞ぐ
   const JS_ANIM: [RegExp, string][] = [
@@ -217,6 +220,13 @@ export function parseCss(html: string) {
     if (!used.length) continue; // `animation: none` のみ＝対象外
     for (const s of r.sel.split(",")) for (const u of used) (selKf[s.trim()] ??= new Set()).add(u);
   }
+  // ★非 keyframe motion：base 領域で transition を宣言する個別セレクタ（カンマ分解）
+  const selTr: Record<string, string> = {};
+  for (const r of rules(style.slice(0, Math.min(...heads)))) {
+    const t = r.body.match(/(^|[;{\s])transition\s*:\s*([^;]+)/);
+    if (!t) continue;
+    for (const sel of r.sel.split(",")) selTr[sel.trim()] = t[2].trim();
+  }
   // RM ブロックの個別セレクタ → 宣言本文
   const rmSel = new Map<string, string>();
   for (const r of rules(rm)) for (const s of r.sel.split(",")) rmSel.set(s.trim(), (rmSel.get(s.trim()) ?? "") + r.body);
@@ -226,7 +236,7 @@ export function parseCss(html: string) {
   const root = customProps(style.slice(rootStart, style.indexOf("}", rootStart)), ":root");
   const hcp = customProps(hc, "prefers-contrast: more");
   return {
-    kf, selKf, rmSel, hcVars: hcp.colors, hcNames: hcp.names,
+    kf, selKf, selTr, rmSel, hcVars: hcp.colors, hcNames: hcp.names,
     rootVars: root.colors, varIssues: [...root.issues, ...hcp.issues],
   };
 }
@@ -240,12 +250,12 @@ const cells = (line: string) => line.split("|");
 const ticks = (s: string) => [...s.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
 
 /** §10.2d：keyframe ID（意味論表）と セレクタ→分類（RM 分類表）。 */
-export function docMotion(spec: string): { kf: string[]; sel: Record<string, string>; issues: Issue[] } {
+export function docMotion(spec: string): { kf: string[]; sel: Record<string, string>; tr: string[]; issues: Issue[] } {
   const issues: Issue[] = [];
   const sec = section(spec, "### 10.2d", "### 10.2f");
-  if (!sec) { issues.push({ code: "doc-range", msg: "§10.2d の範囲を特定できない" }); return { kf: [], sel: {}, issues }; }
+  if (!sec) { issues.push({ code: "doc-range", msg: "§10.2d の範囲を特定できない" }); return { kf: [], sel: {}, tr: [], issues }; }
   const split = sec.indexOf("| RM | セレクタ");
-  if (split < 0) { issues.push({ code: "doc-range", msg: "§10.2d に RM 分類表が無い" }); return { kf: [], sel: {}, issues }; }
+  if (split < 0) { issues.push({ code: "doc-range", msg: "§10.2d に RM 分類表が無い" }); return { kf: [], sel: {}, tr: [], issues }; }
   const kf: string[] = [];
   for (const line of sec.slice(0, split).split("\n")) {
     if (!line.startsWith("| `")) continue;
@@ -266,7 +276,20 @@ export function docMotion(spec: string): { kf: string[]; sel: Record<string, str
       sel[s] = cls;
     }
   }
-  return { kf, sel, issues };
+  // 非 keyframe motion（transition）の閉集合
+  const tr: string[] = [];
+  const ts = sec.indexOf("★非 keyframe motion"), te = sec.indexOf("★アニメでないもの");
+  if (ts < 0 || te < 0 || te <= ts) issues.push({ code: "doc-range", msg: "§10.2d に非 keyframe motion（transition）の表が無い" });
+  else for (const line of sec.slice(ts, te).split("\n")) {
+    if (!line.startsWith("| `")) continue;
+    const c = cells(line);
+    const sel = ticks(c[1])[0];
+    if (!sel) continue;
+    if (tr.includes(sel)) issues.push({ code: "doc-dup", msg: `§10.2d transition 表に重複セレクタ: ${sel}` });
+    tr.push(sel);
+    if (!/transition\s*:\s*none/.test(c[3] ?? "")) issues.push({ code: "doc-trans-rm", msg: `§10.2d transition 表の ${sel} に Reduce Motion 時の transition: none が無い` });
+  }
+  return { kf, sel, tr, issues };
 }
 
 /** §10.2f：差分表（トークン→**既定値と**高コントラスト値）と 規則表（群→判定面・閾値）。 */
@@ -340,6 +363,15 @@ export function audit(html: string, spec: string, mainTs: string): Issue[] {
   const docSel = Object.keys(dm.sel);
   for (const s of docSel) if (!css.selKf[s]) bad("sel-missing", `分類表にあるが CSS で keyframe を使っていない: ${s}`);
   if (docSel.length !== EXPECT_SELECTORS) bad("sel-count", `§10.2d 分類表の個別セレクタ件数が ${EXPECT_SELECTORS} でない: ${docSel.length}`);
+
+  // B2) 非 keyframe motion（transition）1:1 ＋ 件数 ＋ RM で none
+  for (const sel of Object.keys(css.selTr)) if (!dm.tr.includes(sel)) bad("trans-undocumented", `§10.2d transition 表に無い transition: ${sel}（${css.selTr[sel]}）`);
+  for (const sel of dm.tr) if (!(sel in css.selTr)) bad("trans-missing", `§10.2d transition 表にあるが CSS に transition が無い: ${sel}`);
+  if (dm.tr.length !== EXPECT_TRANSITIONS) bad("trans-count", `§10.2d transition 表の件数が ${EXPECT_TRANSITIONS} でない: ${dm.tr.length}`);
+  for (const sel of dm.tr) {
+    const body = css.rmSel.get(sel);
+    if (!body || !/transition\s*:\s*none/.test(body)) bad("trans-rm", `Reduce Motion で transition: none になっていない: ${sel}`);
+  }
 
   // C/D) Reduce Motion 被覆・免除・静的代替
   for (const [sel, cls] of Object.entries(dm.sel)) {
@@ -433,6 +465,13 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
     { name: "JS: Web Animations API（.animate）", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.animate([{opacity:0},{opacity:1}], 1000);\n`) },
     { name: "JS: setProperty(\"animation\")", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style.setProperty("animation", "pulse 1s");\n`) },
     { name: "JS: stylesheet 注入（insertRule）", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\ndocument.styleSheets[0].insertRule(".zz{animation:pulse 1s}");\n`) },
+    // ---- ★非 keyframe motion（transition）の閉集合＝#404 検収 6 巡目 ----
+    { name: "transition を doc から消す", expect: "trans-undocumented", run: () => audit(html, spec.replace("| `#stBars .gauge .fill` |", "| `#stBars .gauge .fill-x` |"), mainTs) },
+    { name: "doc にあるが CSS に transition が無い", expect: "trans-missing", run: () => audit(html.replace(" transition: width .18s ease;", ""), spec, mainTs) },
+    { name: "RM で transition: none にしない", expect: "trans-rm", run: () => audit(html.replace("      #stBars .gauge .fill { transition: none; }", ""), spec, mainTs) },
+    { name: "doc 無しで新しい transition を足す", expect: "trans-undocumented", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-tr { transition: opacity .3s ease; }"), spec, mainTs) },
+    { name: "transition の個別プロパティ（transition-property）", expect: "grammar-trans-prop", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-tp { transition-property: opacity; }"), spec, mainTs) },
+    { name: "transition の値に var()", expect: "grammar-trans-var", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-tv { transition: var(--zz-t); }"), spec, mainTs) },
     { name: "main.ts が screen-model を import", expect: "model-leak", run: () => audit(html, spec, `import { SEM_TONES } from "./screen-model.ts";\n${mainTs}`) },
     // ---- ★U1b 検収（#404）で塞いだ穴の裏取り ----
     { name: "既定値を doc と食い違わせる", expect: "default-value", run: () => audit(html.replace("--tx-meta:#857a66", "--tx-meta:#7a7060"), spec, mainTs) },
@@ -478,6 +517,7 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
   }, Infinity);
   console.log(`  (A) keyframe 1:1: CSS ${Object.keys(css.kf).length} = doc ${dm.kf.length}`);
   console.log(`  (B) 個別セレクタ 1:1: CSS ${Object.keys(css.selKf).length} = doc ${Object.keys(dm.sel).length}（A${n("A")} B${n("B")} C${n("C")} 免除${n("免除")}）`);
+  console.log(`  (B2) 非 keyframe motion: CSS ${Object.keys(css.selTr).length} = doc ${dm.tr.length}（RM で transition: none）`);
   console.log(`  (E/F) 高コントラスト: 上書き ${Object.keys(css.hcVars).length} 変数 / 規則表 ${dc.rules.length} 行で ${checked.length} トークンを検査（最小余裕 ×${margin.toFixed(2)}）`);
 }
 

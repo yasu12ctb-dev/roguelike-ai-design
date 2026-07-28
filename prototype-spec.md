@@ -588,6 +588,12 @@ type IconId =
 | **C** | `#peek`／`#floats .fl`／`.fl-kill`／`.fl-crit`／`.tfx-ready`／`.tfx-slash`／`.tfx-press::before`／`.tfx-press::after`／`.shake-crit` | 単発。**`.shake-crit` は前庭刺激が最も強く完全停止** |
 | **免除** | `#floorBanner.show`／`#fx.warp`／`#fx.still`／`#fx.blink` | 不透明度のみ（`bannerfade`／`fxflash`）＝情報表示そのもの |
 
+**★非 keyframe motion（`transition`）の正典＝現在 1 件。** 画面に動きを生む経路は `@keyframes` だけではない。**`transition` も Reduce Motion の対象**であり、本表がその閉集合。**新しい `transition` を書くときは、まず本表に足す**（表に無い `transition` セレクタは `tools/a11y-check.ts` が fail させる。`transition-property` 等の個別プロパティ・1 ルール内の二重宣言・値の `var()` は未対応構文として拒否）。
+
+| セレクタ | 通常 | Reduce Motion | 静的代替 |
+|---|---|---|---|
+| `#stBars .gauge .fill` | `transition: width .18s ease`（HP／深蝕ゲージの伸縮） | **`transition: none`** | **不要**＝最終的な幅は静的に残り、情報は失われない（動きだけを止める） |
+
 **★アニメでないもの（誤解防止）：** **踏み込み先/敵の移動予告 `tele-move` は静的な琥珀背景**（`background: rgba(224,140,72,.34)`＋inset shadow）＝keyframe を持たない。**盤面の床の濃淡・壁の彫り込みも静的**（10.3）。**＝移動予告は Reduce Motion の影響を受けない**（もともと静的表現で「来る」を担保している好例）。
 
 Swift ＝ `withAnimation(.easeInOut.repeatForever())` 等でミラー。**Reduce Motion（`.accessibilityReduceMotion`）時は上のセレクタ単位の分類表に従う**＝A/C は停止、**B は静的表現へ置換**、不透明度のみは免除（10.11）。
