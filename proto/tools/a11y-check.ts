@@ -74,20 +74,21 @@ function mediaBlock(css: string, cond: string): string | null {
 const NON_COLOR_VARS = new Set(["r-btn", "r-card", "r-chip", "gauge-h", "gauge-r", "torch-rgb"]);
 const HEX6 = /^#[0-9a-fA-F]{6}$/;
 const LOOKS_COLOR = /^(#|rgba?\(|hsla?\(|color\(|hwb\(|lab\(|lch\(|oklab\(|oklch\(|(red|blue|green|white|black|gray|grey|orange|purple|yellow|pink|brown|cyan|magenta|transparent|currentcolor)\b)/i;
-function customProps(block: string): { colors: Record<string, string>; issues: Issue[] } {
+function customProps(block: string, where: string): { colors: Record<string, string>; issues: Issue[] } {
   const colors: Record<string, string> = {};
   const issues: Issue[] = [];
   for (const m of block.matchAll(/--([a-z0-9-]+)\s*:\s*([^;{}]+)/g)) {
     const name = m[1], raw = m[2].trim();
     if (HEX6.test(raw)) { colors[name] = raw.toLowerCase(); continue; }
     if (LOOKS_COLOR.test(raw))
-      issues.push({ code: "color-format", msg: `--${name} の色形式が許容外（6 桁 hex のみ）: ${raw}` });
+      issues.push({ code: "color-format", msg: `[${where}] --${name} の色形式が許容外（6 桁 hex のみ）: ${raw}` });
     else if (!NON_COLOR_VARS.has(name))
-      issues.push({ code: "var-unclassified", msg: `--${name} は色でも既知の非色でもない: ${raw}（a11y-check の NON_COLOR_VARS へ登録するか色に直す）` });
+      issues.push({ code: "var-unclassified", msg: `[${where}] --${name} は色でも既知の非色でもない: ${raw}（a11y-check の NON_COLOR_VARS へ登録するか色に直す）` });
   }
   return { colors, issues };
 }
-const colorVars = (block: string): Record<string, string> => customProps(block).colors;
+// ※issues を捨てるヘルパ（旧 colorVars）は置かない＝取りこぼしの再発経路を作らないため。
+//   custom property を読む箇所は必ず customProps() を通し、issues を audit へ集約する。
 const rules = (block: string) => [...block.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
 
 export function parseCss(html: string) {
@@ -117,8 +118,11 @@ export function parseCss(html: string) {
   const rmSel = new Map<string, string>();
   for (const r of rules(rm)) for (const s of r.sel.split(",")) rmSel.set(s.trim(), (rmSel.get(s.trim()) ?? "") + r.body);
   const rootStart = style.indexOf(":root");
-  const root = customProps(style.slice(rootStart, style.indexOf("}", rootStart)));
-  return { kf, selKf, rmSel, hcVars: colorVars(hc), rootVars: root.colors, varIssues: root.issues };
+  // ★:root と高コントラストブロックの**両方**へ同じ閉じた検査を掛ける（対称化）。
+  //   HC 側だけ素通りしていたのが U1b 検収の指摘＝色形式・未知プロパティが黙って消えていた。
+  const root = customProps(style.slice(rootStart, style.indexOf("}", rootStart)), ":root");
+  const hcp = customProps(hc, "prefers-contrast: more");
+  return { kf, selKf, rmSel, hcVars: hcp.colors, rootVars: root.colors, varIssues: [...root.issues, ...hcp.issues] };
 }
 
 // ---- doc（正典）抽出 ---------------------------------------------------------
@@ -301,6 +305,10 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
     { name: "doc に無い高コントラスト上書きを CSS に足す", expect: "hc-undocumented", run: () => audit(html.replace("--g-floor:#576578;", "--g-floor:#576578; --g-door:#ffe97a;"), spec, mainTs) },
     { name: "規則表の 2 行に同じトークンを載せる（多重一致）", expect: "rule-unresolved", run: () => audit(html, spec.replace("| `line` / `line-2` / `line-3` |", "| `line` / `line-2` / `line-3` / `tx-meta` |"), mainTs) },
     { name: "規則表の判定面を :root に無い面にする", expect: "rule-bg", run: () => audit(html, spec.replace("| `bg-sheet` `#17130e` | 4.5:1（文字） | 術名", "| `bg-nope` `#17130e` | 4.5:1（文字） | 術名"), mainTs) },
+    // ---- 高コントラストブロックにも :root と同じ閉包が掛かること（対称化・#404 検収の残1点） ----
+    { name: "HC ブロックに 3 桁 hex を足す", expect: "color-format", run: () => audit(html.replace("--g-floor:#576578;", "--g-floor:#576578; --zz-hc3:#fff;"), spec, mainTs) },
+    { name: "HC ブロックに rgb() を足す", expect: "color-format", run: () => audit(html.replace("--g-floor:#576578;", "--g-floor:#576578; --zz-hcrgb:rgb(9,9,9);"), spec, mainTs) },
+    { name: "HC ブロックに未登録の非色プロパティを足す", expect: "var-unclassified", run: () => audit(html.replace("--g-floor:#576578;", "--g-floor:#576578; --zz-hcsize:4px;"), spec, mainTs) },
     { name: "分類表の行を消す（件数アサート）", expect: "sel-count", run: () => audit(html, spec.replace("／`.g-laila`", ""), mainTs) },
     { name: "意味論表の行を消す（件数アサート）", expect: "kf-count", run: () => audit(html, spec.replace(/\| `abyssair` \| 6s \|[^\n]*\n/, ""), mainTs) },
   ];
