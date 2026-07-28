@@ -113,6 +113,8 @@ function customProps(block: string, where: string): { colors: Record<string, str
 //      （`animation-name` 等の個別プロパティ／二重宣言／var 経由は「未対応構文」として fail）
 //   G6 custom property は `var(--x)` 参照を除去してから抽出＝括弧やエスケープを含む名前も必ず届く
 //   G7 canonical case ＝ HTML タグ・at-rule・CSS プロパティ名はすべて小文字（大文字表記は fail）
+//   G10 スクロール API（scroll / scrollTo / scrollBy / scrollIntoView）と style.scrollBehavior は
+//       未対応＝値ではなく API の面を禁じる（現状 0 件）
 //   G9 CSS の scroll-behavior は未対応（スムーススクロールも「動き」＝現状 0 件）
 //   G8 CSS 外からアニメ/動きを足さない＝`style.animation` / bracket 記法 / `setProperty("animation")` /
 //      Web Animations API（`.animate(` / `new Animation(`）/ JS からの stylesheet 注入
@@ -187,7 +189,10 @@ export function assertGrammar(html: string, mainTs: string): Issue[] {
     [/\.style\s*\[\s*["'`](animation|transition)/, "style[\"animation\"] / style[\"transition\"]（bracket 記法）"],
     [/(animationName|transitionProperty)\s*=/, "animationName / transitionProperty への代入"],
     [/setProperty\(\s*["'`](animation|transition)/, 'setProperty("animation" / "transition", …)'],
-    [/behavior\s*:\s*["'`]smooth/, 'スムーススクロール（behavior: "smooth"）'],
+    // ★スクロール系は「値の書き方」ではなく **API の面** を禁じる（値の変種は無限に作れるため）。
+    [/\.style\.scrollBehavior/, "style.scrollBehavior への代入"],
+    [/\.style\s*\[\s*["'`]scroll-?[bB]ehavior/, 'style["scrollBehavior"]（bracket 記法）'],
+    [/setProperty\(\s*["'`]scroll-behavior/, 'setProperty("scroll-behavior", …)'],
     [/\.animate\s*\(/, "Web Animations API（.animate）"],
     [/new\s+Animation\s*\(/, "Web Animations API（new Animation）"],
     [/insertRule\s*\(/, "JS からの stylesheet 注入（insertRule）"],
@@ -195,6 +200,10 @@ export function assertGrammar(html: string, mainTs: string): Issue[] {
     [/createElement\(\s*["'`]style/, 'JS からの stylesheet 注入（createElement("style")）'],
   ];
   for (const [re, label] of JS_ANIM) if (re.test(mainTs)) bad("grammar-js-anim", `CSS 外からアニメ/スタイルを足している: ${label}`);
+  // G10：スクロール API は未対応（現状 0 件＝main.ts は scrollTop の代入のみ）。値オブジェクトの
+  //       中身は一切解析しない＝面を禁じることで書き方の変種を追いかけない。
+  for (const m of mainTs.matchAll(/\b(scroll|scrollTo|scrollBy|scrollIntoView)\s*\(/g))
+    bad("grammar-js-scroll", `スクロール API は未対応（動きの経路）: ${m[1]}()`);
   return out;
 }
 
@@ -492,8 +501,15 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
     { name: "JS: style[\"transition\"]（bracket 記法）", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style["transition"] = "width 9s";\n`) },
     { name: "JS: setProperty(\"transition\")", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style.setProperty("transition","width 9s");\n`) },
     { name: "CSS: scroll-behavior: smooth", expect: "grammar-scroll", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-sb { scroll-behavior: smooth; }"), spec, mainTs) },
-    { name: "JS: scrollTo({ behavior: \"smooth\" })", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nwindow.scrollTo({ top: 0, behavior: "smooth" });\n`) },
-    { name: "JS: scrollIntoView({ behavior: \"smooth\" })", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.scrollIntoView({ behavior: "smooth" });\n`) },
+    { name: "JS: scrollTo({ behavior: \"smooth\" })", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nwindow.scrollTo({ top: 0, behavior: "smooth" });\n`) },
+    { name: "JS: scrollIntoView({ behavior: \"smooth\" })", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nel.scrollIntoView({ behavior: "smooth" });\n`) },
+    // ---- ★スクロールの CSSOM / API 入口＝#404 検収 8 巡目（値でなく面を禁じる）----
+    { name: "JS: style.scrollBehavior への代入", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style.scrollBehavior = "smooth";\n`) },
+    { name: "JS: style[\"scrollBehavior\"]（bracket 記法）", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style["scrollBehavior"] = "smooth";\n`) },
+    { name: "JS: setProperty(\"scroll-behavior\")", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style.setProperty("scroll-behavior", "smooth");\n`) },
+    { name: "JS: scrollTo({ \"behavior\": \"smooth\" })（クォート表記）", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nscrollTo({ "behavior": "smooth" });\n`) },
+    { name: "JS: 変数経由の短縮記法 scrollTo({ behavior })", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nconst behavior = "smooth"; scrollTo({ behavior });\n`) },
+    { name: "JS: scrollIntoView() の呼び出し自体", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nel.scrollIntoView();\n`) },
     { name: "main.ts が screen-model を import", expect: "model-leak", run: () => audit(html, spec, `import { SEM_TONES } from "./screen-model.ts";\n${mainTs}`) },
     // ---- ★U1b 検収（#404）で塞いだ穴の裏取り ----
     { name: "既定値を doc と食い違わせる", expect: "default-value", run: () => audit(html.replace("--tx-meta:#857a66", "--tx-meta:#7a7060"), spec, mainTs) },
