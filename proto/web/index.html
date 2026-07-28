@@ -584,7 +584,8 @@
        色相・彩度を保ったまま明度で持ち上げる。段差（明暗の順序）は既定と同じに保つ。 ---- */
     @media (prefers-contrast: more) {
       :root {
-        --tx-meta:#988d79; --tx-faint:#897d66;      /* 4.38→5.67 / 3.07→4.57（対 bg-sheet・文字 4.5:1） */
+        --tx-meta:#988d79;                          /* 4.38→5.67（対 bg-sheet・文字 4.5:1） */
+        --tx-faint:#897d66;                         /* 3.04→4.52（対 bg-wall＝.fl-miss が盤面に載る・文字 4.5:1） */
         --line:#716048; --line-2:#8b7656; --line-3:#8b7656; /* 1.40→3.06 / 1.80→4.26（非テキスト 3:1） */
         --g-wall:#708298; --g-floor:#576578;        /* 1.82→4.66 / 1.44→3.07（対 bg-void/bg-wall の最悪値） */
       }
@@ -623,8 +624,13 @@
         animation: none; text-shadow: 0 0 18px rgba(255,120,90,1), 0 0 36px rgba(255,60,40,.85); }
       .g-player-heavy {
         animation: none; text-shadow: 0 0 22px #ffcf4a, 0 0 46px rgba(255,90,0,.95); }
+      /* ★攻撃予告は「発光」チャネルを t5/elite/boss の静的強発光と奪い合うため、RM 時のみ
+         **形（下線）** という別チャネルを足す＝同じ t5 敵の通常時と攻撃予告時が静的に区別できる。
+         下線を選ぶ理由＝レイアウトを動かさない／既存の枠・背景の予告表現とチャネルが被らない／
+         10px 級のグリフでも視認できる／RM 時のみゆえ既定モードの見た目は不変。 */
       .g-mon-atk {
-        animation: none; text-shadow: 0 0 16px currentColor, 0 0 26px currentColor; filter: brightness(1.5); }
+        animation: none; text-shadow: 0 0 16px currentColor, 0 0 26px currentColor; filter: brightness(1.5);
+        text-decoration: underline; text-underline-offset: 2px; }
       .g-boss-heavy {
         animation: none; filter: brightness(2); text-shadow: 0 0 22px #ffcf4a, 0 0 46px rgba(255,90,0,.95); }
       .cell.tele-atk::after {

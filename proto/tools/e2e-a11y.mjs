@@ -34,6 +34,10 @@ const ok = (name, cond, extra = "") => { results.push({ name, pass: !!cond, extr
 
 const browser = await chromium.launch({ executablePath: EXEC });
 const page = await browser.newPage({ viewport: { width: 480, height: 900 } });
+// ★エラー収集は goto の前に登録する（window.__errs を読むだけでは何も集まらず空テストになる）
+const pageErrors = [];
+page.on("pageerror", (e) => pageErrors.push(String(e)));
+page.on("console", (m) => { if (m.type() === "error") pageErrors.push(m.text()); });
 await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded" });
 
 /** :root の CSS 変数を実測（getComputedStyle＝ブラウザが解決した値）。 */
@@ -86,17 +90,18 @@ ok("② 正典色（自分/HP/深蝕/朱/金泥/ボス/化石/背景）は不変
       const a = lum(v(fg)) + 0.05, b = lum(v(bg)) + 0.05;
       return { fg, r: +(a > b ? a / b : b / a).toFixed(2), need };
     });
-  }, [["tx-meta", "bg-sheet", 4.5], ["tx-faint", "bg-sheet", 4.5], ["line", "bg-sheet", 3], ["line-2", "bg-sheet", 3], ["g-wall", "bg-wall", 3], ["g-floor", "bg-wall", 3]]);
+    // ★判定面は §10.2f の規則表どおり（tx-faint は .fl-miss が盤面に載るため最悪面 bg-wall）
+  }, [["tx-meta", "bg-sheet", 4.5], ["tx-faint", "bg-wall", 4.5], ["line", "bg-sheet", 3], ["line-2", "bg-sheet", 3], ["g-wall", "bg-wall", 3], ["g-floor", "bg-wall", 3]]);
   ok("③ 高コントラスト適用後の WCAG 比が基準以上", ratio.every((x) => x.r >= x.need), ratio.map((x) => `${x.fg} ${x.r}:1`).join(" / "));
 }
 
 // ---- ④⑤⑥ Reduce Motion ------------------------------------------------------
 await page.emulateMedia({ contrast: "no-preference", reducedMotion: "reduce" });
 {
-  // A＝装飾：止まる
-  const a1 = await styleOf('<span class="g-boss">Ω</span>', ".g-boss", ["animation-name"]);
-  const a2 = await styleOf('<span class="g-fossil">†</span>', ".g-fossil", ["animation-name"]);
-  ok("④ A（装飾）の animation が停止", a1["animation-name"] === "none" && a2["animation-name"] === "none", `boss=${a1["animation-name"]} fossil=${a2["animation-name"]}`);
+  // A＝装飾：止まる（★.g-boss / .g-fossil は Codex 検収で B へ移したので A の検査に使わない）
+  const a1 = await styleOf('<span class="g-spring">泉</span>', ".g-spring", ["animation-name"]);
+  const a2 = await styleOf('<span class="g-downed">&</span>', ".g-downed", ["animation-name"]);
+  ok("④ A（装飾）の animation が停止", a1["animation-name"] === "none" && a2["animation-name"] === "none", `spring=${a1["animation-name"]} downed=${a2["animation-name"]}`);
   // C＝単発：移動・振動は止まる
   const c1 = await styleOf('<div class="shake-crit"></div>', ".shake-crit", ["animation-name"]);
   const c2 = await styleOf('<div id="floats"><span class="fl fl-crit">9</span></div>', ".fl-crit", ["animation-name", "font-size", "color"]);
@@ -136,10 +141,16 @@ await page.emulateMedia({ contrast: "no-preference", reducedMotion: "reduce" });
   const e2 = await styleOf('<span class="g-companion">@</span>', ".g-companion", ["text-shadow", "color"]);
   ok("⑤ B: 奇癖の相棒と通常の相棒が RM 停止後も静的に区別できる",
     e1["animation-name"] === "none" && e1.color !== e2.color && e1["text-shadow"] !== e2["text-shadow"], `${e1.color} vs ${e2.color}`);
-  const m5 = await styleOf('<span class="g-mon-t5">M</span>', ".g-mon-t5", ["animation-name", "text-shadow"]);
+  const m5 = await styleOf('<span class="g-mon-t5">M</span>', ".g-mon-t5", ["animation-name", "text-shadow", "text-decoration-line"]);
   const m4 = await styleOf('<span class="g-mon-t4">M</span>', ".g-mon-t4", ["text-shadow"]);
   ok("⑤ B: 最危険敵（t5）が RM 停止後も静的な強発光で t4 と差がつく",
     m5["animation-name"] === "none" && m5["text-shadow"].includes("28px") && !m4["text-shadow"].includes("28px"), m5["text-shadow"].slice(0, 50));
+  // ★同じ t5 敵の「通常時」と「攻撃予告中」が静的に区別できること（発光チャネルの奪い合いを
+  //   形＝下線という別チャネルで解消した。Codex 検収 #404 の修正必須3）
+  const atk5 = await styleOf('<span class="g-mon-atk g-mon-t5">M</span>', ".g-mon-atk", ["animation-name", "text-decoration-line"]);
+  ok("⑤ B: 攻撃予告中の t5 と通常の t5 が静的に区別できる（下線の有無）",
+    atk5["animation-name"] === "none" && atk5["text-decoration-line"] === "underline" && m5["text-decoration-line"] !== "underline",
+    `予告中=${atk5["text-decoration-line"]} / 通常=${m5["text-decoration-line"]}`);
 
   // ⑥ 情報表示そのもの（不透明度だけのフェード）は残す
   const k1 = await styleOf('<div id="floorBanner" class="show">深度 12</div>', "#floorBanner", ["animation-name"]);
@@ -155,8 +166,7 @@ await page.emulateMedia({ reducedMotion: "no-preference" });
   ok("⑦ 既定モードではアニメが復活（RM 以外に影響していない）", r["animation-name"] === "pulse" && t["::after.animation-name"] === "tele", `${r["animation-name"]} / ${t["::after.animation-name"]}`);
 }
 
-const errs = await page.evaluate(() => (window.__errs || []).length).catch(() => 0);
-ok("⑧ console error 0", !errs);
+ok("⑧ pageerror / console error 0", pageErrors.length === 0, pageErrors.slice(0, 2).join(" | "));
 
 await browser.close();
 server.close();

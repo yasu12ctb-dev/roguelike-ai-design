@@ -65,11 +65,29 @@ function mediaBlock(css: string, cond: string): string | null {
   }
   return null;
 }
-const colorVars = (block: string): Record<string, string> => {
-  const out: Record<string, string> = {};
-  for (const m of block.matchAll(/--([a-z0-9-]+)\s*:\s*(#[0-9a-fA-F]{6})\b/g)) out[m[1]] = m[2].toLowerCase();
-  return out;
-};
+/**
+ * ★custom property を **値の形で 3 分岐**して閉じる（母集団から黙って消える経路を作らない）。
+ *   - 6 桁 hex        … 色トークン＝規則表で解決し WCAG 検査
+ *   - それ以外の色形式 … 3/4/8 桁 hex・rgb()/rgba()/hsl()/color()・色名 ＝ **fail**（許容は 6 桁 hex のみ）
+ *   - 非色             … 許容リスト（下）に載っているものだけ通す。載っていない非色値も fail
+ */
+const NON_COLOR_VARS = new Set(["r-btn", "r-card", "r-chip", "gauge-h", "gauge-r", "torch-rgb"]);
+const HEX6 = /^#[0-9a-fA-F]{6}$/;
+const LOOKS_COLOR = /^(#|rgba?\(|hsla?\(|color\(|hwb\(|lab\(|lch\(|oklab\(|oklch\(|(red|blue|green|white|black|gray|grey|orange|purple|yellow|pink|brown|cyan|magenta|transparent|currentcolor)\b)/i;
+function customProps(block: string): { colors: Record<string, string>; issues: Issue[] } {
+  const colors: Record<string, string> = {};
+  const issues: Issue[] = [];
+  for (const m of block.matchAll(/--([a-z0-9-]+)\s*:\s*([^;{}]+)/g)) {
+    const name = m[1], raw = m[2].trim();
+    if (HEX6.test(raw)) { colors[name] = raw.toLowerCase(); continue; }
+    if (LOOKS_COLOR.test(raw))
+      issues.push({ code: "color-format", msg: `--${name} の色形式が許容外（6 桁 hex のみ）: ${raw}` });
+    else if (!NON_COLOR_VARS.has(name))
+      issues.push({ code: "var-unclassified", msg: `--${name} は色でも既知の非色でもない: ${raw}（a11y-check の NON_COLOR_VARS へ登録するか色に直す）` });
+  }
+  return { colors, issues };
+}
+const colorVars = (block: string): Record<string, string> => customProps(block).colors;
 const rules = (block: string) => [...block.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
 
 export function parseCss(html: string) {
@@ -99,7 +117,8 @@ export function parseCss(html: string) {
   const rmSel = new Map<string, string>();
   for (const r of rules(rm)) for (const s of r.sel.split(",")) rmSel.set(s.trim(), (rmSel.get(s.trim()) ?? "") + r.body);
   const rootStart = style.indexOf(":root");
-  return { kf, selKf, rmSel, hcVars: colorVars(hc), rootVars: colorVars(style.slice(rootStart, style.indexOf("}", rootStart))) };
+  const root = customProps(style.slice(rootStart, style.indexOf("}", rootStart)));
+  return { kf, selKf, rmSel, hcVars: colorVars(hc), rootVars: root.colors, varIssues: root.issues };
 }
 
 // ---- doc（正典）抽出 ---------------------------------------------------------
@@ -140,22 +159,29 @@ export function docMotion(spec: string): { kf: string[]; sel: Record<string, str
   return { kf, sel, issues };
 }
 
-/** §10.2f：差分表（トークン→高コントラスト値）と 規則表（群→判定面・閾値）。 */
-export function docContrast(spec: string): { hc: Record<string, string>; rules: Rule[]; issues: Issue[] } {
+/** §10.2f：差分表（トークン→**既定値と**高コントラスト値）と 規則表（群→判定面・閾値）。 */
+export function docContrast(spec: string): { hc: Record<string, string>; def: Record<string, string>; rules: Rule[]; issues: Issue[] } {
   const issues: Issue[] = [];
   const sec = section(spec, "### 10.2f", "### 10.3 ");
-  if (!sec) { issues.push({ code: "doc-range", msg: "§10.2f の範囲を特定できない" }); return { hc: {}, rules: [], issues }; }
+  if (!sec) { issues.push({ code: "doc-range", msg: "§10.2f の範囲を特定できない" }); return { hc: {}, def: {}, rules: [], issues }; }
   const hc: Record<string, string> = {};
+  const def: Record<string, string> = {};
   const rs: Rule[] = [];
   for (const line of sec.split("\n")) {
     if (!line.startsWith("| ")) continue;
     const c = cells(line);
     if (c.length < 4) continue;
     // 差分表：| `--tx-meta` | `#857a66` | 4.38:1 | **`#988d79`** | ...
+    //   ★2列目（既定値）と4列目（高コントラスト値）の**両方**を読む（既定値の未照合が U1b 検収の指摘1）。
     const dif = c[1].match(/`--([a-z0-9-]+)`/);
     if (dif && c.length >= 5) {
-      const v = c[4].match(/`(#[0-9a-fA-F]{6})`/);
-      if (v) { hc[dif[1]] = v[1].toLowerCase(); continue; }
+      const d = c[2].match(/`(#[0-9a-fA-F]{6})`/), v = c[4].match(/`(#[0-9a-fA-F]{6})`/);
+      if (v) {
+        hc[dif[1]] = v[1].toLowerCase();
+        if (d) def[dif[1]] = d[1].toLowerCase();
+        else issues.push({ code: "doc-default-missing", msg: `§10.2f 差分表の --${dif[1]} に既定値が無い` });
+        continue;
+      }
     }
     // 規則表：| `tx` / `tx-strong` … | `bg-sheet` `#17130e` | 4.5:1（文字） | 実例 |
     const idsRaw = ticks(c[1]).filter((t) => !t.startsWith("#"));
@@ -171,7 +197,7 @@ export function docContrast(spec: string): { hc: Record<string, string>; rules: 
       on, need,
     });
   }
-  return { hc, rules: rs, issues };
+  return { hc, def, rules: rs, issues };
 }
 
 /** トークン名を規則表の1行に解決（完全一致 > glob。0件/複数件は null＝fail）。 */
@@ -189,7 +215,7 @@ export function audit(html: string, spec: string, mainTs: string): Issue[] {
   const bad = (code: string, msg: string) => out.push({ code, msg });
   const css = parseCss(html);
   const dm = docMotion(spec), dc = docContrast(spec);
-  out.push(...dm.issues, ...dc.issues);
+  out.push(...dm.issues, ...dc.issues, ...css.varIssues);
 
   // A) keyframe 集合 1:1 ＋ 件数
   for (const k of Object.keys(css.kf)) if (!dm.kf.includes(k)) bad("kf-undocumented", `§10.2d 意味論表に無い @keyframes: ${k}`);
@@ -215,10 +241,14 @@ export function audit(html: string, spec: string, mainTs: string): Issue[] {
       bad("rm-no-static", `B（状態・予告）なのに静的代替が無い: ${sel}＝テレグラフを消してはならない`);
   }
 
-  // E) 高コントラスト：doc 差分表 ↔ CSS 上書き
+  // E) 高コントラスト：doc 差分表 ↔ CSS（**既定値と HC 値の両方**を完全一致で照合）
   for (const [k, v] of Object.entries(dc.hc)) {
     if (!(k in css.hcVars)) bad("hc-missing", `§10.2f にあるが CSS の高コントラストに無い: --${k}`);
-    else if (css.hcVars[k] !== v) bad("hc-value", `--${k} の値が doc(${v}) と CSS(${css.hcVars[k]}) で不一致`);
+    else if (css.hcVars[k] !== v) bad("hc-value", `--${k} の HC 値が doc(${v}) と CSS(${css.hcVars[k]}) で不一致`);
+  }
+  for (const [k, v] of Object.entries(dc.def)) {
+    if (!(k in css.rootVars)) bad("default-missing", `§10.2f 差分表にあるが :root に無い: --${k}`);
+    else if (css.rootVars[k] !== v) bad("default-value", `--${k} の既定値が doc(${v}) と :root(${css.rootVars[k]}) で不一致`);
   }
   for (const k of Object.keys(css.hcVars)) if (!(k in dc.hc)) bad("hc-undocumented", `§10.2f 差分表に無い高コントラスト上書き: --${k}`);
 
@@ -260,6 +290,19 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
     { name: "基準未達の値を高コントラストに入れる", expect: "contrast", run: () => audit(html.replace("--g-wall:#708298", "--g-wall:#39434f"), spec, mainTs) },
     { name: "規則表に当たらない色トークンを :root に足す", expect: "rule-unresolved", run: () => audit(html.replace("--g-laila:#c9a3ff;", "--g-laila:#c9a3ff; --zz-newbie:#123456;"), spec, mainTs) },
     { name: "main.ts が screen-model を import", expect: "model-leak", run: () => audit(html, spec, `import { SEM_TONES } from "./screen-model.ts";\n${mainTs}`) },
+    // ---- ★U1b 検収（#404）で塞いだ穴の裏取り ----
+    { name: "既定値を doc と食い違わせる", expect: "default-value", run: () => audit(html.replace("--tx-meta:#857a66", "--tx-meta:#7a7060"), spec, mainTs) },
+    { name: "差分表のトークンを :root から消す", expect: "default-missing", run: () => audit(html.replace("--tx-faint:#6b6250;", ""), spec, mainTs) },
+    { name: "3 桁 hex を :root に足す", expect: "color-format", run: () => audit(html.replace("--g-laila:#c9a3ff;", "--g-laila:#c9a3ff; --zz-short:#fff;"), spec, mainTs) },
+    { name: "rgb() を :root に足す", expect: "color-format", run: () => audit(html.replace("--g-laila:#c9a3ff;", "--g-laila:#c9a3ff; --zz-rgb:rgb(1,2,3);"), spec, mainTs) },
+    { name: "8 桁 hex を :root に足す", expect: "color-format", run: () => audit(html.replace("--g-laila:#c9a3ff;", "--g-laila:#c9a3ff; --zz-a8:#11223344;"), spec, mainTs) },
+    { name: "未登録の非色プロパティを :root に足す", expect: "var-unclassified", run: () => audit(html.replace("--g-laila:#c9a3ff;", "--g-laila:#c9a3ff; --zz-size:4px;"), spec, mainTs) },
+    { name: "RM ブロックで animation を止め忘れる", expect: "rm-no-stop", run: () => audit(html.replace("animation: none; text-shadow: 0 0 22px", "text-shadow: 0 0 22px"), spec, mainTs) },
+    { name: "doc に無い高コントラスト上書きを CSS に足す", expect: "hc-undocumented", run: () => audit(html.replace("--g-floor:#576578;", "--g-floor:#576578; --g-door:#ffe97a;"), spec, mainTs) },
+    { name: "規則表の 2 行に同じトークンを載せる（多重一致）", expect: "rule-unresolved", run: () => audit(html, spec.replace("| `line` / `line-2` / `line-3` |", "| `line` / `line-2` / `line-3` / `tx-meta` |"), mainTs) },
+    { name: "規則表の判定面を :root に無い面にする", expect: "rule-bg", run: () => audit(html, spec.replace("| `bg-sheet` `#17130e` | 4.5:1（文字） | 術名", "| `bg-nope` `#17130e` | 4.5:1（文字） | 術名"), mainTs) },
+    { name: "分類表の行を消す（件数アサート）", expect: "sel-count", run: () => audit(html, spec.replace("／`.g-laila`", ""), mainTs) },
+    { name: "意味論表の行を消す（件数アサート）", expect: "kf-count", run: () => audit(html, spec.replace(/\| `abyssair` \| 6s \|[^\n]*\n/, ""), mainTs) },
   ];
   let ng = 0;
   for (const t of T) if (!t.run().some((i) => i.code === t.expect)) { err(`self-test 未検出: ${t.name}（期待 ${t.expect}）`); ng++; }
