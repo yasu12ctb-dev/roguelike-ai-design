@@ -535,7 +535,7 @@ type IconId =
 
 `tools/a11y-check.ts`（**`npm run check` 同梱**）は、**単位の異なる 2 つの 1:1 突合を独立に**行う（混ぜない）：
 1. **keyframe 集合**＝`web/index.html` の `@keyframes` **29 件** ↔ 上の意味論表の ID **29 件**（両方向・件数もアサート）。
-2. **個別セレクタ集合**＝`animation` 宣言のセレクタリストを**カンマで分解**し、**`@keyframes` を参照するものだけ**を採った **48 件** ↔ 下の RM 分類表の **48 件**（両方向・件数もアサート）。**`animation: none` のみで keyframe を参照しないセレクタ（`#light.town`）は対象外。1 セレクタが複数 keyframe を使っても 1 件**（`.fl-crit` は `floatup`＋`critpop` で 1 件）。
+2. **個別セレクタ集合**＝`animation` 宣言のセレクタリストを**カンマで分解**し、**`@keyframes` を参照するものだけ**を採った **48 件** ↔ 下の RM 分類表の **48 件**（両方向・件数もアサート）。**`animation: none` のみで keyframe を参照しないセレクタ（`#light.town`）は対象外。1 セレクタが複数 keyframe を使っても 1 件**（`#floats .fl-crit` は `floatup`＋`critpop` で 1 件）。
 
 片側にしか無い ID／セレクタ、または件数の不一致があれば **fail**（＝表に無いアニメは追加できず、表の行を消しても両側から同時に消える事故を件数で捕まえる）。
 
@@ -583,7 +583,7 @@ type IconId =
 | **B** | `.g-player-danger`／`.g-companion-danger`／`.g-player-heavy`／`.g-mon-atk`／`.g-boss-heavy` | 被攻撃・敵の攻撃・渾身の一撃の予告 |
 | **B** | `.cell.tele-atk::after`／`.cell.tele-boss::before`／`.cell.tele-shape::before`／`.cell.tele-charge::before`／`.cell.tele-reach::before` | 確定範囲・突進ライン・突き線の予告 |
 | **B** | `.cell.throw-aim::after`／`.cell.hz-crumble.hz-cracked`／`#lungeBtn.stance` | 投擲の照準／次に落ちる床／踏み込みの構え中 |
-| **C** | `#peek`／`#floats .fl`／`.fl-kill`／`.fl-crit`／`.tfx-ready`／`.tfx-slash`／`.tfx-press::before`／`.tfx-press::after`／`.shake-crit` | 単発。**`.shake-crit` は前庭刺激が最も強く完全停止** |
+| **C** | `#peek`／`#floats .fl`／`#floats .fl-kill`／`#floats .fl-crit`／`.tfx-ready`／`.tfx-slash`／`.tfx-press::before`／`.tfx-press::after`／`.shake-crit` | 単発。**`.shake-crit` は前庭刺激が最も強く完全停止** |
 | **免除** | `#floorBanner.show`／`#fx.warp`／`#fx.still`／`#fx.blink` | 不透明度のみ（`bannerfade`／`fxflash`）＝情報表示そのもの |
 
 **★アニメでないもの（誤解防止）：** **踏み込み先/敵の移動予告 `tele-move` は静的な琥珀背景**（`background: rgba(224,140,72,.34)`＋inset shadow）＝keyframe を持たない。**盤面の床の濃淡・壁の彫り込みも静的**（10.3）。**＝移動予告は Reduce Motion の影響を受けない**（もともと静的表現で「来る」を担保している好例）。
@@ -633,6 +633,7 @@ Swift ＝ `withAnimation(.easeInOut.repeatForever())` 等でミラー。**Reduce
 **盤面の質感（v0.99.0・①）**：壁 `▒` は彫られた石（inset 上ハイライト/下シェード・box-shadow のみ）／床 `·` は座標決定論 `(x*7+y*13)%3` の濃淡3段（opacity .55/.78/1・rng 非使用）。glyph・正典色は不変。
 **FloatFx（盤上フロート・v0.99.0／v0.118.0 で術・召喚・継続ダメへ拡張）**：与ダメ＝金泥の数字（`fl-dmg`）＋命中マスに白グリフの一瞬フラッシュ（`fl-flash`）／被ダメ＝赤（`fl-hurt`）／回復＝緑（`fl-heal`＝泉・薬・癒し術・吸命）／見切り＝「見切」（`fl-miss`）／撃破＝白＋金泥の「＊」（`fl-kill`）。**★与ダメ数字は近接だけでなく攻撃術（歪撃/裂界/雷霆/崩落/氷棺/断罪/痩身/万象斬/迫り/吸命 等）・召喚（蝕兵/廻刃/残響）・継続ダメ（腐喰/毒）にも出す（v0.118.0＝近接と揃え「術の当たった感」を担保）。** 単体術のログは対象名を必ず含む（「断罪が◯◯を灼く（N）」）。多体術は「N体・各M」表記＋各敵に数字ポップ。召喚/毒の毎手ダメはログを出さず数字ポップのみ（ログ氾濫回避）。0.7s 浮上フェード・上限8ノード・純表示（engine 非依存・raid も同じ）。Swift ＝ 短命の重ねラベル＋spring アニメでミラー。
 **位置取り演出（v0.115.0・タイル演出レイヤ `tileFx`）**：挟撃/見切り反撃（snapshot 4-11A「位置取りの通貨」）の専用エフェクト。頻度に合わせた強度＝**挟撃（高頻度）＝控えめ／会心（希少）＝派手**。①見切り成立＝@ に金の波紋リング（`tfx-ready`・0.45s 拡散）②会心の反撃＝敵タイルに金白の斬光（`tfx-slash`・0.3s）＋**特大の会心数字**（`fl-crit`＝21px 白金・critpop）＋盤面マイクロシェイク（`shake-crit`＝±2px・0.14s・mapWrap）③挟撃＝敵タイルを両側から閉じるティールの楔（`tfx-press`・0.26s・`--c-mov`）。全て純CSS 200〜450ms・入力非ブロック（pointer-events:none）・**グリフを覆わない**（命中フラッシュ廃止の教訓＝FB 2026-07-03 を踏襲）。Swift＝短命オーバーレイでミラー＋会心シェイクは haptic 併用候補。
+**⚠ web 実装上の注意（v0.169.0 で是正）＝FloatFx の種別セレクタは基底 `#floats .fl`（詳細度 (1,1,0)）と詳細度を揃えること。** class 単独 (0,1,0) で書くと基底が宣言する `font-size`／`text-shadow`／`animation` に負けて**無効化される**（v0.167.0 まで会心の 21px・critpop・金グロー、撃破の金グロー、`.fl-miss` 12px、`.fl-hurt` 16px がいずれも効かず全て 15px・黒影・`floatup .7s` に潰れていた）。**Swift には詳細度の概念が無い＝本注意は web 固有で、移植先は本節の宣言値（21px 等）をそのまま実装する。**
 **調べる（タップ＝NetHack「;」の現代化・v0.99.0）**：盤面タップでそのマスを上帯にポップ（`#peek`＝手番非消費・入力非ブロック）。敵は**傷を数値で出さず「傷語」**で語る（`hp/kind.hp`：≥1 無傷／≥0.75 浅手／≥0.5 手負い／≥0.25 深手／>0 瀕死）＋状態異常（静止/鈍り/畏れ/惑乱/縛鎖/衰弱/腐喰）＋boss/覚醒＋〔能力〕タグ＋対処ヒント（`ABILITY_INFO`）。敵情報は**視界内のみ**。化石は固有名を伏せる（対面演出を保護）。4s 自動で畳む／移動・場面・地図で即畳む。Swift ＝ tap で軽量 popover。
 
 ### 10.3b 雰囲気（松明の色調・フロア進入・深淵の空気・v0.99.0）
