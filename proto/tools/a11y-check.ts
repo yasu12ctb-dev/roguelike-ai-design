@@ -113,7 +113,8 @@ function customProps(block: string, where: string): { colors: Record<string, str
 //      （`animation-name` 等の個別プロパティ／二重宣言／var 経由は「未対応構文」として fail）
 //   G6 custom property は `var(--x)` 参照を除去してから抽出＝括弧やエスケープを含む名前も必ず届く
 //   G7 canonical case ＝ HTML タグ・at-rule・CSS プロパティ名はすべて小文字（大文字表記は fail）
-//   G8 CSS 外からアニメを足さない＝`style.animation` / bracket 記法 / `setProperty("animation")` /
+//   G9 CSS の scroll-behavior は未対応（スムーススクロールも「動き」＝現状 0 件）
+//   G8 CSS 外からアニメ/動きを足さない＝`style.animation` / bracket 記法 / `setProperty("animation")` /
 //      Web Animations API（`.animate(` / `new Animation(`）/ JS からの stylesheet 注入
 //      （`insertRule` / `adoptedStyleSheets` / `createElement("style")`）はすべて fail
 //   ★文法違反があれば audit はそこで打ち切る（壊れた入力に無意味な診断をカスケードさせない）
@@ -177,12 +178,16 @@ export function assertGrammar(html: string, mainTs: string): Issue[] {
       for (const d of shorthand) if (/var\(/.test(d[3])) bad(`grammar-${code}-var`, `${head} の値に var() は未対応: ${r.sel.trim().slice(0, 40)}`);
     }
   }
+  // G9：CSS のスムーススクロールは未対応（現状 0 件。使うときは先に正典と検査を更新する）
+  for (const r of rules(style))
+    if (/(^|[;{\s])scroll-behavior\s*:/.test(r.body)) bad("grammar-scroll", `scroll-behavior は未対応（動きの経路）: ${r.sel.trim().slice(0, 40)}`);
   // G8：CSS 外（JS）からアニメ・スタイルを足す経路をすべて塞ぐ
   const JS_ANIM: [RegExp, string][] = [
-    [/\.style\.animation/, "style.animation への代入"],
-    [/\.style\s*\[\s*["'`]animation/, "style[\"animation\"]（bracket 記法）"],
-    [/animationName\s*=/, "animationName への代入"],
-    [/setProperty\(\s*["'`]animation/, 'setProperty("animation", …)'],
+    [/\.style\.(animation|transition)/, "style.animation / style.transition への代入"],
+    [/\.style\s*\[\s*["'`](animation|transition)/, "style[\"animation\"] / style[\"transition\"]（bracket 記法）"],
+    [/(animationName|transitionProperty)\s*=/, "animationName / transitionProperty への代入"],
+    [/setProperty\(\s*["'`](animation|transition)/, 'setProperty("animation" / "transition", …)'],
+    [/behavior\s*:\s*["'`]smooth/, 'スムーススクロール（behavior: "smooth"）'],
     [/\.animate\s*\(/, "Web Animations API（.animate）"],
     [/new\s+Animation\s*\(/, "Web Animations API（new Animation）"],
     [/insertRule\s*\(/, "JS からの stylesheet 注入（insertRule）"],
@@ -247,15 +252,17 @@ const section = (spec: string, from: string, to: string) => {
   return s < 0 || e < 0 || e <= s ? null : spec.slice(s, e);
 };
 const cells = (line: string) => line.split("|");
+/** 宣言値の正規化（空白圧縮・小文字化・末尾セミコロン除去）＝doc と CSS を完全一致で比べるため。 */
+const normDecl = (v: string) => v.replace(/^transition\s*:/, "").replace(/\s+/g, " ").replace(/;\s*$/, "").trim().toLowerCase();
 const ticks = (s: string) => [...s.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
 
 /** §10.2d：keyframe ID（意味論表）と セレクタ→分類（RM 分類表）。 */
-export function docMotion(spec: string): { kf: string[]; sel: Record<string, string>; tr: string[]; issues: Issue[] } {
+export function docMotion(spec: string): { kf: string[]; sel: Record<string, string>; tr: Record<string, string>; issues: Issue[] } {
   const issues: Issue[] = [];
   const sec = section(spec, "### 10.2d", "### 10.2f");
-  if (!sec) { issues.push({ code: "doc-range", msg: "§10.2d の範囲を特定できない" }); return { kf: [], sel: {}, tr: [], issues }; }
+  if (!sec) { issues.push({ code: "doc-range", msg: "§10.2d の範囲を特定できない" }); return { kf: [], sel: {}, tr: {}, issues }; }
   const split = sec.indexOf("| RM | セレクタ");
-  if (split < 0) { issues.push({ code: "doc-range", msg: "§10.2d に RM 分類表が無い" }); return { kf: [], sel: {}, tr: [], issues }; }
+  if (split < 0) { issues.push({ code: "doc-range", msg: "§10.2d に RM 分類表が無い" }); return { kf: [], sel: {}, tr: {}, issues }; }
   const kf: string[] = [];
   for (const line of sec.slice(0, split).split("\n")) {
     if (!line.startsWith("| `")) continue;
@@ -277,7 +284,7 @@ export function docMotion(spec: string): { kf: string[]; sel: Record<string, str
     }
   }
   // 非 keyframe motion（transition）の閉集合
-  const tr: string[] = [];
+  const tr: Record<string, string> = {};
   const ts = sec.indexOf("★非 keyframe motion"), te = sec.indexOf("★アニメでないもの");
   if (ts < 0 || te < 0 || te <= ts) issues.push({ code: "doc-range", msg: "§10.2d に非 keyframe motion（transition）の表が無い" });
   else for (const line of sec.slice(ts, te).split("\n")) {
@@ -285,8 +292,11 @@ export function docMotion(spec: string): { kf: string[]; sel: Record<string, str
     const c = cells(line);
     const sel = ticks(c[1])[0];
     if (!sel) continue;
-    if (tr.includes(sel)) issues.push({ code: "doc-dup", msg: `§10.2d transition 表に重複セレクタ: ${sel}` });
-    tr.push(sel);
+    if (sel in tr) issues.push({ code: "doc-dup", msg: `§10.2d transition 表に重複セレクタ: ${sel}` });
+    // 通常列（2列目）の `transition: …` を正典値として取り出す
+    const norm = ticks(c[2]).find((t) => /^transition\s*:/.test(t));
+    if (!norm) issues.push({ code: "doc-trans-value", msg: `§10.2d transition 表の ${sel} に通常時の値が無い` });
+    tr[sel] = normDecl(norm ?? "");
     if (!/transition\s*:\s*none/.test(c[3] ?? "")) issues.push({ code: "doc-trans-rm", msg: `§10.2d transition 表の ${sel} に Reduce Motion 時の transition: none が無い` });
   }
   return { kf, sel, tr, issues };
@@ -365,10 +375,14 @@ export function audit(html: string, spec: string, mainTs: string): Issue[] {
   if (docSel.length !== EXPECT_SELECTORS) bad("sel-count", `§10.2d 分類表の個別セレクタ件数が ${EXPECT_SELECTORS} でない: ${docSel.length}`);
 
   // B2) 非 keyframe motion（transition）1:1 ＋ 件数 ＋ RM で none
-  for (const sel of Object.keys(css.selTr)) if (!dm.tr.includes(sel)) bad("trans-undocumented", `§10.2d transition 表に無い transition: ${sel}（${css.selTr[sel]}）`);
-  for (const sel of dm.tr) if (!(sel in css.selTr)) bad("trans-missing", `§10.2d transition 表にあるが CSS に transition が無い: ${sel}`);
-  if (dm.tr.length !== EXPECT_TRANSITIONS) bad("trans-count", `§10.2d transition 表の件数が ${EXPECT_TRANSITIONS} でない: ${dm.tr.length}`);
-  for (const sel of dm.tr) {
+  for (const sel of Object.keys(css.selTr)) if (!(sel in dm.tr)) bad("trans-undocumented", `§10.2d transition 表に無い transition: ${sel}（${css.selTr[sel]}）`);
+  for (const sel of Object.keys(dm.tr)) if (!(sel in css.selTr)) bad("trans-missing", `§10.2d transition 表にあるが CSS に transition が無い: ${sel}`);
+  if (Object.keys(dm.tr).length !== EXPECT_TRANSITIONS) bad("trans-count", `§10.2d transition 表の件数が ${EXPECT_TRANSITIONS} でない: ${Object.keys(dm.tr).length}`);
+  for (const [sel, want] of Object.entries(dm.tr)) {
+    const got = css.selTr[sel] === undefined ? undefined : normDecl(css.selTr[sel]);
+    if (got !== undefined && got !== want) bad("trans-value", `--transition の値が doc(${want}) と CSS(${got}) で不一致: ${sel}`);
+  }
+  for (const sel of Object.keys(dm.tr)) {
     const body = css.rmSel.get(sel);
     if (!body || !/transition\s*:\s*none/.test(body)) bad("trans-rm", `Reduce Motion で transition: none になっていない: ${sel}`);
   }
@@ -472,6 +486,14 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
     { name: "doc 無しで新しい transition を足す", expect: "trans-undocumented", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-tr { transition: opacity .3s ease; }"), spec, mainTs) },
     { name: "transition の個別プロパティ（transition-property）", expect: "grammar-trans-prop", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-tp { transition-property: opacity; }"), spec, mainTs) },
     { name: "transition の値に var()", expect: "grammar-trans-var", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-tv { transition: var(--zz-t); }"), spec, mainTs) },
+    // ---- ★transition の値・非 keyframe motion の別入口＝#404 検収 7 巡目 ----
+    { name: "CSS の transition 値を doc と食い違わせる", expect: "trans-value", run: () => audit(html.replace("transition: width .18s ease", "transition: opacity 9s linear"), spec, mainTs) },
+    { name: "JS: style.transition への代入", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style.transition = "width 9s";\n`) },
+    { name: "JS: style[\"transition\"]（bracket 記法）", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style["transition"] = "width 9s";\n`) },
+    { name: "JS: setProperty(\"transition\")", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style.setProperty("transition","width 9s");\n`) },
+    { name: "CSS: scroll-behavior: smooth", expect: "grammar-scroll", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-sb { scroll-behavior: smooth; }"), spec, mainTs) },
+    { name: "JS: scrollTo({ behavior: \"smooth\" })", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nwindow.scrollTo({ top: 0, behavior: "smooth" });\n`) },
+    { name: "JS: scrollIntoView({ behavior: \"smooth\" })", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.scrollIntoView({ behavior: "smooth" });\n`) },
     { name: "main.ts が screen-model を import", expect: "model-leak", run: () => audit(html, spec, `import { SEM_TONES } from "./screen-model.ts";\n${mainTs}`) },
     // ---- ★U1b 検収（#404）で塞いだ穴の裏取り ----
     { name: "既定値を doc と食い違わせる", expect: "default-value", run: () => audit(html.replace("--tx-meta:#857a66", "--tx-meta:#7a7060"), spec, mainTs) },
@@ -517,7 +539,7 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
   }, Infinity);
   console.log(`  (A) keyframe 1:1: CSS ${Object.keys(css.kf).length} = doc ${dm.kf.length}`);
   console.log(`  (B) 個別セレクタ 1:1: CSS ${Object.keys(css.selKf).length} = doc ${Object.keys(dm.sel).length}（A${n("A")} B${n("B")} C${n("C")} 免除${n("免除")}）`);
-  console.log(`  (B2) 非 keyframe motion: CSS ${Object.keys(css.selTr).length} = doc ${dm.tr.length}（RM で transition: none）`);
+  console.log(`  (B2) 非 keyframe motion: CSS ${Object.keys(css.selTr).length} = doc ${Object.keys(dm.tr).length}（RM で transition: none）`);
   console.log(`  (E/F) 高コントラスト: 上書き ${Object.keys(css.hcVars).length} 変数 / 規則表 ${dc.rules.length} 行で ${checked.length} トークンを検査（最小余裕 ×${margin.toFixed(2)}）`);
 }
 
