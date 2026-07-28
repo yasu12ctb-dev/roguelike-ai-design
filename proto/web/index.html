@@ -595,11 +595,11 @@
        ★B=状態・予告は動きを止めたうえで「来る」が読める静的な高視認状態へ置換する。
        B を単に消すことは禁止（予告が読めない＝難易度低下ではなく理不尽化）。 ---- */
     @media (prefers-reduced-motion: reduce) {
-      /* A＝装飾（情報を担わない）。停止しても記号字形＋色の二重符号化で識別は落ちない。 */
+      /* A＝装飾（17 個別セレクタ）。字形が一意（& ψ‡Ψ 泉 安 扉 痕 境）か色が静的に一意（delver の緑）
+         ゆえ、停止しても識別は落ちない。 */
       #mapWrap.band-abyss::after, #light,
-      .g-companion-erratic, .g-downed, .g-delver, .g-summon,
-      .g-mon-t5, .g-elite, .g-boss,
-      .g-fossil, .g-spring, .g-rest, .g-door, .g-aurel, .g-laila,
+      .g-downed, .g-delver, .g-summon,
+      .g-spring, .g-rest, .g-door, .g-aurel, .g-laila,
       .cell.hz-fire, .cell.hz-venom, .cell.hz-miasma, .cell.hz-frost,
       .cell.echo-loss::after, .cell.echo-myth::after, .cell.echo-grudge::after { animation: none; }
 
@@ -609,7 +609,16 @@
       .tfx-ready, .tfx-slash, .tfx-press::before, .tfx-press::after,
       .shake-crit { animation: none; }
 
-      /* B＝状態・予告（静的な高視認状態へ置換）。役割色は変えず、各 keyframe の最大値で固定する。 */
+      /* B＝状態・予告（18 個別セレクタ・静的な高視認状態へ置換）。役割色は変えず、各 keyframe の
+         最大値で固定する。★pulse 共用の5件は「アニメの有無が識別に寄与している」ため B。
+         静的代替は各自の役割色を currentColor で強めた発光＝静的な敵ティア（t1-t4 は 6–10px の
+         部分アルファ）や g-fossil-quiet（発光なし）とはっきり差がつく。 */
+      .g-fossil {
+        animation: none; text-shadow: 0 0 16px rgba(159,216,207,1), 0 0 30px rgba(159,216,207,.4); }
+      .g-companion-erratic {
+        animation: none; text-shadow: 0 0 14px rgba(181,139,255,1), 0 0 30px rgba(140,80,230,.7); }
+      .g-mon-t5, .g-elite, .g-boss {
+        animation: none; text-shadow: 0 0 14px currentColor, 0 0 28px currentColor; }
       .g-player-danger, .g-companion-danger {
         animation: none; text-shadow: 0 0 18px rgba(255,120,90,1), 0 0 36px rgba(255,60,40,.85); }
       .g-player-heavy {

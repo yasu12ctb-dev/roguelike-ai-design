@@ -126,6 +126,21 @@ await page.emulateMedia({ contrast: "no-preference", reducedMotion: "reduce" });
   const b6 = await styleOf('<button id="lungeBtn" class="stance">踏</button>', "#lungeBtn", ["animation-name", "box-shadow"]);
   ok("⑤ B: 踏み込みの構え中は停止しても発光が残る", b6["animation-name"] === "none" && b6["box-shadow"].includes("20px"), b6["box-shadow"].slice(0, 50));
 
+  // ★B（pulse 共用の情報用途・Codex 検収で A から移した5件）：停止後も「静的に区別できる」こと
+  const f1 = await styleOf('<span class="g-fossil">†</span>', ".g-fossil", ["animation-name", "text-shadow", "color"]);
+  const f2 = await styleOf('<span class="g-fossil-quiet">†</span>', ".g-fossil-quiet", ["animation-name", "text-shadow", "color"]);
+  ok("⑤ B: 化石（未鎮め）と鎮め済みが RM 停止後も静的に区別できる",
+    f1["animation-name"] === "none" && f1["text-shadow"].includes("30px") && f2["text-shadow"] === "none" && f1.color !== f2.color,
+    `未鎮め=${f1.color}/glow有 鎮め済=${f2.color}/glow=${f2["text-shadow"]}`);
+  const e1 = await styleOf('<span class="g-companion-erratic">@</span>', ".g-companion-erratic", ["animation-name", "text-shadow", "color"]);
+  const e2 = await styleOf('<span class="g-companion">@</span>', ".g-companion", ["text-shadow", "color"]);
+  ok("⑤ B: 奇癖の相棒と通常の相棒が RM 停止後も静的に区別できる",
+    e1["animation-name"] === "none" && e1.color !== e2.color && e1["text-shadow"] !== e2["text-shadow"], `${e1.color} vs ${e2.color}`);
+  const m5 = await styleOf('<span class="g-mon-t5">M</span>', ".g-mon-t5", ["animation-name", "text-shadow"]);
+  const m4 = await styleOf('<span class="g-mon-t4">M</span>', ".g-mon-t4", ["text-shadow"]);
+  ok("⑤ B: 最危険敵（t5）が RM 停止後も静的な強発光で t4 と差がつく",
+    m5["animation-name"] === "none" && m5["text-shadow"].includes("28px") && !m4["text-shadow"].includes("28px"), m5["text-shadow"].slice(0, 50));
+
   // ⑥ 情報表示そのもの（不透明度だけのフェード）は残す
   const k1 = await styleOf('<div id="floorBanner" class="show">深度 12</div>', "#floorBanner", ["animation-name"]);
   const k2 = await styleOf('<div id="fx" class="warp"></div>', "#fx", ["animation-name"]);
