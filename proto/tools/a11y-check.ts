@@ -111,39 +111,60 @@ function customProps(block: string, where: string): { colors: Record<string, str
 //   G5 animation 系は `animation:` ショートハンドのみ・**1 ルール 1 宣言**・値に `var(` を含まない
 //      （`animation-name` 等の個別プロパティ／二重宣言／var 経由は「未対応構文」として fail）
 //   G6 custom property は `var(--x)` 参照を除去してから抽出＝括弧やエスケープを含む名前も必ず届く
-//   G8 `main.ts` から `style.animation` / `animationName` へ代入しない（CSS 外の入口を塞ぐ）
+//   G7 canonical case ＝ HTML タグ・at-rule・CSS プロパティ名はすべて小文字（大文字表記は fail）
+//   G8 CSS 外からアニメを足さない＝`style.animation` / bracket 記法 / `setProperty("animation")` /
+//      Web Animations API（`.animate(` / `new Animation(`）/ JS からの stylesheet 注入
+//      （`insertRule` / `adoptedStyleSheets` / `createElement("style")`）はすべて fail
+//   ★文法違反があれば audit はそこで打ち切る（壊れた入力に無意味な診断をカスケードさせない）
 const MEDIA_ALLOW = ["(display-mode:standalone)", "(prefers-contrast:more)", "(prefers-reduced-motion:reduce)"];
 const normCond = (c: string) => c.replace(/\s+/g, "").toLowerCase();
+const A11Y_CONDS = ["(prefers-contrast:more)", "(prefers-reduced-motion:reduce)"];
 
 /** 許容文法の検査。ここで fail した場合、以降の検査結果は信用できない。 */
 export function assertGrammar(html: string, mainTs: string): Issue[] {
   const out: Issue[] = [];
   const bad = (code: string, msg: string) => out.push({ code, msg });
-  // G1
-  const opens = (html.match(/<style[\s>]/g) ?? []).length, closes = (html.match(/<\/style>/g) ?? []).length;
-  if (opens !== 1 || closes !== 1) bad("grammar-style-count", `<style> はちょうど 1 個であること（開 ${opens} / 閉 ${closes}）`);
-  const style = stripComments(html.slice(html.indexOf("<style>"), html.indexOf("</style>")));
-  // G2
-  for (const m of style.matchAll(/@([a-z-]+)/g))
+  // G1/G7：<style> は case-insensitive に位置を取り（さもないと slice が壊れて診断がカスケードする）、
+  //         そのうえで canonical（小文字）でなければ fail。
+  const tags = html.match(/<\/?style[\s>]/gi) ?? [];
+  if (tags.length !== 2) bad("grammar-style-count", `<style> はちょうど 1 個であること（タグ ${tags.length} 個）`);
+  for (const t of tags) if (t !== t.toLowerCase()) bad("grammar-case", `HTML タグは小文字表記であること: ${t.trim()}`);
+  const so = html.search(/<style[^>]*>/i), sc = html.search(/<\/style>/i);
+  if (so < 0 || sc < 0 || sc <= so) { bad("grammar-style-count", "<style>…</style> を特定できない"); return out; }
+  const style = stripComments(html.slice(so + html.slice(so).indexOf(">") + 1, sc));
+  // G2/G7：at-rule は @keyframes / @media のみ・小文字表記のみ
+  for (const m of style.matchAll(/@([A-Za-z-]+)/g)) {
+    if (m[1] !== m[1].toLowerCase()) { bad("grammar-case", `at-rule は小文字表記であること: @${m[1]}`); continue; }
     if (!["keyframes", "media"].includes(m[1])) bad("grammar-at-rule", `未対応の at-rule: @${m[1]}（許容は @keyframes / @media のみ）`);
-  // G3
+  }
+  // G7：CSS プロパティ名も小文字（宣言位置のみを見る＝値の大文字〔font-family 等〕は対象外）
+  for (const r of rules(style))
+    for (const d of r.body.matchAll(/(^|;)\s*([-A-Za-z]+)\s*:/g)) {
+      // custom property（--*）は CSS 的に case-sensitive ＝「大文字表記」ではなく命名規約の問題。
+      // customProps() の var-name が扱うため、ここでは対象外にする（診断を取り違えないため）。
+      if (d[2].startsWith("--")) continue;
+      if (d[2] !== d[2].toLowerCase()) bad("grammar-case", `CSS プロパティ名は小文字表記であること: ${d[2]}（${r.sel.trim().slice(0, 40)}）`);
+    }
+  // G3：@media 条件は許容 3 種のみ・HC/RM は各ちょうど 1 個
   const conds = [...style.matchAll(/@media([^{]*)\{/g)].map((m) => normCond(m[1]));
   for (const c of conds) if (!MEDIA_ALLOW.includes(c)) bad("grammar-media-cond", `未対応の @media 条件: ${c}`);
-  for (const need of ["(prefers-contrast:more)", "(prefers-reduced-motion:reduce)"]) {
+  for (const need of A11Y_CONDS) {
     const n = conds.filter((c) => c === need).length;
     if (n !== 1) bad("grammar-media-count", `@media ${need} はちょうど 1 個であること（実際 ${n} 個）`);
   }
-  // G4：a11y の 2 ブロックが末尾＝最後の HC/RM ブロックの終端より後に宣言が無いこと
-  const ends: number[] = [];
+  // G4：HC と RM は **他の宣言を挟まない連続した suffix**（間・後ろの両方を検査する）
+  const blocks: { start: number; end: number }[] = [];
   for (const m of style.matchAll(/@media([^{]*)\{/g)) {
-    if (!["(prefers-contrast:more)", "(prefers-reduced-motion:reduce)"].includes(normCond(m[1]))) continue;
+    if (!A11Y_CONDS.includes(normCond(m[1]))) continue;
     let depth = 0, j = style.indexOf("{", m.index!);
     for (; j < style.length; j++) { if (style[j] === "{") depth++; else if (style[j] === "}") { depth--; if (!depth) break; } }
-    ends.push(j + 1);
+    blocks.push({ start: m.index!, end: j + 1 });
   }
-  if (ends.length) {
-    const tail = style.slice(Math.max(...ends));
-    if (/[^\s]/.test(tail)) bad("grammar-tail", `高コントラスト/Reduce Motion ブロックより後に宣言がある: ${tail.trim().slice(0, 60)}…`);
+  blocks.sort((a, b) => a.start - b.start);
+  if (blocks.length === 2) {
+    const gap = style.slice(blocks[0].end, blocks[1].start), tail = style.slice(blocks[1].end);
+    if (/[^\s]/.test(gap)) bad("grammar-tail", `高コントラストと Reduce Motion のブロックの間に宣言がある: ${gap.trim().slice(0, 60)}…`);
+    if (/[^\s]/.test(tail)) bad("grammar-tail", `a11y ブロックより後に宣言がある: ${tail.trim().slice(0, 60)}…`);
   }
   // G5：animation 系プロパティの構文を閉じる
   for (const r of rules(style)) {
@@ -153,8 +174,19 @@ export function assertGrammar(html: string, mainTs: string): Issue[] {
     if (shorthand.length > 1) bad("grammar-anim-dup", `1 ルールに animation 宣言が複数（後勝ちは解析しない）: ${r.sel.trim().slice(0, 40)}`);
     for (const d of shorthand) if (/var\(/.test(d[3])) bad("grammar-anim-var", `animation の値に var() は未対応: ${r.sel.trim().slice(0, 40)}`);
   }
-  // G8：CSS 外（JS）からアニメを足す経路
-  if (/\.style\.animation|animationName\s*=/.test(mainTs)) bad("grammar-js-anim", "main.ts が style.animation / animationName へ代入している（CSS 外のアニメ経路）");
+  // G8：CSS 外（JS）からアニメ・スタイルを足す経路をすべて塞ぐ
+  const JS_ANIM: [RegExp, string][] = [
+    [/\.style\.animation/, "style.animation への代入"],
+    [/\.style\s*\[\s*["'`]animation/, "style[\"animation\"]（bracket 記法）"],
+    [/animationName\s*=/, "animationName への代入"],
+    [/setProperty\(\s*["'`]animation/, 'setProperty("animation", …)'],
+    [/\.animate\s*\(/, "Web Animations API（.animate）"],
+    [/new\s+Animation\s*\(/, "Web Animations API（new Animation）"],
+    [/insertRule\s*\(/, "JS からの stylesheet 注入（insertRule）"],
+    [/adoptedStyleSheets/, "JS からの stylesheet 注入（adoptedStyleSheets）"],
+    [/createElement\(\s*["'`]style/, 'JS からの stylesheet 注入（createElement("style")）'],
+  ];
+  for (const [re, label] of JS_ANIM) if (re.test(mainTs)) bad("grammar-js-anim", `CSS 外からアニメ/スタイルを足している: ${label}`);
   return out;
 }
 
@@ -294,7 +326,9 @@ export function audit(html: string, spec: string, mainTs: string): Issue[] {
   const bad = (code: string, msg: string) => out.push({ code, msg });
   const css = parseCss(html);
   const dm = docMotion(spec), dc = docContrast(spec);
-  out.push(...assertGrammar(html, mainTs), ...dm.issues, ...dc.issues, ...css.varIssues);
+  const grammar = assertGrammar(html, mainTs);
+  if (grammar.length) return grammar; // ★文法違反時は打ち切る＝壊れた入力に無意味な診断を重ねない
+  out.push(...dm.issues, ...dc.issues, ...css.varIssues);
 
   // A) keyframe 集合 1:1 ＋ 件数
   for (const k of Object.keys(css.kf)) if (!dm.kf.includes(k)) bad("kf-undocumented", `§10.2d 意味論表に無い @keyframes: ${k}`);
@@ -358,6 +392,8 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
 // H) self-test（変異試験・毎回実行）
 {
   const END_STYLE = "  </style>";
+  const RM_HEAD = "    @media (prefers-reduced-motion: reduce) {";
+  const GRID_ANCHOR = "    #grid { display: grid; width: 100%; }";
   const T: { name: string; expect: string; run: () => Issue[] }[] = [
     { name: "@keyframes を doc から消す", expect: "kf-undocumented", run: () => audit(html, spec.replace("| `pulse` |", "| `pulse-x` |"), mainTs) },
     { name: "CSS から keyframe を消す", expect: "kf-missing", run: () => audit(html.replace("@keyframes pulse", "@keyframes pulseZ"), spec, mainTs) },
@@ -384,6 +420,19 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
     { name: "main.ts から style.animation へ代入", expect: "grammar-js-anim", run: () => audit(html, spec, mainTs + '\nel.style.animation = "pulse 1s";\n') },
     { name: "escape を含む custom property 名（--zz\\(）", expect: "var-name", run: () => audit(html.replace("--g-laila:#c9a3ff;", "--g-laila:#c9a3ff; --zz\\(:#ffffff;"), spec, mainTs) },
     { name: "§10.2f 差分表に重複トークン", expect: "doc-dup", run: () => audit(html, spec.replace(/\| `--tx-meta` \| `#857a66`[^\n]*\n/, (m) => m.replace("#988d79", "#123456") + m), mainTs) },
+    // ---- ★宣言した文法境界の実装検査（#404 検収 5 巡目）----
+    { name: "HC と RM の間に宣言を挟む", expect: "grammar-tail", run: () => audit(html.replace(RM_HEAD, "    .zz-between { animation:pulse 1s infinite; }\n" + RM_HEAD), spec, mainTs) },
+    { name: "<STYLE> の大文字表記", expect: "grammar-case", run: () => audit(html.replace("<style>", "<STYLE>").replace("</style>", "</STYLE>"), spec, mainTs) },
+    { name: "@MEDIA の大文字表記", expect: "grammar-case", run: () => audit(html.replace("@media (prefers-contrast: more)", "@MEDIA (prefers-contrast: more)"), spec, mainTs) },
+    { name: "base 領域の ANIMATION:（大文字プロパティ）", expect: "grammar-case", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-up { ANIMATION:pulse 1s infinite; }"), spec, mainTs) },
+    { name: "★大文字表記は診断がカスケードしない（grammar-* のみ）", expect: "grammar-case", run: () => {
+      const is = audit(html.replace("<style>", "<STYLE>").replace("</style>", "</STYLE>"), spec, mainTs);
+      return is.every((i) => i.code.startsWith("grammar-")) ? is : []; // 無関係な診断が混じれば空＝fail
+    } },
+    { name: "JS: style[\"animation\"] への代入", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style["animation"] = "pulse 1s";\n`) },
+    { name: "JS: Web Animations API（.animate）", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.animate([{opacity:0},{opacity:1}], 1000);\n`) },
+    { name: "JS: setProperty(\"animation\")", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style.setProperty("animation", "pulse 1s");\n`) },
+    { name: "JS: stylesheet 注入（insertRule）", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\ndocument.styleSheets[0].insertRule(".zz{animation:pulse 1s}");\n`) },
     { name: "main.ts が screen-model を import", expect: "model-leak", run: () => audit(html, spec, `import { SEM_TONES } from "./screen-model.ts";\n${mainTs}`) },
     // ---- ★U1b 検収（#404）で塞いだ穴の裏取り ----
     { name: "既定値を doc と食い違わせる", expect: "default-value", run: () => audit(html.replace("--tx-meta:#857a66", "--tx-meta:#7a7060"), spec, mainTs) },
