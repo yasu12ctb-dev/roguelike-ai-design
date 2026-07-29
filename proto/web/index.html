@@ -181,12 +181,16 @@
       font-family: "Menlo", "Consolas", monospace; animation: floatup .7s ease-out forwards;
       text-shadow: 0 0 6px rgba(0,0,0,.9), 0 1px 2px rgba(0,0,0,.9); }
     @keyframes floatup { 0% { opacity: 0; margin-top: 2px; } 15% { opacity: 1; } 100% { opacity: 0; margin-top: -22px; } }
-    .fl-dmg  { color: var(--gold-leaf); }
-    .fl-hurt { color: var(--c-hp); font-size: 16px; }
-    .fl-heal { color: var(--g-rest); }
-    .fl-miss { color: var(--tx-faint); font-size: 12px; }
-    .fl-kill { color: #fff; text-shadow: 0 0 10px rgba(201,167,90,.9), 0 0 20px rgba(201,167,90,.5); animation: floatup .55s ease-out forwards; }
-    .fl-crit { color: #fff; font-size: 21px; text-shadow: 0 0 12px rgba(230,198,106,1), 0 0 26px rgba(230,198,106,.6), 0 1px 2px rgba(0,0,0,.9);
+    /* ⚠ 種別セレクタは `#floats` を前置して基底 `#floats .fl` と詳細度を揃える（(1,1,0)）。
+       class 単独 (0,1,0) だと font-size / text-shadow / animation が基底に負けて無効化される
+       （v0.167.0 まで会心 21px・critpop・金グローが一度も効いていなかった＝2026-07-28 是正）。 */
+    #floats .fl-dmg  { color: var(--gold-leaf); }
+    #floats .fl-hurt { color: var(--c-hp); font-size: 16px; }
+    #floats .fl-heal { color: var(--g-rest); }
+    #floats .fl-miss { color: var(--tx-faint); font-size: 12px; }
+    #floats .fl-kill { color: #fff; text-shadow: 0 0 10px rgba(201,167,90,.9), 0 0 20px rgba(201,167,90,.5), 0 0 6px rgba(0,0,0,.9), 0 1px 2px rgba(0,0,0,.9);
+      animation: floatup .55s ease-out forwards; } /* 黒影を併記＝盤面(bg-wall)で白い＊の輪郭を保つ（10.2f） */
+    #floats .fl-crit { color: #fff; font-size: 21px; text-shadow: 0 0 12px rgba(230,198,106,1), 0 0 26px rgba(230,198,106,.6), 0 1px 2px rgba(0,0,0,.9);
       animation: floatup .8s ease-out forwards, critpop .28s ease-out; } /* 見切り反撃の会心数字（特大金白・v0.115.0） */
     @keyframes critpop { 0% { letter-spacing: 4px; filter: brightness(2); } 100% { letter-spacing: 0; filter: brightness(1); } }
     /* タイル演出レイヤ（1マスぶんの純CSSエフェクト・グリフを覆わない・v0.115.0） */
@@ -610,7 +614,9 @@
 
       /* C＝単発フィードバック。表示自体は残る（floatFx/tileFx は 900ms の保険タイマで掃除される
          ＝animationend に依存しない）。会心シェイクは前庭刺激が最も強く完全停止。 */
-      #peek, #floats .fl, .fl-kill, .fl-crit,
+      /* ★`#floats` 前置は必須＝基底 `#floats .fl-kill`／`#floats .fl-crit` が (1,1,0) ゆえ、
+         class 単独 (0,1,0) では停止が効かない（ソース順に頼らず詳細度で勝たせる）。 */
+      #peek, #floats .fl, #floats .fl-kill, #floats .fl-crit,
       .tfx-ready, .tfx-slash, .tfx-press::before, .tfx-press::after,
       .shake-crit { animation: none; }
 
