@@ -526,7 +526,7 @@ type IconId =
 | sans | `"Hiragino Sans", system-ui, sans-serif` | ステータス・メタ・ラベル | SF Pro / system |
 | mono | `"Menlo","Consolas",monospace` | 盤面グリフ（等幅・字形の安定） | SF Mono / Menlo |
 
-サイズ（基準・px）：盤面HUD 12／シート本文 14.5／ログ 15（設定で 13/15/17＝小中大＝`logSize`）／ボタン 14.5／メタ 11／版数 10.5。ウェイト：グリフと見出しは 700・本文は標準。行間：ログ 1.8・シート 1.95。**Swift ＝ サイズは Dynamic Type スケールに対応づけ（10.11）。**
+サイズ（基準・px）：盤面HUD 12／シート本文 14.5／ログ 15（設定で 13/15/17＝小中大＝`logSize`）／ボタン 14.5／メタ 11／**版数 10**（HUD 右上 `#stVer`・タイトル `#title .ver`）／**シート副題 10.5**（`#sheetHeadSub`）。ウェイト：グリフと見出しは 700・本文は標準。行間：ログ 1.8・シート 1.95。**Swift ＝ サイズは Dynamic Type スケールに対応づけ（10.11）。**
 
 ### 10.2d アニメーション（keyframes の意味論・Reduce Motion 分類）
 「常時うるさく光らせない・静と動のコントラストで情報を立てる」。各アニメの**意味**を固定する（見た目でなく役割の仕様）。**周期は現行実装（`web/index.html` の `@keyframes`／`animation`）の実値。**
