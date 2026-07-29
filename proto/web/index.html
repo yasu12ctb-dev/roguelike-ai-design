@@ -575,6 +575,86 @@
     #title .sub { font-size: 11px; color: var(--tx-dim); text-align: center; margin-top: 8px; letter-spacing: .04em; min-height: 14px; z-index: 2; }
     #title .ver { margin-top: 13px; text-align: center; font-size: 10px; color: var(--tx-faint);
       font-family: system-ui, sans-serif; letter-spacing: .05em; z-index: 2; }
+
+    /* ================= U1b アクセシビリティ（OS 設定に連動・§10.11） =================
+       正典＝§10.2f（高コントラストのトークン差分）／§10.2d の RM 列（keyframes 分類）。
+       tools/a11y-check.ts が本ブロックと doc を毎回突合する（値の食い違い・分類漏れで fail）。 */
+
+    /* ---- 高コントラスト（§10.2f）：配色は総取り替えせず、WCAG 未達の 7 変数だけを
+       色相・彩度を保ったまま明度で持ち上げる。段差（明暗の順序）は既定と同じに保つ。 ---- */
+    @media (prefers-contrast: more) {
+      :root {
+        --tx-meta:#988d79;                          /* 4.38→5.67（対 bg-sheet・文字 4.5:1） */
+        --tx-faint:#897d66;                         /* 3.04→4.52（対 bg-wall＝.fl-miss が盤面に載る・文字 4.5:1） */
+        --line:#716048; --line-2:#8b7656; --line-3:#8b7656; /* 1.40→3.06 / 1.80→4.26（非テキスト 3:1） */
+        --g-wall:#708298; --g-floor:#576578;        /* 1.82→4.66 / 1.44→3.07（対 bg-void/bg-wall の最悪値） */
+      }
+    }
+
+    /* ---- Reduce Motion（§10.2d の RM 列）：A=装飾は停止／C=単発は移動・拡縮・回転・振動を
+       停止（不透明度だけのフェード＝bannerfade・fxflash は情報表示そのものなので残す）／
+       ★B=状態・予告は動きを止めたうえで「来る」が読める静的な高視認状態へ置換する。
+       B を単に消すことは禁止（予告が読めない＝難易度低下ではなく理不尽化）。 ---- */
+    @media (prefers-reduced-motion: reduce) {
+      /* 非 keyframe motion（§10.2d の transition 表・現在 1 件）。HP／深蝕ゲージの伸縮を止める。
+         最終的な幅は静的に残るため情報は失われない＝静的代替は不要。 */
+      #stBars .gauge .fill { transition: none; }
+
+      /* A＝装飾（17 個別セレクタ）。字形が一意（& ψ‡Ψ 泉 安 扉 痕 境）か色が静的に一意（delver の緑）
+         ゆえ、停止しても識別は落ちない。 */
+      #mapWrap.band-abyss::after, #light,
+      .g-downed, .g-delver, .g-summon,
+      .g-spring, .g-rest, .g-door, .g-aurel, .g-laila,
+      .cell.hz-fire, .cell.hz-venom, .cell.hz-miasma, .cell.hz-frost,
+      .cell.echo-loss::after, .cell.echo-myth::after, .cell.echo-grudge::after { animation: none; }
+
+      /* C＝単発フィードバック。表示自体は残る（floatFx/tileFx は 900ms の保険タイマで掃除される
+         ＝animationend に依存しない）。会心シェイクは前庭刺激が最も強く完全停止。 */
+      #peek, #floats .fl, .fl-kill, .fl-crit,
+      .tfx-ready, .tfx-slash, .tfx-press::before, .tfx-press::after,
+      .shake-crit { animation: none; }
+
+      /* B＝状態・予告（18 個別セレクタ・静的な高視認状態へ置換）。役割色は変えず、各 keyframe の
+         最大値で固定する。★pulse 共用の5件は「アニメの有無が識別に寄与している」ため B。
+         静的代替は各自の役割色を currentColor で強めた発光＝静的な敵ティア（t1-t4 は 6–10px の
+         部分アルファ）や g-fossil-quiet（発光なし）とはっきり差がつく。 */
+      .g-fossil {
+        animation: none; text-shadow: 0 0 16px rgba(159,216,207,1), 0 0 30px rgba(159,216,207,.4); }
+      .g-companion-erratic {
+        animation: none; text-shadow: 0 0 14px rgba(181,139,255,1), 0 0 30px rgba(140,80,230,.7); }
+      .g-mon-t5, .g-elite, .g-boss {
+        animation: none; text-shadow: 0 0 14px currentColor, 0 0 28px currentColor; }
+      .g-player-danger, .g-companion-danger {
+        animation: none; text-shadow: 0 0 18px rgba(255,120,90,1), 0 0 36px rgba(255,60,40,.85); }
+      .g-player-heavy {
+        animation: none; text-shadow: 0 0 22px #ffcf4a, 0 0 46px rgba(255,90,0,.95); }
+      /* ★攻撃予告は「発光」チャネルを t5/elite/boss の静的強発光と奪い合うため、RM 時のみ
+         **形（下線）** という別チャネルを足す＝同じ t5 敵の通常時と攻撃予告時が静的に区別できる。
+         下線を選ぶ理由＝レイアウトを動かさない／既存の枠・背景の予告表現とチャネルが被らない／
+         10px 級のグリフでも視認できる／RM 時のみゆえ既定モードの見た目は不変。 */
+      .g-mon-atk {
+        animation: none; text-shadow: 0 0 16px currentColor, 0 0 26px currentColor; filter: brightness(1.5);
+        text-decoration: underline; text-underline-offset: 2px; }
+      .g-boss-heavy {
+        animation: none; filter: brightness(2); text-shadow: 0 0 22px #ffcf4a, 0 0 46px rgba(255,90,0,.95); }
+      .cell.tele-atk::after {
+        animation: none; border-color: rgba(255,79,60,.98);
+        box-shadow: 0 0 14px rgba(255,79,60,.75) inset, 0 0 10px rgba(255,79,60,.6); }
+      .cell.tele-boss::before {
+        animation: none; background: rgba(255,140,40,.24); border-color: rgba(255,150,50,.85); }
+      .cell.tele-shape::before {
+        animation: none; background: rgba(255,96,48,.24); border-color: rgba(255,110,55,.9); }
+      .cell.tele-charge::before {
+        animation: none; background: rgba(240,200,60,.16); border-color: rgba(245,205,70,.75); }
+      .cell.tele-reach::before {
+        animation: none; background: rgba(255,79,60,.30); box-shadow: 0 0 6px rgba(255,79,60,.4); }
+      .cell.throw-aim::after {
+        animation: none; background: rgba(201,167,90,.22); border-color: rgba(201,167,90,.9); }
+      .cell.hz-crumble.hz-cracked {
+        animation: none; background: rgba(220,170,70,.5); box-shadow: inset 0 0 16px rgba(255,190,80,.7); }
+      #lungeBtn.stance {
+        animation: none; box-shadow: 0 0 20px rgba(230,198,106,.95), inset 0 0 6px rgba(230,198,106,1); }
+    }
   </style>
 </head>
 <body>

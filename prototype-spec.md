@@ -533,7 +533,7 @@ type IconId =
 
 **★本表は抜粋ではなく網羅的な正典（`@keyframes` 全 29 件）＝実装を正典にしない**（U1c の教訓＝宣言を正典に置き、実装との差は機械検査で落とす）。**`@keyframes` を足す／消す／分類を変えるときは本表を先に更新する。**
 
-**U1b の実装 PR で追加する** `tools/a11y-check.ts`（`npm run check` 同梱予定）は、**単位の異なる 2 つの 1:1 突合を独立に**行う（混ぜない）：
+`tools/a11y-check.ts`（**`npm run check` 同梱**）は、**単位の異なる 2 つの 1:1 突合を独立に**行う（混ぜない）：
 1. **keyframe 集合**＝`web/index.html` の `@keyframes` **29 件** ↔ 上の意味論表の ID **29 件**（両方向・件数もアサート）。
 2. **個別セレクタ集合**＝`animation` 宣言のセレクタリストを**カンマで分解**し、**`@keyframes` を参照するものだけ**を採った **48 件** ↔ 下の RM 分類表の **48 件**（両方向・件数もアサート）。**`animation: none` のみで keyframe を参照しないセレクタ（`#light.town`）は対象外。1 セレクタが複数 keyframe を使っても 1 件**（`.fl-crit` は `floatup`＋`critpop` で 1 件）。
 
@@ -571,6 +571,8 @@ type IconId =
 - **C＝単発フィードバック**：短命の結果通知。**移動・拡縮・回転・振動は停止**（前庭刺激）。**表示自体は残す**。
 - **免除**：**不透明度だけを動かす keyframe**（`bannerfade`／`fxflash`）は前庭刺激が無く、消すと情報表示そのものが消えるため**そのまま残す**。
 
+**★B の静的代替を選ぶ一般則（チャネルを重ねない）。** 静的代替は、**既に他の恒常表示が使っているチャネルを重ねて使わない**。発光（`text-shadow`／`filter`）が別の常時表示と競合する場合は、**形（下線・輪郭）など別のチャネル**で代替する。**レイアウトを動かさない手段を選ぶ**（`text-decoration`／`outline` は可、`border`／`padding` は不可）。**現行の実例**＝`.g-mon-t5`／`.g-elite`／`.g-boss` は Reduce Motion 時に静的な強発光で固定されるため、攻撃予告の `.g-mon-atk` が同じ発光チャネルでは区別できない。そこで `.g-mon-atk` は発光に加えて **`text-decoration: underline`** を併用し、**同じ敵の「通常時」と「攻撃予告中」が静的に区別できる**ようにする（`.cell.tele-atk` は被弾先を示すが攻撃元は示さないため、この区別は代替できない）。**Swift でも同じ原則＝チャネルの競合を避ける**（下線は `.underline()` 等でミラー）。
+
 **★数える単位は「個別セレクタ」＝セレクタリストは分解して数える。CSS のルール数・`animation` 宣言数とは一致しない**（例＝`.cell.echo-loss::after, .cell.echo-myth::after, .cell.echo-grudge::after` は 1 ルールだが **3 件**）。**総数 48 ＝ A 17／B 18／C 9／免除 4。** 現行実装の実測との対応＝`@keyframes` 29 定義／`animation` 宣言 47（うち 1 件は `#light.town { animation: none }` で keyframe を参照しない＝**対象外**）／**keyframe を使う個別セレクタ 48**（宣言 46 に対し echo の 1 宣言が 3 セレクタを持つため +2）。
 
 | RM | セレクタ（＝分類の単位） | 根拠 |
@@ -585,6 +587,12 @@ type IconId =
 | **B** | `.cell.throw-aim::after`／`.cell.hz-crumble.hz-cracked`／`#lungeBtn.stance` | 投擲の照準／次に落ちる床／踏み込みの構え中 |
 | **C** | `#peek`／`#floats .fl`／`.fl-kill`／`.fl-crit`／`.tfx-ready`／`.tfx-slash`／`.tfx-press::before`／`.tfx-press::after`／`.shake-crit` | 単発。**`.shake-crit` は前庭刺激が最も強く完全停止** |
 | **免除** | `#floorBanner.show`／`#fx.warp`／`#fx.still`／`#fx.blink` | 不透明度のみ（`bannerfade`／`fxflash`）＝情報表示そのもの |
+
+**★非 keyframe motion（`transition`）の正典＝現在 1 件。** 画面に動きを生む経路は `@keyframes` だけではない。**`transition` も Reduce Motion の対象**であり、本表がその閉集合。**新しい `transition` を書くときは、まず本表に足す**（表に無い `transition` セレクタは `tools/a11y-check.ts` が fail させる。`transition-property` 等の個別プロパティ・1 ルール内の二重宣言・値の `var()` は未対応構文として拒否）。
+
+| セレクタ | 通常 | Reduce Motion | 静的代替 |
+|---|---|---|---|
+| `#stBars .gauge .fill` | `transition: width .18s ease`（HP／深蝕ゲージの伸縮） | **`transition: none`** | **不要**＝最終的な幅は静的に残り、情報は失われない（動きだけを止める） |
 
 **★アニメでないもの（誤解防止）：** **踏み込み先/敵の移動予告 `tele-move` は静的な琥珀背景**（`background: rgba(224,140,72,.34)`＋inset shadow）＝keyframe を持たない。**盤面の床の濃淡・壁の彫り込みも静的**（10.3）。**＝移動予告は Reduce Motion の影響を受けない**（もともと静的表現で「来る」を担保している好例）。
 
@@ -618,14 +626,14 @@ Swift ＝ `withAnimation(.easeInOut.repeatForever())` 等でミラー。**Reduce
 | `acc-2` | `bg-sheet` `#17130e` | **4.5:1（文字）** | `.selgrid .nm .mark` 12px の文字 |
 | `gold-leaf` | **`bg-wall` `#11151c`** | **4.5:1（文字）** | `.fl-dmg`（盤面 15px の与ダメ数字）・`#stBuff .bf.lunge` 11px |
 | `c-hp` / `c-exp` / `c-gold` / `c-buff` / `c-warn` | `bg-sheet` `#17130e`（`c-hp` は `bg-wall`） | **4.5:1（文字）** | ゲージだけでなく **`#stGold`・`#stBuff` 11px・`#log .warn/.cue`・`b-danger` ボタン文字**、`c-hp` は `.fl-hurt`（盤面 16px） |
-| `c-atk` … `c-sum`（術学派） | `bg-sheet` `#17130e` | 4.5:1（文字） | 術名・学派ラベルの文字 |
+| `c-atk` / `c-ctl` / `c-mov` / `c-sup` / `c-lore` / `c-sum`（術学派） | `bg-sheet` `#17130e` | 4.5:1（文字） | 術名・学派ラベルの文字 |
 | `g-*`（盤面グリフ・`g-wall`/`g-floor` を含む） | `bg-void` と `bg-wall` の**両方**（最悪＝`bg-wall`） | 3:1（**非テキスト＝下の根拠**） | 迷宮グリフ |
 
 **面の明るさ順（相対輝度・実測）**＝`bg-void .0027` < `bg-app .0038` < `bg-panel .0058` < `bg-sheet .0068` < **`bg-wall .0074`** < `bg-btn .0096` < `bg-input .0109` < `bg-btn-active .0176`。**盤面の壁はシートより明るい**ため、盤面に出る文字（FloatFx）は最も条件が厳しい。
 
 **★盤面グリフを「非テキスト（3:1）」として扱う根拠（明記）。** 実装の字サイズは `セル幅 × 0.62`＝**縦持ち 480px で 9〜14px（bold）**であり、**WCAG の「大きな文字」（14pt bold ＝ 18.66px bold）には該当しない**。それでも 4.5:1 ではなく **1.4.11 Non-text Contrast の graphical object として 3:1** を採るのは次の理由による。①迷宮グリフは**読解する散文ではなく地図上の記号**で、弁別（どこに何があるか）が目的である。②**同じ情報がテキストとして別経路で提供される**＝盤面タップの「調べる」（`#peek`・10.3）が名前・傷語・状態異常・能力ヒントを文字で読ませる（U2 では VoiceOver の盤面要約＝10.11(a) も担う）。③記号＝種別／色＝tier の**二重符号化**（10.11）でグリフ単独に依存しない。**残存リスクの自認**＝10px 級の記号は 3:1 でも弱視のプレイヤーには厳しい。緩和は上記②の経路であり、**盤面を一律に明るくする方向は採らない**（雰囲気の破壊と、暗所＝未踏部の情報設計が壊れるため）。
 
-**正典＝本節の 2 表**（差分表と規則表）。**U1b の実装 PR で追加する** `tools/a11y-check.ts` が、①`:root` の全色変数を列挙して規則表のどの行に当たるかを解決（当たらない／曖昧なら fail）②**検査に使う閾値表を本規則表から生成**（ツール側にハードコードしない）③既定値・高コントラスト値の双方を実 CSS から読み **WCAG 比を毎回再計算**（基準未達なら fail）④差分表と CSS の値が食い違えば fail、を行う。
+**正典＝本節の 2 表**（差分表と規則表）。`tools/a11y-check.ts` が、①`:root` の全色変数を列挙して規則表のどの行に当たるかを解決（当たらない／曖昧なら fail）②**検査に使う閾値表を本規則表から生成**（ツール側にハードコードしない）③既定値・高コントラスト値の双方を実 CSS から読み **WCAG 比を毎回再計算**（基準未達なら fail）④差分表と CSS の値が食い違えば fail、を行う。
 
 ### 10.3 グリフ凡例（迷宮）
 プレイヤー `@`金 `#ffd87a`／相棒 `@`青 `#6fc7ff`（erratic時 菫 `#b58bff`脈動）／すれ違う冒険者 `@`緑 `#79d39b`／召喚 `ψ/‡/Ψ`菫 `#c79bff`／手負い `&`琥珀 `#d8a24a`／敵 記号×tier色（10.2）／エリアボス `Ω`／中ボス(エリート)色 `#ffcf4a`／化石 `†`青緑 `#9fd8cf`（鎮め済 `#6f9a93`）／宝箱 `▭`金（開封 `#7a6a44`）／階段 `›`/`‹` `#6fb3c8`／回復の泉 `泉` `#5fd2d8`／安息所 `安` `#8fdf9a`／帰還の扉 `扉`金 `#ffd24a`／壁 `▒` `#39434f`／床 `·` `#2c333d`／照準 `⊕`（到達=緑/不可=赤）。
@@ -693,7 +701,7 @@ Swift ＝ `withAnimation(.easeInOut.repeatForever())` 等でミラー。**Reduce
 ### 10.11 アクセシビリティ（RFC UI Swift-ready v3 §5 由来）
 **原則：雰囲気を壊さず OS 設定に連動する。通常テーマの盤面を一律に明るくしない。**
 
-**★実装状況（2026-07-28 現在）：本節時点では web 未実装。高コントラストと Reduce Motion は U1b の実装 PR で web に追加・有効化する**（＝Swift が鏡にする「実行可能な仕様」にする）。**値と分類の正典は先に本 doc で確定させる**＝**10.2f（高コントラストのトークン差分表＋閾値・判定面の規則表）** と **10.2d（keyframe の意味論表＋セレクタ単位の RM 分類表）**。機械検査 `tools/a11y-check.ts`（`npm run check` 同梱）も**同じ実装 PR で追加**する。**Dynamic Type と VoiceOver は Swift フェーズ（U2）**＝web の DOM では等価物を持てないため。
+**★実装状況（U1b・2026-07-28）：高コントラストと Reduce Motion は web に実装済み＝Swift が鏡にする「実行可能な仕様」。** 値と分類の正典は **10.2f（高コントラストのトークン差分表＋閾値・判定面の規則表）** と **10.2d（keyframe の意味論表＋セレクタ単位の RM 分類表）**、機械検査は `tools/a11y-check.ts`（**`npm run check` 同梱**＝keyframe 29 と個別セレクタ 48 の 1:1 突合／RM 被覆と免除／B の静的代替／規則表から生成した閾値での WCAG 再計算）。**Dynamic Type と VoiceOver は Swift フェーズ（U2）**＝web の DOM では等価物を持てないため。
 
 - **Dynamic Type**：`logSize`（小/中/大）を型スケールトークンとして持ち、Swift は `.dynamicTypeSize` で OS 設定に追従。盤面グリフは等幅維持のため上限クランプ（レイアウト崩壊防止）、シート/ログは全域追従。
 - **高コントラスト**（`@media (prefers-contrast: more)` / Swift `.accessibilityShowButtonShapes`・`legibilityWeight`・`UIAccessibility.isDarkerSystemColorsEnabled`）**＝具体値は 10.2f が正典**：**不変に保つのは「色の役割の対応（自分=金系・深蝕=菫系・敵ティアの段・術学派の別）と互いに識別可能であること」であって各役割色の RGB 値そのものではない。** 背景・罫線を変えてコントラスト比を割るなら**役割色の明度/彩度を調整してよい**（意味と相対関係は保つ）。**コントラスト基準は対象別（WCAG AA）＝①通常文字 4.5:1／②大きな文字（18pt 以上、または 14pt 以上の太字）3:1／③主要な非テキスト UI（ゲージ・アイコン・枠・状態表示）3:1**。既定（雰囲気優先）と高コントラストの2系統をトークンで分岐（高コントラストは OS 設定 ON 時のみ）。
