@@ -200,10 +200,14 @@ export function assertGrammar(html: string, mainTs: string): Issue[] {
     [/createElement\(\s*["'`]style/, 'JS からの stylesheet 注入（createElement("style")）'],
   ];
   for (const [re, label] of JS_ANIM) if (re.test(mainTs)) bad("grammar-js-anim", `CSS 外からアニメ/スタイルを足している: ${label}`);
-  // G10：スクロール API は未対応（現状 0 件＝main.ts は scrollTop の代入のみ）。値オブジェクトの
-  //       中身は一切解析しない＝面を禁じることで書き方の変種を追いかけない。
-  for (const m of mainTs.matchAll(/\b(scroll|scrollTo|scrollBy|scrollIntoView)\s*\(/g))
-    bad("grammar-js-scroll", `スクロール API は未対応（動きの経路）: ${m[1]}()`);
+  // G10：スクロール API は未対応（現状 0 件＝main.ts は scrollTop / scrollHeight の
+  //       プロパティ代入・参照のみで、単語境界により誤検出しない）。
+  //       ★**呼び出し構文を一切解析せず、識別子の出現そのもの**を禁じる。これで bracket
+  //       （window["scrollTo"]）・optional chaining（scrollTo?.()）・alias（const m = scrollTo）・
+  //       prototype 経由（Element.prototype.scrollIntoView.call）を同時に閉じられる。
+  //       構文の側を見ると変種が無限に作れる＝前回と同じ誤りを繰り返さないための形。
+  for (const m of mainTs.matchAll(/\b(scroll|scrollTo|scrollBy|scrollIntoView)\b/g))
+    bad("grammar-js-scroll", `スクロール API は未対応（動きの経路）: ${m[1]}`);
   return out;
 }
 
@@ -510,6 +514,11 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
     { name: "JS: scrollTo({ \"behavior\": \"smooth\" })（クォート表記）", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nscrollTo({ "behavior": "smooth" });\n`) },
     { name: "JS: 変数経由の短縮記法 scrollTo({ behavior })", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nconst behavior = "smooth"; scrollTo({ behavior });\n`) },
     { name: "JS: scrollIntoView() の呼び出し自体", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nel.scrollIntoView();\n`) },
+    // ---- ★呼び出し構文の変種＝#404 検収 9 巡目（識別子の出現そのものを禁じる）----
+    { name: "JS: window[\"scrollTo\"](…)（bracket）", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nwindow["scrollTo"]({ top: 0, behavior: "smooth" });\n`) },
+    { name: "JS: window.scrollTo?.(…)（optional chaining）", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nwindow.scrollTo?.({ top: 0 });\n`) },
+    { name: "JS: alias 経由（const move = window.scrollTo）", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nconst move = window.scrollTo; move({ top: 0 });\n`) },
+    { name: "JS: prototype 経由（scrollIntoView.call）", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nElement.prototype.scrollIntoView.call(el, { behavior: "smooth" });\n`) },
     { name: "main.ts が screen-model を import", expect: "model-leak", run: () => audit(html, spec, `import { SEM_TONES } from "./screen-model.ts";\n${mainTs}`) },
     // ---- ★U1b 検収（#404）で塞いだ穴の裏取り ----
     { name: "既定値を doc と食い違わせる", expect: "default-value", run: () => audit(html.replace("--tx-meta:#857a66", "--tx-meta:#7a7060"), spec, mainTs) },
