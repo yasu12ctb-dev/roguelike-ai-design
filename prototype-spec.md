@@ -422,6 +422,7 @@ snapshot §5：**潜行 → 深蝕 → 死（最後の一手）→ 化石化 →
 - **遭遇系オーバーレイ**：化石（`fossilScene`＝調べる/捜索/干渉/山場）／宝箱（`chestScene`）／ボス決着（`handleBossResolve`＝討つ/鎮める/名を呼ぶ）／レベルアップ／昇格（`rankUpScene`）。
 - **シート（≡/ステータスから）**：設定（`settingsSheet`）／あそびかた（`helpSheet` 2頁＝流れ・凡例）／ステータス本体（`charScreen`）→ 記憶（`memoriesSheet`）／装備・持ち物（`gearSheet`）／術（構え `manageLoadout`・図鑑 `spellCodex`）／進行中（依頼・因縁・印 `eventsScreen`）／人物と年代記（`chronicleScene`）／敵図鑑（`bestiaryScreen`）。
 - **共通UI**：選択肢シート `sheet({text, sections?, meta, options})`（全対話の基本単位）。**三層構造（横断F ①・v0.96.0）＝①ヘッダ帯（`#sheetHead`＝題〔朱の左罫〕＋副題＋✕。`meta` を最初の `" ── "` で題／副題に分割）／②本文 `#sheetText`（自由文）＋任意の構造化リスト `#sheetList`（kv 行・セクション見出し）／③役割つきボタン列 `#sheetButtons`。** Swift も「ナビゲーション題（`.topBarTrailing` dismiss）＋本文/セクション＋ボタン列」を基本コンポーネントにする。
+  - **詰め版（`sheet({compact:true})`・横断F ②・v0.171.0）：** 情報量が多く一画面に収まらない画面だけの変種（CSS `#sheet.compact`）。kv 行の上下余白と選択肢の余白を詰め、**短い選択肢を2列**に並べる（`cancel` と設定見出しは全幅・`min-height 48px` は不変）。**物語の選択肢（長文）には掛けない**＝現在の採用は**ステータス（`charScreen`）のみ**。ステータス側は行そのものも集約する（HP/攻撃→能力行・薬/武具→持ち物1行）。**Swift ＝ 行 inset を詰めた Form ＋ 2 列 LazyVGrid のボタン列。**
   - **構造化リスト（`sheet({sections})`・横断F ①）：** ラベル/値の整列表（Wizardry 流）。`SheetSection{header?, rows}`／kv 行 `{label,value,note?,cls?}`（ラベル淡・値強＋右寄せ `tabular-nums`）／自由文行 `{text,dim?}`。セクション見出しは朱の左罫。**Swift ＝ `Section(header:)` ＋ `LabeledContent`（kv）／`Text`（自由文）に 1:1**＝画面を書き直さず移植できる。採用画面＝ステータス（`charScreen`）・バフ説明（`buffSheet`）・系譜の間の当主詳細（`lineageHallScene`・v0.105.2）・**（v0.106.0 で横展開＝文字羅列FB対応）進行中の事ども（`eventsScreen`）・等級/英雄譜（`heroRoll`）・年代記（`chronicleScene`）・慰霊碑（`memorialScene`）・奉献の像（`monumentScene`）・自宅の物入れ（`homeView`）・系譜をたどる（`lineageScene`）・記憶（`memoriesSheet`）・敵図鑑の詳細（`bestiaryScreen` 詳細）**。他画面も順次オプトイン可。
   - **カード一覧→詳細の二層（`chooseGrid` cols:1）：** 多数の項目は「カード一覧（名＋色分けglyph＋1行サブ）→タップで詳細（sections）」の二層で見せる。採用画面＝敵図鑑（`bestiaryScreen`）・**系譜の間＝家系図（`lineageHallScene`・v0.105.2）**＝歴代当主カード（★=退いた伝説〔金〕／†=斃れた〔極の色：神話=金泥・喪失=青緑・怨念=赤〕・新しい代が上）→当主詳細（最期／いま〔変質〕／遺品／言葉）。**（v0.106.0 で横展開）依頼板（`questBoard`＝ギルド/酒場/謁見）＝受取可(✓)／受注可／受注中(◦)を色分けカードで一覧→タップで受取/受注、受注中は条件・進捗の詳細**／**術の構え（`manageLoadout`＝学派チップ＋構え印カード・図鑑 `spellCodex` と同じ見た目）**も採用。**Swift ＝ List（カード）＋ NavigationLink 詳細に 1:1。**
   - **ボタン役割：** `primary`（朱罫＋微光＝先へ進む動詞）／通常（塗りなし1px罫）／`cancel`（罫なし中央＝閉じる・立ち去る）／`danger`（warn 罫＝取り返しのつかない操作）。`gap` で動詞グループ間に間隔。役割は明示指定 or 自動判定（末尾の「閉じる/戻る」＝cancel／「やり直す」を含む＝danger）。min-height 48px（タッチ最小）。**Swift ＝ `ButtonRole`（.cancel/.destructive）＋ buttonStyle。**
@@ -492,12 +493,12 @@ type IconId =
 
 ### 10.2b 様式（方向①「静謐な写本」・v0.96.0）
 角・罫：角丸トークン `--r-btn/--r-card 3px`・`--r-chip 2px`（角を立てる）。シート上辺＝`3px double` の子持罫＋**金泥のL字角飾り**（四隅、`rgba(201,167,90,.45)`・Swift は小 Path overlay）。
-セクション/見出し：**朱の左罫**（`border-left:3px solid --acc`）＋セリフ。ログ・シート・タイトルはセリフ主体（`"Hiragino Mincho ProN","Yu Mincho","Noto Serif CJK JP",serif`）、メタ/ラベルはサンセリフ可。
+セクション/見出し：**朱の左罫**（`border-left:3px solid --acc`）＋セリフ。**見出しは `font-weight:700`・色は本文色 `--tx-2`**（v0.171.0＝10.2c「見出しは700」に実装を合わせた。以前は淡色 `--tx-dim`＋字間だけで示していた）。ログ・シート・タイトルはセリフ主体（`"Hiragino Mincho ProN","Yu Mincho","Noto Serif CJK JP",serif`）、メタ/ラベルはサンセリフ可。
 ゲージ（HUD）：発光/グラデを捨てた**静かな墨線**（高さ `--gauge-h 5px`・角 `--gauge-r 0`・薄い墨地 `#0b0906`）。**深蝕ゲージに「牙の閾 1.5」の朱目盛**（50% 位置に朱 1px＝HPドレインが始まる前に読める）。fill は正典色（HP `--c-hp`／深蝕 `--c-exp`）。
 バフ：**ピルチップ**（`⟡名N`・朱ではなくバフ色の細罫）。**タップで説明ポップ**（名前／残り手数／1行説明の kv・SPD 流／`buffSheet`）。
 ボタン役割（10.1 参照）：primary＝朱罫＋微光／通常＝塗りなし1px罫／cancel＝罫なし中央／danger＝warn 罫。min-height 48px。
 拾得物のシジル（Wizardry/シレン流の1字圧縮）：装備中＝★（金泥）／未鑑定＝？（淡）／発動効果（proc）＝〔薙/止/裂/萎/受/棘/清/威/怯〕（朱）。名前に前置/後置。
-タイトル：墨黒地・最小限の光の題字（`#efe6d3`）＋**朱の落款「蝕」**。残り火（embers）は①では出さない（DOM は残し CSS で隠す＝別テーマ復帰用）。primary メニュー＝朱の塗り。theme-color＝`#14110c`（`--bg-panel`＝タブバー/ホームインジケータ帯と連続）。
+タイトル：墨黒地・最小限の光の題字（`#efe6d3`）＋**朱の落款「蝕」**。**落款の下＝世界の来歴（`#titleLore`・v0.171.0）**＝金泥の細罫（66×1px・`rgba(201,167,90,.4)`）＋淡色 `--tx-faint` の三行（`この深みに 眠る者 {化石数}人`／`最も深く 眠るのは 深度 {最深の化石}`／`捧げられた印 {n}／5`。後二行は該当が無ければ出さない）。**新しいセーブ項目は足さない＝既存 World から導出**（化石が1件も無ければ丸ごと出さないが、新規世界にも種化石が居るので通常は初回から出る）。**「還った」でなく「眠る者」**＝副題の「まだ誰も、ここへは潜っていない」（＝プレイヤーの系譜の話）と食い違わないため。残り火（embers）は①では出さない（DOM は残し CSS で隠す＝別テーマ復帰用）。primary メニュー＝朱の塗り。theme-color＝`#14110c`（`--bg-panel`＝タブバー/ホームインジケータ帯と連続）。
 ※すべて gradient/border/shadow/text-shadow のみ＝**SwiftUI modifier（stroke/cornerRadius/shadow/tracking/小 Path overlay）で表現可能・画像アセットゼロ**。
 
 ### 10.2e 前景意味トークン ID の正典一覧（`SemTone` の生成元）

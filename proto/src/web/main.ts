@@ -66,7 +66,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.170.0";
+export const APP_VERSION = "0.171.0";
 export const APP_BUILD = "2026-07-30";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -185,7 +185,9 @@ type SheetRow = { label: string; value: string; note?: string; cls?: string } | 
 interface SheetSection { header?: string; rows: SheetRow[] } // Swift ＝ Section(header:)
 // 選択肢＝文字列（従来どおり）／役割つきオブジェクト（opt-in）。既存 string[] 呼び出しはそのまま有効。
 type SheetOption = string | { label: string; role?: "primary" | "cancel" | "danger"; header?: string; gap?: boolean };
-interface SheetOpts { text?: string; sections?: SheetSection[]; meta?: string; options: SheetOption[]; input?: string; }
+// compact＝情報量の多いシートだけの詰め版（横断F ②・v0.171.0）。行高を詰め短い選択肢を2列に（CSS `#sheet.compact`）。
+// 物語の選択肢（長文）に掛けると読みにくくなるので、指定した画面（現＝charScreen）だけに効かせる。
+interface SheetOpts { text?: string; sections?: SheetSection[]; meta?: string; options: SheetOption[]; input?: string; compact?: boolean; }
 const optLabel = (o: SheetOption) => typeof o === "string" ? o : o.label;
 
 /** 構造化セクションを #sheetList に描画（createElement + textContent のみ＝注入面ゼロ）。sections 無しなら空にする（残留リーク防止）。 */
@@ -219,6 +221,7 @@ function sheet(o: SheetOpts): Promise<{ pick: number; text: string }> {
   return new Promise((resolve) => {
     hidePeek(); // 場面が開いたら「調べる」ポップは畳む（v0.99.0）
     sheetText.textContent = o.text ?? "";
+    sheetEl.classList.toggle("compact", !!o.compact); // 指定シートのみ詰め版（既定は必ず外す＝前の画面の残留を防ぐ）
     setSheetHead(o.meta);
     renderSheetSections(o.sections);
     sheetInputRow.classList.toggle("show", o.input !== undefined);
@@ -271,6 +274,7 @@ function schoolCls(school: string): string {
 function chooseGrid(o: { title: string; lead?: string; cells: { html: string }[]; cancel?: string; cols?: number }): Promise<number> {
   return new Promise((resolve) => {
     sheetText.textContent = o.lead ?? "";
+    sheetEl.classList.remove("compact"); // 詰め版はカード一覧には掛けない（前回シートの残留を防ぐ）
     setSheetHead(o.title);
     renderSheetSections(undefined); // 構造化リストを空に（前回シートの残留を防ぐ）
     sheetInputRow.classList.remove("show");
@@ -8113,10 +8117,9 @@ async function charScreen() {
     const lo = activeLoadout(ch);
     const loNames = lo.map((k) => spellByKey(k)?.name ?? k).join("、");
 
+    // 行の集約（横断F ②・v0.171.0）＝HP/攻撃は能力の派生値なので同じ行に畳む。Lv46 でも一画面に収めるため。
     const selfRows: SheetRow[] = [
-      { label: "能力", value: statsLine(ch) },
-      { label: "最大HP", value: String(maxHp(ch)) },
-      { label: "攻撃", value: String(meleeDmg(ch)) },
+      { label: "能力", value: `${statsLine(ch)}　HP${maxHp(ch)}／攻${meleeDmg(ch)}` },
       { label: "次のLvまで", value: String(Math.max(0, xpToNext(ch.level) - ch.xp)) },
       { label: "深蝕", value: ch.exposure.toFixed(2), cls: "exp", note: "牙の閾 1.5" },
     ];
@@ -8127,10 +8130,9 @@ async function charScreen() {
     const spellRows: SheetRow[] = ch.spells.length
       ? [{ label: "構え", value: `${lo.length}/${LOADOUT_CAP}` }, { text: loNames || "なし", dim: true }]
       : [{ text: "未識得", dim: true }];
+    // 中身の導線は直下の「装備・持ち物を見る」ボタンが担うので、注記行は畳む（横断F ②）。
     const packRows: SheetRow[] = [
-      { label: "薬・巻物", value: `${consN}個` },
-      { label: "武具", value: `${gearN}点` },
-      { text: "※中身は「装備・持ち物を見る」", dim: true },
+      { label: "持ち物", value: `薬・巻物 ${consN}個／武具 ${gearN}点` },
     ];
     const sections: SheetSection[] = [
       { rows: selfRows },
@@ -8156,7 +8158,7 @@ async function charScreen() {
     const r = await sheet({
       text: `《${ch.name}》　Lv ${ch.level}`,
       meta: `ステータス ── 第${world.generation}世代・${DIFFICULTY_LABEL[world.difficulty ?? "easy"]}`,
-      sections, options: opts,
+      sections, options: opts, compact: true,
     });
     busy = false;
     const label = optLabel(opts[r.pick - 1] ?? "");
@@ -9171,6 +9173,27 @@ addEventListener("resize", () => {
 // タイトルの音声ゲート（autoplay 対策）：ブラウザは初回ユーザー操作まで音を出せないため、
 // コールド起動時のみ「画面に触れてはじめる」を一枚挟み、その一手で AudioContext を起こして
 // ④追憶（setBgm("title")）を立ち上げてからメニューを出す。音声解禁済み／BGMオフ／ミュート時は出さない。
+/** タイトル中央の余白に「世界の来歴」を三行で置く（横断F ②・v0.171.0）。
+ *  出典はすべて既存の World（新しいセーブ項目を足さない）＝化石の数／最も深い化石の深度／集めた印。
+ *  ★文言は「眠る者」＝新規世界にも種化石が居るので「還った」だと副題（まだ誰も潜っていない）と食い違うため。
+ *  化石が1件も無ければ丸ごと出さない（保険＝通常は種化石があるので初回から出る）。 */
+function renderTitleLore() {
+  const el = $("titleLore");
+  el.textContent = "";
+  const fossils = world.fossils ?? [];
+  if (!fossils.length) { el.hidden = true; return; }
+  const deepest = fossils.reduce((a, f) => Math.max(a, f.laidDepth ?? 0), 0);
+  const seals = world.seals?.length ?? 0;
+  const lines = [`この深みに 眠る者 ${fossils.length}人`];
+  if (deepest > 0) lines.push(`最も深く 眠るのは 深度 ${deepest}`);
+  if (seals > 0) lines.push(`捧げられた印 ${seals}／${SEAL_KEYS.length}`);
+  const rule = document.createElement("div"); rule.className = "rule"; el.appendChild(rule);
+  lines.forEach((t, i) => {
+    if (i) el.appendChild(document.createElement("br"));
+    el.appendChild(document.createTextNode(t));
+  });
+  el.hidden = false;
+}
 function titleGate(sub: string): Promise<void> {
   return new Promise((resolve) => {
     $("titleSub").textContent = sub;
@@ -9204,6 +9227,7 @@ function titleChoose(items: { label: string; primary?: boolean }[], sub: string)
 
 async function titleScreen(): Promise<void> {
   setBgm("title");
+  renderTitleLore();
   const ch = world.current;
   const living = !!(ch && ch.alive);
   const snap = living ? loadDive() : null;
