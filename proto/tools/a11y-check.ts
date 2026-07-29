@@ -35,6 +35,7 @@ const SPEC = join(__dirname, "..", "..", "prototype-spec.md");
 /** 正典が宣言する件数（doc 側の行を消したときに両側から同時に消える事故を捕まえるため固定値でも持つ）。 */
 const EXPECT_KEYFRAMES = 29;
 const EXPECT_SELECTORS = 48;
+const EXPECT_TRANSITIONS = 1;
 
 type Issue = { code: string; msg: string };
 type Rule = { ids: string[]; globs: string[]; on: string[]; need: number | null };
@@ -74,20 +75,144 @@ function mediaBlock(css: string, cond: string): string | null {
 const NON_COLOR_VARS = new Set(["r-btn", "r-card", "r-chip", "gauge-h", "gauge-r", "torch-rgb"]);
 const HEX6 = /^#[0-9a-fA-F]{6}$/;
 const LOOKS_COLOR = /^(#|rgba?\(|hsla?\(|color\(|hwb\(|lab\(|lch\(|oklab\(|oklch\(|(red|blue|green|white|black|gray|grey|orange|purple|yellow|pink|brown|cyan|magenta|transparent|currentcolor)\b)/i;
-function customProps(block: string): { colors: Record<string, string>; issues: Issue[] } {
+/** プロジェクトの命名規約（小文字・数字・ハイフンのみ）。CSS 的にはもっと広いので**規約外は明示 fail**。 */
+const VAR_NAME_OK = /^[a-z0-9-]+$/;
+function customProps(block: string, where: string): { colors: Record<string, string>; names: string[]; issues: Issue[] } {
   const colors: Record<string, string> = {};
+  const names: string[] = [];
   const issues: Issue[] = [];
-  for (const m of block.matchAll(/--([a-z0-9-]+)\s*:\s*([^;{}]+)/g)) {
+  // ★名前は「拾ってから弾く」。旧実装は --([a-z0-9-]+) で、規約外の名前（大文字・underscore 等）が
+  //   マッチせず **issue にならずに読み飛ばされて**いた＝母集団の入口で黙って消える穴だった。
+  //   `()` を除外文字に入れるのは var(--x) の参照を名前と誤認しないため。
+  for (const m of block.replace(/var\(\s*--[^)]*\)/g, "").matchAll(/--([^\s:;{}]+)\s*:\s*([^;{}]+)/g)) {
     const name = m[1], raw = m[2].trim();
+    names.push(name);
+    if (!VAR_NAME_OK.test(name)) {
+      issues.push({ code: "var-name", msg: `[${where}] custom property 名が規約外（小文字・数字・ハイフンのみ）: --${name}` });
+      continue;
+    }
     if (HEX6.test(raw)) { colors[name] = raw.toLowerCase(); continue; }
     if (LOOKS_COLOR.test(raw))
-      issues.push({ code: "color-format", msg: `--${name} の色形式が許容外（6 桁 hex のみ）: ${raw}` });
+      issues.push({ code: "color-format", msg: `[${where}] --${name} の色形式が許容外（6 桁 hex のみ）: ${raw}` });
     else if (!NON_COLOR_VARS.has(name))
-      issues.push({ code: "var-unclassified", msg: `--${name} は色でも既知の非色でもない: ${raw}（a11y-check の NON_COLOR_VARS へ登録するか色に直す）` });
+      issues.push({ code: "var-unclassified", msg: `[${where}] --${name} は色でも既知の非色でもない: ${raw}（a11y-check の NON_COLOR_VARS へ登録するか色に直す）` });
   }
-  return { colors, issues };
+  return { colors, names, issues };
 }
-const colorVars = (block: string): Record<string, string> => customProps(block).colors;
+
+// ================= ★受け付ける CSS 文法（ホワイトリスト）=======================
+// 4 度の検収で「怪しい形を見つけて弾く」方向（ブラックリスト）では原理的に閉じないと判明した。
+// そこで **受け付ける形を宣言し、それ以外はすべて fail** する。新しい構文を使いたくなったら
+// まず本宣言を更新する運用にする（黙って母集合から消える経路を作らない）。
+//   G1 `<style>` はちょうど 1 個
+//   G2 at-rule は `@keyframes` と `@media` のみ（@import/@supports/@layer/@container/@scope は不可）
+//   G3 `@media` の条件は許容 3 種のみ（正規化して比較）。`prefers-contrast`/`prefers-reduced-motion`
+//      は **各ちょうど 1 個**
+//   G4 高コントラストと Reduce Motion のブロックは **style の末尾 2 ブロック**（以降に宣言を置かない）
+//   G5 animation 系は `animation:` ショートハンドのみ・**1 ルール 1 宣言**・値に `var(` を含まない
+//      （`animation-name` 等の個別プロパティ／二重宣言／var 経由は「未対応構文」として fail）
+//   G6 custom property は `var(--x)` 参照を除去してから抽出＝括弧やエスケープを含む名前も必ず届く
+//   G7 canonical case ＝ HTML タグ・at-rule・CSS プロパティ名はすべて小文字（大文字表記は fail）
+//   G10 スクロール API（scroll / scrollTo / scrollBy / scrollIntoView）と style.scrollBehavior は
+//       未対応＝値ではなく API の面を禁じる（現状 0 件）
+//   G9 CSS の scroll-behavior は未対応（スムーススクロールも「動き」＝現状 0 件）
+//   G8 CSS 外からアニメ/動きを足さない＝`style.animation` / bracket 記法 / `setProperty("animation")` /
+//      Web Animations API（`.animate(` / `new Animation(`）/ JS からの stylesheet 注入
+//      （`insertRule` / `adoptedStyleSheets` / `createElement("style")`）はすべて fail
+//   ★文法違反があれば audit はそこで打ち切る（壊れた入力に無意味な診断をカスケードさせない）
+const MEDIA_ALLOW = ["(display-mode:standalone)", "(prefers-contrast:more)", "(prefers-reduced-motion:reduce)"];
+const normCond = (c: string) => c.replace(/\s+/g, "").toLowerCase();
+const A11Y_CONDS = ["(prefers-contrast:more)", "(prefers-reduced-motion:reduce)"];
+
+/** 許容文法の検査。ここで fail した場合、以降の検査結果は信用できない。 */
+export function assertGrammar(html: string, mainTs: string): Issue[] {
+  const out: Issue[] = [];
+  const bad = (code: string, msg: string) => out.push({ code, msg });
+  // G1/G7：<style> は case-insensitive に位置を取り（さもないと slice が壊れて診断がカスケードする）、
+  //         そのうえで canonical（小文字）でなければ fail。
+  const tags = html.match(/<\/?style[\s>]/gi) ?? [];
+  if (tags.length !== 2) bad("grammar-style-count", `<style> はちょうど 1 個であること（タグ ${tags.length} 個）`);
+  for (const t of tags) if (t !== t.toLowerCase()) bad("grammar-case", `HTML タグは小文字表記であること: ${t.trim()}`);
+  const so = html.search(/<style[^>]*>/i), sc = html.search(/<\/style>/i);
+  if (so < 0 || sc < 0 || sc <= so) { bad("grammar-style-count", "<style>…</style> を特定できない"); return out; }
+  const style = stripComments(html.slice(so + html.slice(so).indexOf(">") + 1, sc));
+  // G2/G7：at-rule は @keyframes / @media のみ・小文字表記のみ
+  for (const m of style.matchAll(/@([A-Za-z-]+)/g)) {
+    if (m[1] !== m[1].toLowerCase()) { bad("grammar-case", `at-rule は小文字表記であること: @${m[1]}`); continue; }
+    if (!["keyframes", "media"].includes(m[1])) bad("grammar-at-rule", `未対応の at-rule: @${m[1]}（許容は @keyframes / @media のみ）`);
+  }
+  // G7：CSS プロパティ名も小文字（宣言位置のみを見る＝値の大文字〔font-family 等〕は対象外）
+  for (const r of rules(style))
+    for (const d of r.body.matchAll(/(^|;)\s*([-A-Za-z]+)\s*:/g)) {
+      // custom property（--*）は CSS 的に case-sensitive ＝「大文字表記」ではなく命名規約の問題。
+      // customProps() の var-name が扱うため、ここでは対象外にする（診断を取り違えないため）。
+      if (d[2].startsWith("--")) continue;
+      if (d[2] !== d[2].toLowerCase()) bad("grammar-case", `CSS プロパティ名は小文字表記であること: ${d[2]}（${r.sel.trim().slice(0, 40)}）`);
+    }
+  // G3：@media 条件は許容 3 種のみ・HC/RM は各ちょうど 1 個
+  const conds = [...style.matchAll(/@media([^{]*)\{/g)].map((m) => normCond(m[1]));
+  for (const c of conds) if (!MEDIA_ALLOW.includes(c)) bad("grammar-media-cond", `未対応の @media 条件: ${c}`);
+  for (const need of A11Y_CONDS) {
+    const n = conds.filter((c) => c === need).length;
+    if (n !== 1) bad("grammar-media-count", `@media ${need} はちょうど 1 個であること（実際 ${n} 個）`);
+  }
+  // G4：HC と RM は **他の宣言を挟まない連続した suffix**（間・後ろの両方を検査する）
+  const blocks: { start: number; end: number }[] = [];
+  for (const m of style.matchAll(/@media([^{]*)\{/g)) {
+    if (!A11Y_CONDS.includes(normCond(m[1]))) continue;
+    let depth = 0, j = style.indexOf("{", m.index!);
+    for (; j < style.length; j++) { if (style[j] === "{") depth++; else if (style[j] === "}") { depth--; if (!depth) break; } }
+    blocks.push({ start: m.index!, end: j + 1 });
+  }
+  blocks.sort((a, b) => a.start - b.start);
+  if (blocks.length === 2) {
+    const gap = style.slice(blocks[0].end, blocks[1].start), tail = style.slice(blocks[1].end);
+    if (/[^\s]/.test(gap)) bad("grammar-tail", `高コントラストと Reduce Motion のブロックの間に宣言がある: ${gap.trim().slice(0, 60)}…`);
+    if (/[^\s]/.test(tail)) bad("grammar-tail", `a11y ブロックより後に宣言がある: ${tail.trim().slice(0, 60)}…`);
+  }
+  // G5：animation / transition 系プロパティの構文を閉じる（動きを生む経路は両方とも対象）
+  for (const r of rules(style)) {
+    for (const [head, code] of [["animation", "anim"], ["transition", "trans"]] as const) {
+      const decls = [...r.body.matchAll(new RegExp(`(^|[;{\\s])(${head}[a-z-]*)\\s*:\\s*([^;]*)`, "g"))];
+      const shorthand = decls.filter((d) => d[2] === head);
+      for (const d of decls) if (d[2] !== head) bad(`grammar-${code}-prop`, `未対応の ${head} 個別プロパティ: ${d[2]}（${r.sel.trim().slice(0, 40)}）`);
+      if (shorthand.length > 1) bad(`grammar-${code}-dup`, `1 ルールに ${head} 宣言が複数（後勝ちは解析しない）: ${r.sel.trim().slice(0, 40)}`);
+      for (const d of shorthand) if (/var\(/.test(d[3])) bad(`grammar-${code}-var`, `${head} の値に var() は未対応: ${r.sel.trim().slice(0, 40)}`);
+    }
+  }
+  // G9：CSS のスムーススクロールは未対応（現状 0 件。使うときは先に正典と検査を更新する）
+  for (const r of rules(style))
+    if (/(^|[;{\s])scroll-behavior\s*:/.test(r.body)) bad("grammar-scroll", `scroll-behavior は未対応（動きの経路）: ${r.sel.trim().slice(0, 40)}`);
+  // G8：CSS 外（JS）からアニメ・スタイルを足す経路をすべて塞ぐ
+  const JS_ANIM: [RegExp, string][] = [
+    [/\.style\.(animation|transition)/, "style.animation / style.transition への代入"],
+    [/\.style\s*\[\s*["'`](animation|transition)/, "style[\"animation\"] / style[\"transition\"]（bracket 記法）"],
+    [/(animationName|transitionProperty)\s*=/, "animationName / transitionProperty への代入"],
+    [/setProperty\(\s*["'`](animation|transition)/, 'setProperty("animation" / "transition", …)'],
+    // ★スクロール系は「値の書き方」ではなく **API の面** を禁じる（値の変種は無限に作れるため）。
+    [/\.style\.scrollBehavior/, "style.scrollBehavior への代入"],
+    [/\.style\s*\[\s*["'`]scroll-?[bB]ehavior/, 'style["scrollBehavior"]（bracket 記法）'],
+    [/setProperty\(\s*["'`]scroll-behavior/, 'setProperty("scroll-behavior", …)'],
+    [/\.animate\s*\(/, "Web Animations API（.animate）"],
+    [/new\s+Animation\s*\(/, "Web Animations API（new Animation）"],
+    [/insertRule\s*\(/, "JS からの stylesheet 注入（insertRule）"],
+    [/adoptedStyleSheets/, "JS からの stylesheet 注入（adoptedStyleSheets）"],
+    [/createElement\(\s*["'`]style/, 'JS からの stylesheet 注入（createElement("style")）'],
+  ];
+  for (const [re, label] of JS_ANIM) if (re.test(mainTs)) bad("grammar-js-anim", `CSS 外からアニメ/スタイルを足している: ${label}`);
+  // G10：スクロール API は未対応（現状 0 件＝main.ts は scrollTop / scrollHeight の
+  //       プロパティ代入・参照のみで、単語境界により誤検出しない）。
+  //       ★**呼び出し構文を一切解析せず、識別子の出現そのもの**を禁じる。これで bracket
+  //       （window["scrollTo"]）・optional chaining（scrollTo?.()）・alias（const m = scrollTo）・
+  //       prototype 経由（Element.prototype.scrollIntoView.call）を同時に閉じられる。
+  //       構文の側を見ると変種が無限に作れる＝前回と同じ誤りを繰り返さないための形。
+  for (const m of mainTs.matchAll(/\b(scroll|scrollTo|scrollBy|scrollIntoView)\b/g))
+    bad("grammar-js-scroll", `スクロール API は未対応（動きの経路）: ${m[1]}`);
+  return out;
+}
+
+// ※issues を捨てるヘルパ（旧 colorVars）は置かない＝取りこぼしの再発経路を作らないため。
+//   custom property を読む箇所は必ず customProps() を通し、issues を audit へ集約する。
 const rules = (block: string) => [...block.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
 
 export function parseCss(html: string) {
@@ -113,12 +238,25 @@ export function parseCss(html: string) {
     if (!used.length) continue; // `animation: none` のみ＝対象外
     for (const s of r.sel.split(",")) for (const u of used) (selKf[s.trim()] ??= new Set()).add(u);
   }
+  // ★非 keyframe motion：base 領域で transition を宣言する個別セレクタ（カンマ分解）
+  const selTr: Record<string, string> = {};
+  for (const r of rules(style.slice(0, Math.min(...heads)))) {
+    const t = r.body.match(/(^|[;{\s])transition\s*:\s*([^;]+)/);
+    if (!t) continue;
+    for (const sel of r.sel.split(",")) selTr[sel.trim()] = t[2].trim();
+  }
   // RM ブロックの個別セレクタ → 宣言本文
   const rmSel = new Map<string, string>();
   for (const r of rules(rm)) for (const s of r.sel.split(",")) rmSel.set(s.trim(), (rmSel.get(s.trim()) ?? "") + r.body);
   const rootStart = style.indexOf(":root");
-  const root = customProps(style.slice(rootStart, style.indexOf("}", rootStart)));
-  return { kf, selKf, rmSel, hcVars: colorVars(hc), rootVars: root.colors, varIssues: root.issues };
+  // ★:root と高コントラストブロックの**両方**へ同じ閉じた検査を掛ける（対称化）。
+  //   HC 側だけ素通りしていたのが U1b 検収の指摘＝色形式・未知プロパティが黙って消えていた。
+  const root = customProps(style.slice(rootStart, style.indexOf("}", rootStart)), ":root");
+  const hcp = customProps(hc, "prefers-contrast: more");
+  return {
+    kf, selKf, selTr, rmSel, hcVars: hcp.colors, hcNames: hcp.names,
+    rootVars: root.colors, varIssues: [...root.issues, ...hcp.issues],
+  };
 }
 
 // ---- doc（正典）抽出 ---------------------------------------------------------
@@ -127,15 +265,17 @@ const section = (spec: string, from: string, to: string) => {
   return s < 0 || e < 0 || e <= s ? null : spec.slice(s, e);
 };
 const cells = (line: string) => line.split("|");
+/** 宣言値の正規化（空白圧縮・小文字化・末尾セミコロン除去）＝doc と CSS を完全一致で比べるため。 */
+const normDecl = (v: string) => v.replace(/^transition\s*:/, "").replace(/\s+/g, " ").replace(/;\s*$/, "").trim().toLowerCase();
 const ticks = (s: string) => [...s.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
 
 /** §10.2d：keyframe ID（意味論表）と セレクタ→分類（RM 分類表）。 */
-export function docMotion(spec: string): { kf: string[]; sel: Record<string, string>; issues: Issue[] } {
+export function docMotion(spec: string): { kf: string[]; sel: Record<string, string>; tr: Record<string, string>; issues: Issue[] } {
   const issues: Issue[] = [];
   const sec = section(spec, "### 10.2d", "### 10.2f");
-  if (!sec) { issues.push({ code: "doc-range", msg: "§10.2d の範囲を特定できない" }); return { kf: [], sel: {}, issues }; }
+  if (!sec) { issues.push({ code: "doc-range", msg: "§10.2d の範囲を特定できない" }); return { kf: [], sel: {}, tr: {}, issues }; }
   const split = sec.indexOf("| RM | セレクタ");
-  if (split < 0) { issues.push({ code: "doc-range", msg: "§10.2d に RM 分類表が無い" }); return { kf: [], sel: {}, issues }; }
+  if (split < 0) { issues.push({ code: "doc-range", msg: "§10.2d に RM 分類表が無い" }); return { kf: [], sel: {}, tr: {}, issues }; }
   const kf: string[] = [];
   for (const line of sec.slice(0, split).split("\n")) {
     if (!line.startsWith("| `")) continue;
@@ -156,7 +296,23 @@ export function docMotion(spec: string): { kf: string[]; sel: Record<string, str
       sel[s] = cls;
     }
   }
-  return { kf, sel, issues };
+  // 非 keyframe motion（transition）の閉集合
+  const tr: Record<string, string> = {};
+  const ts = sec.indexOf("★非 keyframe motion"), te = sec.indexOf("★アニメでないもの");
+  if (ts < 0 || te < 0 || te <= ts) issues.push({ code: "doc-range", msg: "§10.2d に非 keyframe motion（transition）の表が無い" });
+  else for (const line of sec.slice(ts, te).split("\n")) {
+    if (!line.startsWith("| `")) continue;
+    const c = cells(line);
+    const sel = ticks(c[1])[0];
+    if (!sel) continue;
+    if (sel in tr) issues.push({ code: "doc-dup", msg: `§10.2d transition 表に重複セレクタ: ${sel}` });
+    // 通常列（2列目）の `transition: …` を正典値として取り出す
+    const norm = ticks(c[2]).find((t) => /^transition\s*:/.test(t));
+    if (!norm) issues.push({ code: "doc-trans-value", msg: `§10.2d transition 表の ${sel} に通常時の値が無い` });
+    tr[sel] = normDecl(norm ?? "");
+    if (!/transition\s*:\s*none/.test(c[3] ?? "")) issues.push({ code: "doc-trans-rm", msg: `§10.2d transition 表の ${sel} に Reduce Motion 時の transition: none が無い` });
+  }
+  return { kf, sel, tr, issues };
 }
 
 /** §10.2f：差分表（トークン→**既定値と**高コントラスト値）と 規則表（群→判定面・閾値）。 */
@@ -177,6 +333,7 @@ export function docContrast(spec: string): { hc: Record<string, string>; def: Re
     if (dif && c.length >= 5) {
       const d = c[2].match(/`(#[0-9a-fA-F]{6})`/), v = c[4].match(/`(#[0-9a-fA-F]{6})`/);
       if (v) {
+        if (dif[1] in hc) issues.push({ code: "doc-dup", msg: `§10.2f 差分表に重複トークン: --${dif[1]}（後勝ちで矛盾が隠れる）` });
         hc[dif[1]] = v[1].toLowerCase();
         if (d) def[dif[1]] = d[1].toLowerCase();
         else issues.push({ code: "doc-default-missing", msg: `§10.2f 差分表の --${dif[1]} に既定値が無い` });
@@ -215,6 +372,8 @@ export function audit(html: string, spec: string, mainTs: string): Issue[] {
   const bad = (code: string, msg: string) => out.push({ code, msg });
   const css = parseCss(html);
   const dm = docMotion(spec), dc = docContrast(spec);
+  const grammar = assertGrammar(html, mainTs);
+  if (grammar.length) return grammar; // ★文法違反時は打ち切る＝壊れた入力に無意味な診断を重ねない
   out.push(...dm.issues, ...dc.issues, ...css.varIssues);
 
   // A) keyframe 集合 1:1 ＋ 件数
@@ -227,6 +386,19 @@ export function audit(html: string, spec: string, mainTs: string): Issue[] {
   const docSel = Object.keys(dm.sel);
   for (const s of docSel) if (!css.selKf[s]) bad("sel-missing", `分類表にあるが CSS で keyframe を使っていない: ${s}`);
   if (docSel.length !== EXPECT_SELECTORS) bad("sel-count", `§10.2d 分類表の個別セレクタ件数が ${EXPECT_SELECTORS} でない: ${docSel.length}`);
+
+  // B2) 非 keyframe motion（transition）1:1 ＋ 件数 ＋ RM で none
+  for (const sel of Object.keys(css.selTr)) if (!(sel in dm.tr)) bad("trans-undocumented", `§10.2d transition 表に無い transition: ${sel}（${css.selTr[sel]}）`);
+  for (const sel of Object.keys(dm.tr)) if (!(sel in css.selTr)) bad("trans-missing", `§10.2d transition 表にあるが CSS に transition が無い: ${sel}`);
+  if (Object.keys(dm.tr).length !== EXPECT_TRANSITIONS) bad("trans-count", `§10.2d transition 表の件数が ${EXPECT_TRANSITIONS} でない: ${Object.keys(dm.tr).length}`);
+  for (const [sel, want] of Object.entries(dm.tr)) {
+    const got = css.selTr[sel] === undefined ? undefined : normDecl(css.selTr[sel]);
+    if (got !== undefined && got !== want) bad("trans-value", `--transition の値が doc(${want}) と CSS(${got}) で不一致: ${sel}`);
+  }
+  for (const sel of Object.keys(dm.tr)) {
+    const body = css.rmSel.get(sel);
+    if (!body || !/transition\s*:\s*none/.test(body)) bad("trans-rm", `Reduce Motion で transition: none になっていない: ${sel}`);
+  }
 
   // C/D) Reduce Motion 被覆・免除・静的代替
   for (const [sel, cls] of Object.entries(dm.sel)) {
@@ -241,16 +413,17 @@ export function audit(html: string, spec: string, mainTs: string): Issue[] {
       bad("rm-no-static", `B（状態・予告）なのに静的代替が無い: ${sel}＝テレグラフを消してはならない`);
   }
 
-  // E) 高コントラスト：doc 差分表 ↔ CSS（**既定値と HC 値の両方**を完全一致で照合）
+  // E) 高コントラスト：doc 差分表 ↔ CSS。**色に限らず全 custom property 名**で 1:1 にする
+  //    （色だけを照合していたため、非色の追加上書き〔例 --r-btn:99px〕が素通りしていた）。
   for (const [k, v] of Object.entries(dc.hc)) {
-    if (!(k in css.hcVars)) bad("hc-missing", `§10.2f にあるが CSS の高コントラストに無い: --${k}`);
-    else if (css.hcVars[k] !== v) bad("hc-value", `--${k} の HC 値が doc(${v}) と CSS(${css.hcVars[k]}) で不一致`);
+    if (!css.hcNames.includes(k)) bad("hc-missing", `§10.2f にあるが CSS の高コントラストに無い: --${k}`);
+    else if (css.hcVars[k] !== v) bad("hc-value", `--${k} の HC 値が doc(${v}) と CSS(${css.hcVars[k] ?? "非色"}) で不一致`);
   }
   for (const [k, v] of Object.entries(dc.def)) {
     if (!(k in css.rootVars)) bad("default-missing", `§10.2f 差分表にあるが :root に無い: --${k}`);
     else if (css.rootVars[k] !== v) bad("default-value", `--${k} の既定値が doc(${v}) と :root(${css.rootVars[k]}) で不一致`);
   }
-  for (const k of Object.keys(css.hcVars)) if (!(k in dc.hc)) bad("hc-undocumented", `§10.2f 差分表に無い高コントラスト上書き: --${k}`);
+  for (const k of css.hcNames) if (!(k in dc.hc)) bad("hc-undocumented", `§10.2f 差分表に無い高コントラスト上書き: --${k}`);
 
   // F) WCAG 再計算（閾値・判定面は §10.2f 規則表から生成）
   const eff = { ...css.rootVars, ...css.hcVars };
@@ -277,6 +450,9 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
 
 // H) self-test（変異試験・毎回実行）
 {
+  const END_STYLE = "  </style>";
+  const RM_HEAD = "    @media (prefers-reduced-motion: reduce) {";
+  const GRID_ANCHOR = "    #grid { display: grid; width: 100%; }";
   const T: { name: string; expect: string; run: () => Issue[] }[] = [
     { name: "@keyframes を doc から消す", expect: "kf-undocumented", run: () => audit(html, spec.replace("| `pulse` |", "| `pulse-x` |"), mainTs) },
     { name: "CSS から keyframe を消す", expect: "kf-missing", run: () => audit(html.replace("@keyframes pulse", "@keyframes pulseZ"), spec, mainTs) },
@@ -289,6 +465,60 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
     { name: "高コントラスト上書きを1件落とす", expect: "hc-missing", run: () => audit(html.replace("--g-floor:#576578;", ""), spec, mainTs) },
     { name: "基準未達の値を高コントラストに入れる", expect: "contrast", run: () => audit(html.replace("--g-wall:#708298", "--g-wall:#39434f"), spec, mainTs) },
     { name: "規則表に当たらない色トークンを :root に足す", expect: "rule-unresolved", run: () => audit(html.replace("--g-laila:#c9a3ff;", "--g-laila:#c9a3ff; --zz-newbie:#123456;"), spec, mainTs) },
+    // ---- ★受け付ける CSS 文法（ホワイトリスト）の拒否枝＝#404 検収 4 巡目 ----
+    { name: "a11y media の後に通常ルールを足す", expect: "grammar-tail", run: () => audit(html.replace(END_STYLE, "    .zz-late { animation: pulse 1s infinite; }\n" + END_STYLE), spec, mainTs) },
+    { name: "2 個目の HC block", expect: "grammar-media-count", run: () => audit(html.replace(END_STYLE, "    @media (prefers-contrast: more) { :root { --tx-meta:#000000; } }\n" + END_STYLE), spec, mainTs) },
+    { name: "空白表記の異なる HC block", expect: "grammar-media-count", run: () => audit(html.replace(END_STYLE, "    @media(prefers-contrast: more) { :root { --tx-meta:#000000; } }\n" + END_STYLE), spec, mainTs) },
+    { name: "2 個目の RM block でアニメを再有効化", expect: "grammar-media-count", run: () => audit(html.replace(END_STYLE, "    @media (prefers-reduced-motion: reduce) { .g-fossil { animation:pulse 1s infinite; } }\n" + END_STYLE), spec, mainTs) },
+    { name: "2 個目の style タグ", expect: "grammar-style-count", run: () => audit(html.replace("</head>", "<style>.zz-second { animation:pulse 1s infinite; }</style>\n</head>"), spec, mainTs) },
+    { name: "未対応の at-rule（@supports）", expect: "grammar-at-rule", run: () => audit(html.replace(END_STYLE, "    @supports (display:grid) { .zz-s { color:#fff; } }\n" + END_STYLE), spec, mainTs) },
+    { name: "未対応の @media 条件", expect: "grammar-media-cond", run: () => audit(html.replace(END_STYLE, "    @media (min-width: 900px) { .zz-w { color:#fff; } }\n" + END_STYLE), spec, mainTs) },
+    { name: "animation-name の個別プロパティ", expect: "grammar-anim-prop", run: () => audit(html.replace(END_STYLE, "    .zz-an { animation-name:pulse; }\n" + END_STYLE), spec, mainTs) },
+    { name: "animation の二重宣言（後勝ち）", expect: "grammar-anim-dup", run: () => audit(html.replace(END_STYLE, "    .zz-dup { animation:none; animation:pulse 1s infinite; }\n" + END_STYLE), spec, mainTs) },
+    { name: "animation の値に var()", expect: "grammar-anim-var", run: () => audit(html.replace(END_STYLE, "    .zz-var { animation:var(--zz-anim); }\n" + END_STYLE), spec, mainTs) },
+    { name: "main.ts から style.animation へ代入", expect: "grammar-js-anim", run: () => audit(html, spec, mainTs + '\nel.style.animation = "pulse 1s";\n') },
+    { name: "escape を含む custom property 名（--zz\\(）", expect: "var-name", run: () => audit(html.replace("--g-laila:#c9a3ff;", "--g-laila:#c9a3ff; --zz\\(:#ffffff;"), spec, mainTs) },
+    { name: "§10.2f 差分表に重複トークン", expect: "doc-dup", run: () => audit(html, spec.replace(/\| `--tx-meta` \| `#857a66`[^\n]*\n/, (m) => m.replace("#988d79", "#123456") + m), mainTs) },
+    // ---- ★宣言した文法境界の実装検査（#404 検収 5 巡目）----
+    { name: "HC と RM の間に宣言を挟む", expect: "grammar-tail", run: () => audit(html.replace(RM_HEAD, "    .zz-between { animation:pulse 1s infinite; }\n" + RM_HEAD), spec, mainTs) },
+    { name: "<STYLE> の大文字表記", expect: "grammar-case", run: () => audit(html.replace("<style>", "<STYLE>").replace("</style>", "</STYLE>"), spec, mainTs) },
+    { name: "@MEDIA の大文字表記", expect: "grammar-case", run: () => audit(html.replace("@media (prefers-contrast: more)", "@MEDIA (prefers-contrast: more)"), spec, mainTs) },
+    { name: "base 領域の ANIMATION:（大文字プロパティ）", expect: "grammar-case", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-up { ANIMATION:pulse 1s infinite; }"), spec, mainTs) },
+    { name: "★大文字表記は診断がカスケードしない（grammar-* のみ）", expect: "grammar-case", run: () => {
+      const is = audit(html.replace("<style>", "<STYLE>").replace("</style>", "</STYLE>"), spec, mainTs);
+      return is.every((i) => i.code.startsWith("grammar-")) ? is : []; // 無関係な診断が混じれば空＝fail
+    } },
+    { name: "JS: style[\"animation\"] への代入", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style["animation"] = "pulse 1s";\n`) },
+    { name: "JS: Web Animations API（.animate）", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.animate([{opacity:0},{opacity:1}], 1000);\n`) },
+    { name: "JS: setProperty(\"animation\")", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style.setProperty("animation", "pulse 1s");\n`) },
+    { name: "JS: stylesheet 注入（insertRule）", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\ndocument.styleSheets[0].insertRule(".zz{animation:pulse 1s}");\n`) },
+    // ---- ★非 keyframe motion（transition）の閉集合＝#404 検収 6 巡目 ----
+    { name: "transition を doc から消す", expect: "trans-undocumented", run: () => audit(html, spec.replace("| `#stBars .gauge .fill` |", "| `#stBars .gauge .fill-x` |"), mainTs) },
+    { name: "doc にあるが CSS に transition が無い", expect: "trans-missing", run: () => audit(html.replace(" transition: width .18s ease;", ""), spec, mainTs) },
+    { name: "RM で transition: none にしない", expect: "trans-rm", run: () => audit(html.replace("      #stBars .gauge .fill { transition: none; }", ""), spec, mainTs) },
+    { name: "doc 無しで新しい transition を足す", expect: "trans-undocumented", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-tr { transition: opacity .3s ease; }"), spec, mainTs) },
+    { name: "transition の個別プロパティ（transition-property）", expect: "grammar-trans-prop", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-tp { transition-property: opacity; }"), spec, mainTs) },
+    { name: "transition の値に var()", expect: "grammar-trans-var", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-tv { transition: var(--zz-t); }"), spec, mainTs) },
+    // ---- ★transition の値・非 keyframe motion の別入口＝#404 検収 7 巡目 ----
+    { name: "CSS の transition 値を doc と食い違わせる", expect: "trans-value", run: () => audit(html.replace("transition: width .18s ease", "transition: opacity 9s linear"), spec, mainTs) },
+    { name: "JS: style.transition への代入", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style.transition = "width 9s";\n`) },
+    { name: "JS: style[\"transition\"]（bracket 記法）", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style["transition"] = "width 9s";\n`) },
+    { name: "JS: setProperty(\"transition\")", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style.setProperty("transition","width 9s");\n`) },
+    { name: "CSS: scroll-behavior: smooth", expect: "grammar-scroll", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-sb { scroll-behavior: smooth; }"), spec, mainTs) },
+    { name: "JS: scrollTo({ behavior: \"smooth\" })", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nwindow.scrollTo({ top: 0, behavior: "smooth" });\n`) },
+    { name: "JS: scrollIntoView({ behavior: \"smooth\" })", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nel.scrollIntoView({ behavior: "smooth" });\n`) },
+    // ---- ★スクロールの CSSOM / API 入口＝#404 検収 8 巡目（値でなく面を禁じる）----
+    { name: "JS: style.scrollBehavior への代入", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style.scrollBehavior = "smooth";\n`) },
+    { name: "JS: style[\"scrollBehavior\"]（bracket 記法）", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style["scrollBehavior"] = "smooth";\n`) },
+    { name: "JS: setProperty(\"scroll-behavior\")", expect: "grammar-js-anim", run: () => audit(html, spec, `${mainTs}\nel.style.setProperty("scroll-behavior", "smooth");\n`) },
+    { name: "JS: scrollTo({ \"behavior\": \"smooth\" })（クォート表記）", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nscrollTo({ "behavior": "smooth" });\n`) },
+    { name: "JS: 変数経由の短縮記法 scrollTo({ behavior })", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nconst behavior = "smooth"; scrollTo({ behavior });\n`) },
+    { name: "JS: scrollIntoView() の呼び出し自体", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nel.scrollIntoView();\n`) },
+    // ---- ★呼び出し構文の変種＝#404 検収 9 巡目（識別子の出現そのものを禁じる）----
+    { name: "JS: window[\"scrollTo\"](…)（bracket）", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nwindow["scrollTo"]({ top: 0, behavior: "smooth" });\n`) },
+    { name: "JS: window.scrollTo?.(…)（optional chaining）", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nwindow.scrollTo?.({ top: 0 });\n`) },
+    { name: "JS: alias 経由（const move = window.scrollTo）", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nconst move = window.scrollTo; move({ top: 0 });\n`) },
+    { name: "JS: prototype 経由（scrollIntoView.call）", expect: "grammar-js-scroll", run: () => audit(html, spec, `${mainTs}\nElement.prototype.scrollIntoView.call(el, { behavior: "smooth" });\n`) },
     { name: "main.ts が screen-model を import", expect: "model-leak", run: () => audit(html, spec, `import { SEM_TONES } from "./screen-model.ts";\n${mainTs}`) },
     // ---- ★U1b 検収（#404）で塞いだ穴の裏取り ----
     { name: "既定値を doc と食い違わせる", expect: "default-value", run: () => audit(html.replace("--tx-meta:#857a66", "--tx-meta:#7a7060"), spec, mainTs) },
@@ -301,6 +531,17 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
     { name: "doc に無い高コントラスト上書きを CSS に足す", expect: "hc-undocumented", run: () => audit(html.replace("--g-floor:#576578;", "--g-floor:#576578; --g-door:#ffe97a;"), spec, mainTs) },
     { name: "規則表の 2 行に同じトークンを載せる（多重一致）", expect: "rule-unresolved", run: () => audit(html, spec.replace("| `line` / `line-2` / `line-3` |", "| `line` / `line-2` / `line-3` / `tx-meta` |"), mainTs) },
     { name: "規則表の判定面を :root に無い面にする", expect: "rule-bg", run: () => audit(html, spec.replace("| `bg-sheet` `#17130e` | 4.5:1（文字） | 術名", "| `bg-nope` `#17130e` | 4.5:1（文字） | 術名"), mainTs) },
+    // ---- ★:root と HC ブロックへ **同じ変異セットを対称に**流す（片側だけ塞ぐ事故の構造的防止）----
+    //      ANCHOR は各ブロック末尾の宣言。ここへ足した変異が同じ code で落ちなければならない。
+    ...([[":root", "--g-laila:#c9a3ff;"], ["HC", "--g-floor:#576578;"]] as const).flatMap(([wh, anchor]) => [
+      { name: `${wh} に 3 桁 hex を足す`, expect: "color-format", run: () => audit(html.replace(anchor, `${anchor} --zz-3:#fff;`), spec, mainTs) },
+      { name: `${wh} に rgb() を足す`, expect: "color-format", run: () => audit(html.replace(anchor, `${anchor} --zz-rgb:rgb(9,9,9);`), spec, mainTs) },
+      { name: `${wh} に未登録の非色プロパティを足す`, expect: "var-unclassified", run: () => audit(html.replace(anchor, `${anchor} --zz-size:4px;`), spec, mainTs) },
+      { name: `${wh} に大文字名（--ZZ）を足す`, expect: "var-name", run: () => audit(html.replace(anchor, `${anchor} --ZZ:#ffffff;`), spec, mainTs) },
+      { name: `${wh} に underscore 名（--zz_bad）を足す`, expect: "var-name", run: () => audit(html.replace(anchor, `${anchor} --zz_bad:#ffffff;`), spec, mainTs) },
+    ]),
+    // HC は「§10.2f 差分表の 7 変数ちょうど」＝既知の非色すら追加上書きできない
+    { name: "HC に既知の非色（--r-btn）を追加上書きする", expect: "hc-undocumented", run: () => audit(html.replace("--g-floor:#576578;", "--g-floor:#576578; --r-btn:99px;"), spec, mainTs) },
     { name: "分類表の行を消す（件数アサート）", expect: "sel-count", run: () => audit(html, spec.replace("／`.g-laila`", ""), mainTs) },
     { name: "意味論表の行を消す（件数アサート）", expect: "kf-count", run: () => audit(html, spec.replace(/\| `abyssair` \| 6s \|[^\n]*\n/, ""), mainTs) },
   ];
@@ -323,6 +564,7 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
   }, Infinity);
   console.log(`  (A) keyframe 1:1: CSS ${Object.keys(css.kf).length} = doc ${dm.kf.length}`);
   console.log(`  (B) 個別セレクタ 1:1: CSS ${Object.keys(css.selKf).length} = doc ${Object.keys(dm.sel).length}（A${n("A")} B${n("B")} C${n("C")} 免除${n("免除")}）`);
+  console.log(`  (B2) 非 keyframe motion: CSS ${Object.keys(css.selTr).length} = doc ${Object.keys(dm.tr).length}（RM で transition: none）`);
   console.log(`  (E/F) 高コントラスト: 上書き ${Object.keys(css.hcVars).length} 変数 / 規則表 ${dc.rules.length} 行で ${checked.length} トークンを検査（最小余裕 ×${margin.toFixed(2)}）`);
 }
 

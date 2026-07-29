@@ -571,6 +571,8 @@ type IconId =
 - **C＝単発フィードバック**：短命の結果通知。**移動・拡縮・回転・振動は停止**（前庭刺激）。**表示自体は残す**。
 - **免除**：**不透明度だけを動かす keyframe**（`bannerfade`／`fxflash`）は前庭刺激が無く、消すと情報表示そのものが消えるため**そのまま残す**。
 
+**★B の静的代替を選ぶ一般則（チャネルを重ねない）。** 静的代替は、**既に他の恒常表示が使っているチャネルを重ねて使わない**。発光（`text-shadow`／`filter`）が別の常時表示と競合する場合は、**形（下線・輪郭）など別のチャネル**で代替する。**レイアウトを動かさない手段を選ぶ**（`text-decoration`／`outline` は可、`border`／`padding` は不可）。**現行の実例**＝`.g-mon-t5`／`.g-elite`／`.g-boss` は Reduce Motion 時に静的な強発光で固定されるため、攻撃予告の `.g-mon-atk` が同じ発光チャネルでは区別できない。そこで `.g-mon-atk` は発光に加えて **`text-decoration: underline`** を併用し、**同じ敵の「通常時」と「攻撃予告中」が静的に区別できる**ようにする（`.cell.tele-atk` は被弾先を示すが攻撃元は示さないため、この区別は代替できない）。**Swift でも同じ原則＝チャネルの競合を避ける**（下線は `.underline()` 等でミラー）。
+
 **★数える単位は「個別セレクタ」＝セレクタリストは分解して数える。CSS のルール数・`animation` 宣言数とは一致しない**（例＝`.cell.echo-loss::after, .cell.echo-myth::after, .cell.echo-grudge::after` は 1 ルールだが **3 件**）。**総数 48 ＝ A 17／B 18／C 9／免除 4。** 現行実装の実測との対応＝`@keyframes` 29 定義／`animation` 宣言 47（うち 1 件は `#light.town { animation: none }` で keyframe を参照しない＝**対象外**）／**keyframe を使う個別セレクタ 48**（宣言 46 に対し echo の 1 宣言が 3 セレクタを持つため +2）。
 
 | RM | セレクタ（＝分類の単位） | 根拠 |
@@ -585,6 +587,12 @@ type IconId =
 | **B** | `.cell.throw-aim::after`／`.cell.hz-crumble.hz-cracked`／`#lungeBtn.stance` | 投擲の照準／次に落ちる床／踏み込みの構え中 |
 | **C** | `#peek`／`#floats .fl`／`#floats .fl-kill`／`#floats .fl-crit`／`.tfx-ready`／`.tfx-slash`／`.tfx-press::before`／`.tfx-press::after`／`.shake-crit` | 単発。**`.shake-crit` は前庭刺激が最も強く完全停止** |
 | **免除** | `#floorBanner.show`／`#fx.warp`／`#fx.still`／`#fx.blink` | 不透明度のみ（`bannerfade`／`fxflash`）＝情報表示そのもの |
+
+**★非 keyframe motion（`transition`）の正典＝現在 1 件。** 画面に動きを生む経路は `@keyframes` だけではない。**`transition` も Reduce Motion の対象**であり、本表がその閉集合。**新しい `transition` を書くときは、まず本表に足す**（表に無い `transition` セレクタは `tools/a11y-check.ts` が fail させる。`transition-property` 等の個別プロパティ・1 ルール内の二重宣言・値の `var()` は未対応構文として拒否）。
+
+| セレクタ | 通常 | Reduce Motion | 静的代替 |
+|---|---|---|---|
+| `#stBars .gauge .fill` | `transition: width .18s ease`（HP／深蝕ゲージの伸縮） | **`transition: none`** | **不要**＝最終的な幅は静的に残り、情報は失われない（動きだけを止める） |
 
 **★アニメでないもの（誤解防止）：** **踏み込み先/敵の移動予告 `tele-move` は静的な琥珀背景**（`background: rgba(224,140,72,.34)`＋inset shadow）＝keyframe を持たない。**盤面の床の濃淡・壁の彫り込みも静的**（10.3）。**＝移動予告は Reduce Motion の影響を受けない**（もともと静的表現で「来る」を担保している好例）。
 

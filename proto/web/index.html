@@ -600,6 +600,10 @@
        ★B=状態・予告は動きを止めたうえで「来る」が読める静的な高視認状態へ置換する。
        B を単に消すことは禁止（予告が読めない＝難易度低下ではなく理不尽化）。 ---- */
     @media (prefers-reduced-motion: reduce) {
+      /* 非 keyframe motion（§10.2d の transition 表・現在 1 件）。HP／深蝕ゲージの伸縮を止める。
+         最終的な幅は静的に残るため情報は失われない＝静的代替は不要。 */
+      #stBars .gauge .fill { transition: none; }
+
       /* A＝装飾（17 個別セレクタ）。字形が一意（& ψ‡Ψ 泉 安 扉 痕 境）か色が静的に一意（delver の緑）
          ゆえ、停止しても識別は落ちない。 */
       #mapWrap.band-abyss::after, #light,
