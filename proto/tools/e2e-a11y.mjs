@@ -71,6 +71,19 @@ await page.emulateMedia({ reducedMotion: "no-preference", contrast: "no-preferen
 const d = await vars([...Object.keys(DEFAULT), ...KEEP]);
 ok("① 既定モード：7 変数が従来値のまま", Object.entries(DEFAULT).every(([k, v]) => d[k] === v), Object.entries(DEFAULT).filter(([k, v]) => d[k] !== v).map(([k]) => k).join(",") || "全一致");
 const keepDefault = Object.fromEntries(KEEP.map((k) => [k, d[k]]));
+const critDefault = await styleOf(
+  '<div id="floats"><span class="fl fl-crit">9</span></div>',
+  ".fl-crit",
+  ["animation-name", "font-size", "text-shadow"],
+);
+const critAnimations = critDefault["animation-name"].split(",").map((x) => x.trim());
+ok("① 会心数字は21px・critpop・金グローで描かれる",
+  critDefault["font-size"] === "21px"
+    && critAnimations.includes("floatup")
+    && critAnimations.includes("critpop")
+    && critDefault["text-shadow"].includes("12px")
+    && critDefault["text-shadow"].includes("26px"),
+  `${critDefault["font-size"]} / ${critDefault["animation-name"]} / ${critDefault["text-shadow"].slice(0, 70)}`);
 
 // ---- ② 高コントラスト：7 変数だけが差し替わる ------------------------------
 await page.emulateMedia({ contrast: "more" });
@@ -106,11 +119,8 @@ await page.emulateMedia({ contrast: "no-preference", reducedMotion: "reduce" });
   const c1 = await styleOf('<div class="shake-crit"></div>', ".shake-crit", ["animation-name"]);
   const c2 = await styleOf('<div id="floats"><span class="fl fl-crit">9</span></div>', ".fl-crit", ["animation-name", "font-size", "color"]);
   ok("④ C（単発）の shake / crit が停止", c1["animation-name"] === "none" && c2["animation-name"] === "none");
-  // ※字の大きさは検査しない：`#floats .fl`(id+class) が `.fl-crit`(class) に詳細度で勝ち、
-  //   §10.3 が謳う「特大 21px の会心数字」は U1b 以前から 15px で描かれている（既存の乖離・別件）。
-  //   ここで見るのは「RM で停止させても数字が消えていないこと」だけ。
-  ok("④ C 停止後も会心数字は見える（表示自体は残す）",
-    c2.color === "rgb(255, 255, 255)" && parseFloat(c2["font-size"]) > 0, `${c2["font-size"]} ${c2.color}`);
+  ok("④ C 停止後も会心数字は21pxで見える（表示自体は残す）",
+    c2.color === "rgb(255, 255, 255)" && c2["font-size"] === "21px", `${c2["font-size"]} ${c2.color}`);
 
   // ★B＝状態・予告：止まるが静的な高視認状態が残る（消えていない）
   const b1 = await styleOf('<span class="g-player-danger">@</span>', ".g-player-danger", ["animation-name", "text-shadow", "color"]);
