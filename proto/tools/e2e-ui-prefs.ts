@@ -17,6 +17,7 @@ import { mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, extname } from "node:path";
 import { newWorld, createCharacter, fossilizeCurrent } from "../src/world.ts";
+import { forgeItem, itemByName } from "../src/items.ts";
 import { SPELLS } from "../src/spells.ts";
 import type { World } from "../src/types.ts";
 
@@ -34,7 +35,9 @@ const server = createServer(async (req, res) => {
   catch { res.writeHead(404); res.end("nf"); }
 });
 
-/** 化石が積もった世界（第7世代・印2つ）＋生きた Lv46 の当代。 */
+/** 化石が積もった世界（第7世代・印2つ）＋生きた Lv46 の当代。
+ *  ★装備4枠は**必ず実物を埋める**。空（すべて「—」）で測ると装備行が最短になり、
+ *  「一画面に収まる」の検査が甘くなる（実装備で +86px はみ出す状態を見落とした反省・2026-07-30）。 */
 function agedWorld(): string {
   const w: World = newWorld(7); w.difficulty = "normal";
   for (let i = 0; i < 6; i++) {
@@ -47,7 +50,13 @@ function agedWorld(): string {
   const ch = createCharacter(w, "灰かぶりのイオ", "wanderer", { relation: "none" });
   ch.level = 46; ch.gold = 480; ch.stats = { body: 16, power: 14, reason: 14, heart: 12 };
   ch.spells = SPELLS.map((s) => s.key); ch.loadout = ch.spells.slice(0, 10);
-  ch.exposure = 0.62; ch.xp = 120; w.current = ch;
+  ch.exposure = 0.62; ch.xp = 120;
+  // 終盤想定の実装備（性能説明つきラベルなら数行に伸びる長さ＝要約が短名であることの検査面）
+  ch.equipment.weapon = forgeItem("薙刀", "keen", 2)!;   // 鋭利な薙刀+2（攻＋5・薙ぎ払い…）
+  ch.equipment.armor = forgeItem("鎖帷子", "fine", 1)!;  // 業物の鎖帷子+1（被ダメ−3）
+  ch.equipment.relic = itemByName("不死鳥の灰")!;        // （一度だけ致死を耐える）
+  ch.equipment.bag = itemByName("探索者の背嚢")!;        // （持てる量＋5）
+  w.current = ch;
   return JSON.stringify(w);
 }
 /** 新規世界（化石ゼロ）＝来歴は出さないことの確認用。 */
@@ -147,6 +156,8 @@ async function main() {
         listWidth: Math.round(document.getElementById("sheetList")!.getBoundingClientRect().width),
         gearCols: gearGrid ? getComputedStyle(gearGrid).gridTemplateColumns.split(" ").length : 0,
         gearBorders: gearGrid ? [...gearGrid.querySelectorAll<HTMLElement>(".kvrow")].map((r) => getComputedStyle(r).borderTopWidth) : [],
+        gearVals: gearGrid ? [...gearGrid.querySelectorAll<HTMLElement>(".kvval")].map((v) => (v.textContent || "").trim()) : [],
+        gearLines: gearGrid ? [...gearGrid.querySelectorAll<HTMLElement>(".kvrow")].map((r) => Math.round(r.getBoundingClientRect().height)) : [],
         rows: [...document.querySelectorAll("#sheetList .kvrow")].map((r) => (r.querySelector(".kvlab")?.textContent || "").trim()),
       };
     });
@@ -172,6 +183,13 @@ async function main() {
     ok(m.rows.includes("持ち物"), `[${tag}] 薬・巻物/武具は持ち物1行へ`);
     ok(m.gearCols === 2, `[${tag}] 装備の節が2列（cols=${m.gearCols}）`);
     ok(m.gearBorders.slice(0, 2).every((b: string) => b === "0px"), `[${tag}] 2列の先頭行は左右とも上罫なし（${m.gearBorders.join(",")}）`);
+    // ★装備は実物が入っている（＝空欄で測って収まったことにしない）
+    ok(m.gearVals.length === 4 && m.gearVals.every((v: string) => v !== "" && v !== "—"),
+      `[${tag}] 装備4枠に実物が入っている（${m.gearVals.join(" / ")}）`);
+    // ★要約は短名＝性能説明（「（攻＋5…」）を出さない。出すと 375 で装備行が数行に伸びる。
+    ok(m.gearVals.every((v: string) => !v.includes("（") || v.includes("未鑑定")),
+      `[${tag}] 装備の値は銘・+N までの短名（性能説明を出さない）`);
+    ok(m.gearLines.every((h: number) => h <= 34), `[${tag}] 装備行が1行に収まる（${m.gearLines.join(",")}）`);
     await page.screenshot({ path: join(SHOTS, `status_compact_${vp.width}.png`) });
     // ★④chooseGrid（カード一覧）へ入ったら compact が外れる＝remove 経路を実際に踏む
     await page.evaluate(() => {

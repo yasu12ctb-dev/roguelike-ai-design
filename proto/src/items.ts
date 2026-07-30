@@ -408,6 +408,12 @@ export function itemLabel(it: Item): string {
   return it.unidentified ? `見知らぬ${SLOT_LABEL[it.slot]}（未鑑定）` : `${it.name}（${itemPower(it)}）`;
 }
 
+/** 要約表示用の短いラベル（銘・+N までで性能説明を出さない）。性能は詳細画面（装備・持ち物）で読む。
+ *  未鑑定の伏せ方は itemLabel と同じ＝正体を漏らさない。 */
+export function itemShort(it: Item): string {
+  return it.unidentified ? `見知らぬ${SLOT_LABEL[it.slot]}（未鑑定）` : it.name;
+}
+
 /** 金貨での価値（4-10G 経済）。売却額＝この値。購入は店側で割増する。
  *  dmg/reduce は銘・+N 込みの最終値なので、ここで再計算してはならない（二重計算防止）。 */
 export function itemValue(it: Item): number {

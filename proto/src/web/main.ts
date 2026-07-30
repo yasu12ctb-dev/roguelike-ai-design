@@ -21,7 +21,7 @@ import {
   DEPTH_SEAL_AT, ABYSS_DEPTH, RELIC_EXPOSURE_PER_TURN, RELIC_PURSUER_EVERY, RELIC_PURSUER_CAP,
 } from "../progression.ts";
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
-import { rollItem, rollItemOfSlot, itemByName, enchantUp, forgeItem, artifactBaseNames, itemPower, itemLabel, itemValue, SLOT_LABEL, CONSUMABLES, consumableByKey, grantConsumable, type ConsumableDef } from "../items.ts";
+import { rollItem, rollItemOfSlot, itemByName, enchantUp, forgeItem, artifactBaseNames, itemPower, itemLabel, itemShort, itemValue, SLOT_LABEL, CONSUMABLES, consumableByKey, grantConsumable, type ConsumableDef } from "../items.ts";
 import {
   renderDeathLine, renderRediscovery, renderRumor, renderArcBeat, matchSetPiece, fillStoryletText, fillDungeonText, fillActorText,
   requiemLine, leaveLine, inheritLine, REQUIEM_RELIEF,
@@ -8132,8 +8132,10 @@ async function charScreen() {
       { label: "深蝕", value: ch.exposure.toFixed(2), cls: "exp", note: "牙の閾 1.5" },
     ];
     if (ch.carryingRelic) selfRows.push({ text: "★聖遺物 携行中", cls: "warn" });
+    // 要約は **銘・+N までの短い名（itemShort）**＝性能説明（攻＋5・薙ぎ払い…）は「装備・持ち物を見る」で読む。
+    // 性能つきラベルを出すと 375×812 で装備行が数行に伸びて一画面に収まらない（実装備で実測 +86px）。
     const gearRows: SheetRow[] = eqSlots.map((sl) => ({
-      label: SLOT_LABEL[sl], value: ch.equipment[sl] ? itemLabel(ch.equipment[sl]!) : "—",
+      label: SLOT_LABEL[sl], value: ch.equipment[sl] ? itemShort(ch.equipment[sl]!) : "—",
     }));
     const spellRows: SheetRow[] = ch.spells.length
       ? [{ label: "構え", value: `${lo.length}/${LOADOUT_CAP}` }, { text: loNames || "なし", dim: true }]
