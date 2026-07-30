@@ -18,6 +18,13 @@
 //   E) 高コントラスト突合    … §10.2f 差分表 ＝ `@media (prefers-contrast: more)` の :root 上書き
 //   F) WCAG 再計算           … §10.2f **規則表から閾値・判定面を生成**し、`:root` の全色変数が
 //                              ちょうど1行に解決されること＋高コントラスト適用後に基準を満たすこと
+//   I) ルール内ハードコード前景色 … §10.2f の閉包は `:root` の変数についてしか閉じておらず、CSS ルールへ
+//                              直接書いた `color`/`border-color` のリテラル hex は母集合の外にあった
+//                              （v0.171.0 まで落款と朱塗りボタンの文字が 4.18:1 で未達だったのを取り逃がしていた）。
+//                              **§10.2g の閉じた表と 1:1 に突合**し、判定面を①`:root` トークン②`on:<sel>` の
+//                              `background`③`on:` が rgba なら `over:<トークン>` へアルファ合成④`js:MAP_BG.*`
+//                              の **4 形態だけ**受け付けて実ソースから解決し、WCAG 比を毎回再計算する。
+//                              `color` は載りうる全面／`border-color` は隣接面のいずれか1面で判定。
 //   G) 参照ドリフト          … `main.ts` が `screen-model.ts` を import していない（bundle 膨張の予防）
 //   H) self-test（変異試験）  … 上記の拒否枝が効くことを **毎回** in-memory で自動検証
 //
@@ -215,6 +222,32 @@ export function assertGrammar(html: string, mainTs: string): Issue[] {
 //   custom property を読む箇所は必ず customProps() を通し、issues を audit へ集約する。
 const rules = (block: string) => [...block.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
 
+/** at-rule 文脈つきの走査（§10.2g 用）。`@keyframes danger` の `50%` のような
+ *  「同名になりうるセレクタ」を一意な鍵で呼べるようにする＝平坦な正規表現では区別できない。 */
+export function scanRules(style: string): { ctx: string; sel: string; body: string }[] {
+  const out: { ctx: string; sel: string; body: string }[] = [];
+  const stack: string[] = [];
+  let buf = "";
+  for (let i = 0; i < style.length; ) {
+    const c = style[i];
+    if (c === "{") {
+      const head = buf.replace(/\s+/g, " ").trim(); buf = "";
+      if (head.startsWith("@")) { stack.push(head); i++; continue; }
+      let depth = 1, j = i + 1;
+      for (; j < style.length && depth > 0; j++) { if (style[j] === "{") depth++; else if (style[j] === "}") depth--; }
+      out.push({ ctx: stack.join(" "), sel: head, body: style.slice(i + 1, j - 1) });
+      i = j; continue;
+    }
+    if (c === "}") { stack.pop(); buf = ""; i++; continue; }
+    buf += c; i++;
+  }
+  return out;
+}
+const fgKey = (ctx: string, sel: string) => (ctx ? `${ctx} ${sel}` : sel);
+const HARD_PROPS = ["color", "border-color"];
+/** 3桁 hex を 6桁へ（ルール内は `#fff` の略記が普通に出る＝輝度計算の前に正規化する）。 */
+const expandHex = (h: string) => (h.length === 4 ? "#" + [...h.slice(1)].map((c) => c + c).join("") : h.toLowerCase());
+
 export function parseCss(html: string) {
   const style = stripComments(html.slice(html.indexOf("<style>"), html.indexOf("</style>")));
   const rm = mediaBlock(style, "(prefers-reduced-motion: reduce)") ?? "";
@@ -253,9 +286,30 @@ export function parseCss(html: string) {
   //   HC 側だけ素通りしていたのが U1b 検収の指摘＝色形式・未知プロパティが黙って消えていた。
   const root = customProps(style.slice(rootStart, style.indexOf("}", rootStart)), ":root");
   const hcp = customProps(hc, "prefers-contrast: more");
+  // ★§10.2g：ルール内にリテラル hex で書かれた前景色（color / border-color）と、面を引くための background。
+  //   母集合はここで閉じる（:root の変数しか見ていなかったのが 10.2f の閉包の穴）。
+  const hardFg: { key: string; prop: string; hex: string }[] = [];
+  const hardDup: string[] = [];
+  const bgOf: Record<string, string> = {};
+  const seen = new Set<string>();
+  for (const r of scanRules(style)) {
+    const bg = r.body.match(/(?:^|[;{\s])background\s*:\s*([^;]+)/);
+    for (const raw of r.sel.split(",")) {
+      const key = fgKey(r.ctx, raw.trim());
+      if (bg) bgOf[key] = bg[1].trim();
+      for (const prop of HARD_PROPS) {
+        const m = r.body.match(new RegExp(`(?:^|[;{\\s])${prop}\\s*:\\s*(#[0-9a-fA-F]{3,8})`));
+        if (!m) continue;
+        const id = `${key}|${prop}`;
+        if (seen.has(id)) hardDup.push(id); else seen.add(id);
+        hardFg.push({ key, prop, hex: expandHex(m[1].toLowerCase()) });
+      }
+    }
+  }
   return {
     kf, selKf, selTr, rmSel, hcVars: hcp.colors, hcNames: hcp.names,
     rootVars: root.colors, varIssues: [...root.issues, ...hcp.issues],
+    hardFg, hardDup, bgOf,
   };
 }
 
@@ -318,7 +372,8 @@ export function docMotion(spec: string): { kf: string[]; sel: Record<string, str
 /** §10.2f：差分表（トークン→**既定値と**高コントラスト値）と 規則表（群→判定面・閾値）。 */
 export function docContrast(spec: string): { hc: Record<string, string>; def: Record<string, string>; rules: Rule[]; issues: Issue[] } {
   const issues: Issue[] = [];
-  const sec = section(spec, "### 10.2f", "### 10.3 ");
+  // ★終端は §10.2g（10.3 にすると 10.2g の表まで規則表として読んでしまう）。
+  const sec = section(spec, "### 10.2f", "### 10.2g");
   if (!sec) { issues.push({ code: "doc-range", msg: "§10.2f の範囲を特定できない" }); return { hc: {}, def: {}, rules: [], issues }; }
   const hc: Record<string, string> = {};
   const def: Record<string, string> = {};
@@ -355,6 +410,85 @@ export function docContrast(spec: string): { hc: Record<string, string>; def: Re
     });
   }
   return { hc, def, rules: rs, issues };
+}
+
+/** §10.2g：ルール内ハードコード前景色の判定面表（宣言 → 面・閾値）。 */
+export interface HardRow { key: string; prop: string; faces: string[]; need: number | null }
+export function docHardFg(spec: string): { rows: HardRow[]; issues: Issue[] } {
+  const issues: Issue[] = [];
+  const sec = section(spec, "### 10.2g", "### 10.3 ");
+  if (!sec) { issues.push({ code: "doc-range", msg: "§10.2g の範囲を特定できない" }); return { rows: [], issues }; }
+  const rows: HardRow[] = [];
+  const seen = new Set<string>();
+  for (const line of sec.split("\n")) {
+    if (!line.startsWith("| `")) continue;
+    const c = cells(line);
+    if (c.length < 6) continue;
+    const key = ticks(c[1])[0], prop = ticks(c[2])[0];
+    if (!key || !prop) continue;
+    if (!HARD_PROPS.includes(prop)) { issues.push({ code: "doc-hard-prop", msg: `§10.2g の対象外プロパティ: ${key} ${prop}` }); continue; }
+    const id = `${key}|${prop}`;
+    if (seen.has(id)) issues.push({ code: "doc-dup", msg: `§10.2g に重複行: ${id}` }); else seen.add(id);
+    const exempt = /免除/.test(c[4]);
+    const need = exempt ? null : Number(c[4].match(/([\d.]+):1/)?.[1] ?? NaN);
+    if (!exempt && !Number.isFinite(need)) { issues.push({ code: "doc-hard-need", msg: `§10.2g の閾値を読めない: ${id}` }); continue; }
+    rows.push({ key, prop, faces: exempt ? [] : ticks(c[3]), need });
+  }
+  return { rows, issues };
+}
+
+/** rgba を下地 hex へアルファ合成（§10.2g の `on:… over:…`）。 */
+const composite = (r: number, g: number, b: number, a: number, base: string) => {
+  const [br, bg, bb] = rgb(base);
+  const mix = (f: number, k: number) => Math.round(f * a + k * (1 - a));
+  return "#" + [mix(r, br), mix(g, bg), mix(b, bb)].map((n) => n.toString(16).padStart(2, "0")).join("");
+};
+
+/** §10.2g の判定面セルを実ソースから解決。**受け付ける文法は4形態だけ**で、それ以外は全て errs。 */
+export function resolveFaces(
+  faces: string[], css: { bgOf: Record<string, string>; rootVars: Record<string, string> }, mainTs: string,
+): { hexes: string[]; errs: string[] } {
+  const hexes: string[] = [], errs: string[] = [];
+  const mapBg: Record<string, string> = {};
+  const mb = mainTs.match(/const\s+MAP_BG\s*=\s*\{([\s\S]*?)\}\s*as const/);
+  if (mb) for (const kv of mb[1].matchAll(/([A-Za-z0-9_]+)\s*:\s*"(#[0-9a-fA-F]{6})"/g)) mapBg[kv[1]] = kv[2].toLowerCase();
+  for (let i = 0; i < faces.length; i++) {
+    const t = faces[i];
+    if (t.startsWith("over:")) { errs.push(`over: が単独で現れた（直前に rgba の on: が要る）: ${t}`); continue; }
+    if (t.startsWith("js:")) {
+      const k = t.match(/^js:MAP_BG\.([A-Za-z0-9_]+)$/);
+      if (!k) { errs.push(`js: の書き方が文法外: ${t}`); continue; }
+      if (!(k[1] in mapBg)) { errs.push(`main.ts の MAP_BG に無い: ${t}`); continue; }
+      hexes.push(mapBg[k[1]]); continue;
+    }
+    if (t.startsWith("on:")) {
+      const sel = t.slice(3), bg = css.bgOf[sel];
+      if (!bg) { errs.push(`on: のセレクタに background が無い: ${sel}`); continue; }
+      const v = bg.match(/^var\(--([a-z0-9-]+)\)$/);
+      if (v) { const h = css.rootVars[v[1]]; if (!h) { errs.push(`on: の var() が :root に無い: ${bg}`); continue; } hexes.push(h); continue; }
+      if (HEX6.test(bg)) { hexes.push(bg.toLowerCase()); continue; }
+      if (/^linear-gradient/.test(bg)) {
+        const st = [...bg.matchAll(/#[0-9a-fA-F]{6}/g)].map((x) => x[0].toLowerCase());
+        if (!st.length) { errs.push(`linear-gradient に hex stop が無い: ${sel}`); continue; }
+        hexes.push(...st); continue;
+      }
+      const rg = bg.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)$/);
+      if (rg) {
+        const ov = (faces[i + 1] ?? "").match(/^over:([a-z0-9-]+)$/);
+        if (!ov) { errs.push(`rgba の面には over:<トークン> が要る: ${sel}`); continue; }
+        const base = css.rootVars[ov[1]];
+        if (!base) { errs.push(`over: のトークンが :root に無い: ${ov[1]}`); continue; }
+        i++; // over: を消費
+        hexes.push(composite(+rg[1], +rg[2], +rg[3], +rg[4], base)); continue;
+      }
+      errs.push(`on: の background が文法外（不透明hex / var() / linear-gradient / rgba のみ）: ${sel} → ${bg}`);
+      continue;
+    }
+    const h = css.rootVars[t];
+    if (!h) { errs.push(`:root に無い面トークン: ${t}`); continue; }
+    hexes.push(h);
+  }
+  return { hexes, errs };
 }
 
 /** トークン名を規則表の1行に解決（完全一致 > glob。0件/複数件は null＝fail）。 */
@@ -437,6 +571,27 @@ export function audit(html: string, spec: string, mainTs: string): Issue[] {
     if (worst < r.need) bad("contrast", `高コントラストで基準未達: --${k} ${eff[k]} = ${worst.toFixed(2)}:1（必要 ${r.need}:1）`);
   }
 
+  // I) §10.2g：ルール内ハードコード前景色 ↔ 判定面表（10.2f の閉包の外にあった母集合を閉じる）
+  const dh = docHardFg(spec);
+  out.push(...dh.issues);
+  for (const d of css.hardDup) bad("hard-duplicate", `同じ宣言が二度現れる（@media 上書きが黙って未検査になる）: ${d}`);
+  const docIds = new Set(dh.rows.map((r) => `${r.key}|${r.prop}`));
+  const cssIds = new Set(css.hardFg.map((f) => `${f.key}|${f.prop}`));
+  for (const id of cssIds) if (!docIds.has(id)) bad("hard-undocumented", `§10.2g の表に無いハードコード前景色: ${id}`);
+  for (const id of docIds) if (!cssIds.has(id)) bad("hard-stale", `§10.2g の表にあるが CSS に無い: ${id}`);
+  for (const r of dh.rows) {
+    const f = css.hardFg.find((x) => x.key === r.key && x.prop === r.prop);
+    if (!f || r.need === null) continue; // 欠けは hard-stale で報告済み／null＝免除
+    const { hexes, errs } = resolveFaces(r.faces, css, mainTs);
+    for (const e of errs) bad("hard-face", `${r.key}|${r.prop}: ${e}`);
+    if (errs.length) continue;
+    if (!hexes.length) { bad("hard-face", `${r.key}|${r.prop}: 判定面が空`); continue; }
+    const vals = hexes.map((h) => contrast(f.hex, h));
+    // color＝載りうる全ての面で満たす（最悪面）／border-color＝隣接面のいずれか1面で足りる（1.4.11 の趣旨）
+    const v = r.prop === "border-color" ? Math.max(...vals) : Math.min(...vals);
+    if (v < r.need) bad("hard-contrast", `§10.2g 基準未達: ${r.key} ${r.prop} ${f.hex} = ${v.toFixed(2)}:1（必要 ${r.need}:1・面 ${hexes.join(",")}）`);
+  }
+
   // G) 参照ドリフト
   if (/from\s+["'][^"']*screen-model/.test(mainTs)) bad("model-leak", "main.ts が screen-model を import している（bundle 膨張・U1c の前提が崩れる）");
 
@@ -451,6 +606,8 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
 // H) self-test（変異試験・毎回実行）
 {
   const END_STYLE = "  </style>";
+  // §10.2g で最も単純な行（面が :root トークン1つ）＝表の書き換え変異の共通アンカー。
+  const NAME_ROW = "| `#title .name` | `color` | `bg-app` | 4.5:1（文字） | 題字 |";
   const RM_HEAD = "    @media (prefers-reduced-motion: reduce) {";
   const GRID_ANCHOR = "    #grid { display: grid; width: 100%; }";
   const T: { name: string; expect: string; run: () => Issue[] }[] = [
@@ -544,6 +701,23 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
     { name: "HC に既知の非色（--r-btn）を追加上書きする", expect: "hc-undocumented", run: () => audit(html.replace("--g-floor:#576578;", "--g-floor:#576578; --r-btn:99px;"), spec, mainTs) },
     { name: "分類表の行を消す（件数アサート）", expect: "sel-count", run: () => audit(html, spec.replace("／`.g-laila`", ""), mainTs) },
     { name: "意味論表の行を消す（件数アサート）", expect: "kf-count", run: () => audit(html, spec.replace(/\| `abyssair` \| 6s \|[^\n]*\n/, ""), mainTs) },
+    // ---- ★§10.2g（ルール内ハードコード前景色）＝母集合・文法・閾値の三方向を変異で裏取り ----
+    //      NAME_ROW は最も単純な行（面が :root トークン1つ）＝表の書き換え変異の共通アンカー。
+    { name: "CSS に表に無いハードコード前景色を足す", expect: "hard-undocumented", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-new { color: #123456; }"), spec, mainTs) },
+    { name: "表から行を1つ消す（CSS には残る）", expect: "hard-undocumented", run: () => audit(html, spec.replace(NAME_ROW, ""), mainTs) },
+    { name: "表の宣言を CSS に無いセレクタにする", expect: "hard-stale", run: () => audit(html, spec.replace("| `#title .name` | `color`", "| `#title .zzz` | `color`"), mainTs) },
+    { name: "同じ宣言を二度書く（@media 上書きの見落とし）", expect: "hard-duplicate", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    #title .name { color: #efe6d3; }"), spec, mainTs) },
+    { name: "判定面を :root に無いトークンにする", expect: "hard-face", run: () => audit(html, spec.replace(NAME_ROW, NAME_ROW.replace("`bg-app`", "`bg-zzz`")), mainTs) },
+    { name: "on: を background の無いセレクタにする", expect: "hard-face", run: () => audit(html, spec.replace("`on:#lungeBtn.stance`", "`on:#zzz`"), mainTs) },
+    { name: "rgba の面から over: を落とす", expect: "hard-face", run: () => audit(html, spec.replace("`on:#guardBtn` `over:bg-app`", "`on:#guardBtn`"), mainTs) },
+    { name: "over: を単独で置く", expect: "hard-face", run: () => audit(html, spec.replace(NAME_ROW, NAME_ROW.replace("`bg-app`", "`over:bg-app`")), mainTs) },
+    { name: "js: を MAP_BG に無いキーにする", expect: "hard-face", run: () => audit(html, spec.replace("`js:MAP_BG.aimOk`", "`js:MAP_BG.zzz`"), mainTs) },
+    { name: "閾値を読めない表記にする", expect: "doc-hard-need", run: () => audit(html, spec.replace(NAME_ROW, NAME_ROW.replace("4.5:1（文字）", "じゅうぶん")), mainTs) },
+    { name: "対象外プロパティを表に書く", expect: "doc-hard-prop", run: () => audit(html, spec.replace(NAME_ROW, NAME_ROW.replace("| `color` |", "| `background` |")), mainTs) },
+    { name: "表に同じ宣言の行を二度書く", expect: "doc-dup", run: () => audit(html, spec.replace(NAME_ROW, NAME_ROW + "\n" + NAME_ROW), mainTs) },
+    { name: "基準未達の前景色へ戻す（落款）", expect: "hard-contrast", run: () => audit(html.replace("background: var(--acc); color: #fffaf5;", "background: var(--acc); color: #f6e8dc;"), spec, mainTs) },
+    { name: "基準未達の前景色へ戻す（朱塗りボタン）", expect: "hard-contrast", run: () => audit(html.replace("#title .menu button.primary { color: #fffaf5;", "#title .menu button.primary { color: #f6e8dc;"), spec, mainTs) },
+    { name: "§10.2g の見出しを消す", expect: "doc-range", run: () => audit(html, spec.replace("### 10.2g ルール内", "### 10.2zz ルール内"), mainTs) },
   ];
   let ng = 0;
   for (const t of T) if (!t.run().some((i) => i.code === t.expect)) { err(`self-test 未検出: ${t.name}（期待 ${t.expect}）`); ng++; }
@@ -566,6 +740,19 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
   console.log(`  (B) 個別セレクタ 1:1: CSS ${Object.keys(css.selKf).length} = doc ${Object.keys(dm.sel).length}（A${n("A")} B${n("B")} C${n("C")} 免除${n("免除")}）`);
   console.log(`  (B2) 非 keyframe motion: CSS ${Object.keys(css.selTr).length} = doc ${Object.keys(dm.tr).length}（RM で transition: none）`);
   console.log(`  (E/F) 高コントラスト: 上書き ${Object.keys(css.hcVars).length} 変数 / 規則表 ${dc.rules.length} 行で ${checked.length} トークンを検査（最小余裕 ×${margin.toFixed(2)}）`);
+  // (I) §10.2g：CSS 側の母集合と doc の表が 1:1 か、実際に測った面の数と最小余裕。
+  const dh = docHardFg(spec);
+  const judged = dh.rows.filter((r) => r.need !== null);
+  let faceN = 0, hMargin = Infinity;
+  for (const r of judged) {
+    const f = css.hardFg.find((x) => x.key === r.key && x.prop === r.prop);
+    const { hexes, errs } = resolveFaces(r.faces, css, mainTs);
+    if (!f || errs.length || !hexes.length) continue;
+    faceN += hexes.length;
+    const vals = hexes.map((h) => contrast(f.hex, h));
+    hMargin = Math.min(hMargin, (r.prop === "border-color" ? Math.max(...vals) : Math.min(...vals)) / r.need!);
+  }
+  console.log(`  (I) ルール内ハードコード前景色: CSS ${css.hardFg.length} 宣言 = doc ${dh.rows.length} 行（判定 ${judged.length} / 免除 ${dh.rows.length - judged.length}）・面 ${faceN} 面を実測（最小余裕 ×${hMargin.toFixed(2)}）`);
 }
 
 if (fail) { console.error(`\n[a11y-check] FAIL: ${fail} 件`); process.exit(1); }
