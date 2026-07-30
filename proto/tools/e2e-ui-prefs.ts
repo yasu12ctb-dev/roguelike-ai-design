@@ -2,12 +2,13 @@
 //   §10.2b が宣言する三点を **実ブラウザが実際にそう解決するか** で固定する。
 //   検査＝①堆積した世界でタイトル中央に来歴 3 行＋金泥の細罫が出る（文言・出典つき）
 //        ②「還った」でなく「眠る者」＝副題（まだ誰も潜っていない）と食い違わない
-//        ③ステータスは `compact`＝480×900 で**内容が視野に収まる**（はみ出し 0）
-//        ④見出し（.sec-h / .sg）は weight 700
-//        ⑤詰め版でもタッチ最小 48px を割らない・短い選択肢が 2 列・`閉じる` は全幅
-//        ⑥HP/攻撃は能力行へ、薬・巻物/武具は持ち物 1 行へ集約されている
-//        ⑦★compact が**他のシートへ残らない**（設定シートは詰め版でない）
-//   ★③⑤⑥は数値・構造を厳密に見る＝「詰め版をやめた」「行を戻した」変更で必ず落ちる。
+//        ③ステータスは `compact`＝**375×812（実機相当）と 480×900 の両方**で内容が視野に収まる
+//        ④見出し（.sec-h / .sg）は weight 700 かつ **色が :root の `--tx-2` と一致**（rgb は書き写さず読む）
+//        ⑤詰め版のボタン組みを**ラベル対応**で固定＝半幅4つが均等／`進行中…` と `閉じる` は全幅／全て 48px 以上
+//        ⑥HP/攻撃は能力行へ、薬・巻物/武具は持ち物 1 行へ集約・**装備の節は2列（先頭行は左右とも上罫なし）**
+//        ⑦★compact が**他のシートへ残らない**＝`chooseGrid`（装備・持ち物＝カード一覧）へ実際に入って外れることと、
+//           設定シート（`sheet()` 経路）が詰め版でないことの両方を踏む
+//   ★③⑤⑥は数値・構造を厳密に見る＝「詰め版をやめた」「行を戻した」「全幅指定を外した」変更で必ず落ちる。
 //   ローカル専用（CI 外・playwright は package.json に入れない規約）。既存 e2e-*/visual-check と同一手法。
 // 実行: EXEC=<chromium> node --experimental-strip-types tools/e2e-ui-prefs.ts
 import { createServer } from "node:http";
@@ -64,8 +65,8 @@ async function main() {
   let fails = 0;
   const ok = (c: boolean, m: string) => { console.log(`${c ? "  ok " : "  NG "}${m}`); if (!c) fails++; };
 
-  async function newPage(world?: string) {
-    const ctx = await browser.newContext({ viewport: { width: 480, height: 900 }, deviceScaleFactor: 2, serviceWorkers: "block" });
+  async function newPage(world?: string, vp = { width: 480, height: 900 }) {
+    const ctx = await browser.newContext({ viewport: vp, deviceScaleFactor: 2, serviceWorkers: "block" });
     const page = await ctx.newPage();
     const errs: string[] = [];
     page.on("pageerror", (e: any) => errs.push(String(e)));
@@ -108,9 +109,14 @@ async function main() {
     await ctx.close();
   }
 
-  // 2. ステータスシート（compact）と見出しウェイト
-  {
-    const { ctx, page, errs } = await newPage(agedWorld());
+  // 2. ステータスシート（compact）＝**実機相当 375×812 と 480×900 の両方**で検査する。
+  //    ★ここを 480 だけで見ていたために 375 の 77px はみ出しを見落とした（Codex 指摘・2026-07-30）。
+  //    期待するボタン組み＝2列。ただし長いラベル（進行中…）と cancel（閉じる）は全幅。
+  const HALF = ["装備・持ち物を見る", "術（構え・図鑑）", "人物と年代記", "敵図鑑"];
+  const FULL = ["進行中（依頼・因縁・印）", "閉じる"];
+  for (const vp of [{ width: 375, height: 812 }, { width: 480, height: 900 }]) {
+    const tag = `${vp.width}×${vp.height}`;
+    const { ctx, page, errs } = await newPage(agedWorld(), vp);
     const btns = await page.$$eval("#titleMenu button", (els: any[]) => els.map((e) => (e.textContent || "").trim()));
     let i = btns.findIndex((t: string) => /続き|触れて/.test(t)); if (i < 0) i = 0;
     await page.locator("#titleMenu button").nth(i).click({ timeout: 4000 }).catch(() => {});
@@ -118,47 +124,98 @@ async function main() {
     await page.click("#statBtn", { timeout: 4000 }).catch(() => {});
     await page.waitForTimeout(600);
     const m = await page.evaluate(() => {
+      // --tx-2 は :root から読む（rgb を書き写すとトークンを変えたときに黙って腐る）。
+      const hex = getComputedStyle(document.documentElement).getPropertyValue("--tx-2").trim();
+      const rgbOf = (h: string) => {
+        const x = h.replace("#", "");
+        const n = x.length === 3 ? [...x].map((c) => c + c) : [x.slice(0, 2), x.slice(2, 4), x.slice(4, 6)];
+        return `rgb(${n.map((p) => parseInt(p, 16)).join(", ")})`;
+      };
       const s = document.getElementById("sheet")!;
       const head = document.querySelector("#sheetList .sec-h") as HTMLElement;
       const hs = getComputedStyle(head);
-      const btns = [...document.querySelectorAll<HTMLElement>("#sheetButtons button")];
-      const widths = btns.map((b) => Math.round(b.getBoundingClientRect().width));
-      const heights = btns.map((b) => Math.round(b.getBoundingClientRect().height));
+      const geom: Record<string, { w: number; h: number }> = {};
+      for (const b of document.querySelectorAll<HTMLElement>("#sheetButtons button")) {
+        const r = b.getBoundingClientRect();
+        geom[(b.textContent || "").trim()] = { w: Math.round(r.width), h: Math.round(r.height) };
+      }
+      const gearGrid = document.querySelector("#sheetList .kvgrid");
       return {
+        tokenTx2: rgbOf(hex), tokenRaw: hex,
         compact: s.classList.contains("compact"), content: s.scrollHeight, view: s.clientHeight,
-        headWeight: hs.fontWeight, headColor: hs.color,
-        labels: btns.map((b) => (b.textContent || "").trim()), widths, minH: Math.min(...heights),
+        headWeight: hs.fontWeight, headColor: hs.color, geom,
+        listWidth: Math.round(document.getElementById("sheetList")!.getBoundingClientRect().width),
+        gearCols: gearGrid ? getComputedStyle(gearGrid).gridTemplateColumns.split(" ").length : 0,
+        gearBorders: gearGrid ? [...gearGrid.querySelectorAll<HTMLElement>(".kvrow")].map((r) => getComputedStyle(r).borderTopWidth) : [],
         rows: [...document.querySelectorAll("#sheetList .kvrow")].map((r) => (r.querySelector(".kvlab")?.textContent || "").trim()),
       };
     });
-    console.log("  sheet:", JSON.stringify(m));
-    ok(m.compact, "ステータスは compact");
-    ok(m.headWeight === "700", `見出し weight 700（${m.headWeight}）`);
-    ok(m.minH >= 48, `タッチ最小 48px 維持（最小 ${m.minH}）`);
-    ok(!m.rows.includes("最大HP") && !m.rows.includes("攻撃"), "HP/攻撃は能力行へ集約");
-    ok(m.rows.includes("持ち物"), "薬・巻物/武具は持ち物1行へ");
-    ok(m.content <= m.view, `480×900 で一画面に収まる（はみ出し ${m.content - m.view}px・content=${m.content} view=${m.view}）`);
-    // 2列になっているか＝同じ幅の短いボタンが2つ以上ある
-    const half = m.widths.filter((w: number) => w < 260).length;
-    ok(half >= 2, `短い選択肢が2列（半幅ボタン ${half}）`);
-    await page.screenshot({ path: join(SHOTS, "status_compact.png") });
-    // 他のシートに compact が残らないこと＝末尾の「閉じる」で畳んでから設定シートを開いて確認
+    console.log(`  [${tag}]`, JSON.stringify(m));
+    ok(m.compact, `[${tag}] ステータスは compact`);
+    // ★①一画面に収まる（両ビューポート）
+    ok(m.content <= m.view, `[${tag}] 一画面に収まる（はみ出し ${m.content - m.view}px・content=${m.content} view=${m.view}）`);
+    // ★②見出しの色が --tx-2 であることを直接 assert（weight とセット）
+    ok(m.headWeight === "700", `[${tag}] 見出し weight 700（${m.headWeight}）`);
+    ok(m.headColor === m.tokenTx2, `[${tag}] 見出し色＝--tx-2（${m.tokenRaw} → ${m.tokenTx2}／実測 ${m.headColor}）`);
+    // ★③ラベル対応で 2列＋全幅を assert（幅の閾値ではなくラベルで固定する）
+    const found = Object.keys(m.geom);
+    ok(HALF.every((l) => l in m.geom) && FULL.every((l) => l in m.geom),
+      `[${tag}] 期待ラベル6つが揃う（${found.join(" / ")}）`);
+    const halfW = HALF.map((l) => m.geom[l]?.w ?? -1);
+    const fullW = FULL.map((l) => m.geom[l]?.w ?? -1);
+    ok(new Set(halfW).size === 1 && halfW[0] > 0, `[${tag}] 半幅4つが均等（${halfW.join(",")}）`);
+    ok(new Set(fullW).size === 1 && fullW[0] > halfW[0] * 1.8, `[${tag}] 全幅2つ（${fullW.join(",")}）＝半幅の約2倍`);
+    ok(Math.abs(fullW[0] - m.listWidth) <= 2, `[${tag}] 全幅がシート幅と一致（${fullW[0]} vs ${m.listWidth}）`);
+    ok(Object.values(m.geom).every((g: any) => g.h >= 48), `[${tag}] タッチ最小 48px 維持（${Object.values(m.geom).map((g: any) => g.h).join(",")}）`);
+    // 行の集約と装備2列
+    ok(!m.rows.includes("最大HP") && !m.rows.includes("攻撃"), `[${tag}] HP/攻撃は能力行へ集約`);
+    ok(m.rows.includes("持ち物"), `[${tag}] 薬・巻物/武具は持ち物1行へ`);
+    ok(m.gearCols === 2, `[${tag}] 装備の節が2列（cols=${m.gearCols}）`);
+    ok(m.gearBorders.slice(0, 2).every((b: string) => b === "0px"), `[${tag}] 2列の先頭行は左右とも上罫なし（${m.gearBorders.join(",")}）`);
+    await page.screenshot({ path: join(SHOTS, `status_compact_${vp.width}.png`) });
+    // ★④chooseGrid（カード一覧）へ入ったら compact が外れる＝remove 経路を実際に踏む
     await page.evaluate(() => {
-      const b = [...document.querySelectorAll<HTMLElement>("#sheetButtons button")].find((x) => /閉じる/.test(x.textContent || ""));
+      const b = [...document.querySelectorAll<HTMLElement>("#sheetButtons button")].find((x) => /装備・持ち物を見る/.test(x.textContent || ""));
       b?.click();
     });
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(800);
+    const g = await page.evaluate(() => ({
+      compact: document.getElementById("sheet")!.classList.contains("compact"),
+      grid: !!document.querySelector("#sheetButtons .selgrid"),
+      head: document.getElementById("sheetHeadTitle")?.textContent ?? "",
+    }));
+    console.log(`  [${tag}] chooseGrid:`, JSON.stringify(g));
+    ok(g.grid, `[${tag}] chooseGrid のカード一覧が出た（${g.head}）`);
+    ok(!g.compact, `[${tag}] chooseGrid では compact が外れる`);
+    await page.screenshot({ path: join(SHOTS, `gearsheet_${vp.width}.png`) });
+    // 他のシートに compact が残らないこと＝閉じてから設定シートを開いて確認（sheet() 側の toggle 経路）
+    for (let k = 0; k < 3; k++) {
+      await page.evaluate(() => {
+        const b = [...document.querySelectorAll<HTMLElement>("#sheetButtons button,#sheetButtons .selgrid button")].find((x) => /^閉じる|閉じる$/.test((x.textContent || "").trim()));
+        b?.click();
+      });
+      await page.waitForTimeout(500);
+      if (!(await page.evaluate(() => document.getElementById("overlay")!.classList.contains("show")))) break;
+    }
     await page.click("#cogBtn", { timeout: 4000 }).catch(() => {});
     await page.waitForTimeout(800);
     const s2 = await page.evaluate(() => {
       const s = document.getElementById("sheet")!;
       const sg = document.querySelector("#sheetButtons .sg") as HTMLElement | null;
-      return { compact: s.classList.contains("compact"), cols: getComputedStyle(document.getElementById("sheetButtons")!).display, sgWeight: sg ? getComputedStyle(sg).fontWeight : "n/a" };
+      const hex = getComputedStyle(document.documentElement).getPropertyValue("--tx-2").trim();
+      return {
+        compact: s.classList.contains("compact"),
+        cols: getComputedStyle(document.getElementById("sheetButtons")!).display,
+        sgWeight: sg ? getComputedStyle(sg).fontWeight : "n/a",
+        sgColor: sg ? getComputedStyle(sg).color : "n/a",
+        tx2: hex,
+      };
     });
-    ok(!s2.compact && s2.cols !== "grid", `設定シートは詰め版でない（compact=${s2.compact} display=${s2.cols}）`);
-    ok(s2.sgWeight === "700", `設定の群見出しも 700（${s2.sgWeight}）`);
-    await page.screenshot({ path: join(SHOTS, "settings.png") });
-    ok(errs.length === 0, `console/pageerror 0（${errs.length}）`);
+    ok(!s2.compact && s2.cols !== "grid", `[${tag}] 設定シートは詰め版でない（compact=${s2.compact} display=${s2.cols}）`);
+    ok(s2.sgWeight === "700", `[${tag}] 設定の群見出しも 700（${s2.sgWeight}）`);
+    ok(s2.sgColor === m.tokenTx2, `[${tag}] 設定の群見出し色＝--tx-2（実測 ${s2.sgColor}）`);
+    await page.screenshot({ path: join(SHOTS, `settings_${vp.width}.png`) });
+    ok(errs.length === 0, `[${tag}] console/pageerror 0（${errs.length}）`);
     await ctx.close();
   }
 

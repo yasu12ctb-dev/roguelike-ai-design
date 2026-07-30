@@ -182,9 +182,13 @@ addEventListener("unhandledrejection", (e) => {
 // ---------- シート（場面＋選択肢。promise を返す） ----------
 // 構造化行（横断F ①＝Wizardry 流の整列）。kv 行＝ラベル/値、text 行＝自由文。Swift ＝ LabeledContent / Text。
 type SheetRow = { label: string; value: string; note?: string; cls?: string } | { text: string; dim?: boolean; cls?: string };
-interface SheetSection { header?: string; rows: SheetRow[] } // Swift ＝ Section(header:)
+// cols2＝この節の kv 行を2列に並べる（詰め版のみ有効・Swift ＝ 2 列 LazyVGrid の Section）。
+// 「値の位置が左右にぶれる」のを嫌って本文の数値行には使わない＝装備のような同型の枠にだけ付ける。
+interface SheetSection { header?: string; rows: SheetRow[]; cols2?: boolean } // Swift ＝ Section(header:)
 // 選択肢＝文字列（従来どおり）／役割つきオブジェクト（opt-in）。既存 string[] 呼び出しはそのまま有効。
-type SheetOption = string | { label: string; role?: "primary" | "cancel" | "danger"; header?: string; gap?: boolean };
+// wide＝詰め版の2列組みで1つだけ全幅にする（長いラベルが半幅で折り返して行高を押し上げるのを防ぐ）。
+// 通常シート（1列）では何も変わらない＝no-op。
+type SheetOption = string | { label: string; role?: "primary" | "cancel" | "danger"; header?: string; gap?: boolean; wide?: boolean };
 // compact＝情報量の多いシートだけの詰め版（横断F ②・v0.171.0）。行高を詰め短い選択肢を2列に（CSS `#sheet.compact`）。
 // 物語の選択肢（長文）に掛けると読みにくくなるので、指定した画面（現＝charScreen）だけに効かせる。
 interface SheetOpts { text?: string; sections?: SheetSection[]; meta?: string; options: SheetOption[]; input?: string; compact?: boolean; }
@@ -200,6 +204,9 @@ function renderSheetSections(sections?: SheetSection[]) {
       h.className = "sec-h"; h.textContent = sec.header;
       sheetList.appendChild(h);
     }
+    // cols2 の節だけ包み箱に入れる（詰め版の CSS が2列にする面。通常シートでは block のまま＝見た目不変）。
+    const box = sec.cols2 ? document.createElement("div") : sheetList;
+    if (sec.cols2) { (box as HTMLElement).className = "kvgrid"; sheetList.appendChild(box); }
     sec.rows.forEach((row, i) => {
       if ("label" in row) {
         const r = document.createElement("div");
@@ -207,11 +214,11 @@ function renderSheetSections(sections?: SheetSection[]) {
         const lab = document.createElement("span"); lab.className = "kvlab"; lab.textContent = row.label;
         const val = document.createElement("span"); val.className = "kvval" + (row.cls ? " " + row.cls : ""); val.textContent = row.value;
         if (row.note) { const n = document.createElement("span"); n.className = "note"; n.textContent = row.note; val.appendChild(n); }
-        r.appendChild(lab); r.appendChild(val); sheetList.appendChild(r);
+        r.appendChild(lab); r.appendChild(val); box.appendChild(r);
       } else {
         const t = document.createElement("div");
         t.className = "kvtext" + (row.dim ? " dim" : "") + (row.cls ? " " + row.cls : "");
-        t.textContent = row.text; sheetList.appendChild(t);
+        t.textContent = row.text; box.appendChild(t);
       }
     });
   }
@@ -236,7 +243,7 @@ function sheet(o: SheetOpts): Promise<{ pick: number; text: string }> {
     };
     const last = o.options.length - 1;
     o.options.forEach((opt, i) => {
-      const cfg: { label?: string; role?: "primary" | "cancel" | "danger"; header?: string; gap?: boolean } =
+      const cfg: { label?: string; role?: "primary" | "cancel" | "danger"; header?: string; gap?: boolean; wide?: boolean } =
         typeof opt === "object" ? opt : {};
       if (cfg.header) { // グループ見出し（設定など）
         const h = document.createElement("div"); h.className = "sg"; h.textContent = cfg.header;
@@ -253,6 +260,7 @@ function sheet(o: SheetOpts): Promise<{ pick: number; text: string }> {
       else if (role === "cancel") b.classList.add("b-cancel");
       else if (role === "danger") b.classList.add("b-danger");
       if (cfg.gap) b.classList.add("grp");
+      if (cfg.wide) b.classList.add("b-wide"); // 詰め版の2列組みでだけ全幅（通常シートでは元から全幅＝no-op）
       b.onclick = () => choose(i + 1);
       sheetButtons.appendChild(b);
     });
@@ -8136,7 +8144,8 @@ async function charScreen() {
     ];
     const sections: SheetSection[] = [
       { rows: selfRows },
-      { header: "装備", rows: gearRows },
+      // 装備は同型の4枠＝詰め版では2列に（縦4行ぶんを2行に畳む＝375×812 で一画面に収めるため）。
+      { header: "装備", rows: gearRows, cols2: true },
       { header: "術", rows: spellRows },
       { header: `荷物　${packUsed(ch)}/${packCapacity(ch)} 枠`, rows: packRows },
     ];
@@ -8149,7 +8158,9 @@ async function charScreen() {
     if (ch.traits.length) sections.push({ header: "記憶", rows: [{ label: "記憶", value: `${ch.traits.length}件` }] });
 
     const opts: SheetOption[] = [
-      "装備・持ち物を見る", "術（構え・図鑑）", "進行中（依頼・因縁・印）",
+      "装備・持ち物を見る", "術（構え・図鑑）",
+      // 長いラベル＝2列だと半幅に収まらず折り返して行高を押し上げるので全幅で1行に（375px 実測で 66→48px）。
+      { label: "進行中（依頼・因縁・印）", wide: true },
       { label: "人物と年代記", gap: true }, "敵図鑑",
     ];
     if (hired) opts.push(`相棒を見る（${hired.actor.name}）`);
