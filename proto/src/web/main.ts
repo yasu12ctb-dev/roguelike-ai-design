@@ -66,7 +66,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.171.0";
+export const APP_VERSION = "0.172.0";
 export const APP_BUILD = "2026-07-30";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -8138,26 +8138,20 @@ async function charScreen() {
       label: SLOT_LABEL[sl], value: ch.equipment[sl] ? itemShort(ch.equipment[sl]!) : "—",
     }));
     const spellRows: SheetRow[] = ch.spells.length
-      ? [{ label: "構え", value: `${lo.length}/${LOADOUT_CAP}` }, { text: loNames || "なし", dim: true }]
+      ? [{ label: "構え", value: `${lo.length}/${LOADOUT_CAP}` }]
       : [{ text: "未識得", dim: true }];
-    // 中身の導線は直下の「装備・持ち物を見る」ボタンが担うので、注記行は畳む（横断F ②）。
-    const packRows: SheetRow[] = [
-      { label: "持ち物", value: `薬・巻物 ${consN}個／武具 ${gearN}点` },
-    ];
+    // 相棒（雇用中）＝主画面に要約を出し、詳細・解散は「相棒を見る」へ（解散導線を見つけやすく・テストプレイFB）。
+    const hired = world.companion?.alive ? world.companion : null;
+    // 荷物・相棒は自分の節へ集約（見出しを立てない）。
+    selfRows.push({ label: "荷物", value: `${packUsed(ch)}/${packCapacity(ch)} 枠　薬 ${consN}／武具 ${gearN}` });
+    if (hired) selfRows.push({ label: "相棒", value: `${hired.actor.name}（絆${hired.bond}）` });
     const sections: SheetSection[] = [
       { rows: selfRows },
       // 装備は同型の4枠＝詰め版では2列に（縦4行ぶんを2行に畳む＝375×812 で一画面に収めるため）。
       { header: "装備", rows: gearRows, cols2: true },
       { header: "術", rows: spellRows },
-      { header: `荷物　${packUsed(ch)}/${packCapacity(ch)} 枠`, rows: packRows },
     ];
-    // 相棒（雇用中）＝主画面に要約を出し、詳細・解散は「相棒を見る」へ（解散導線を見つけやすく・テストプレイFB）。
-    const hired = world.companion?.alive ? world.companion : null;
-    if (hired) sections.push({ header: "相棒", rows: [
-      { label: hired.actor.name, value: GRADE_LABELS[hired.grade] },
-      { text: `絆${hired.bond}・偉業${hired.feats ?? 0}　※詳細は「相棒を見る」`, dim: true },
-    ] });
-    if (ch.traits.length) sections.push({ header: "記憶", rows: [{ label: "記憶", value: `${ch.traits.length}件` }] });
+    // 記憶は節を作らない＝件数は直下の「記憶を見る（N）」が出しており、節にすると同じ数字が二度出る。
 
     const opts: SheetOption[] = [
       "装備・持ち物を見る", "術（構え・図鑑）",
@@ -8165,7 +8159,8 @@ async function charScreen() {
       { label: "進行中（依頼・因縁・印）", wide: true },
       { label: "人物と年代記", gap: true }, "敵図鑑",
     ];
-    if (hired) opts.push(`相棒を見る（${hired.actor.name}）`);
+    // 名は直上の「相棒」節に出ているので、ボタンには入れない（半幅で折り返して行高が 48→66px になる）。
+    if (hired) opts.push("相棒を見る");
     if (ch.traits.length) opts.push(`記憶を見る（${ch.traits.length}）`);
     opts.push("閉じる");
     const r = await sheet({
