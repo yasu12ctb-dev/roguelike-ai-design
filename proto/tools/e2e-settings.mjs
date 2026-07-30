@@ -12,7 +12,7 @@ import { join, extname } from "node:path";
 
 const WEB_DIR = decodeURIComponent(new URL("../web/", import.meta.url).pathname);
 // 版数は **ソース（APP_VERSION）から読む**。ここに版数を書き写すと、バンプのたびに黙って腐る
-// （実際 v0.168.0〜0.170.0 の間この検査だけが落ち続けていた＝e2e は CI 非同梱ゆえ気づけない）。
+// （実際 v0.168.0〜0.169.0 の間この検査だけが落ち続けていた＝e2e は CI 非同梱ゆえ気づけない）。
 const MAIN_TS = decodeURIComponent(new URL("../src/web/main.ts", import.meta.url).pathname);
 const APP_VERSION = (await readFile(MAIN_TS, "utf8")).match(/APP_VERSION\s*=\s*"([^"]+)"/)?.[1] ?? "";
 const PORT = 41990 + Math.floor(Math.random() * 900);
