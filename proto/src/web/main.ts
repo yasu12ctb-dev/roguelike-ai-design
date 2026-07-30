@@ -21,7 +21,7 @@ import {
   DEPTH_SEAL_AT, ABYSS_DEPTH, RELIC_EXPOSURE_PER_TURN, RELIC_PURSUER_EVERY, RELIC_PURSUER_CAP,
 } from "../progression.ts";
 import { SPELLS, spellByKey, warpDamage } from "../spells.ts";
-import { rollItem, rollItemOfSlot, itemByName, enchantUp, forgeItem, artifactBaseNames, itemPower, itemLabel, itemValue, SLOT_LABEL, CONSUMABLES, consumableByKey, grantConsumable, type ConsumableDef } from "../items.ts";
+import { rollItem, rollItemOfSlot, itemByName, enchantUp, forgeItem, artifactBaseNames, itemPower, itemLabel, itemShort, itemValue, SLOT_LABEL, CONSUMABLES, consumableByKey, grantConsumable, type ConsumableDef } from "../items.ts";
 import {
   renderDeathLine, renderRediscovery, renderRumor, renderArcBeat, matchSetPiece, fillStoryletText, fillDungeonText, fillActorText,
   requiemLine, leaveLine, inheritLine, REQUIEM_RELIEF,
@@ -66,7 +66,7 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.170.0";
+export const APP_VERSION = "0.171.0";
 export const APP_BUILD = "2026-07-30";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
@@ -182,10 +182,16 @@ addEventListener("unhandledrejection", (e) => {
 // ---------- シート（場面＋選択肢。promise を返す） ----------
 // 構造化行（横断F ①＝Wizardry 流の整列）。kv 行＝ラベル/値、text 行＝自由文。Swift ＝ LabeledContent / Text。
 type SheetRow = { label: string; value: string; note?: string; cls?: string } | { text: string; dim?: boolean; cls?: string };
-interface SheetSection { header?: string; rows: SheetRow[] } // Swift ＝ Section(header:)
+// cols2＝この節の kv 行を2列に並べる（詰め版のみ有効・Swift ＝ 2 列 LazyVGrid の Section）。
+// 「値の位置が左右にぶれる」のを嫌って本文の数値行には使わない＝装備のような同型の枠にだけ付ける。
+interface SheetSection { header?: string; rows: SheetRow[]; cols2?: boolean } // Swift ＝ Section(header:)
 // 選択肢＝文字列（従来どおり）／役割つきオブジェクト（opt-in）。既存 string[] 呼び出しはそのまま有効。
-type SheetOption = string | { label: string; role?: "primary" | "cancel" | "danger"; header?: string; gap?: boolean };
-interface SheetOpts { text?: string; sections?: SheetSection[]; meta?: string; options: SheetOption[]; input?: string; }
+// wide＝詰め版の2列組みで1つだけ全幅にする（長いラベルが半幅で折り返して行高を押し上げるのを防ぐ）。
+// 通常シート（1列）では何も変わらない＝no-op。
+type SheetOption = string | { label: string; role?: "primary" | "cancel" | "danger"; header?: string; gap?: boolean; wide?: boolean };
+// compact＝情報量の多いシートだけの詰め版（横断F ②・v0.171.0）。行高を詰め短い選択肢を2列に（CSS `#sheet.compact`）。
+// 物語の選択肢（長文）に掛けると読みにくくなるので、指定した画面（現＝charScreen）だけに効かせる。
+interface SheetOpts { text?: string; sections?: SheetSection[]; meta?: string; options: SheetOption[]; input?: string; compact?: boolean; }
 const optLabel = (o: SheetOption) => typeof o === "string" ? o : o.label;
 
 /** 構造化セクションを #sheetList に描画（createElement + textContent のみ＝注入面ゼロ）。sections 無しなら空にする（残留リーク防止）。 */
@@ -198,6 +204,9 @@ function renderSheetSections(sections?: SheetSection[]) {
       h.className = "sec-h"; h.textContent = sec.header;
       sheetList.appendChild(h);
     }
+    // cols2 の節だけ包み箱に入れる（詰め版の CSS が2列にする面。通常シートでは block のまま＝見た目不変）。
+    const box = sec.cols2 ? document.createElement("div") : sheetList;
+    if (sec.cols2) { (box as HTMLElement).className = "kvgrid"; sheetList.appendChild(box); }
     sec.rows.forEach((row, i) => {
       if ("label" in row) {
         const r = document.createElement("div");
@@ -205,11 +214,11 @@ function renderSheetSections(sections?: SheetSection[]) {
         const lab = document.createElement("span"); lab.className = "kvlab"; lab.textContent = row.label;
         const val = document.createElement("span"); val.className = "kvval" + (row.cls ? " " + row.cls : ""); val.textContent = row.value;
         if (row.note) { const n = document.createElement("span"); n.className = "note"; n.textContent = row.note; val.appendChild(n); }
-        r.appendChild(lab); r.appendChild(val); sheetList.appendChild(r);
+        r.appendChild(lab); r.appendChild(val); box.appendChild(r);
       } else {
         const t = document.createElement("div");
         t.className = "kvtext" + (row.dim ? " dim" : "") + (row.cls ? " " + row.cls : "");
-        t.textContent = row.text; sheetList.appendChild(t);
+        t.textContent = row.text; box.appendChild(t);
       }
     });
   }
@@ -219,6 +228,7 @@ function sheet(o: SheetOpts): Promise<{ pick: number; text: string }> {
   return new Promise((resolve) => {
     hidePeek(); // 場面が開いたら「調べる」ポップは畳む（v0.99.0）
     sheetText.textContent = o.text ?? "";
+    sheetEl.classList.toggle("compact", !!o.compact); // 指定シートのみ詰め版（既定は必ず外す＝前の画面の残留を防ぐ）
     setSheetHead(o.meta);
     renderSheetSections(o.sections);
     sheetInputRow.classList.toggle("show", o.input !== undefined);
@@ -233,7 +243,7 @@ function sheet(o: SheetOpts): Promise<{ pick: number; text: string }> {
     };
     const last = o.options.length - 1;
     o.options.forEach((opt, i) => {
-      const cfg: { label?: string; role?: "primary" | "cancel" | "danger"; header?: string; gap?: boolean } =
+      const cfg: { label?: string; role?: "primary" | "cancel" | "danger"; header?: string; gap?: boolean; wide?: boolean } =
         typeof opt === "object" ? opt : {};
       if (cfg.header) { // グループ見出し（設定など）
         const h = document.createElement("div"); h.className = "sg"; h.textContent = cfg.header;
@@ -250,6 +260,7 @@ function sheet(o: SheetOpts): Promise<{ pick: number; text: string }> {
       else if (role === "cancel") b.classList.add("b-cancel");
       else if (role === "danger") b.classList.add("b-danger");
       if (cfg.gap) b.classList.add("grp");
+      if (cfg.wide) b.classList.add("b-wide"); // 詰め版の2列組みでだけ全幅（通常シートでは元から全幅＝no-op）
       b.onclick = () => choose(i + 1);
       sheetButtons.appendChild(b);
     });
@@ -271,6 +282,7 @@ function schoolCls(school: string): string {
 function chooseGrid(o: { title: string; lead?: string; cells: { html: string }[]; cancel?: string; cols?: number }): Promise<number> {
   return new Promise((resolve) => {
     sheetText.textContent = o.lead ?? "";
+    sheetEl.classList.remove("compact"); // 詰め版はカード一覧には掛けない（前回シートの残留を防ぐ）
     setSheetHead(o.title);
     renderSheetSections(undefined); // 構造化リストを空に（前回シートの残留を防ぐ）
     sheetInputRow.classList.remove("show");
@@ -8113,28 +8125,29 @@ async function charScreen() {
     const lo = activeLoadout(ch);
     const loNames = lo.map((k) => spellByKey(k)?.name ?? k).join("、");
 
+    // 行の集約（横断F ②・v0.171.0）＝HP/攻撃は能力の派生値なので同じ行に畳む。Lv46 でも一画面に収めるため。
     const selfRows: SheetRow[] = [
-      { label: "能力", value: statsLine(ch) },
-      { label: "最大HP", value: String(maxHp(ch)) },
-      { label: "攻撃", value: String(meleeDmg(ch)) },
+      { label: "能力", value: `${statsLine(ch)}　HP${maxHp(ch)}／攻${meleeDmg(ch)}` },
       { label: "次のLvまで", value: String(Math.max(0, xpToNext(ch.level) - ch.xp)) },
       { label: "深蝕", value: ch.exposure.toFixed(2), cls: "exp", note: "牙の閾 1.5" },
     ];
     if (ch.carryingRelic) selfRows.push({ text: "★聖遺物 携行中", cls: "warn" });
+    // 要約は **銘・+N までの短い名（itemShort）**＝性能説明（攻＋5・薙ぎ払い…）は「装備・持ち物を見る」で読む。
+    // 性能つきラベルを出すと 375×812 で装備行が数行に伸びて一画面に収まらない（実装備で実測 +86px）。
     const gearRows: SheetRow[] = eqSlots.map((sl) => ({
-      label: SLOT_LABEL[sl], value: ch.equipment[sl] ? itemLabel(ch.equipment[sl]!) : "—",
+      label: SLOT_LABEL[sl], value: ch.equipment[sl] ? itemShort(ch.equipment[sl]!) : "—",
     }));
     const spellRows: SheetRow[] = ch.spells.length
       ? [{ label: "構え", value: `${lo.length}/${LOADOUT_CAP}` }, { text: loNames || "なし", dim: true }]
       : [{ text: "未識得", dim: true }];
+    // 中身の導線は直下の「装備・持ち物を見る」ボタンが担うので、注記行は畳む（横断F ②）。
     const packRows: SheetRow[] = [
-      { label: "薬・巻物", value: `${consN}個` },
-      { label: "武具", value: `${gearN}点` },
-      { text: "※中身は「装備・持ち物を見る」", dim: true },
+      { label: "持ち物", value: `薬・巻物 ${consN}個／武具 ${gearN}点` },
     ];
     const sections: SheetSection[] = [
       { rows: selfRows },
-      { header: "装備", rows: gearRows },
+      // 装備は同型の4枠＝詰め版では2列に（縦4行ぶんを2行に畳む＝375×812 で一画面に収めるため）。
+      { header: "装備", rows: gearRows, cols2: true },
       { header: "術", rows: spellRows },
       { header: `荷物　${packUsed(ch)}/${packCapacity(ch)} 枠`, rows: packRows },
     ];
@@ -8147,7 +8160,9 @@ async function charScreen() {
     if (ch.traits.length) sections.push({ header: "記憶", rows: [{ label: "記憶", value: `${ch.traits.length}件` }] });
 
     const opts: SheetOption[] = [
-      "装備・持ち物を見る", "術（構え・図鑑）", "進行中（依頼・因縁・印）",
+      "装備・持ち物を見る", "術（構え・図鑑）",
+      // 長いラベル＝2列だと半幅に収まらず折り返して行高を押し上げるので全幅で1行に（375px 実測で 66→48px）。
+      { label: "進行中（依頼・因縁・印）", wide: true },
       { label: "人物と年代記", gap: true }, "敵図鑑",
     ];
     if (hired) opts.push(`相棒を見る（${hired.actor.name}）`);
@@ -8156,7 +8171,7 @@ async function charScreen() {
     const r = await sheet({
       text: `《${ch.name}》　Lv ${ch.level}`,
       meta: `ステータス ── 第${world.generation}世代・${DIFFICULTY_LABEL[world.difficulty ?? "easy"]}`,
-      sections, options: opts,
+      sections, options: opts, compact: true,
     });
     busy = false;
     const label = optLabel(opts[r.pick - 1] ?? "");
@@ -9171,6 +9186,27 @@ addEventListener("resize", () => {
 // タイトルの音声ゲート（autoplay 対策）：ブラウザは初回ユーザー操作まで音を出せないため、
 // コールド起動時のみ「画面に触れてはじめる」を一枚挟み、その一手で AudioContext を起こして
 // ④追憶（setBgm("title")）を立ち上げてからメニューを出す。音声解禁済み／BGMオフ／ミュート時は出さない。
+/** タイトル中央の余白に「世界の来歴」を三行で置く（横断F ②・v0.171.0）。
+ *  出典はすべて既存の World（新しいセーブ項目を足さない）＝化石の数／最も深い化石の深度／集めた印。
+ *  ★文言は「眠る者」＝新規世界にも種化石が居るので「還った」だと副題（まだ誰も潜っていない）と食い違うため。
+ *  化石が1件も無ければ丸ごと出さない（保険＝通常は種化石があるので初回から出る）。 */
+function renderTitleLore() {
+  const el = $("titleLore");
+  el.textContent = "";
+  const fossils = world.fossils ?? [];
+  if (!fossils.length) { el.hidden = true; return; }
+  const deepest = fossils.reduce((a, f) => Math.max(a, f.laidDepth ?? 0), 0);
+  const seals = world.seals?.length ?? 0;
+  const lines = [`この深みに 眠る者 ${fossils.length}人`];
+  if (deepest > 0) lines.push(`最も深く 眠るのは 深度 ${deepest}`);
+  if (seals > 0) lines.push(`捧げられた印 ${seals}／${SEAL_KEYS.length}`);
+  const rule = document.createElement("div"); rule.className = "rule"; el.appendChild(rule);
+  lines.forEach((t, i) => {
+    if (i) el.appendChild(document.createElement("br"));
+    el.appendChild(document.createTextNode(t));
+  });
+  el.hidden = false;
+}
 function titleGate(sub: string): Promise<void> {
   return new Promise((resolve) => {
     $("titleSub").textContent = sub;
@@ -9204,6 +9240,7 @@ function titleChoose(items: { label: string; primary?: boolean }[], sub: string)
 
 async function titleScreen(): Promise<void> {
   setBgm("title");
+  renderTitleLore();
   const ch = world.current;
   const living = !!(ch && ch.alive);
   const snap = living ? loadDive() : null;

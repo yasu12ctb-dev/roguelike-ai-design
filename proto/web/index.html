@@ -517,8 +517,8 @@
     /* 構造化リスト（Wizardry 流の整列＝ラベル淡／値強・右寄せ tabular-nums・セクション朱罫）。
        Swift ＝ Section(header:) ＋ LabeledContent。sheet({sections}) が createElement で組む。 */
     #sheetList:empty { display: none; }
-    #sheetList .sec-h { margin: 16px 0 2px; font-family: inherit; font-size: 12px; color: var(--tx-dim);
-      border-left: 3px solid var(--acc); padding-left: 8px; letter-spacing: .08em; }
+    #sheetList .sec-h { margin: 16px 0 2px; font-family: inherit; font-size: 12px; color: var(--tx-2);
+      border-left: 3px solid var(--acc); padding-left: 8px; letter-spacing: .08em; font-weight: 700; }
     #sheetList .kvrow { display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
       padding: 7px 2px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.6; min-height: 34px; }
     #sheetList .kvrow.first { border-top: none; }
@@ -550,9 +550,27 @@
     #sheetButtons button.b-cancel { border: none; background: none; text-align: center; color: var(--tx-dim); margin-top: 14px; }
     #sheetButtons button.b-danger { border-color: var(--c-warn); color: var(--c-warn); }
     /* 設定グループの見出し（sheet options の header で挿入）。 */
-    #sheetButtons .sg { margin: 16px 0 2px; font-family: inherit; font-size: 12px; color: var(--tx-dim);
-      border-left: 3px solid var(--acc); padding-left: 8px; letter-spacing: .08em; }
+    #sheetButtons .sg { margin: 16px 0 2px; font-family: inherit; font-size: 12px; color: var(--tx-2);
+      border-left: 3px solid var(--acc); padding-left: 8px; letter-spacing: .08em; font-weight: 700; }
     #sheetButtons .sg:first-child { margin-top: 4px; }
+    /* 情報量の多いシートだけの詰め版（横断F ②・v0.171.0＝`sheet({compact:true})` の画面のみ）。
+       行高を詰め、短い選択肢を2列に並べる。**物語の選択肢（長文）には掛けない**＝現行の採用は
+       ステータス（charScreen）のみ。タッチ最小 48px と cancel の全幅は崩さない。
+       Swift ＝ `.listRowInsets` を詰めた Form ＋ 2 列 LazyVGrid のボタン列にミラー。 */
+    #sheet.compact #sheetList .kvrow { padding: 4px 2px; min-height: 28px; }
+    #sheet.compact #sheetList .kvtext { padding: 3px 2px; }
+    /* 補助の淡色行（＝構えの術名リスト）は 1 行に丸める。全文は「術（構え・図鑑）」で読める。 */
+    #sheet.compact #sheetList .kvtext.dim { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #sheet.compact #sheetList .sec-h { margin: 10px 0 1px; }
+    /* cols2 の節（装備＝同型の4枠）を2列に。通常シートでは .kvgrid は block のまま＝見た目不変。 */
+    #sheet.compact #sheetList .kvgrid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; }
+    /* 2列組みの最初の「見た目の1行」＝先頭2つは上罫を出さない（.first は先頭1つにしか付かないので左右が非対称になる）。 */
+    #sheet.compact #sheetList .kvgrid .kvrow:nth-child(-n+2) { border-top: none; }
+    #sheet.compact #sheetButtons { display: grid; grid-template-columns: 1fr 1fr; column-gap: 8px; }
+    #sheet.compact #sheetButtons button { padding: 10px 14px; margin-top: 6px; }
+    #sheet.compact #sheetButtons button.grp { margin-top: 6px; }
+    #sheet.compact #sheetButtons button.b-cancel, #sheet.compact #sheetButtons button.b-wide,
+    #sheet.compact #sheetButtons .sg { grid-column: 1 / -1; }
 
     /* ---- タイトル画面（横断F ①静謐な写本＝墨黒・最小限の光・朱の落款） ---- */
     #title {
@@ -576,6 +594,12 @@
     #title .seal { display: flex; width: 30px; height: 30px; background: var(--acc); color: #f6e8dc;
       align-items: center; justify-content: center; font-size: 16px; font-weight: 700; border-radius: 2px;
       margin: 16px auto 0; box-shadow: 0 0 12px rgba(194,69,47,.35); z-index: 2; }
+    /* 中央の余白＝世界の来歴（横断F ②・v0.171.0）。金泥の細罫＋淡色の三行（renderTitleLore が流し込む）。
+       ★新規世界にも種化石が居るので通常は初回から出る（化石が1件も無いときだけ丸ごと出さない＝保険）。
+       Swift ＝ タイトル VStack の中段に同じ 3 行を置く。 */
+    #title .lore { margin-top: 26px; text-align: center; z-index: 2; font-size: 12.5px; line-height: 2.0;
+      color: var(--tx-faint); letter-spacing: .06em; }
+    #title .lore .rule { width: 66px; height: 1px; margin: 0 auto 14px; background: rgba(201,167,90,.4); }
     #title .menu { margin-top: auto; width: 100%; max-width: 340px; z-index: 2; }
     #title .menu button { display: block; width: 100%; text-align: center; font-family: inherit;
       font-size: 15px; color: var(--tx-strong); background: transparent; border: 1px solid var(--line-2);
@@ -764,6 +788,7 @@
     <div class="crest"><div class="name">深蝕</div><div class="entitle">The Corroding Deep</div></div>
     <div class="tagline">あなたの死が、<br>世界の歴史になる。</div>
     <div class="seal" aria-hidden="true">蝕</div>
+    <div class="lore" id="titleLore" hidden></div>
     <div class="menu" id="titleMenu"></div>
     <div class="sub" id="titleSub"></div>
     <div class="ver" id="titleVer"></div>
