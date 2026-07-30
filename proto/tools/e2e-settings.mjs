@@ -11,6 +11,10 @@ import { readFile } from "node:fs/promises";
 import { join, extname } from "node:path";
 
 const WEB_DIR = decodeURIComponent(new URL("../web/", import.meta.url).pathname);
+// 版数は **ソース（APP_VERSION）から読む**。ここに版数を書き写すと、バンプのたびに黙って腐る
+// （実際 v0.168.0〜0.169.0 の間この検査だけが落ち続けていた＝e2e は CI 非同梱ゆえ気づけない）。
+const MAIN_TS = decodeURIComponent(new URL("../src/web/main.ts", import.meta.url).pathname);
+const APP_VERSION = (await readFile(MAIN_TS, "utf8")).match(/APP_VERSION\s*=\s*"([^"]+)"/)?.[1] ?? "";
 const PORT = 41990 + Math.floor(Math.random() * 900);
 const EXEC = process.env.PW_CHROMIUM || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".webmanifest": "application/manifest+json" };
@@ -70,7 +74,7 @@ let ls = await labels();
 ok("S1 設定が開く", await sheetShown(), `buttons=${ls.length}`);
 ok("S1b 17項目（閉じる含む）", ls.length === 17, `got=${ls.length}`);
 ok("S1c 先頭=あそびかた / 末尾=閉じる", /あそびかた/.test(ls[0]) && /^閉じる$/.test(ls[16]), `[0]=${ls[0]} [16]=${ls[16]}`);
-ok("S1d 版数が副題に出る", /v0\.167\.0/.test(await headText()), await headText());
+ok("S1d 版数が副題に出る", APP_VERSION !== "" && (await headText()).includes(`v${APP_VERSION}`), `${await headText()} / APP_VERSION=${APP_VERSION}`);
 
 // ---- ⑤ help を開いて閉じる（実依存 helpSheet の結線確認） -------------------
 await clickLabel(/あそびかた・記号の凡例/);

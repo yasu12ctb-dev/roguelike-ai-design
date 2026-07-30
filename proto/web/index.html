@@ -128,7 +128,7 @@
     #aimBar button { font-size: 12px; padding: 5px 10px; border-radius: var(--r-btn); border: 1px solid var(--line-2);
       background: transparent; color: var(--tx-2); font-family: inherit; }
     #aimBar #aimGo { border-color: var(--acc); color: #f0d9c8; box-shadow: 0 0 8px rgba(194,69,47,.25); }
-    #aimBar.unreach #aimGo { border-color: #7a3a2c; color: var(--c-warn); box-shadow: none; opacity: .6; }
+    #aimBar.unreach #aimGo { border-color: var(--c-warn); color: var(--c-warn); box-shadow: none; opacity: .6; }
     /* 投擲照準バー（v0.133.0）：aimBar と同じ体裁・投げるは琥珀で強調 */
     #throwBar { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 15;
       display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: var(--r-card);
@@ -417,7 +417,7 @@
     #lungeBtn {
       display: none; flex: none; width: 52px; min-height: 52px; align-self: center;
       font-family: inherit; font-size: 17px; font-weight: 700; letter-spacing: .12em; line-height: 1;
-      color: #d8d0c0; background: rgba(29,24,18,.95); border: 1px solid var(--line-2); border-radius: 8px;
+      color: #d8d0c0; background: rgba(29,24,18,.95); border: 1px solid var(--line-2); border-radius: var(--r-btn);
       user-select: none; -webkit-user-select: none; touch-action: manipulation;
     }
     #lungeBtn.show { display: flex; align-items: center; justify-content: center; }
@@ -429,7 +429,7 @@
     #guardBtn {
       display: none; flex: none; width: 52px; min-height: 52px; align-self: center;
       font-family: inherit; font-size: 17px; font-weight: 700; letter-spacing: .12em; line-height: 1;
-      color: #bcd0e0; background: rgba(18,24,31,.95); border: 1px solid var(--line-2); border-radius: 8px;
+      color: #bcd0e0; background: rgba(18,24,31,.95); border: 1px solid var(--line-2); border-radius: var(--r-btn);
       user-select: none; -webkit-user-select: none; touch-action: manipulation;
     }
     #guardBtn.show { display: flex; align-items: center; justify-content: center; }
@@ -482,10 +482,16 @@
       padding: 16px 16px calc(14px + env(safe-area-inset-bottom));
       font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK JP", serif;
     }
-    /* 金泥のL字角飾り（写本の縁飾り）。Swift では小さな Path overlay でミラー。 */
+    /* 金泥のL字角飾り（写本の縁飾り・§10.2b は「四隅」）。上2隅＝#sheet の疑似要素、
+       下2隅＝装飾専用の #sheetCorners の疑似要素（シートはスクロールするので下端に追従させる）。
+       Swift では小さな Path overlay 1つで四隅をまとめてミラーできる。 */
     #sheet::before, #sheet::after { content: ""; position: absolute; top: 7px; width: 13px; height: 13px; pointer-events: none; z-index: 3; }
     #sheet::before { left: 7px; border-left: 1px solid rgba(201,167,90,.45); border-top: 1px solid rgba(201,167,90,.45); }
     #sheet::after { right: 7px; border-right: 1px solid rgba(201,167,90,.45); border-top: 1px solid rgba(201,167,90,.45); }
+    #sheetCorners { position: absolute; left: 0; right: 0; bottom: 0; height: 0; pointer-events: none; z-index: 3; }
+    #sheetCorners::before, #sheetCorners::after { content: ""; position: absolute; bottom: 7px; width: 13px; height: 13px; }
+    #sheetCorners::before { left: 7px; border-left: 1px solid rgba(201,167,90,.45); border-bottom: 1px solid rgba(201,167,90,.45); }
+    #sheetCorners::after { right: 7px; border-right: 1px solid rgba(201,167,90,.45); border-bottom: 1px solid rgba(201,167,90,.45); }
     /* ヘッダ帯（sticky）＝題（朱の左罫）＋副題＋✕。meta を持つシートでだけ表示（setSheetHead）。
        ✕をここへ統合＝スクロールしても手の届く位置（旧 float の代替）。Swift ＝ navigation title ＋ .topBarTrailing dismiss。 */
     #sheetHead {
@@ -542,7 +548,7 @@
     #sheetButtons button.grp { margin-top: 14px; }
     #sheetButtons button.b-primary { border-color: var(--acc); color: #f0d9c8; box-shadow: 0 0 10px rgba(194,69,47,.22); }
     #sheetButtons button.b-cancel { border: none; background: none; text-align: center; color: var(--tx-dim); margin-top: 14px; }
-    #sheetButtons button.b-danger { border-color: #7a3a2c; color: var(--c-warn); }
+    #sheetButtons button.b-danger { border-color: var(--c-warn); color: var(--c-warn); }
     /* 設定グループの見出し（sheet options の header で挿入）。 */
     #sheetButtons .sg { margin: 16px 0 2px; font-family: inherit; font-size: 12px; color: var(--tx-dim);
       border-left: 3px solid var(--acc); padding-left: 8px; letter-spacing: .08em; }
@@ -774,6 +780,7 @@
       <div id="sheetList"></div>
       <div id="sheetInputRow"><input id="sheetInput" type="text" autocomplete="off" /></div>
       <div id="sheetButtons"></div>
+      <div id="sheetCorners" aria-hidden="true"></div>
     </div>
   </div>
 
