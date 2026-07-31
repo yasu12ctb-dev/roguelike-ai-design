@@ -642,16 +642,22 @@ Swift ＝ `withAnimation(.easeInOut.repeatForever())` 等でミラー。**Reduce
 
 **なぜ要るか＝10.2f の閉包は `:root` の色変数についてのみ閉じている。** CSS ルールの中へ直接書いた前景色（`color`／`border-color` のリテラル hex）は母集合の外にあり、**基準未達でも誰も気づかない**。実際に v0.171.0 まで `#title .seal`（落款の「蝕」）が 4.18:1、`#title .menu button.primary` の文字が同 4.18:1（グラデ上端に対して）で 4.5:1 を割っていた。**本節はその母集合を閉じる。**
 
-**母集合の定義**＝`web/index.html` の `<style>` 内で **`color` または `border-color` にリテラル hex を書いた宣言**（`@keyframes` の途中フレームを含む）。**`background`／`box-shadow`／`text-shadow` の `rgba` は 10.2 が装飾派生として明示許容＝対象外**（発光・影は形の補助であって判読の主体ではない）。`border` ショートハンドは全てトークン化済み＝0 件。**同じ宣言が二度現れたら fail**（`@media` 上書きが黙って未検査になるのを防ぐ）。
+**母集合の定義**＝`web/index.html` の `<style>` 内で、**`color`／`border-color`／`border`・`border-top/right/bottom/left`・`outline` の各ショートハンドに、トークン（`var(--x)`）でない色を書いた宣言**（`@keyframes` の途中フレーム・`@media` ブロック内も含む。実測 **55 宣言**）。**`background`／`box-shadow`／`text-shadow` の `rgba` は 10.2 が装飾派生として明示許容＝対象外**（発光・影は形の補助であって判読の主体ではない）。
+
+**抽出は宣言単位で全件**を採る。**同じルール内で同じプロパティを二度書いたら fail**（後勝ちで前の宣言が黙って無効になり、検査が古い値を見てしまう）。**`border` と `border-color` の併記も同じ理由で fail。**
+
+**前景の値の文法も閉じる。** 受け付けるのは **不透明の 3/6 桁 hex** と **`rgb()`／`rgba()`**（後者は面へアルファ合成してから比を採る）だけ。**4/8 桁 hex・`hsl()`・色名は未対応構文として fail**（alpha を黙って無視すると半透明の色を過大評価して未達を見逃す）。`var(--x)`・`transparent`・`none`・`inherit`・`currentcolor` は面を作らない値として母集合に入れない。ショートハンドに色らしいトークンが2つ以上あっても fail。
 
 **判定面の書き方は次の4形態だけ**（doc に色を書き写さず**必ず実ソースから読む**＝二重管理を作らない）。表に無い宣言、表にあって実ソースに無い行は fail。
 
 - `` `bg-void` `` … `:root` の色トークン名（`bg-*` 以外も可。例＝`acc`）。
-- `` `on:<セレクタ>` `` … そのセレクタの `background` を CSS から読む。**不透明 hex／`var(--x)`／`linear-gradient`（全 stop が面になる＝最悪値を採る）**のいずれか。
-- `` `on:<セレクタ>` `over:<トークン>` `` … `background` が `rgba` のとき。直前の `on:` を指定トークンへ**アルファ合成**して面にする。`rgba` に `over:` が無ければ fail。
+- `` `on:<セレクタ>` `` … そのセレクタの `background` を CSS から読む。**不透明 hex／`var(--x)`／`linear-gradient`** のいずれか。**gradient は全 stop を解析できた場合だけ受理**し、読めない stop が1つでもあれば fail（hex stop だけ拾うと `white 50%` のような stop が黙って母集合から消える）。解析できた全 stop が面になる＝最悪値を採る。
+- `` `on:<セレクタ>` `over:<トークン>` `` … `background` が半透明のとき。直前の `on:` を指定トークンへ**アルファ合成**して面にする。`over:` が無ければ fail。
 - `` `js:MAP_BG.<キー>` `` … 面が CSS でなく `src/web/main.ts` にある場合のみ（地図の照準色）。
 
-**判定の向き**＝`color` は**載りうる全ての面で閾値を満たすこと**（最悪面で判定）。**`border-color` はいずれか1面で満たせば足りる**＝罫は「隣接する2面を見分けさせる線」であり、片側と 3:1 あれば境界は成立する（WCAG 1.4.11 の趣旨）。
+**判定の向き**＝`color` は**載りうる全ての面で閾値を満たすこと**（最悪面で判定）。**罫（`border` 系）は行ごとに `any`／`all` を明示する**＝閾値セルに書く（省略・両方併記・`color` への誤記はいずれも fail）。**「罫は常に any」という一般則は置かない**＝フォーカス・状態・区切りの唯一の指標である罫は必要な隣接面が変わるため。現在 `any` は `#title .menu button.primary` の枠 1 行だけで、根拠は「文字と塗りで部品を識別でき、枠が唯一の識別情報ではない」こと。盤面の予告・マーカーは周囲のマスに対して見えることが要件なので `all`。
+
+**免除は理由を必ず書く。** 現在の 18 件は3種類しかない。①**点滅の谷**（`@keyframes … 50%` の罫色）＝判定対象は静止状態であり、base と Reduce Motion で固定される値（10.2d B 分類）が満たしていれば足りる。②**囲みが唯一の指標でないもの**（`#stBuff .bf*`）＝内側の文字色と文言で二重符号化されている（10.11）。③**純装飾**（金泥のL字角飾り `#sheet::before/after`・`#sheetCorners::*`、および `display:none` で死蔵の `#title .embers span`）。
 
 | 宣言 | プロパティ | 判定面 | 閾値 | 根拠・用途 |
 |---|---|---|---|---|
@@ -680,7 +686,37 @@ Swift ＝ `withAnimation(.easeInOut.repeatForever())` 等でミラー。**Reduce
 | `#title .name` | `color` | `bg-app` | 4.5:1（文字） | 題字 |
 | `#title .seal` | `color` | `on:#title .seal` | 4.5:1（文字） | 落款「蝕」。**`16px/700` は WCAG の大きな文字（bold 18.66px）に届かない**＝4.5:1 が要る |
 | `#title .menu button.primary` | `color` | `on:#title .menu button.primary` | 4.5:1（文字） | 朱塗りボタンの文字。**面はグラデ＝上端 `#c2452f` が最悪** |
-| `#title .menu button.primary` | `border-color` | `on:#title .menu button.primary` `bg-app` | 3:1（非テキスト） | 朱塗りボタンの枠＝**外側（`bg-app`）で成立**すれば可 |
+| `#title .menu button.primary` | `border-color` | `on:#title .menu button.primary` `bg-app` | 3:1（非テキスト・any） | 朱塗りボタンの枠。文字と塗りで部品を識別できる＝枠は唯一の指標ではないので**外側（`bg-app`）で成立**すれば可 |
+| `.cell.tele-atk::after` | `border` | `bg-void` `bg-wall` | 3:1（非テキスト・all） | 敵の攻撃予告（赤の実線枠） |
+| `.cell.tele-boss::before` | `border` | `bg-void` `bg-wall` | 3:1（非テキスト・all） | ボスの予告（橙の枠） |
+| `.cell.tele-shape::before` | `border` | `bg-void` `bg-wall` | 3:1（非テキスト・all） | 形状攻撃の予告（朱橙の枠） |
+| `.cell.tele-charge::before` | `border` | `bg-void` `bg-wall` | 3:1（非テキスト・all） | 溜めの予告（金の破線枠） |
+| `.cell.threat-src::after` | `border` | `bg-void` `bg-wall` | 3:1（非テキスト・all） | 殴れる敵タイル（赤の破線枠）。**v0.173.0 で alpha .60→.66**（2.70→3.02:1） |
+| `.cell.throw-blast::after` | `border` | `bg-void` `bg-wall` | 3:1（非テキスト・all） | 投擲の着弾3×3（琥珀の枠）。**v0.173.0 で alpha .50→.52**（2.89→3.03:1） |
+| `.cell.throw-aim::after` | `border` | `bg-void` `bg-wall` | 3:1（非テキスト・all） | 投擲の照準（琥珀の強い枠） |
+| `@media (prefers-reduced-motion: reduce) .cell.tele-atk::after` | `border-color` | `bg-void` `bg-wall` | 3:1（非テキスト・all） | Reduce Motion の静的代替（10.2d B 分類） |
+| `@media (prefers-reduced-motion: reduce) .cell.tele-boss::before` | `border-color` | `bg-void` `bg-wall` | 3:1（非テキスト・all） | 同上 |
+| `@media (prefers-reduced-motion: reduce) .cell.tele-shape::before` | `border-color` | `bg-void` `bg-wall` | 3:1（非テキスト・all） | 同上 |
+| `@media (prefers-reduced-motion: reduce) .cell.tele-charge::before` | `border-color` | `bg-void` `bg-wall` | 3:1（非テキスト・all） | 同上 |
+| `@media (prefers-reduced-motion: reduce) .cell.throw-aim::after` | `border-color` | `bg-void` `bg-wall` | 3:1（非テキスト・all） | 同上 |
+| `@keyframes tele 50%` | `border-color` | — | **免除** | 点滅の谷。判定対象は静止状態＝`.cell.tele-atk::after` の base と、Reduce Motion で固定される値（10.2d B 分類） |
+| `@keyframes teleboss 50%` | `border-color` | — | **免除** | 点滅の谷。判定対象は `.cell.tele-boss::before` の base と RM 固定値 |
+| `@keyframes teleshape 50%` | `border-color` | — | **免除** | 点滅の谷。判定対象は `.cell.tele-shape::before` の base と RM 固定値 |
+| `@keyframes telecharge 50%` | `border-color` | — | **免除** | 点滅の谷。判定対象は `.cell.tele-charge::before` の base と RM 固定値 |
+| `@keyframes throwaim 50%` | `border-color` | — | **免除** | 点滅の谷。判定対象は `.cell.throw-aim::after` の base と RM 固定値 |
+| `#stBuff .bf` | `border` | — | **免除** | 囲みは容器。情報は内側の文字（`--c-buff` 等・10.2f で判定済み）と文言が担う |
+| `#stBuff .bf.threat-safe` | `border-color` | — | **免除** | 同上。枠色に加えて文字色 `--c-sup`＋700 で二重符号化（10.11） |
+| `#stBuff .bf.threat-warn` | `border-color` | — | **免除** | 同上。文字色 `--g-danger`＋700 で二重符号化 |
+| `#stBuff .bf.lunge` | `border-color` | — | **免除** | 同上。文字色 `--gold-leaf`＋700 で二重符号化 |
+| `#sheet::before` | `border-left` | — | **免除** | 金泥のL字角飾り＝写本の縁飾り（10.2b）。情報を担わない純装飾 |
+| `#sheet::before` | `border-top` | — | **免除** | 同上 |
+| `#sheet::after` | `border-right` | — | **免除** | 同上 |
+| `#sheet::after` | `border-top` | — | **免除** | 同上 |
+| `#sheetCorners::before` | `border-left` | — | **免除** | 同上 |
+| `#sheetCorners::before` | `border-bottom` | — | **免除** | 同上 |
+| `#sheetCorners::after` | `border-right` | — | **免除** | 同上 |
+| `#sheetCorners::after` | `border-bottom` | — | **免除** | 同上 |
+
 
 **朱の上に置く文字は `#fffaf5`（v0.173.0・2026-07-31）。** `--acc #c2452f` に対し 4.84:1、グラデ下端 `#9c3423` に対し 6.91:1。旧値 `#f6e8dc` は 4.18:1 で未達だった。**純白 `#ffffff`（5.02:1）ではなく暖色寄りの白**を採るのは「静謐な写本」の地色（`--tx-strong #efe6d3` 系）と揃えるため。
 

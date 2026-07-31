@@ -8123,7 +8123,6 @@ async function charScreen() {
     const consN = (ch.inventory ?? []).reduce((a, s) => a + s.qty, 0); // 薬・巻物の合計個数
     const gearN = (ch.gearBag ?? []).length;                            // 拾った武具の点数
     const lo = activeLoadout(ch);
-    const loNames = lo.map((k) => spellByKey(k)?.name ?? k).join("、");
 
     // 行の集約（横断F ②・v0.171.0）＝HP/攻撃は能力の派生値なので同じ行に畳む。Lv46 でも一画面に収めるため。
     const selfRows: SheetRow[] = [
