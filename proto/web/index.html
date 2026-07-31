@@ -311,7 +311,7 @@
     /* B：脅威の可視化＝@ を殴れる敵タイルに薄い赤の破線枠 */
     .cell.threat-src::after {
       content: ""; position: absolute; inset: 2px; border-radius: 4px; pointer-events: none;
-      border: 1.5px dashed rgba(255,79,60,.6);
+      border: 1.5px dashed rgba(255,79,60,.66);
     }
     /* 地形ハザード（v0.128.0）：床の色で読ませる危険なマス（グリフは置かない・盤面を汚さない）。
        敵を叩き込むのが本命＝控えめだが一目で分かる背景色＋淡い明滅。崩れ床は軋み中(hz-cracked)を強調。 */
@@ -335,7 +335,7 @@
     /* 投擲照準（v0.133.0）：着弾3×3の予告（throw-blast＝淡い琥珀枠）＋クロスヘア中心（throw-aim＝強い琥珀の照準） */
     .cell.throw-blast::after {
       content: ""; position: absolute; inset: 8%; border-radius: 3px; pointer-events: none;
-      background: rgba(201,167,90,.14); border: 1px solid rgba(201,167,90,.5); box-shadow: 0 0 6px rgba(201,167,90,.2) inset;
+      background: rgba(201,167,90,.14); border: 1px solid rgba(201,167,90,.52); box-shadow: 0 0 6px rgba(201,167,90,.2) inset;
     }
     .cell.throw-aim::after {
       content: "⊕"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -591,7 +591,7 @@
       letter-spacing: .12em; color: var(--tx-dim); z-index: 2; }
     #title .tagline { margin-top: 20px; font-size: 13px; line-height: 1.95; color: var(--tx-dim); letter-spacing: .04em; z-index: 2; text-align: center; }
     /* 朱の落款（写本の印）。 */
-    #title .seal { display: flex; width: 30px; height: 30px; background: var(--acc); color: #f6e8dc;
+    #title .seal { display: flex; width: 30px; height: 30px; background: var(--acc); color: #fffaf5;
       align-items: center; justify-content: center; font-size: 16px; font-weight: 700; border-radius: 2px;
       margin: 16px auto 0; box-shadow: 0 0 12px rgba(194,69,47,.35); z-index: 2; }
     /* 中央の余白＝世界の来歴（横断F ②・v0.171.0）。金泥の細罫＋淡色の三行（renderTitleLore が流し込む）。
@@ -604,7 +604,7 @@
     #title .menu button { display: block; width: 100%; text-align: center; font-family: inherit;
       font-size: 15px; color: var(--tx-strong); background: transparent; border: 1px solid var(--line-2);
       border-radius: 3px; padding: 14px; margin-top: 9px; letter-spacing: .08em; min-height: 48px; }
-    #title .menu button.primary { color: #f6e8dc; font-weight: 700;
+    #title .menu button.primary { color: #fffaf5; font-weight: 700;
       background: linear-gradient(180deg, #c2452f, #9c3423); border-color: #d9573c; box-shadow: 0 0 14px rgba(194,69,47,.3); }
     #title .sub { font-size: 11px; color: var(--tx-dim); text-align: center; margin-top: 8px; letter-spacing: .04em; min-height: 14px; z-index: 2; }
     #title .ver { margin-top: 13px; text-align: center; font-size: 10px; color: var(--tx-faint);

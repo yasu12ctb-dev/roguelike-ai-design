@@ -66,8 +66,8 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.172.0";
-export const APP_BUILD = "2026-07-30";
+export const APP_VERSION = "0.173.0";
+export const APP_BUILD = "2026-07-31";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
 const db = makeContentDb(
@@ -8123,7 +8123,6 @@ async function charScreen() {
     const consN = (ch.inventory ?? []).reduce((a, s) => a + s.qty, 0); // 薬・巻物の合計個数
     const gearN = (ch.gearBag ?? []).length;                            // 拾った武具の点数
     const lo = activeLoadout(ch);
-    const loNames = lo.map((k) => spellByKey(k)?.name ?? k).join("、");
 
     // 行の集約（横断F ②・v0.171.0）＝HP/攻撃は能力の派生値なので同じ行に畳む。Lv46 でも一画面に収めるため。
     const selfRows: SheetRow[] = [
