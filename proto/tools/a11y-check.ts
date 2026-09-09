@@ -209,6 +209,22 @@ export function assertGrammar(html: string, mainTs: string): Issue[] {
     [/createElement\(\s*["'`]style/, 'JS からの stylesheet 注入（createElement("style")）'],
   ];
   for (const [re, label] of JS_ANIM) if (re.test(mainTs)) bad("grammar-js-anim", `CSS 外からアニメ/スタイルを足している: ${label}`);
+  // ★G11：**色を運びうるプロパティ名を閉じる**（Codex 検収 2026-08-30／09-09 の指摘②の一般化）。
+  //   罫の一族（border-*/outline-*）と、名前が `-color` で終わるものは、
+  //   ①本検査が扱う（HARD_PROPS）②色を運ばないと分かっている（COLORLESS_BORDER）
+  //   ③§10.2 が装飾派生として明示許容（OUT_OF_SCOPE_COLOR）のいずれかに当たらなければ **fail**。
+  //   これで `border-inline` のような論理プロパティや、将来の新プロパティが
+  //   「列挙に無いから素通り」になる経路を構造的に塞ぐ（母集合から黙って消えない）。
+  for (const r of rules(style))
+    for (const d of r.body.matchAll(/(^|;)\s*([-a-z]+)\s*:/g)) {
+      const prop = d[2];
+      if (prop.startsWith("--")) continue;
+      const family = /^(border|outline)(-|$)/.test(prop) || prop.endsWith("-color");
+      if (!family) continue;
+      if (HARD_PROPS.includes(prop) || COLORLESS_BORDER.has(prop) || OUT_OF_SCOPE_COLOR.has(prop)) continue;
+      bad("grammar-color-prop", `色を運びうる未対応のプロパティ: ${prop}（${r.sel.trim().slice(0, 40)}）＝a11y-check の分類（HARD_PROPS／COLORLESS_BORDER／OUT_OF_SCOPE_COLOR）へ登録するか使わない`);
+    }
+
   // G10：スクロール API は未対応（現状 0 件＝main.ts は scrollTop / scrollHeight の
   //       プロパティ代入・参照のみで、単語境界により誤検出しない）。
   //       ★**呼び出し構文を一切解析せず、識別子の出現そのもの**を禁じる。これで bracket
@@ -246,11 +262,41 @@ export function scanRules(style: string): { ctx: string; sel: string; body: stri
   return out;
 }
 const fgKey = (ctx: string, sel: string) => (ctx ? `${ctx} ${sel}` : sel);
-/** 前景を直接指定するプロパティ。 */
-const FG_PROPS = ["color", "border-color"];
-/** 色を内包しうるショートハンド（`border-radius` 等に誤爆しないよう**完全一致の列挙**にする）。 */
-const SHORTHAND_PROPS = ["border", "border-top", "border-right", "border-bottom", "border-left", "outline"];
+// ★プロパティの分類も**閉じる**（Codex 検収 2026-08-30／09-09 の指摘②）。
+//   罫の物理プロパティだけを列挙していたため `border-inline` 等の**論理プロパティが母集合の外**にあり、
+//   しかも文法検査も拒否しなかった＝黙って通っていた。以下の3集合で罫・前景の面を覆い、
+//   **どれにも当たらない「色を運びうる名前」は未対応構文として fail** する（下の assertGrammar 側）。
+const SIDES = ["top", "right", "bottom", "left"];
+const LOGICAL = ["inline", "block", "inline-start", "inline-end", "block-start", "block-end"];
+/** 前景を直接指定するプロパティ（値そのものが色）。 */
+const FG_PROPS = [
+  "color", "border-color", "outline-color",
+  ...SIDES.map((d) => `border-${d}-color`),
+  ...LOGICAL.map((d) => `border-${d}-color`),
+];
+/** 色を内包しうるショートハンド（`<line-width> || <line-style> || <color>`）。 */
+const SHORTHAND_PROPS = [
+  "border", "outline",
+  ...SIDES.map((d) => `border-${d}`),
+  ...LOGICAL.map((d) => `border-${d}`),
+];
 const HARD_PROPS = [...FG_PROPS, ...SHORTHAND_PROPS];
+/** 罫の一族だが**色を運ばない**と分かっているもの＝検査対象外にしてよい（明示列挙＝黙って外さない）。 */
+const COLORLESS_BORDER = new Set([
+  "border-width", "border-style", "border-radius", "border-collapse", "border-spacing",
+  "border-image", "border-image-source", "border-image-slice", "border-image-width",
+  "border-image-outset", "border-image-repeat",
+  "outline-width", "outline-style", "outline-offset",
+  ...SIDES.map((d) => `border-${d}-width`), ...SIDES.map((d) => `border-${d}-style`),
+  ...LOGICAL.map((d) => `border-${d}-width`), ...LOGICAL.map((d) => `border-${d}-style`),
+  "border-top-left-radius", "border-top-right-radius", "border-bottom-left-radius", "border-bottom-right-radius",
+  "border-start-start-radius", "border-start-end-radius", "border-end-start-radius", "border-end-end-radius",
+]);
+/** 色を運ぶが本検査の対象外＝理由つきで明示列挙する（黙って外さない）。 */
+const OUT_OF_SCOPE_COLOR = new Set([
+  "background-color",              // 面であって前景ではない（§10.2 の装飾派生）
+  "-webkit-tap-highlight-color",   // iOS のタップ時ハイライト＝装飾。判読の主体ではない
+]);
 /** 3桁 hex を 6桁へ（ルール内は `#fff` の略記が普通に出る＝輝度計算の前に正規化する）。 */
 const expandHex = (h: string) => (h.length === 4 ? "#" + [...h.slice(1)].map((c) => c + c).join("") : h.toLowerCase());
 /** 面を作らない値＝母集合に入れない（色ではない／継承）。ここに無い非 hex は全て未対応構文で fail。 */
@@ -295,8 +341,17 @@ export function parseColorLiteral(v: string): { lit?: Lit; skip?: boolean; bad?:
   }
   return { bad: `未対応の色構文: ${s}` };
 }
-/** ショートハンド値から色らしいトークンを取り出す（`1.5px` `dashed` 等は色形に当たらない）。 */
-export function colorTokens(val: string): string[] {
+// ★ショートハンドの色抽出を「色らしさ」の判定から外した（Codex 検収 2026-08-30 の指摘①）。
+//   旧実装は LOOKS_COLOR（色名15語）に当たるトークンだけを色とみなしていたため、
+//   `border: 1px solid papayawhip` のような**列挙外の CSS 色名が色として拾われず**素通りしていた。
+//   CSS の罫ショートハンドは `<line-width> || <line-style> || <color>` なので、
+//   **色でないほうが有限**＝幅と線種とグローバル値を列挙し、**残り全部を色候補**として扱う。
+//   これで色名の網羅に依存しなくなる（未知の色名は parseColorLiteral が未対応構文で fail させる）。
+const LINE_STYLE = new Set(["none", "hidden", "dotted", "dashed", "solid", "double", "groove", "ridge", "inset", "outset"]);
+const CSS_GLOBAL = new Set(["inherit", "initial", "unset", "revert", "revert-layer"]);
+const LINE_WIDTH = /^(thin|medium|thick|[\d.]+(px|em|rem|ex|ch|pt|pc|in|cm|mm|q|vw|vh|vmin|vmax|%)?)$/i;
+/** 値を top-level の空白でトークン化（`rgba(…)` の中では割らない）。 */
+export function splitTokens(val: string): string[] {
   const toks: string[] = [];
   let depth = 0, cur = "";
   for (const ch of val) {
@@ -306,7 +361,16 @@ export function colorTokens(val: string): string[] {
     cur += ch;
   }
   if (cur) toks.push(cur);
-  return toks.filter((t) => LOOKS_COLOR.test(t) && !NO_PAINT.has(t.toLowerCase()));
+  return toks;
+}
+/** ショートハンド値から**色候補**を取り出す＝幅・線種・グローバル値を除いた残り全部。 */
+export function colorTokens(val: string): string[] {
+  return splitTokens(val).filter((t) => {
+    const lo = t.toLowerCase();
+    if (LINE_STYLE.has(lo) || CSS_GLOBAL.has(lo)) return false;
+    if (LINE_WIDTH.test(lo)) return false;
+    return true;
+  });
 }
 
 export function parseCss(html: string) {
@@ -353,30 +417,45 @@ export function parseCss(html: string) {
   const hardDup: string[] = [];
   const hardBad: string[] = [];
   const bgOf: Record<string, string> = {};
-  const seen = new Set<string>();
+  // ★重複は「値の形によらず**全宣言を数える**」（Codex 検収 2026-08-30 の指摘③）。
+  //   旧実装はリテラルの解析に成功したときだけ登録していたため、同じセレクタへ後から
+  //   `color: var(--tx)` を別ルールで足すと**後勝ちでリテラルが無効になったのに検査は古い値を見続けた**。
+  //   宣言の数え上げをここで先に済ませ、リテラルかどうかと無関係に 2 回目以降を拒否する。
+  const declCount = new Map<string, number>();
+  const bump = (key: string, prop: string) => {
+    const id = `${key}|${prop}`;
+    declCount.set(id, (declCount.get(id) ?? 0) + 1);
+  };
+  for (const r of scanRules(style)) {
+    for (const d of decls(r.body)) {
+      if (!HARD_PROPS.includes(d.prop) && d.prop !== "background") continue;
+      for (const raw of r.sel.split(",")) bump(fgKey(r.ctx, raw.trim()), d.prop);
+    }
+  }
+  for (const [id, n] of declCount) if (n > 1) hardDup.push(`${id}（同じ面へ ${n} 回宣言＝後勝ちで前が無効になる）`);
   for (const r of scanRules(style)) {
     const ds = decls(r.body);
-    // ★同一ルール内の二重宣言を拒否（後勝ちで前の宣言が黙って無効になる＝検査の抜け道になる）。
-    const cnt: Record<string, number> = {};
-    for (const d of ds) if (HARD_PROPS.includes(d.prop) || d.prop === "background") cnt[d.prop] = (cnt[d.prop] ?? 0) + 1;
     // `border` ショートハンドは border-color を含むので、同じルールでの併記も後勝ちの温床＝拒否する。
-    const borderish = Object.keys(cnt).filter((p) => p === "border" || p === "border-color").length;
+    const props = new Set(ds.map((d) => d.prop));
     for (const raw of r.sel.split(",")) {
       const key = fgKey(r.ctx, raw.trim());
-      for (const [p, n] of Object.entries(cnt)) if (n > 1) hardDup.push(`${key}|${p}（同一ルール内 ${n} 回）`);
-      if (borderish > 1) hardDup.push(`${key}|border と border-color の併記`);
+      for (const sh of SHORTHAND_PROPS) {
+        if (!props.has(sh)) continue;
+        for (const fg of FG_PROPS) {
+          // `border` と `border-color`／`border-top` と `border-top-color` のような包含関係の併記
+          if (fg === `${sh}-color` && props.has(fg)) hardDup.push(`${key}|${sh} と ${fg} の併記`);
+        }
+      }
       for (const d of ds) {
         if (d.prop === "background") { bgOf[key] = d.val; continue; }
         if (!HARD_PROPS.includes(d.prop)) continue;
-        // color / border-color は値そのものが色。ショートハンドは色らしいトークンを1つだけ許す。
+        // color / *-color は値そのものが色。ショートハンドは色候補がちょうど1つであること。
         const vals = FG_PROPS.includes(d.prop) ? [d.val] : colorTokens(d.val);
-        if (!FG_PROPS.includes(d.prop) && vals.length > 1) { hardBad.push(`${key}|${d.prop}: 色トークンが複数ある（${d.val}）`); continue; }
+        if (!FG_PROPS.includes(d.prop) && vals.length > 1) { hardBad.push(`${key}|${d.prop}: 色候補が複数ある（${d.val}）`); continue; }
         for (const v of vals) {
           const p = parseColorLiteral(v);
           if (p.skip) continue;
           if (p.bad || !p.lit) { hardBad.push(`${key}|${d.prop}: ${p.bad}`); continue; }
-          const id = `${key}|${d.prop}`;
-          if (seen.has(id)) hardDup.push(id); else seen.add(id);
           hardFg.push({ key, prop: d.prop, lit: p.lit });
         }
       }
@@ -859,6 +938,18 @@ const err = (m: string) => { if (fail < 30) console.error("  ✗ " + m); fail++;
     { name: "罫の行から any/all を落とす", expect: "doc-hard-mode", run: () => audit(html, spec.replace(TELE_ROW, TELE_ROW.replace("・all）", "）")), mainTs) },
     { name: "罫の行に any と all を両方書く", expect: "doc-hard-mode", run: () => audit(html, spec.replace(TELE_ROW, TELE_ROW.replace("・all）", "・any・all）")), mainTs) },
     { name: "文字（color）の行に判定向きを書く", expect: "doc-hard-mode", run: () => audit(html, spec.replace(NAME_ROW, NAME_ROW.replace("4.5:1（文字）", "4.5:1（文字・any）")), mainTs) },
+    // ---- ★Codex 再検収（2026-08-30／09-09）で「issue 0 のまま通る」と実証された3経路 ----
+    //      ①色名の有限リスト依存 ②論理プロパティが母集合外 ③重複をリテラルでしか数えていない
+    { name: "Codex①: border ショートハンドに列挙外の CSS 色名", expect: "hard-value-form", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-name { border: 1px solid papayawhip; }"), spec, mainTs) },
+    { name: "Codex②: 論理プロパティ border-inline のリテラル色", expect: "hard-undocumented", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-log { border-inline: 1px solid #777; }"), spec, mainTs) },
+    { name: "Codex③: 既存リテラルの後に同一セレクタへ color:var() を足す（後勝ち）", expect: "hard-duplicate", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    #title .name { color: var(--tx); }"), spec, mainTs) },
+    // ---- ★上の3経路と同じ**種類**の穴を、こちらから攻めて塞いだぶんも固定する ----
+    { name: "論理ショートハンド border-block", expect: "hard-undocumented", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-a { border-block: 1px solid #777; }"), spec, mainTs) },
+    { name: "論理の border-inline-start-color", expect: "hard-undocumented", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-b { border-inline-start-color: #777; }"), spec, mainTs) },
+    { name: "分類外の -color プロパティ（caret-color）", expect: "grammar-color-prop", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-c { caret-color: #777; }"), spec, mainTs) },
+    { name: "分類外の -color プロパティ（text-decoration-color）", expect: "grammar-color-prop", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-d { text-decoration-color: #777; }"), spec, mainTs) },
+    { name: "outline に列挙外の色名", expect: "hard-value-form", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-f { outline: 1px solid rebeccapurple; }"), spec, mainTs) },
+    { name: "border に hsl()", expect: "hard-value-form", run: () => audit(html.replace(GRID_ANCHOR, GRID_ANCHOR + "\n    .zz-k { border: 1px solid hsl(0,0%,50%); }"), spec, mainTs) },
   ];
   let ng = 0;
   for (const t of T) if (!t.run().some((i) => i.code === t.expect)) { err(`self-test 未検出: ${t.name}（期待 ${t.expect}）`); ng++; }

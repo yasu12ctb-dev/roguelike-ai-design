@@ -644,9 +644,19 @@ Swift ＝ `withAnimation(.easeInOut.repeatForever())` 等でミラー。**Reduce
 
 **母集合の定義**＝`web/index.html` の `<style>` 内で、**`color`／`border-color`／`border`・`border-top/right/bottom/left`・`outline` の各ショートハンドに、トークン（`var(--x)`）でない色を書いた宣言**（`@keyframes` の途中フレーム・`@media` ブロック内も含む。実測 **55 宣言**）。**`background`／`box-shadow`／`text-shadow` の `rgba` は 10.2 が装飾派生として明示許容＝対象外**（発光・影は形の補助であって判読の主体ではない）。
 
-**抽出は宣言単位で全件**を採る。**同じルール内で同じプロパティを二度書いたら fail**（後勝ちで前の宣言が黙って無効になり、検査が古い値を見てしまう）。**`border` と `border-color` の併記も同じ理由で fail。**
+**★プロパティ名の分類も閉じる（v0.173.0 再検収で是正）。** 罫の一族（`border-*`／`outline-*`）と、名前が `-color` で終わるものは、次の3集合のいずれかに必ず属さなければならず、**どれにも当たらなければ fail**（`grammar-color-prop`）。
 
-**前景の値の文法も閉じる。** 受け付けるのは **不透明の 3/6 桁 hex** と **`rgb()`／`rgba()`**（後者は面へアルファ合成してから比を採る）だけ。**4/8 桁 hex・`hsl()`・色名は未対応構文として fail**（alpha を黙って無視すると半透明の色を過大評価して未達を見逃す）。`var(--x)`・`transparent`・`none`・`inherit`・`currentcolor` は面を作らない値として母集合に入れない。ショートハンドに色らしいトークンが2つ以上あっても fail。
+1. **本検査が扱う**＝`color`／`outline-color`／`border-color`／各辺 `border-{top,right,bottom,left}-color`／**論理 `border-{inline,block}[-{start,end}]-color`**、およびショートハンド `border`／`outline`／各辺／**論理 `border-{inline,block}[-{start,end}]`**
+2. **色を運ばないと分かっている**＝`border-width`／`border-style`／`border-radius`（各隅・論理を含む）／`border-collapse`／`border-spacing`／`border-image*`／`outline-width`／`outline-style`／`outline-offset` ほか
+3. **理由つきで対象外**＝`background-color`（面であって前景ではない）／`-webkit-tap-highlight-color`（iOS のタップ時ハイライト＝装飾）
+
+これにより **`border-inline` のような論理プロパティや将来の新プロパティが「列挙に無いから素通り」になる経路を構造的に塞ぐ。**
+
+**抽出は宣言単位で全件**を採る。**★重複は「値の形によらず全宣言を数える」**（v0.173.0 再検収で是正）＝同じ面（セレクタ）へ同じプロパティが2回以上宣言されたら fail。リテラルだけを数えていると、**既存のリテラルの後に `color: var(--tx)` を別ルールで足したとき、後勝ちで無効になった古いリテラルを検査し続ける**。**`border` と `border-color` の併記も同じ理由で fail。**
+
+**前景の値の文法も閉じる。** 受け付けるのは **不透明の 3/6 桁 hex** と **`rgb()`／`rgba()`**（後者は面へアルファ合成してから比を採る）だけ。**4/8 桁 hex・`hsl()`・色名は未対応構文として fail**（alpha を黙って無視すると半透明の色を過大評価して未達を見逃す）。`var(--x)`・`transparent`・`none`・`inherit`・`currentcolor` は面を作らない値として母集合に入れない。
+
+**★ショートハンドからの色の取り出しは「色らしさ」で判定しない（v0.173.0 再検収で是正）。** 罫のショートハンドは `<line-width> || <line-style> || <color>` なので、**色でないほうが有限**＝線種（`solid`/`dashed`/… の10語）・幅（`thin`/`medium`/`thick` と長さ）・CSS グローバル値（`inherit`/`initial`/`unset`/`revert`）を列挙し、**残りは全て色候補**として値の文法にかける。色名を列挙する方式だと、列挙外の色名（例＝`papayawhip`）が色として拾われず母集合から黙って消える。色候補が2つ以上あっても fail。
 
 **判定面の書き方は次の4形態だけ**（doc に色を書き写さず**必ず実ソースから読む**＝二重管理を作らない）。表に無い宣言、表にあって実ソースに無い行は fail。
 
