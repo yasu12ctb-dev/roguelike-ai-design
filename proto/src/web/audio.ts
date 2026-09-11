@@ -279,7 +279,7 @@ export function sfx(kind: Sfx, delaySec = 0): void {
 // 割り当て：街=⑤灰の街／迷宮=②冷たい石の広間（深度連動）／深淵・山場=③沈淵（深度連動）／
 //          タイトル・死=④追憶（短調の旋律）。①悼みのドローンは予備（未割当）。
 // ============================================================================
-export type BgmScene = "title" | "town" | "dungeon" | "abyss" | "death";
+export type BgmScene = "title" | "town" | "dungeon" | "abyss" | "boss" | "death";
 
 const BGM_KEY = "sekitsui.bgm";
 const BGMVOL_KEY = "sekitsui.bgmvol";
@@ -339,11 +339,14 @@ export function setBgm(scene: BgmScene, depth = 1): void {
   startScene(scene, depth);
 }
 
+/** 現在鳴っている場面（未起動・停止中は null）。E2E が BGM の切り替わりを検査するための読み出し専用。 */
+export function currentBgmScene(): BgmScene | null { return curScene ?? desiredScene; }
+
 /** 潜行が一段深まった等で深度だけ更新（迷宮=②／深淵=③の音色が暗く低くなる）。 */
 export function setBgmDepth(depth: number): void {
   desiredDepth = depth;
   curDepth = depth;
-  if (curTrack && (curScene === "dungeon" || curScene === "abyss")) curTrack.setDepth(depth);
+  if (curTrack && (curScene === "dungeon" || curScene === "abyss" || curScene === "boss")) curTrack.setDepth(depth);
 }
 
 function kickBgm(): void {
@@ -507,6 +510,17 @@ function makeTrack(scene: BgmScene): Track {
     let di = 0; every(16000, () => { di = (di + 1) % dChords.length; drone.setChord(dChords[di], 9); });
     every(7000, () => bnote(57 + bgPick(PENT_MINOR) + 12 * bgPick([0, 1]) - Math.floor(curDepth / 5), 1.8, 0.4, 6.0, 0.05, "sine", 1.0));
     return { stop() { clearAll(); hall.stop(); drone.stop(); }, setDepth() { apply(2.6); hall.setChord(hChords[hi], 2); } };
+  }
+  // ⑥主の間（Phase A・A4）：節目の層で主を視認している間だけ鳴る。②冷たい石の広間の骨格を保ったまま、
+  //   ③沈淵の最低域サブを薄く重ね、遅い脈を置く＝「同じ迷宮の、圧が増した状態」。新しい音源ファイルは使わない。
+  //   ファンファーレにしない（静かな雰囲気の原則）＝主題は足さず、低域と密度だけで通常フロアと区別する。
+  if (scene === "boss") {
+    const hall = padChord([38, 45, 50], { wave: "sine", detune: 7, amp: 0.045, lpf: 600, lfoRate: 0.04, spread: 0.7, wet: 1.0, depthReact: true });
+    const sub = padChord([26, 33], { wave: "sine", detune: 3, amp: 0.042, lpf: 200, lfoRate: 0.03, spread: 0.35, wet: 0.6, depthReact: true });
+    const chords = [[38, 45, 50], [37, 44, 49], [38, 44, 51]]; // 半音下げ／三全音寄り＝解決しない緊張
+    let i = 0; every(17000, () => { i = (i + 1) % chords.length; hall.setChord(chords[i], 9); });
+    every(3400, () => bnote(26, 1.6, 0.34, 4.2, 0.05, "sine", 0.5)); // 遅い脈＝拍の芯（旋律ではない）
+    return { stop() { clearAll(); hall.stop(); sub.stop(); }, setDepth() { hall.setChord(chords[i], 2); } };
   }
   if (scene === "abyss") { // ③沈淵：最低域サブ＋不協和クラスタ・深度連動
     const pad = padChord([26, 38, 39, 44], { wave: "sine", detune: 4, amp: 0.05, lpf: 380, lfoRate: 0.035, spread: 0.5, wet: 0.85, depthReact: true });

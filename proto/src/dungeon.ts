@@ -63,6 +63,12 @@ export const BREED_CD = 6;          // 眷属を湧かしたあとの待機手�
 export const MONSTER_HARDCAP = 60;  // フロアの敵総数の上限（breeder の暴走防止）
 // C｜HARDCAP の深度スケール（v0.151.0・2026-07-11 ユーザー承認＝「緊張の持続」FB）：normal/hard は深部で瞬間密度の天井を上げる。
 //   easy＝60 据え置き（快適無双／golden 完全不変＝mods===EASY_MODS を判別）。深度20超で +1/階、最大 +20（深部80）。
+/** その深度がエリアボスの階か（節目＝8の倍数・D8 以降）。genFloor の配置と web の予告/告知/BGM が同じ1本を読む
+ *  （RFC rfc-pacing.md Phase A＝判定式が散ると「予告は出るのにボスが居ない」ズレが生まれるため純関数に集約）。 */
+export function isBossDepth(depth: number): boolean {
+  return depth >= 8 && depth % 8 === 0;
+}
+
 export function monsterHardcap(depth: number, mods: DifficultyMods): number {
   if (mods === EASY_MODS) return MONSTER_HARDCAP;
   return MONSTER_HARDCAP + Math.min(20, Math.max(0, depth - 20));
@@ -297,6 +303,9 @@ export interface Floor {
   chests: Chest[];
   shrines: Shrine[];             // 安息所/回復の泉（一度使用で消える：深蝕リワーク v2）
   returnDoor?: Pos | null;       // 帰還の扉（エリアボス撃破で出現＝潜行中の往復チェックポイント：v2）
+  bossIntroSeen?: boolean;       // このフロアの主を初めて視認して告知済みか（Phase A・A2/A4）。floor に持たせるのは
+                                 //   ①帰還の扉での街往復や再訪で再放送しないため（bossEnragedSeen は enterFloor でクリアされる）
+                                 //   ②DiveSnapshot が floor を直列化するので再開後も一度きりを保てるため。任意＝旧セーブは undefined（SAVE_VERSION 据置）。
   explored: boolean[];           // 既踏破（記憶表示用）
   downed?: DownedActor | null;   // 手負いの冒険者（任意。enterFloor が稀に配置：4-14C）
   delver?: DelverActor | null;   // 同時に潜る生者の冒険者（任意。enterFloor が時々配置：すれ違いの軽イベント）
@@ -447,7 +456,7 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean; 
   // ★hardcap 厳守（2026-07-16 バグ修正）：必須ボス（エリアボス＝8の倍数階／深淵の主＝abyss 階・両立し得る）は省略できないので、
   //   main count で先にその枠を予約する＝main+ボス が hardcap を超えない（深部で count が上限に達する帯＝例 depth80×easy で 61>60 を是正）。
   //   easy の bossSlots 該当は深度72/80/88/96 等の深部のみ（浅深度は count が countCap 未満で無影響）＝golden 深度（≤42・非ボス階）は bossSlots=0＝byte 不変。
-  const bossSlots = ((depth >= 8 && depth % 8 === 0) ? 1 : 0) + (opts?.abyss ? 1 : 0);
+  const bossSlots = (isBossDepth(depth) ? 1 : 0) + (opts?.abyss ? 1 : 0);
   const count = Math.min(Math.round((W * H) / 120) + Math.floor(depth / 3), countCap, monsterHardcap(depth, mods) - bossSlots); // 出現率・上限を拡張面積に追従（20→42→深部60）＋必須ボス枠を予約
   // A｜部屋の広さ比例＋大部屋集中配置（v0.151.0・2026-07-11 ユーザー承認＝「1対1が多い／広い部屋がスカスカ」FB・normal/hard 限定）：
   //   従来は全域ランダム散布ゆえ敵が薄く散り「1対1」になりがち。面積比で全室に薄く撒くとマップが部屋過多で1室~1体のまま緊張が出ない
@@ -548,7 +557,7 @@ export function genFloor(world: World, depth: number, opts?: { abyss?: boolean; 
   }
 
   // ---------- ボス配置（4-11F：エリアボス＝深度節目で下り階段を守る／中ボス＝奥の部屋の強敵） ----------
-  if (depth >= 8 && depth % 8 === 0) {
+  if (isBossDepth(depth)) {
     const { kind, fossilId } = makeAreaBoss(world, depth, rng);
     const bp = freeFloorNear(floor, stairsDown);
     if (bp) floor.monsters.push({ id: `boss${depth}`, kind, hp: kind.hp, x: bp.x, y: bp.y, awake: true, intent: null, boss: "area", fossilId });
