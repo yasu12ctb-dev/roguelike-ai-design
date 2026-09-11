@@ -294,9 +294,55 @@ function pickBaseByDepth(src: Template[], depth: number, rng: Rng): Template {
   return src[src.length - 1];
 }
 
+// 武器クラス（挙動が根本から違う三択＝剣／槍〔reach:2〕／薙刀〔sweep〕）。ボスの早期解禁ゲートに使う。
+export type WeaponClass = "melee" | "reach" | "sweep";
+function weaponClass(t: Template): WeaponClass {
+  return t.sweep ? "sweep" : t.reach && t.reach >= 2 ? "reach" : "melee";
+}
+/** その深度で通常ドロップから手に入りうる武器クラスの集合（＝プレイヤーが既に扱える可能性のあるクラス）。 */
+function openWeaponClasses(depth: number): Set<WeaponClass> {
+  const s = new Set<WeaponClass>();
+  for (const t of TEMPLATES) if (!t.exclusive && t.slot === "weapon" && t.minDepth <= depth) s.add(weaponClass(t));
+  return s;
+}
+
+/** 各武器クラスの「入口の深度」＝そのクラスで最も浅い基の minDepth。受理ゲート（item-check）が解禁境界を突合するための表。 */
+export function weaponClassEntryDepth(): Record<WeaponClass, number> {
+  const e: Record<WeaponClass, number> = { melee: Infinity, reach: Infinity, sweep: Infinity };
+  for (const t of TEMPLATES) {
+    if (t.exclusive || t.slot !== "weapon") continue;
+    const k = weaponClass(t);
+    if (t.minDepth < e[k]) e[k] = t.minDepth;
+  }
+  return e;
+}
+/** Item から武器クラスを読む（テスト・照合用。基テンプレ由来の reach/sweep で決まる）。 */
+export function itemWeaponClass(it: Item): WeaponClass | null {
+  if (it.slot !== "weapon") return null;
+  return it.sweep ? "sweep" : it.reach && it.reach >= 2 ? "reach" : "melee";
+}
+
+/** その深度・経路で抽選候補になる基テンプレ（＝ドロップ表）。rollItem と golden/検査が同じ1本を使う。
+ *  ボスの早期解禁（depth+5）は「同じ武器クラスの上位品を少し早く見せる」装置であって、「まだ扱えない武器クラスの
+ *  扉を開ける」装置ではない（v0.175.0＝#412 の穴。薙鎌の minDepth を 3→8 にしたのに、ボス経路は depth+5 で解禁する
+ *  ため D3〜D7 の中ボス／奇物堂が薙刀クラスを配り続けていた＝入口を遅らせた意図が通っていなかった）。
+ *  ＝そのクラスが depth で未解禁なら、その武器には +5 を適用しない。防具/遺物/鞄と、解禁済みクラスの上位品は従来どおり。 */
+function dropTemplates(depth: number, boss: boolean): Template[] {
+  const open = boss ? openWeaponClasses(depth) : null;
+  return TEMPLATES.filter((t) => { // 秘宝は通常ドロップに出さない
+    if (t.exclusive) return false;
+    const bonus = boss && (t.slot !== "weapon" || open!.has(weaponClass(t))) ? 5 : 0;
+    return t.minDepth <= depth + bonus;
+  });
+}
+/** ドロップ表の基名（golden 指紋・検査用）。抽選を回さずに表そのものを突合できる＝Swift 移植の照合面。 */
+export function dropTableNames(depth: number, opts: { boss?: boolean } = {}): string[] {
+  return dropTemplates(depth, !!opts.boss).map((t) => t.name);
+}
+
 /** 深度に応じた装備を1つ抽選（銘・+N 込み）。ボスは上位寄り。蝕や一定確率で異物（未鑑定）。 */
 export function rollItem(depth: number, rng: Rng, opts: { boss?: boolean } = {}): Item {
-  const avail = TEMPLATES.filter((t) => !t.exclusive && t.minDepth <= depth + (opts.boss ? 5 : 0)); // 秘宝は通常ドロップに出さない
+  const avail = dropTemplates(depth, !!opts.boss);
   const src = avail.length ? avail : [TEMPLATES[0]];
   let t: Template;
   if (opts.boss) {

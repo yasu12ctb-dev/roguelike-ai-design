@@ -8,7 +8,7 @@ import { makeRng } from "./rng.ts";
 import { newWorld, createCharacter, fossilizeCurrent, advanceArcs } from "./world.ts";
 import { genFloor, planMonsters, resolveMonsters } from "./dungeon.ts";
 import { xpToNext, xpForKill, maxHp } from "./progression.ts";
-import { rollItem, itemValue } from "./items.ts";
+import { rollItem, itemValue, dropTableNames } from "./items.ts";
 import { SPELLS, warpDamage } from "./spells.ts";
 import { depthBand, exposureGain } from "./variation.ts";
 import type { Character } from "./types.ts";
@@ -95,7 +95,10 @@ function gMonsterAI(): string {
   return r.hash();
 }
 
-/** ⑤ アイテム抽選：slot×enchant×価値（整数）を固定 seed で。 */
+/** ⑤ アイテム抽選：基名×slot×enchant×価値（整数）を固定 seed で。
+ *  基名（baseName）は v0.175.0 で追加＝それ以前は (slot, enchant, 価値) しか見ておらず、ドロップ表そのものの
+ *  差し替え（minDepth 変更・解禁ゲート変更）を指紋が検出できなかった（#412 で D3〜D7 の薙ぎ出現を 29.7%→0% に
+ *  変えても items 指紋は byte 不変だった）。Swift 移植が同 seed で同じ「基」を引くことまで照合する。 */
 function gItems(): string {
   const r = new Rec();
   for (const seed of [20260612, 5]) {
@@ -103,9 +106,14 @@ function gItems(): string {
     for (const depth of [1, 12, 28, 44]) {
       for (let i = 0; i < 8; i++) {
         const it = rollItem(depth, rng, i % 5 === 0 ? { boss: true } : {});
-        r.add(it.slot, it.enchant ?? 0, Math.round(itemValue(it)));
+        r.add(it.baseName ?? it.name, it.slot, it.enchant ?? 0, Math.round(itemValue(it)));
       }
     }
+  }
+  // ドロップ表そのもの（深度×経路で候補になる基名）。抽選の標本だけでは minDepth の変更を取り逃がす
+  // （実測＝薙鎌の minDepth を 8↔3 で振っても64回の標本では指紋が動かなかった）ので、表を直に固定する。
+  for (let depth = 1; depth <= 50; depth++) {
+    r.add(depth, dropTableNames(depth).join(","), dropTableNames(depth, { boss: true }).join(","));
   }
   return r.hash();
 }
@@ -149,7 +157,7 @@ const SCENARIOS: Record<string, () => string> = {
 // checked-in 期待値（--print で再生成して貼り替え）。Swift 移植はこの値を再現すべき正解データ。
 const EXPECTED: Record<string, string> = {
   rng: "05bda7cc", progression: "cfe0c82f", genFloor: "2511c84a",
-  monsterAI: "b70559dc", items: "3758573a", worldLifecycle: "741659d6",
+  monsterAI: "b70559dc", items: "92e07f67", worldLifecycle: "741659d6",
   spells: "19f291e8", variation: "54d9a151",
 };
 // 注：worldLifecycle は 4-14 初期シード化石 2→12 体で更新（純エンジンの決定論変化＝意図的）。
@@ -163,6 +171,9 @@ const EXPECTED: Record<string, string> = {
 // 注：items は武器クラス〈薙刀〉（v0.127.0・sweep:true の新基4種〔薙鎌/薙刀/大薙刀/夜叉薙〕）で再生成（d9a8e31b→3758573a）＝設計変更＝Swift 照合の新基準（他7指紋は byte 一致を裏取り）。
 // 注：spells は術カタログの整理（v0.129.0・削除4〔万象斬/微睡/霞足/廻刃〕＝36→32／haste 0.25→0.40・condemn 0.50→0.40 のコスト是正）で再生成（0e91b2dc→14cdc14b）＝設計変更＝Swift 照合の新基準（他7指紋は byte 一致を裏取り）。
 // 注：spells は魔法カタログ拡充（v0.130.0・新5種〔業火床/凍霧/弾き/先見/崩落を実地形化〕＝32→37／崩落の desc 更新）で再生成（14cdc14b→19f291e8）＝設計変更＝Swift 照合の新基準（他7指紋は byte 一致を裏取り＝地形変異/弾きは web 限定・engine 非改変）。
+// 注：items は ①ボス早期解禁の武器クラスゲート（v0.175.0＝#412 の穴の是正）②指紋の母集合の拡張 で再生成（3758573a→92e07f67）＝ユーザー承認済みの意図的更新＝Swift 照合の新基準（他7指紋は byte 一致を裏取り＝変更は rollItem の候補選定に閉じる）。
+//     母集合を2つ広げた＝(a) 抽選標本へ基名（baseName）を追加（旧 (slot,enchant,価値) では基の取り違えが見えない）(b) ドロップ表そのもの（D1〜D50 × 通常/boss の候補基名列）を追加。
+//     (b) が要る理由＝実測で、薙鎌の minDepth を 8↔3 に振っても 64 回の抽選標本では指紋が動かなかった。標本だけでは minDepth 変更を取り逃がす＝Swift 移植がドロップ表を取り違えても気づけない。
 
 const printMode = process.argv.includes("--print");
 let fail = 0;
