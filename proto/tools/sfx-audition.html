@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>攻撃音の試聴</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 20px; background: #0c0f14; color: #e8e0d6; font: 14px/1.6 -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+  h1 { font-size: 16px; margin: 0 0 4px; letter-spacing: .06em; }
+  p.note { color: #9a9088; margin: 0 0 18px; font-size: 12.5px; }
+  .row { display: grid; grid-template-columns: 150px 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid #262b34; border-radius: 8px; margin-bottom: 10px; background: #12161d; }
+  .row.cur { border-color: #6b5a3a; }
+  .name { font-weight: 700; }
+  .name small { display: block; font-weight: 400; color: #9a9088; font-size: 11.5px; }
+  .desc { color: #b8afa5; font-size: 12.5px; }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  button { background: #1c222c; color: #e8e0d6; border: 1px solid #333a46; border-radius: 6px; padding: 7px 11px; font-size: 13px; cursor: pointer; }
+  button:hover { background: #242c38; }
+  button.rep { border-color: #6b5a3a; }
+  .vol { display: flex; gap: 10px; align-items: center; margin: 0 0 14px; font-size: 12.5px; color: #9a9088; }
+  .vol input { width: 160px; }
+  @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<h1>攻撃音の試聴 ── 現行と候補5種</h1>
+<p class="note">「連打×6」が本命です。単発で良く聞こえても、1フロアで数十回鳴る音は連打で疲れます。会心・撃破は同じ系統で作ってあるので、家族として聴いてください。最初のクリックで音が有効になります。</p>
+<div class="vol">効果音の音量 <input id="vol" type="range" min="0" max="1" step="0.05" value="0.7"> <span id="volv">0.70</span></div>
+<div id="list"></div>
+
+<script>
+// ── audio.ts と同じ合成プリミティブ（試聴用の再実装。ゲーム側の関数と1対1）──
+let ctx = null, bus = null;
+function ensure() {
+  if (ctx) return;
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  bus = ctx.createGain(); bus.gain.value = parseFloat(document.getElementById("vol").value); bus.connect(ctx.destination);
+}
+document.getElementById("vol").addEventListener("input", (e) => {
+  document.getElementById("volv").textContent = Number(e.target.value).toFixed(2);
+  if (bus) bus.gain.value = parseFloat(e.target.value);
+});
+function env(g, peak, dur) { const t = ctx.currentTime; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); }
+function tone(freq, dur, type, peak, slideTo) {
+  const o = ctx.createOscillator(); o.type = type; o.frequency.value = freq;
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(1, slideTo), ctx.currentTime + dur);
+  const g = ctx.createGain(); env(g, peak, dur); o.connect(g); g.connect(bus); o.start(); o.stop(ctx.currentTime + dur + 0.03);
+}
+function noise(dur, peak, filterFreq) {
+  const n = Math.floor(ctx.sampleRate * dur); const buf = ctx.createBuffer(1, n, ctx.sampleRate); const d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource(); src.buffer = buf; const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = filterFreq;
+  const g = ctx.createGain(); env(g, peak, dur); src.connect(bp); bp.connect(g); g.connect(bus); src.start(); src.stop(ctx.currentTime + dur + 0.03);
+}
+function transient(peak, hpFreq, dur = 0.045) {
+  const n = Math.floor(ctx.sampleRate * dur); const buf = ctx.createBuffer(1, n, ctx.sampleRate); const d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+  const src = ctx.createBufferSource(); src.buffer = buf; const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = hpFreq;
+  const g = ctx.createGain(); g.gain.setValueAtTime(peak, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+  src.connect(hp); hp.connect(g); g.connect(bus); src.start(); src.stop(ctx.currentTime + dur + 0.02);
+}
+function thud(freq, dur, peak) {
+  const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = freq;
+  o.frequency.exponentialRampToValueAtTime(Math.max(20, freq * 0.5), ctx.currentTime + dur);
+  const g = ctx.createGain(); env(g, peak, dur); o.connect(g); g.connect(bus); o.start(); o.stop(ctx.currentTime + dur + 0.03);
+}
+
+// ── 候補。各候補は hit / crit / kill の3つを家族として持つ ──
+const CANDS = [
+  { key: "cur", name: "現行（候補③ 重い一撃）", sub: "audio.ts の今の音", desc: "トランジェント＋thud 150＋矩形波 420＋サブ 55＋三角波 92 の5層。ずっしり重いが、矩形波の唸りと 55Hz の膨らみが毎回重なる。",
+    hit:  () => { transient(0.18, 1300, 0.05); thud(150, 0.28, 0.30); tone(420, 0.06, "square", 0.12, 150); tone(55, 0.24, "sine", 0.20, 34); tone(92, 0.16, "triangle", 0.12, 48); },
+    crit: () => { transient(0.26, 1500, 0.055); thud(170, 0.34, 0.34); tone(440, 0.07, "square", 0.14, 150); tone(50, 0.32, "sine", 0.24, 30); tone(100, 0.18, "triangle", 0.14, 50); },
+    kill: () => { transient(0.2, 1100, 0.05); thud(150, 0.26, 0.30); tone(300, 0.14, "sawtooth", 0.1, 70); tone(55, 0.22, "sine", 0.18, 32); } },
+  { key: "A", name: "A 乾いた斬撃", sub: "軽く・短く・低音なし", desc: "高いトランジェントと短い帯域ノイズだけ。実体音は 180Hz の短い thud。連打しても重ならない。会心で高い一点が乗る。",
+    hit:  () => { transient(0.22, 2200, 0.04); noise(0.05, 0.10, 1800); thud(180, 0.12, 0.18); },
+    crit: () => { transient(0.30, 2400, 0.05); noise(0.07, 0.14, 2000); thud(170, 0.16, 0.24); tone(1200, 0.10, "sine", 0.10, 900); },
+    kill: () => { transient(0.24, 2000, 0.045); noise(0.06, 0.12, 1600); thud(160, 0.16, 0.22); tone(320, 0.14, "sawtooth", 0.07, 70); } },
+  { key: "B", name: "B 刃の抜け", sub: "「シン」と抜ける短い滑り", desc: "900→300Hz を 80ms で滑る正弦波に、薄いトランジェント。斬った感触を音程の動きで出す。低音は 160Hz の短い thud だけ。",
+    hit:  () => { transient(0.16, 1800, 0.04); tone(900, 0.08, "sine", 0.14, 300); thud(160, 0.16, 0.20); },
+    crit: () => { transient(0.24, 2000, 0.05); tone(1300, 0.11, "sine", 0.18, 320); thud(150, 0.22, 0.26); tone(1600, 0.08, "sine", 0.06, 1200); },
+    kill: () => { transient(0.2, 1600, 0.045); tone(800, 0.10, "sine", 0.13, 200); thud(150, 0.20, 0.24); tone(280, 0.16, "sawtooth", 0.07, 60); } },
+  { key: "C", name: "C 鈍い打撃（現行の整理）", sub: "現行から矩形波とサブを抜く", desc: "現行の5層のうち、唸りの矩形波 420Hz とサブ 55Hz を外して2層に。今の重さの記憶を残したまま、疲れの原因だけを取る。",
+    hit:  () => { transient(0.18, 1300, 0.05); thud(150, 0.20, 0.30); },
+    crit: () => { transient(0.26, 1500, 0.055); thud(170, 0.26, 0.34); tone(1100, 0.09, "sine", 0.08, 800); },
+    kill: () => { transient(0.2, 1100, 0.05); thud(150, 0.22, 0.30); tone(300, 0.14, "sawtooth", 0.08, 70); } },
+  { key: "D", name: "D 木を打つ", sub: "乾いた「コッ」", desc: "2500Hz の極短ノイズと 220→120Hz の三角波。木槌のような乾いた当たり。重さより「当たった」の輪郭を優先。",
+    hit:  () => { noise(0.03, 0.14, 2500); tone(220, 0.09, "triangle", 0.16, 120); thud(140, 0.14, 0.18); },
+    crit: () => { noise(0.04, 0.18, 2700); tone(260, 0.11, "triangle", 0.20, 120); thud(130, 0.20, 0.24); tone(1000, 0.08, "sine", 0.07, 700); },
+    kill: () => { noise(0.035, 0.16, 2300); tone(200, 0.10, "triangle", 0.16, 100); thud(130, 0.18, 0.22); tone(300, 0.14, "sawtooth", 0.07, 60); } },
+  { key: "E", name: "E 石を割る", sub: "砕ける質感", desc: "900Hz のトランジェントに 500Hz の帯域ノイズを重ね、120Hz の thud。砂利を踏み砕くような手応え。連打で粒が揃わないので機械的に聞こえにくい。",
+    hit:  () => { transient(0.20, 900, 0.045); noise(0.08, 0.10, 500); thud(120, 0.18, 0.20); },
+    crit: () => { transient(0.28, 1000, 0.05); noise(0.10, 0.14, 600); thud(110, 0.24, 0.26); tone(1300, 0.08, "sine", 0.07, 900); },
+    kill: () => { transient(0.22, 850, 0.045); noise(0.09, 0.12, 450); thud(110, 0.22, 0.24); tone(280, 0.15, "sawtooth", 0.07, 60); } },
+];
+
+const list = document.getElementById("list");
+for (const c of CANDS) {
+  const row = document.createElement("div"); row.className = "row" + (c.key === "cur" ? " cur" : "");
+  row.innerHTML = `<div class="name">${c.name}<small>${c.sub}</small></div><div class="desc">${c.desc}</div><div class="btns"></div>`;
+  const b = row.querySelector(".btns");
+  const mk = (label, fn, cls = "") => { const el = document.createElement("button"); el.textContent = label; if (cls) el.className = cls; el.onclick = () => { ensure(); fn(); }; b.appendChild(el); };
+  mk("撃つ", c.hit); mk("会心", c.crit); mk("撃破", c.kill);
+  mk("連打×6", () => { for (let i = 0; i < 6; i++) setTimeout(() => c.hit(), i * 260); setTimeout(() => c.kill(), 6 * 260); }, "rep");
+  list.appendChild(row);
+}
+</script>
+</body>
+</html>
