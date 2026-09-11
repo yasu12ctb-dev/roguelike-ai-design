@@ -342,6 +342,12 @@ export function setBgm(scene: BgmScene, depth = 1): void {
 /** 現在鳴っている場面（未起動・停止中は null）。E2E が BGM の切り替わりを検査するための読み出し専用。 */
 export function currentBgmScene(): BgmScene | null { return curScene ?? desiredScene; }
 
+// 実際にトラックを作り直した場面の並び（同じ場面の再要求は startScene が no-op なので載らない）。
+// E2E が「1経路で何回切り替わったか」を検査するための計測点＝最終の場面名だけ見ても多重生成は見抜けない（Codex 検収 P1）。
+const bgmSwitches: BgmScene[] = [];
+export function bgmSceneLog(): BgmScene[] { return [...bgmSwitches]; }
+export function resetBgmSceneLog(): void { bgmSwitches.length = 0; }
+
 /** 潜行が一段深まった等で深度だけ更新（迷宮=②／深淵=③の音色が暗く低くなる）。 */
 export function setBgmDepth(depth: number): void {
   desiredDepth = depth;
@@ -366,6 +372,7 @@ function startScene(scene: BgmScene, depth: number): void {
   if (curScene === scene) { if (curTrack) curTrack.setDepth(depth); return; }
   if (curTrack) { try { curTrack.stop(); } catch { /* ignore */ } curTrack = null; } // 旧トラックは自前で長フェードアウト＝自然なクロスフェード
   curScene = scene;
+  bgmSwitches.push(scene); if (bgmSwitches.length > 64) bgmSwitches.shift(); // 計測点（E2E 専用・挙動には影響しない）
   curTrack = makeTrack(scene);
 }
 

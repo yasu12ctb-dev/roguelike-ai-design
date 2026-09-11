@@ -23,7 +23,7 @@ const server = createServer(async (req, res) => {
     res.end(body);
   } catch { res.writeHead(404); res.end("nf"); }
 });
-await new Promise((r) => server.listen(PORT, r));
+await new Promise((r) => server.listen(PORT, "127.0.0.1", r)); // ループバック限定（e2e-a11y/e2e-settings と同じ規約＝外部インターフェースへ晒さない）
 
 const results = [];
 const ok = (name, cond, extra = "") => { results.push({ name, pass: !!cond }); console.log(`${cond ? "✅" : "❌"} ${name}${extra ? "  " + extra : ""}`); };
@@ -35,7 +35,7 @@ const errors = [];
 page.on("pageerror", (e) => errors.push("pageerror: " + (e.message || e)));
 page.on("console", (m) => { if (m.type() === "error") errors.push("console.error: " + m.text()); });
 
-const url = `http://localhost:${PORT}/`;
+const url = `http://127.0.0.1:${PORT}/`;
 await page.goto(url, { waitUntil: "domcontentloaded" });
 await page.evaluate(() => { try { localStorage.clear(); localStorage.setItem("sekitsui.dbg", "1"); } catch {} });
 await page.goto(url, { waitUntil: "domcontentloaded" });
@@ -145,6 +145,19 @@ const d8b = await go(8);
 ok("A2 再訪でも告知は増えない（一度きり）", introLines(d8b) === 1, `lines=${introLines(d8b)}`);
 ok("A2 再訪でも introSeen は立ったまま", d8b.introSeen === true);
 ok("A4 再訪で主が生きていれば曲は主のまま（視界に依らない＝物陰でちらつかない）", d8b.bgm === "boss", `bgm=${d8b.bgm}`);
+
+// ── A4 多重生成の回帰（Codex 検収 P1）：1経路で場面が何回切り替わるかを数える。
+//    最終の場面名だけ見ても boss→dungeon→boss の重なりは見抜けない＝切り替え列そのものを固定する。
+const switchesFor = async (fn) => {
+  await page.evaluate(() => (window).__hazTest.resetBgmLog());
+  await fn();
+  await page.waitForTimeout(260);
+  return page.evaluate(() => (window).__hazTest.bossPhaseA().bgmLog);
+};
+const swRevisit = await switchesFor(async () => { await page.evaluate(() => (window).__hazTest.gotoDepth(9)); await page.waitForTimeout(240); await page.evaluate(() => (window).__hazTest.gotoDepth(8)); });
+ok("A4 通常の層→主の層の再訪で、場面の切り替えは各1回だけ", JSON.stringify(swRevisit) === JSON.stringify(["dungeon", "boss"]), JSON.stringify(swRevisit));
+const swTurn = await switchesFor(async () => { await page.evaluate(() => (window).__hazTest.step()); });
+ok("A4 主の階で手番を進めても再生成しない（切り替え0回）", swTurn.length === 0, JSON.stringify(swTurn));
 
 // ── A3/A4：決着で「越えた」一行＋曲が迷宮へ戻る（D8 は帯の境界なので追加の一行）。
 const killed = await page.evaluate(() => (window).__hazTest.killAreaBoss());

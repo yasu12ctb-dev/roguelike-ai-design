@@ -47,7 +47,7 @@ import {
 } from "../townscene.ts";
 import {
   ensureAudio, audioStarted, sfx, setAmbient, setMuted, isMuted, loadMutePref,
-  setBgm, setBgmDepth, currentBgmScene, setBgmEnabled, isBgmOn, setBgmVolume, bgmVolume, loadBgmPref, setSfxVolume, sfxVolume,
+  setBgm, setBgmDepth, currentBgmScene, bgmSceneLog, resetBgmSceneLog, setBgmEnabled, isBgmOn, setBgmVolume, bgmVolume, loadBgmPref, setSfxVolume, sfxVolume,
   type Sfx,
 } from "./audio.ts";
 // 設定シートの意味論化（U1a）：表示（ラベル）と分岐（安定 ID）を分離する純データ層＋実行 factory。
@@ -996,6 +996,7 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   // Phase A（A1〜A4）E2E：節目の層の予告・初視認の告知・バナー副題・主の曲を読む／任意深度へ実 enterFloor で入る。
   gotoDepth: (d: number) => { enterFloor(d, true); return floor?.depth ?? null; },
   openDownPrompt: () => { void stairsPrompt("down"); }, // A1 E2E：下り階段の確認シートを実関数で開く
+  resetBgmLog: () => resetBgmSceneLog(), // A4 E2E：場面の切り替え回数を1経路ごとに数える
 
   bossPhaseA: () => ({
     depth: floor?.depth ?? null,
@@ -1005,6 +1006,7 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
     bossAt: (() => { const m = floor?.monsters.find((mm) => mm.boss === "area" && mm.hp > 0); return m ? { x: m.x, y: m.y } : null; })(),
     banner: document.getElementById("floorBanner")?.textContent ?? "",
     bgm: currentBgmScene(),
+    bgmLog: bgmSceneLog(),
     logs: Array.from(document.querySelectorAll("#log div")).map((d) => d.textContent ?? ""),
   }),
   killAreaBoss: () => { const m = floor?.monsters.find((mm) => mm.boss === "area" && mm.hp > 0); if (!m) return false; m.hp = 0; downOrKill(m); return true; },
@@ -4716,8 +4718,7 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false, viaDoor = 
   if (companion) planCompanion(floor, player, companion, rng);
   setAmbient(true, depth); // 環境ドローン（深いほど低い）
   // 場面 BGM：深淵帯=③沈淵／通常迷宮=②冷たい石の広間（深度連動で暗く低くなる）
-  if (abyss) setBgm("abyss", depth); else { setBgm("dungeon", depth); setBgmDepth(depth); }
-  updateBossMusic(); // A4（Phase A）：この階に「視認済みで生存中の主」が居れば主の曲で上書きする（上の既定より後に置く＝再訪・再開で迷宮の曲に戻されないため）
+  updateBossMusic(); // A4（Phase A）：この場面で鳴るべき曲を floor の状態から一度だけ決める（既定＋上書きの二段にすると boss→dungeon→boss と重なる＝Codex P1）
   hidePeek();
   applyDepthBand(depth, abyss); // 松明の色調＝深度帯（v0.99.0）
   // 秘宝のフロア進入フック（2026-07-03）：farsight＝地図/宝/化石を開示／hasten＝進入時ヘイスト。
@@ -5834,8 +5835,7 @@ function resumeDive(snap: DiveSnapshot): void {
   if (companion) planCompanion(floor, player, companion, rng);
   announceBossCues(); // 再開時に見えているボスの覚醒・大技の溜め（形）も告知（B/D）
   setAmbient(true, floor.depth);
-  if (inAbyss) setBgm("abyss", floor.depth); else { setBgm("dungeon", floor.depth); setBgmDepth(floor.depth); }
-  updateBossMusic(); // A4（Phase A）：この階に「視認済みで生存中の主」が居れば主の曲で上書きする（上の既定より後に置く＝再訪・再開で迷宮の曲に戻されないため）
+  updateBossMusic(); // A4（Phase A）：この場面で鳴るべき曲を floor の状態から一度だけ決める（既定＋上書きの二段にすると boss→dungeon→boss と重なる＝Codex P1）
   applyChrome(); // dive 用の下部タブ/術・品・地図の有効化
   draw(); updateStatus();
   // HP0のまま閉じた＝死の選択前。盤面に戻さず、呼び出し側で即・最期の一手へ（復活に見える混乱と確定先延ばしの隙間を塞ぐ）。
@@ -6087,6 +6087,7 @@ async function endTurn() {
   planMonsters(floor, player, rng, companion);
   if (companion) planCompanion(floor, player, companion, rng);
   announceBossCues(); // ボスの覚醒・大技の溜めを告知（B）
+  updateBossMusic(); // A4（Phase A）：初視認で主の曲へ／討伐で迷宮へ。この経路も同期は1回だけ
   maybeIntentGuide(); // 注記B（PR4）：初めて予告が見えた時に一度だけ
 
   draw();
@@ -6149,7 +6150,9 @@ function announceBossIntro(): void {
       log(`${boss.kind.name}が、降り階段の前に立っている──この層の主。`, "warn");
     }
   }
-  updateBossMusic();
+  // ★BGM の同期はここでしない（Codex 検収 P1・2026-09-12）。announceBossCues は enterFloor／resumeDive／endTurn の
+  //   3経路から呼ばれ、うち2つはこの直後に既定 BGM を設定するため、ここで鳴らすと boss→dungeon→boss と3回切り替わる。
+  //   startScene は旧トラックを 2.2 秒かけてフェードするので、最大3トラックが重なって音量が膨らむ。同期は各呼び出し側で1回だけ。
 }
 
 /** A3（Phase A）：主を越えた実感を一行だけ残す。討つ／鎮める／名を呼ぶのどの決着でも同じ文＝縁の有無で焦点の差が付かないようにする。
