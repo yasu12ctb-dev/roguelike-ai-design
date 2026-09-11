@@ -47,7 +47,7 @@ import {
 } from "../townscene.ts";
 import {
   ensureAudio, audioStarted, sfx, setAmbient, setMuted, isMuted, loadMutePref,
-  setBgm, setBgmDepth, setBgmEnabled, isBgmOn, setBgmVolume, bgmVolume, loadBgmPref, setSfxVolume, sfxVolume,
+  setBgm, setBgmDepth, currentBgmScene, bgmSceneLog, resetBgmSceneLog, setBgmEnabled, isBgmOn, setBgmVolume, bgmVolume, loadBgmPref, setSfxVolume, sfxVolume,
   type Sfx,
 } from "./audio.ts";
 // 設定シートの意味論化（U1a）：表示（ラベル）と分岐（安定 ID）を分離する純データ層＋実行 factory。
@@ -56,7 +56,7 @@ import { createSettingHandlers } from "./settings-handlers.ts";
 import {
   genFloor, genRaidField, placeFossil, computeFov, planMonsters, resolveMonsters, tileAt, mapIdx, spawnPursuer, spawnWanderer,
   planCompanion, resolveCompanion, randomFloorAway, inBounds, companionMaxHp, companionDmg, companionReduce, scaleKind,
-  bfsPath, reachableSet, nearestReachable, monsterCanReach, canBurstReach,
+  bfsPath, reachableSet, nearestReachable, monsterCanReach, canBurstReach, isBossDepth,
   VIEW_W, VIEW_H, MONSTER_KINDS, MONSTER_HARDCAP, WANDER_EVERY, WANDER_FLOOR_CAP,
   type Floor, type Pos, type Chest, type Monster, type CompanionEntity, type DownedActor, type DelverActor, type Shrine,
 } from "../dungeon.ts";
@@ -66,8 +66,8 @@ import { SEAL_KEYS, SEAL_LABEL } from "../types.ts";
 
 const SAVE_KEY = "sekitsui.world.v0";
 // アプリ版数（最新かの判定用）。デプロイのたびに必ず上げる。sw.js の CACHE も同値に揃える。
-export const APP_VERSION = "0.175.0";
-export const APP_BUILD = "2026-09-09";
+export const APP_VERSION = "0.176.0";
+export const APP_BUILD = "2026-09-12";
 // HP・攻撃力はステ由来（progression.ts）。体2/力2 で 最大HP12・攻撃3＝従来値。
 
 const db = makeContentDb(
@@ -993,6 +993,23 @@ try { if (typeof localStorage !== "undefined" && localStorage.getItem("sekitsui.
   // ── P2-D 修正 E2E（㉔〜㉗）：不変検証用の read フック＋実 enterFloor 降下＋RNG 計数ラッパ（全て dbg 限定・golden 非対象）。──
   monStats: (id: string) => { const m = floor?.monsters.find((mm) => mm.id === id); return m ? { hp: m.hp, kindHp: m.kind.hp, dmg: m.kind.dmg } : null; }, // ㉕：無関係 monster の hp/dmg 不変を検証
   descendFloor: () => { if (floor) enterFloor(floor.depth + 1, false); return floor?.depth ?? null; }, // ㉕：実 enterFloor で新フロア（新 floor.fossils／新 fe）へ降りる
+  // Phase A（A1〜A4）E2E：節目の層の予告・初視認の告知・バナー副題・主の曲を読む／任意深度へ実 enterFloor で入る。
+  gotoDepth: (d: number) => { enterFloor(d, true); return floor?.depth ?? null; },
+  openDownPrompt: () => { void stairsPrompt("down"); }, // A1 E2E：下り階段の確認シートを実関数で開く
+  resetBgmLog: () => resetBgmSceneLog(), // A4 E2E：場面の切り替え回数を1経路ごとに数える
+
+  bossPhaseA: () => ({
+    depth: floor?.depth ?? null,
+    isBossDepth: floor ? isBossDepth(floor.depth) : null,
+    introSeen: !!floor?.bossIntroSeen,
+    bossAlive: (floor?.monsters ?? []).some((m) => m.boss === "area" && m.hp > 0),
+    bossAt: (() => { const m = floor?.monsters.find((mm) => mm.boss === "area" && mm.hp > 0); return m ? { x: m.x, y: m.y } : null; })(),
+    banner: document.getElementById("floorBanner")?.textContent ?? "",
+    bgm: currentBgmScene(),
+    bgmLog: bgmSceneLog(),
+    logs: Array.from(document.querySelectorAll("#log div")).map((d) => d.textContent ?? ""),
+  }),
+  killAreaBoss: () => { const m = floor?.monsters.find((mm) => mm.boss === "area" && mm.hp > 0); if (!m) return false; m.hp = 0; downOrKill(m); return true; },
   getTraits: () => [...(world.current?.traits ?? [])],                       // ㉖：形質の実値不変
   equippedWeaponName: () => world.current?.equipment.weapon?.name ?? null,   // ㉖：装備武器の実値不変
   companionFeats: () => world.companion?.feats ?? 0,                          // ㉖：相棒 feat の実値不変
@@ -4701,7 +4718,7 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false, viaDoor = 
   if (companion) planCompanion(floor, player, companion, rng);
   setAmbient(true, depth); // 環境ドローン（深いほど低い）
   // 場面 BGM：深淵帯=③沈淵／通常迷宮=②冷たい石の広間（深度連動で暗く低くなる）
-  if (abyss) setBgm("abyss", depth); else { setBgm("dungeon", depth); setBgmDepth(depth); }
+  updateBossMusic(); // A4（Phase A）：この場面で鳴るべき曲を floor の状態から一度だけ決める（既定＋上書きの二段にすると boss→dungeon→boss と重なる＝Codex P1）
   hidePeek();
   applyDepthBand(depth, abyss); // 松明の色調＝深度帯（v0.99.0）
   // 秘宝のフロア進入フック（2026-07-03）：farsight＝地図/宝/化石を開示／hasten＝進入時ヘイスト。
@@ -4709,7 +4726,8 @@ function enterFloor(depth: number, fromAbove: boolean, abyss = false, viaDoor = 
   if (eq?.relic?.relic === "farsight") { for (let i = 0; i < floor.explored.length; i++) floor.explored[i] = true; }
   if (eq?.armor?.proc === "hasten") { hasteTurns = Math.max(hasteTurns, HASTEN_TURNS); }
   draw();
-  showFloorBanner(abyss ? "深淵 ─ 試練" : `深度 ${depth} ─ ${depthBandLabel({ minDepth: depth })}`, abyss);
+  // A2（Phase A）：節目の層はバナーに副題を足す（深淵帯だけが持っていた「進入時にそれと分かる」を D8/D16/… にも）。
+  showFloorBanner(abyss ? "深淵 ─ 試練" : `深度 ${depth} ─ ${depthBandLabel({ minDepth: depth })}${isBossDepth(depth) ? " ・ 節目の層" : ""}`, abyss);
   log(`── 深度${depth} ──`, "dim");
   for (const l of onReachDepth(world, depth)) { log(l, "cue"); save(); } // 到達系の依頼達成
   // 護衛（escort）：依頼人を生かして対象深度へ＝達成。依頼人はここで別れる（残りは自力で行くと言う）。
@@ -5817,7 +5835,7 @@ function resumeDive(snap: DiveSnapshot): void {
   if (companion) planCompanion(floor, player, companion, rng);
   announceBossCues(); // 再開時に見えているボスの覚醒・大技の溜め（形）も告知（B/D）
   setAmbient(true, floor.depth);
-  if (inAbyss) setBgm("abyss", floor.depth); else { setBgm("dungeon", floor.depth); setBgmDepth(floor.depth); }
+  updateBossMusic(); // A4（Phase A）：この場面で鳴るべき曲を floor の状態から一度だけ決める（既定＋上書きの二段にすると boss→dungeon→boss と重なる＝Codex P1）
   applyChrome(); // dive 用の下部タブ/術・品・地図の有効化
   draw(); updateStatus();
   // HP0のまま閉じた＝死の選択前。盤面に戻さず、呼び出し側で即・最期の一手へ（復活に見える混乱と確定先延ばしの隙間を塞ぐ）。
@@ -6069,6 +6087,7 @@ async function endTurn() {
   planMonsters(floor, player, rng, companion);
   if (companion) planCompanion(floor, player, companion, rng);
   announceBossCues(); // ボスの覚醒・大技の溜めを告知（B）
+  updateBossMusic(); // A4（Phase A）：初視認で主の曲へ／討伐で迷宮へ。この経路も同期は1回だけ
   maybeIntentGuide(); // 注記B（PR4）：初めて予告が見えた時に一度だけ
 
   draw();
@@ -6118,8 +6137,46 @@ let pendingBossResolve: Monster[] = [];
 // ボスの戦術化（B）の演出告知：engine（dungeon.ts）は純粋ゆえ、覚醒・大技の溜めは web 側で一度ずつログ＋音に。
 const bossEnragedSeen = new Set<string>();
 const bossHeavySeen = new Set<string>();
+/** A2/A4（Phase A）：主を初めて視認した一手で、一度だけ名乗らせて BGM を切り替える。
+ *  状態は floor.bossIntroSeen に持つ＝帰還の扉での往復や再訪で再放送しない（bossEnragedSeen は enterFloor でクリアされる型なので使わない）。
+ *  盤面には何も描かない（予告マスを覆わない）＝ログ・バナー・音だけ＝無音でも Reduce Motion でも識別できる。 */
+function announceBossIntro(): void {
+  if (floor && !inAbyss && !floor.bossIntroSeen) { // 深淵帯は元々専用の進入演出を持つ＝二重に鳴らさない
+    const vis = computeFov(floor, player);
+    const boss = floor.monsters.find((m) => m.boss === "area" && m.hp > 0 && vis.has(mapIdx(floor!, m.x, m.y)));
+    if (boss) {
+      floor.bossIntroSeen = true;
+      sfx("boss"); // 既存キー＝新しい音源を足さない
+      log(`${boss.kind.name}が、降り階段の前に立っている──この層の主。`, "warn");
+    }
+  }
+  // ★BGM の同期はここでしない（Codex 検収 P1・2026-09-12）。announceBossCues は enterFloor／resumeDive／endTurn の
+  //   3経路から呼ばれ、うち2つはこの直後に既定 BGM を設定するため、ここで鳴らすと boss→dungeon→boss と3回切り替わる。
+  //   startScene は旧トラックを 2.2 秒かけてフェードするので、最大3トラックが重なって音量が膨らむ。同期は各呼び出し側で1回だけ。
+}
+
+/** A3（Phase A）：主を越えた実感を一行だけ残す。討つ／鎮める／名を呼ぶのどの決着でも同じ文＝縁の有無で焦点の差が付かないようにする。
+ *  D8 だけは depthBand の境界（shallow ≤8 → mid）と一致するので、越えたことと帯が変わったことを一つの出来事として繋ぐ。 */
+function bossCrossed(): void {
+  const d = floor?.depth ?? 0;
+  log("主を越えた。", "cue");
+  if (d === 8) log("ここから下は、浅層ではない。", "cue");
+  updateBossMusic();
+}
+
+/** A4（Phase A）：今この盤面で鳴るべき曲を floor の状態から導出して合わせる（BGM 側に状態を持たない＝再開・往復で壊れない）。
+ *  ★視界で切り替えない＝一度見た主が生きている限り主の曲。物陰に入るたび曲が切り替わる「ちらつき」を避ける
+ *  （視界ゲートにすると壁一枚で dungeon↔boss を往復する。Codex 留保の「頻繁な操作停止・過剰な演出」と同じ筋で嫌う）。 */
+function updateBossMusic(): void {
+  if (!floor || mode !== "dive") return;
+  const bossAlive = floor.monsters.some((m) => m.boss === "area" && m.hp > 0);
+  if (!inAbyss && floor.bossIntroSeen && bossAlive) { setBgm("boss", floor.depth); return; }
+  if (inAbyss) setBgm("abyss", floor.depth); else { setBgm("dungeon", floor.depth); setBgmDepth(floor.depth); }
+}
+
 function announceBossCues() {
   if (!floor) return;
+  announceBossIntro(); // A2/A4＝初視認の告知と主の曲（覚醒・大技の告知より先に鳴らす）
   for (const m of floor.monsters) {
     if (m.boss !== "area" || m.hp <= 0) continue;
     if (m.enraged && !bossEnragedSeen.has(m.id)) { // ②怒りフェーズ：覚醒の瞬間を告知（一度きり）
@@ -6198,7 +6255,7 @@ async function handleBossResolve() {
       if (ch.exposure < before) log(`その手応えが、深みに削られた芯を人へ還す（深蝕 -${(before - ch.exposure).toFixed(2)}）。`, "dim");
       chronicle(world, "legend", `${ch.name}が深度${floor!.depth}で${boss.kind.name}に名を呼びかけ、安らかに送った。`, [ch.id, boss.fossilId]);
       if (isDoom) log(`${fossil?.origin.name ?? boss.kind.name}の堕ちゆく弧が、ここで静かに閉じた。`, "cue");
-      if (boss.boss === "area") spawnReturnDoor(boss);
+      if (boss.boss === "area") { spawnReturnDoor(boss); bossCrossed(); } // A3/A4（Phase A）：名を呼ぶ決着でも越えた一行と曲の復帰を通す
       recordCompanionFeat();
     } else if (r.pick === 2 && boss.fossilId) {
       sfx("intervene"); flashFx("still");
@@ -6207,7 +6264,7 @@ async function handleBossResolve() {
       log(`★ ${ch.name}は${boss.kind.name}を鎮めた。深みの底で、何かが静かになった。`, "warn");
       chronicle(world, "intervention", `${ch.name}が深度${floor!.depth}で${boss.kind.name}を鎮めた。`, [ch.id, boss.fossilId]);
       if (isDoom) log(`${fossil?.origin.name ?? boss.kind.name}の堕ちゆく弧が、ここで閉じた。`, "cue");
-      if (boss.boss === "area") spawnReturnDoor(boss); // 帰還の扉＝往復チェックポイント（v2・鎮めでも出現）
+      if (boss.boss === "area") { spawnReturnDoor(boss); bossCrossed(); } // 帰還の扉＝往復チェックポイント（v2・鎮めでも出現）＋A3/A4
       recordCompanionFeat(); // 相棒と共にボスを鎮めた＝偉業（4-4E 昇格ゲート）
     } else {
       rewardKill(boss); // 討つ＝通常撃破（XP満額＋ドロップ＋legend＋abyss_boss 印）
@@ -6567,7 +6624,7 @@ async function foresightScene(ch: Character): Promise<void> {
   const expBase = Math.round((nf.w * nf.h) / 120) + Math.floor(nf.depth / 3);
   const exp = nd >= 3 ? expBase * 1.2 : expBase; // fodder ぶんの期待値
   const density = n < exp * 0.85 ? "少ない" : n > exp * 1.15 ? "多い" : "並";
-  const isBoss = nd >= 8 && nd % 8 === 0;
+  const isBoss = isBossDepth(nd); // engine と同じ1本を読む（Phase A）
   const big = nf.monsters.some((m) => m.kind.tier >= 4 || m.boss);
   const band = depthBandLabel({ minDepth: nd });
   const bits = [
@@ -6991,6 +7048,7 @@ function rewardKill(mon: Monster, killLine?: string) {
     sfx("boss_down");
     flashFx("warp");
     log(`★ ${mon.kind.name}を打ち倒した！`, "warn");
+    if (mon.boss === "area") bossCrossed(); // A3/A4（Phase A）：越えた一行＋曲を迷宮へ戻す（縁なしの主＝3択シートを通らない経路もここで拾う）
     chronicle(world, "legend", `${ch.name}が深度${floor!.depth}で${mon.kind.name}を打ち倒した。`, [ch.id]);
     // ボスドロップ：エリアは確定、エリートは高確率（手番末の装備プロンプトへ）
     if (mon.boss === "area" || rng.next() < 0.7) pendingDrops.push(rollItem(floor!.depth, rng, { boss: true }));
@@ -7268,7 +7326,14 @@ async function stairsPrompt(dir: "down" | "up") {
     busy = false; draw(); return;
   }
   if (dir === "down") {
-    const r = await sheet({ text: `下り階段がある。深度${f.depth + 1}へ降りるか？`, options: ["降りる", "とどまる"] });
+    // A1（Phase A）：次が節目の層なら、術「先見」を持たないプレイヤーにも気配だけは届ける。
+    //   断定せず（「主がいる」とは言わない）・報酬は予告しない＝Codex 留保どおり未視認情報を確定情報として渡さない。
+    //   引き直し（level scumming）は構造的に不可能＝潜行内は floorCache が階を保持し、潜行をまたぐと diveCount がシードに混ざる。
+    const nextIsBoss = isBossDepth(f.depth + 1);
+    const r = await sheet({
+      text: `下り階段がある。深度${f.depth + 1}へ降りるか？${nextIsBoss ? "\n\n──下から、重い気配が上がってくる。節目の層だ。" : ""}`,
+      options: ["降りる", "とどまる"],
+    });
     if (r.pick === 1) {
       // 異物（呪い装備）の深蝕＝降下1階ごとに1回（v2 微調整・滞在ターン非依存）。装備していなければ0。
       const ch = world.current!;
