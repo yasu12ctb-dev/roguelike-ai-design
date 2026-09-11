@@ -1,7 +1,8 @@
 // ルートシステム（銘×基×+N）の決定論テスト。最重要＝合成名↔分解（itemByName）の往復一致を機械保証。
 // 化石 gearTags（文字列）→継承で itemByName 復元する経路が壊れない／銘の前方一致が曖昧でないことを担保。
 // 実行：node --experimental-strip-types src/item-check.ts
-import { AFFIXES, baseList, forgeItem, itemByName, enchantUp, itemPower } from "./items.ts";
+import { AFFIXES, baseList, forgeItem, itemByName, enchantUp, itemPower, rollItem, weaponClassEntryDepth, itemWeaponClass } from "./items.ts";
+import { makeRng } from "./rng.ts";
 import { BASE_STATS, RELIC_VIGOR_HP, meleeDmg, maxHp, armorReduce, effectiveReason, xpMul } from "./progression.ts";
 import type { Character, Item } from "./types.ts";
 
@@ -81,6 +82,44 @@ console.log("== 遺物の表示（全 RelicKind が itemPower で名前を持つ
 for (const kind of ["calm", "reason", "greed", "might", "vigor", "ward", "fortune", "mending"]) {
   const it = relicNamed(kind);
   ok(!!it && !!it.relic && !itemPower(it).includes("遺物"), `RELIC_DESC 欠落: ${kind}`, it ? itemPower(it) : "no-base");
+}
+
+// ── 武器クラスの解禁境界（v0.175.0 追加）──────────────────────────────────────────────
+// #412 の穴＝薙鎌の minDepth を 3→8 に上げたのに、ボス経路（rollItem の depth+5 早期解禁）が D3〜D7 で薙刀クラスを
+// 配り続けていた。通常経路しか測らなかったため受理ゲートも golden も検出できなかった。ここで両経路を固定する。
+console.log("== 武器クラスの解禁境界（通常・boss 双方） ==");
+const ENTRY_SPEC: Record<string, number> = { melee: 1, reach: 2, sweep: 8 }; // 剣 D1／槍 D2／薙刀 D8（設計の正＝変えるときはここも直す）
+const entry = weaponClassEntryDepth();
+for (const k of Object.keys(ENTRY_SPEC)) {
+  ok(entry[k as keyof typeof entry] === ENTRY_SPEC[k], `武器クラス ${k} の入口深度`, `実測 ${entry[k as keyof typeof entry]} / 仕様 ${ENTRY_SPEC[k]}`);
+}
+
+// 不変条件：どの深度・どの経路で引いても、武器のクラスはその深度で既に解禁されたクラスに限る。
+// ＝ボスの早期解禁は「同じクラスの上位品を少し早く」であって「まだ扱えないクラスの扉を開ける」ではない。
+{
+  const seen = new Map<string, Set<number>>(); // クラス → 出現した深度
+  let violations = 0, firstBad = "";
+  for (let depth = 1; depth <= 50; depth++) {
+    for (const boss of [false, true]) {
+      const rng = makeRng(0x5eed0000 + depth * 2 + (boss ? 1 : 0));
+      for (let i = 0; i < 600; i++) {
+        const it = rollItem(depth, rng, boss ? { boss: true } : {});
+        const k = itemWeaponClass(it);
+        if (!k) continue;
+        if (!boss) (seen.get(k) ?? seen.set(k, new Set()).get(k)!).add(depth);
+        if (entry[k] > depth) {
+          violations++;
+          if (!firstBad) firstBad = `D${depth}${boss ? "(boss)" : ""} で ${k}: ${it.baseName ?? it.name}`;
+        }
+      }
+    }
+  }
+  ok(violations === 0, "未解禁クラスの武器がドロップしない（D1〜D50 × 通常/boss × 600回）", firstBad || `${violations} 件`);
+  // 解禁の下側：薙刀クラスは D1〜D7 で一切出ない（#412 の意図＝序盤の面制圧を塞ぐ）。
+  const sweepDepths = seen.get("sweep") ?? new Set<number>();
+  for (let depth = 1; depth <= 7; depth++) ok(!sweepDepths.has(depth), `D${depth} に薙刀クラスが出ない`);
+  // 解禁の上側：境界の D8 では実際に出る（ゲートを閉め過ぎて死蔵にしていないことの裏取り）。
+  ok(sweepDepths.has(ENTRY_SPEC.sweep), `D${ENTRY_SPEC.sweep}（入口）で薙刀クラスが出る`);
 }
 
 console.log(`\n=== item-check: ${pass} pass / ${fail} fail ===`);
